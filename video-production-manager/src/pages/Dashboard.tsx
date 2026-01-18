@@ -45,12 +45,12 @@ export const Dashboard: React.FC = () => {
             <div className="flex items-center gap-4 text-sm">
               <div className="text-center">
                 <p className="text-av-text-muted mb-1">Load In</p>
-                <p className="font-mono text-av-accent">{production.loadIn}</p>
+                <p className="text-av-accent">{production.loadIn}</p>
               </div>
               <div className="w-px h-8 bg-av-border" />
               <div className="text-center">
                 <p className="text-av-text-muted mb-1">Load Out</p>
-                <p className="font-mono text-av-accent">{production.loadOut}</p>
+                <p className="text-av-accent">{production.loadOut}</p>
               </div>
             </div>
           </div>
@@ -167,7 +167,7 @@ export const Dashboard: React.FC = () => {
                         style={{ width: `${(count / sources.length) * 100}%` }}
                       />
                     </div>
-                    <span className="font-mono text-sm text-av-text w-6 text-right">{count}</span>
+                    <span className="text-sm text-av-text w-6 text-right">{count}</span>
                   </div>
                 </div>
               ))}
@@ -185,7 +185,7 @@ export const Dashboard: React.FC = () => {
                 return (
                   <div key={connector} className="flex items-center gap-2">
                     <ConnectorBadge connector={connector} />
-                    <span className="font-mono text-sm text-av-text-muted">×{count}</span>
+                    <span className="text-sm text-av-text-muted">×{count}</span>
                   </div>
                 );
               })}

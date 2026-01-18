@@ -172,26 +172,6 @@ export default function Cameras() {
         </button>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">Total Cameras</p>
-          <p className="text-3xl font-bold text-av-text">{cameras.length}</p>
-        </Card>
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">Connected to CCU</p>
-          <p className="text-3xl font-bold text-av-text">{camerasWithCCU}</p>
-        </Card>
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">With Support Equipment</p>
-          <p className="text-3xl font-bold text-av-text">{camerasWithSupport}</p>
-        </Card>
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">Available CCUs</p>
-          <p className="text-3xl font-bold text-av-text">{ccus.length}</p>
-        </Card>
-      </div>
-
       {/* Search */}
       <Card className="p-4">
         <input

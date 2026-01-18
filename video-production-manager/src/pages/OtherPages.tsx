@@ -57,27 +57,27 @@ export const Screens: React.FC = () => {
           <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="flex justify-between py-2 border-b border-av-border">
               <span className="text-sm text-av-text-muted">Dimensions (ft)</span>
-              <span className="font-mono text-sm">{screen.dimensionsFt.width} × {screen.dimensionsFt.height}</span>
+              <span className="text-sm">{screen.dimensionsFt.width} × {screen.dimensionsFt.height}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-av-border">
               <span className="text-sm text-av-text-muted">Dimensions (m)</span>
-              <span className="font-mono text-sm">{screen.dimensionsM.width} × {screen.dimensionsM.height}</span>
+              <span className="text-sm">{screen.dimensionsM.width} × {screen.dimensionsM.height}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-av-border">
               <span className="text-sm text-av-text-muted">Aspect Ratio</span>
-              <span className="font-mono text-sm">{screen.aspectRatio}:1</span>
+              <span className="text-sm">{screen.aspectRatio}:1</span>
             </div>
             <div className="flex justify-between py-2 border-b border-av-border">
               <span className="text-sm text-av-text-muted">Max Tiles/Port</span>
-              <span className="font-mono text-sm">{screen.maxTilesPerPort}</span>
+              <span className="text-sm">{screen.maxTilesPerPort}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-av-border">
               <span className="text-sm text-av-text-muted">Port Count</span>
-              <span className="font-mono text-sm">{screen.processorPortCount}</span>
+              <span className="text-sm">{screen.processorPortCount}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-av-border">
               <span className="text-sm text-av-text-muted">Power</span>
-              <span className="font-mono text-sm">{screen.powerMode}</span>
+              <span className="text-sm">{screen.powerMode}</span>
             </div>
           </div>
         </Card>
@@ -111,7 +111,7 @@ export const Switchers: React.FC = () => {
               </div>
             </div>
             {switcher.ip && (
-              <Badge variant="success" className="font-mono">
+              <Badge variant="success">
                 IP: {switcher.ip}
               </Badge>
             )}
@@ -126,7 +126,7 @@ export const Switchers: React.FC = () => {
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {switcher.inputs.map((input) => (
                   <div key={input.id} className="flex items-center justify-between p-2 bg-av-surface-light rounded">
-                    <span className="font-mono text-xs text-av-text-muted">{input.id}</span>
+                    <span className="text-xs text-av-text-muted">{input.id}</span>
                     <ConnectorBadge connector={input.connector} />
                     <span className="text-sm text-av-text truncate max-w-[150px]">
                       {input.feed || '—'}
@@ -144,7 +144,7 @@ export const Switchers: React.FC = () => {
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {switcher.outputs.map((output) => (
                   <div key={output.id} className="flex items-center justify-between p-2 bg-av-surface-light rounded">
-                    <span className="font-mono text-xs text-av-text-muted">{output.id}</span>
+                    <span className="text-xs text-av-text-muted">{output.id}</span>
                     <ConnectorBadge connector={output.connector} />
                     <span className="text-sm text-av-text truncate max-w-[150px]">
                       {output.feed || '—'}

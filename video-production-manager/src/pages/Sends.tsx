@@ -121,7 +121,7 @@ export const Sends: React.FC = () => {
                   style={{ animationDelay: `${index * 30}ms` }}
                 >
                   <TableCell>
-                    <span className="font-mono text-av-info">{send.id}</span>
+                    <span className="text-av-info">{send.id}</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -133,12 +133,12 @@ export const Sends: React.FC = () => {
                     <span className="font-medium text-av-text">{send.name}</span>
                   </TableCell>
                   <TableCell>
-                    <span className="font-mono text-sm">
+                    <span className="text-sm">
                       {formatResolution(send.hRes, send.vRes)}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className="font-mono text-sm">{send.rate}fps</span>
+                    <span className="text-sm">{send.rate}fps</span>
                   </TableCell>
                   <TableCell>
                     <ConnectorBadge connector={send.output} />

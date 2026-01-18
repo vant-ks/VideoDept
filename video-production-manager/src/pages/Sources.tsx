@@ -147,7 +147,7 @@ export const Sources: React.FC = () => {
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                     <div>
                       <span className="text-av-text-muted">ID:</span>
-                      <span className="text-av-text ml-2 font-mono">{source.id}</span>
+                      <span className="text-av-text ml-2">{source.id}</span>
                     </div>
                     {source.hRes && source.vRes && (
                       <div>

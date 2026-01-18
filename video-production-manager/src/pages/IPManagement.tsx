@@ -75,11 +75,11 @@ export const IPManagement: React.FC = () => {
           <Network className="w-8 h-8 text-av-accent" />
           <div>
             <p className="text-sm text-av-text-muted">Network Subnet</p>
-            <p className="font-mono text-lg text-av-text">192.168.0.0/24</p>
+            <p className="text-lg text-av-text">192.168.0.0/24</p>
           </div>
           <div className="ml-auto text-right">
             <p className="text-sm text-av-text-muted">Allocated IPs</p>
-            <p className="font-mono text-lg text-av-accent">{ipAddresses.length}</p>
+            <p className="text-lg text-av-accent">{ipAddresses.length}</p>
           </div>
         </div>
       </Card>
@@ -151,7 +151,7 @@ export const IPManagement: React.FC = () => {
                           <Copy className="w-4 h-4 text-av-text-muted" />
                         )}
                       </button>
-                      <span className="font-mono text-av-accent">{ip.ip}</span>
+                      <span className="text-av-accent">{ip.ip}</span>
                     </div>
                   </TableCell>
                   <TableCell>

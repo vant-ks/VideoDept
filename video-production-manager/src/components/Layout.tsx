@@ -19,7 +19,9 @@ import {
   Video,
   Circle,
   Wrench,
-  ScrollText
+  ScrollText,
+  Server,
+  Box
 } from 'lucide-react';
 import { useProductionStore } from '@/hooks/useStore';
 import { cn } from '@/utils/helpers';
@@ -44,8 +46,8 @@ const navItems: NavItem[] = [
     icon: MonitorPlay,
     children: [
       { id: 'computers', label: 'Computers', icon: MonitorPlay },
-      { id: 'media-servers', label: 'Media Servers', icon: Circle },
-      { id: 'ccus', label: 'CCUs', icon: Circle },
+      { id: 'media-servers', label: 'Media Servers', icon: Server },
+      { id: 'ccus', label: 'CCUs', icon: Box },
       { id: 'cameras', label: 'Cameras', icon: Video },
     ]
   },

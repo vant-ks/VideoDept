@@ -149,14 +149,6 @@ export default function CCUs() {
         </button>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">Total CCUs</p>
-          <p className="text-3xl font-bold text-av-text">{ccus.length}</p>
-        </Card>
-      </div>
-
       {/* Search */}
       <Card className="p-4">
         <input

@@ -87,7 +87,7 @@ export const Checklist: React.FC = () => {
           <h3 className="text-lg font-display font-semibold text-av-text">Overall Progress</h3>
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-av-accent" />
-            <span className="font-mono text-av-accent">{completed}/{total}</span>
+            <span className="text-av-accent">{completed}/{total}</span>
           </div>
         </div>
         <ProgressBar value={percentage} showPercentage={false} />

@@ -102,7 +102,7 @@ export const ScalingCalculator: React.FC = () => {
                 </div>
               </div>
               <p className="text-xs text-av-text-muted mt-2">
-                Aspect Ratio: <span className="font-mono text-av-accent">{aspectRatio}</span>
+                Aspect Ratio: <span className="text-av-accent">{aspectRatio}</span>
               </p>
             </div>
 
