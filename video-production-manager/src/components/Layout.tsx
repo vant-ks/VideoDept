@@ -157,15 +157,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
         </div>
 
-        {/* Production Info */}
-        {sidebarOpen && production && (
-          <div className="px-4 py-3 border-b border-av-border">
-            <p className="text-xs text-av-text-muted uppercase tracking-wider mb-1">Current Show</p>
-            <p className="text-sm font-medium text-av-text truncate">{production.showName}</p>
-            <p className="text-xs text-av-text-muted truncate">{production.client}</p>
-          </div>
-        )}
-
         {/* Navigation */}
         <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => renderNavItem(item))}
@@ -201,12 +192,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               {activeTab === 'dashboard' ? 'Production Dashboard' : activeTab}
             </h1>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="signal-active" />
-              <span className="text-sm text-av-text-muted">System Online</span>
+          {production && (
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-xs text-av-text-muted uppercase tracking-wider">Current Show</p>
+                <p className="text-sm font-medium text-av-text">{production.showName}</p>
+                <p className="text-xs text-av-text-muted">{production.client}</p>
+              </div>
             </div>
-          </div>
+          )}
         </header>
 
         {/* Page Content */}
