@@ -22,7 +22,7 @@ export default function MediaServers() {
   const [editingServer, setEditingServer] = useState<MediaServer | null>(null);
   const [editingLayer, setEditingLayer] = useState<MediaServerLayer | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'servers' | 'layers'>('servers');
+  const [activeTab, setActiveTab] = useState<'servers' | 'layers' | 'layermap'>('servers');
 
   // Group servers by pair
   const serverPairs = React.useMemo(() => {
@@ -98,13 +98,15 @@ export default function MediaServers() {
           <h1 className="text-3xl font-bold text-av-text mb-2">Media Servers</h1>
           <p className="text-av-text-muted">Manage media server pairs, outputs, and content layers</p>
         </div>
-        <button 
-          onClick={activeTab === 'servers' ? handleAddServerPair : handleAddLayer} 
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          {activeTab === 'servers' ? 'Add Server Pair' : 'Add Layer'}
-        </button>
+        {activeTab !== 'layermap' && (
+          <button 
+            onClick={activeTab === 'servers' ? handleAddServerPair : handleAddLayer} 
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            {activeTab === 'servers' ? 'Add Server Pair' : 'Add Layer'}
+          </button>
+        )}
       </div>
 
       {/* Tab Navigation */}
@@ -133,6 +135,19 @@ export default function MediaServers() {
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4" />
             Layers ({mediaServerLayers.length})
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab('layermap')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'layermap'
+              ? 'text-av-accent border-b-2 border-av-accent'
+              : 'text-av-text-muted hover:text-av-text'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Monitor className="w-4 h-4" />
+            Layer Map
           </div>
         </button>
       </div>
@@ -357,8 +372,168 @@ export default function MediaServers() {
         </>
       )}
 
+      {/* Layer Map Tab - Visual Representation */}
+      {activeTab === 'layermap' && (
+        <>
+          {mediaServers.length === 0 ? (
+            <Card className="p-12 text-center">
+              <Monitor className="w-16 h-16 mx-auto text-av-text-muted mb-4" />
+              <h3 className="text-lg font-semibold text-av-text mb-2">No Media Servers</h3>
+              <p className="text-av-text-muted mb-4">Add media servers to visualize layer mapping</p>
+              <button onClick={() => setActiveTab('servers')} className="btn-primary">Go to Servers</button>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {/* Visual Grid: Each row is a layer, columns are outputs */}
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold text-av-text mb-4 flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-av-accent" />
+                  Layer Spanning Visualization
+                </h2>
+                <p className="text-sm text-av-text-muted mb-6">
+                  Visual representation of how content layers span across media server outputs
+                </p>
+
+                {/* Output Headers - Server Columns */}
+                <div className="overflow-x-auto">
+                  <div className="min-w-max">
+                    {/* Header Row */}
+                    <div className="flex gap-2 mb-4">
+                      <div className="w-48 flex-shrink-0" />
+                      {serverPairs.map((pair) => (
+                        <React.Fragment key={pair.main.pairNumber}>
+                          {/* Main Server Outputs */}
+                          {pair.main.outputs.map((output) => (
+                            <div key={output.id} className="w-32 flex-shrink-0">
+                              <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center">
+                                <div className="text-xs font-semibold text-av-text truncate">{pair.main.name}</div>
+                                <div className="text-xs text-av-text-muted truncate mt-1">{output.name}</div>
+                                <Badge className="mt-1 text-xs">{output.type}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                          {/* Backup Server Outputs */}
+                          {pair.backup.outputs.map((output) => (
+                            <div key={output.id} className="w-32 flex-shrink-0">
+                              <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center opacity-60">
+                                <div className="text-xs font-semibold text-av-text truncate">{pair.backup.name}</div>
+                                <div className="text-xs text-av-text-muted truncate mt-1">{output.name}</div>
+                                <Badge className="mt-1 text-xs">{output.type}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </React.Fragment>
+                      ))}
+                    </div>
+
+                    {/* Layer Rows */}
+                    {mediaServerLayers.length === 0 ? (
+                      <div className="text-center py-8 text-av-text-muted">
+                        <p>No layers created yet</p>
+                        <button onClick={() => setActiveTab('layers')} className="btn-primary mt-4">
+                          Create Layer
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {mediaServerLayers.map((layer, layerIndex) => (
+                          <div key={layer.id} className="flex gap-2">
+                            {/* Layer Name Column */}
+                            <div className="w-48 flex-shrink-0 bg-av-surface-light border border-av-border rounded-md p-3 flex flex-col justify-center">
+                              <div className="font-semibold text-sm text-av-text truncate">{layer.name}</div>
+                              <div className="text-xs text-av-text-muted truncate mt-1">{layer.content}</div>
+                            </div>
+
+                            {/* Output Assignment Cells */}
+                            {serverPairs.map((pair) => (
+                              <React.Fragment key={pair.main.pairNumber}>
+                                {/* Main Server Output Cells */}
+                                {pair.main.outputs.map((output) => {
+                                  const isAssigned = layer.outputAssignments.some(
+                                    a => a.serverId === pair.main.id && a.outputId === output.id
+                                  );
+                                  return (
+                                    <div 
+                                      key={output.id} 
+                                      className="w-32 flex-shrink-0 flex items-center justify-center"
+                                    >
+                                      {isAssigned ? (
+                                        <div 
+                                          className="w-full h-16 bg-gradient-to-br from-av-accent/20 to-av-accent/40 border-2 border-av-accent rounded-md flex items-center justify-center"
+                                          style={{
+                                            backgroundColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%, 0.2)`,
+                                            borderColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%)`
+                                          }}
+                                        >
+                                          <Layers className="w-6 h-6" style={{ color: `hsl(${(layerIndex * 137.5) % 360}, 70%, 40%)` }} />
+                                        </div>
+                                      ) : (
+                                        <div className="w-full h-16 bg-av-surface border border-av-border/30 rounded-md" />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                                {/* Backup Server Output Cells */}
+                                {pair.backup.outputs.map((output) => {
+                                  const isAssigned = layer.outputAssignments.some(
+                                    a => a.serverId === pair.backup.id && a.outputId === output.id
+                                  );
+                                  return (
+                                    <div 
+                                      key={output.id} 
+                                      className="w-32 flex-shrink-0 flex items-center justify-center"
+                                    >
+                                      {isAssigned ? (
+                                        <div 
+                                          className="w-full h-16 bg-gradient-to-br from-av-accent/10 to-av-accent/20 border-2 border-av-accent/50 rounded-md flex items-center justify-center opacity-60"
+                                          style={{
+                                            backgroundColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%, 0.1)`,
+                                            borderColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%, 0.5)`
+                                          }}
+                                        >
+                                          <Layers className="w-5 h-5" style={{ color: `hsl(${(layerIndex * 137.5) % 360}, 70%, 40%)` }} />
+                                        </div>
+                                      ) : (
+                                        <div className="w-full h-16 bg-av-surface border border-av-border/20 rounded-md opacity-60" />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="mt-6 pt-4 border-t border-av-border">
+                  <p className="text-sm font-semibold text-av-text mb-2">Legend:</p>
+                  <div className="flex flex-wrap gap-4 text-xs text-av-text-muted">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-av-accent/30 border-2 border-av-accent rounded" />
+                      <span>Main Server Output (Active)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-av-accent/10 border-2 border-av-accent/50 rounded opacity-60" />
+                      <span>Backup Server Output</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-av-surface border border-av-border/30 rounded" />
+                      <span>Unassigned Output</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Results Count */}
-      {(activeTab === 'servers' ? filteredPairs.length : filteredLayers.length) > 0 && (
+      {activeTab !== 'layermap' && (activeTab === 'servers' ? filteredPairs.length : filteredLayers.length) > 0 && (
         <div className="text-center text-sm text-av-text-muted">
           Showing {activeTab === 'servers' ? filteredPairs.length : filteredLayers.length}{' '}
           {activeTab === 'servers' ? 'server pair' : 'layer'}
