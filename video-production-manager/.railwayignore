@@ -1,0 +1,33 @@
+# Railway Deployment Ignore
+# Files/folders that should NOT be deployed to Railway production
+
+# Development documentation
+docs/AI_AGENT_PROTOCOL.md
+docs/GETTING_STARTED_TUTORIAL.md
+
+# Development logs
+nohup.out
+*.log
+
+# Local environment
+.env.local
+
+# User reference files
+*.ods
+*.xlsx
+Video Production Info*.ods
+Video Production Info*.xlsx
+
+# Development utilities
+public/clear-storage.html
+
+# Git files
+.git/
+.gitignore
+
+# Node modules (Railway will install fresh)
+node_modules/
+
+# Build artifacts (Railway will build fresh)
+dist/
+build/
