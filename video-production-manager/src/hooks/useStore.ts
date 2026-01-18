@@ -168,6 +168,24 @@ export const useProductionStore = create<ProductionStore>()(
         'Media Server',
         'Other'
       ],
+      frameRates: [
+        '60',
+        '59.94',
+        '50',
+        '30',
+        '29.97',
+        '25',
+        '24',
+        '23.98'
+      ],
+      resolutions: [
+        '1080i',
+        '1080p',
+        '720p',
+        '4K',
+        '8K',
+        'SD'
+      ],
       equipmentSpecs: defaultEquipmentSpecs,
       
       // UI State

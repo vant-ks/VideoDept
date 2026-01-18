@@ -2,6 +2,22 @@
 
 ## January 18, 2026
 
+### Version Control & Logging System
+- **Established** automatic git commit and push protocol for code changes
+- **Created** DEVLOG.md for human-readable development history
+- **Implemented** LogService for tracking application changes
+  - Stores up to 1000 log entries in localStorage
+  - Tracks settings additions, updates, deletions, and reordering
+  - Tracks equipment additions, updates, deletions with change details
+  - Includes timestamps, categories, and detailed change tracking
+  
+- **Created** Activity Logs page
+  - Filter by category (all, settings, equipment, general)
+  - Expandable entries showing field-level changes
+  - Export logs as JSON
+  - Clear logs functionality
+  - Color-coded badges for categories and actions
+
 ### Centralized Settings Management
 - **Removed** `secondaryDevices` from Settings - replaced with connector types from equipment converters
 - **Added** Connector Types section to Settings
@@ -25,6 +41,7 @@
 - SourceFormModal uses centralized connectorTypes
 - EquipmentFormModal uses centralized resolutions and frameRates
 - Added safety checks for undefined arrays
+- All changes automatically logged via LogService
 
 ### Bug Fixes
 - Fixed blank window issue (Cameras page was de-referenced)
@@ -32,9 +49,11 @@
 - Added cache clearing guidance
 
 ### Infrastructure
-- Server restart protocol established for large alterations
+- **Protocol**: Automatically commit and push after code changes (unless user says "don't push")
+- **Protocol**: Server restart after large alterations
 - All 4 settings lists (Source Types, Connector Types, Frame Rates, Resolutions) support drag-and-drop reordering
 - Changes in Settings automatically propagate throughout application
+- All changes tracked in Activity Logs
 
 ---
 
