@@ -187,20 +187,25 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       )}>
         {/* Header */}
         <header className="sticky top-0 z-40 flex items-center justify-between h-16 px-6 bg-av-bg/80 backdrop-blur-md border-b border-av-border">
-          <div>
-            <h1 className="text-xl font-display font-bold text-av-text capitalize">
-              {activeTab === 'dashboard' ? 'Production Dashboard' : activeTab}
-            </h1>
-          </div>
-          {production && (
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-xs text-av-text-muted uppercase tracking-wider">Current Show</p>
-                <p className="text-sm font-medium text-av-text">{production.showName}</p>
-                <p className="text-xs text-av-text-muted">{production.client}</p>
-              </div>
+          {production ? (
+            <div>
+              <p className="text-xs text-av-text-muted uppercase tracking-wider">Current Show</p>
+              <p className="text-lg font-display font-bold text-av-text">{production.showName}</p>
+              <p className="text-xs text-av-text-muted">{production.client}</p>
+            </div>
+          ) : (
+            <div>
+              <h1 className="text-xl font-display font-bold text-av-text capitalize">
+                {activeTab === 'dashboard' ? 'Production Dashboard' : activeTab}
+              </h1>
             </div>
           )}
+          <div className="flex items-center gap-4">
+            {/* Reserved space for future user account menu */}
+            <div className="w-10 h-10">
+              {/* User menu will go here */}
+            </div>
+          </div>
         </header>
 
         {/* Page Content */}
