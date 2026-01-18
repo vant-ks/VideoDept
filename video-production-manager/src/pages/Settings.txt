@@ -1,0 +1,454 @@
+import React, { useState } from 'react';
+import { Plus, Settings as SettingsIcon, Archive, ArchiveRestore, Moon, Sun, ChevronDown, ChevronRight } from 'lucide-react';
+import { Card } from '@/components/ui';
+import { useProductionStore } from '@/hooks/useStore';
+
+export default function Settings() {
+  const { 
+    secondaryDevices,
+    archivedSecondaryDevices,
+    addSecondaryDevice,
+    archiveSecondaryDevice,
+    unarchiveSecondaryDevice,
+    sourceTypes,
+    archivedSourceTypes,
+    addSourceType,
+    archiveSourceType,
+    unarchiveSourceType,
+    theme,
+    setTheme,
+    accentColor,
+    setAccentColor
+  } = useProductionStore();
+  
+  const [newDevice, setNewDevice] = useState('');
+  const [deviceError, setDeviceError] = useState('');
+  
+  const [newSourceType, setNewSourceType] = useState('');
+  const [typeError, setTypeError] = useState('');
+  
+  const [expandedSections, setExpandedSections] = useState<string[]>(['devices', 'types', 'display']);
+  
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => 
+      prev.includes(sectionId) 
+        ? prev.filter(id => id !== sectionId)
+        : [...prev, sectionId]
+    );
+  };
+
+  const handleAddDevice = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newDevice.trim()) {
+      setDeviceError('Device name cannot be empty');
+      return;
+    }
+    
+    if (secondaryDevices.includes(newDevice.trim())) {
+      setDeviceError('This device already exists');
+      return;
+    }
+    
+    addSecondaryDevice(newDevice.trim());
+    setNewDevice('');
+    setDeviceError('');
+  };
+
+  const handleRemoveDevice = (device: string) => {
+    if (confirm(`Archive "${device}"? It will be hidden from dropdowns but preserved for existing shows.`)) {
+      archiveSecondaryDevice(device);
+    }
+  };
+
+  const handleRestoreDevice = (device: string) => {
+    unarchiveSecondaryDevice(device);
+  };
+
+  const handleAddSourceType = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newSourceType.trim()) {
+      setTypeError('Source type cannot be empty');
+      return;
+    }
+    
+    if (sourceTypes.includes(newSourceType.trim().toUpperCase())) {
+      setTypeError('This source type already exists');
+      return;
+    }
+    
+    addSourceType(newSourceType.trim().toUpperCase());
+    setNewSourceType('');
+    setTypeError('');
+  };
+
+  const handleRemoveSourceType = (type: string) => {
+    if (confirm(`Archive "${type}"? It will be hidden from dropdowns but preserved for existing shows.`)) {
+      archiveSourceType(type);
+    }
+  };
+
+  const handleRestoreSourceType = (type: string) => {
+    unarchiveSourceType(type);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <SettingsIcon className="w-8 h-8 text-av-accent" />
+        <div>
+          <h1 className="text-3xl font-bold text-av-text">Settings</h1>
+          <p className="text-av-text-muted">Manage application configuration</p>
+        </div>
+      </div>
+
+      {/* Secondary Devices Section */}
+      <Card className="p-6">
+        <button 
+          onClick={() => toggleSection('devices')}
+          className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+        >
+          <h2 className="text-xl font-semibold text-av-text">Secondary Devices</h2>
+          {expandedSections.includes('devices') ? (
+            <ChevronDown className="w-5 h-5 text-av-text-muted" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-av-text-muted" />
+          )}
+        </button>
+        
+        {expandedSections.includes('devices') && (
+          <>
+            <p className="text-sm text-av-text-muted mb-6">
+              Manage the list of secondary devices available for computer sources (converters, scalers, etc.)
+            </p>
+
+        {/* Add Device Form */}
+        <form onSubmit={handleAddDevice} className="mb-6">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={newDevice}
+                onChange={(e) => {
+                  setNewDevice(e.target.value);
+                  setDeviceError('');
+                }}
+                placeholder="Enter device name (e.g., Decimator, BMD Converter)"
+                className="input-field w-full"
+              />
+              {deviceError && (
+                <p className="text-sm text-av-danger mt-1">{deviceError}</p>
+              )}
+            </div>
+            <button type="submit" className="btn-primary flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Add Device
+            </button>
+          </div>
+        </form>
+
+        {/* Device List */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-av-text-muted mb-3">
+            Active Devices ({secondaryDevices.length})
+          </h3>
+          {secondaryDevices.length === 0 ? (
+            <div className="text-center py-8 text-av-text-muted">
+              No secondary devices configured
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {secondaryDevices.map((device) => (
+                <div
+                  key={device}
+                  className="flex items-center justify-between bg-av-surface-light p-3 rounded-md border border-av-border"
+                >
+                  <span className="text-av-text">{device}</span>
+                  <button
+                    onClick={() => handleRemoveDevice(device)}
+                    className="p-1.5 rounded hover:bg-av-warning/20 text-av-text-muted hover:text-av-warning transition-colors"
+                    title="Archive device"
+                  >
+                    <Archive className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Archived Devices */}
+        {archivedSecondaryDevices.length > 0 && (
+          <div className="space-y-2 mt-6 pt-6 border-t border-av-border">
+            <h3 className="text-sm font-medium text-av-text-muted mb-3">
+              Archived Devices ({archivedSecondaryDevices.length})
+            </h3>
+            <p className="text-xs text-av-text-muted mb-3">
+              These devices are hidden from dropdowns but preserved for existing shows
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {archivedSecondaryDevices.map((device) => (
+                <div
+                  key={device}
+                  className="flex items-center justify-between bg-av-surface-light/50 p-3 rounded-md border border-av-border opacity-60"
+                >
+                  <span className="text-av-text-muted">{device}</span>
+                  <button
+                    onClick={() => handleRestoreDevice(device)}
+                    className="p-1.5 rounded hover:bg-av-success/20 text-av-text-muted hover:text-av-success transition-colors"
+                    title="Restore device"
+                  >
+                    <ArchiveRestore className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+          </>
+        )}
+      </Card>
+
+      {/* Source Types Section */}
+      <Card className="p-6">
+        <button 
+          onClick={() => toggleSection('types')}
+          className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+        >
+          <h2 className="text-xl font-semibold text-av-text">Source Types</h2>
+          {expandedSections.includes('types') ? (
+            <ChevronDown className="w-5 h-5 text-av-text-muted" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-av-text-muted" />
+          )}
+        </button>
+        
+        {expandedSections.includes('types') && (
+          <>
+            <p className="text-sm text-av-text-muted mb-6">
+              Manage the list of source types available when creating computer sources
+            </p>
+
+        {/* Add Source Type Form */}
+        <form onSubmit={handleAddSourceType} className="mb-6">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={newSourceType}
+                onChange={(e) => {
+                  setNewSourceType(e.target.value);
+                  setTypeError('');
+                }}
+                placeholder="Enter source type (e.g., LAPTOP, CAM)"
+                className="input-field w-full"
+              />
+              {typeError && (
+                <p className="text-sm text-av-danger mt-1">{typeError}</p>
+              )}
+            </div>
+            <button type="submit" className="btn-primary flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Add Type
+            </button>
+          </div>
+        </form>
+
+        {/* Source Type List */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-av-text-muted mb-3">
+            Active Types ({sourceTypes.length})
+          </h3>
+          {sourceTypes.length === 0 ? (
+            <div className="text-center py-8 text-av-text-muted">
+              No source types configured
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {sourceTypes.map((type) => (
+                <div
+                  key={type}
+                  className="flex items-center justify-between bg-av-surface-light p-3 rounded-md border border-av-border"
+                >
+                  <span className="text-av-text font-mono">{type}</span>
+                  <button
+                    onClick={() => handleRemoveSourceType(type)}
+                    className="p-1.5 rounded hover:bg-av-warning/20 text-av-text-muted hover:text-av-warning transition-colors"
+                    title="Archive type"
+                  >
+                    <Archive className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Archived Source Types */}
+        {archivedSourceTypes.length > 0 && (
+          <div className="space-y-2 mt-6 pt-6 border-t border-av-border">
+            <h3 className="text-sm font-medium text-av-text-muted mb-3">
+              Archived Types ({archivedSourceTypes.length})
+            </h3>
+            <p className="text-xs text-av-text-muted mb-3">
+              These types are hidden from dropdowns but preserved for existing shows
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {archivedSourceTypes.map((type) => (
+                <div
+                  key={type}
+                  className="flex items-center justify-between bg-av-surface-light/50 p-3 rounded-md border border-av-border opacity-60"
+                >
+                  <span className="text-av-text-muted font-mono">{type}</span>
+                  <button
+                    onClick={() => handleRestoreSourceType(type)}
+                    className="p-1.5 rounded hover:bg-av-success/20 text-av-text-muted hover:text-av-success transition-colors"
+                    title="Restore type"
+                  >
+                    <ArchiveRestore className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+          </>
+        )}
+      </Card>
+
+      {/* Display Preferences */}
+      <Card className="p-6">
+        <button 
+          onClick={() => toggleSection('display')}
+          className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+        >
+          <h2 className="text-xl font-semibold text-av-text">Display Preferences</h2>
+          {expandedSections.includes('display') ? (
+            <ChevronDown className="w-5 h-5 text-av-text-muted" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-av-text-muted" />
+          )}
+        </button>
+        
+        {expandedSections.includes('display') && (
+          <>
+        
+        {/* Theme Toggle */}
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-av-text mb-3">
+              Theme
+            </label>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setTheme('light')}
+                className={`flex items-center gap-2 px-4 py-3 rounded-md border transition-colors ${
+                  theme === 'light'
+                    ? 'bg-av-accent/20 border-av-accent text-av-accent'
+                    : 'bg-av-surface-light border-av-border text-av-text-muted hover:text-av-text'
+                }`}
+              >
+                <Sun className="w-5 h-5" />
+                <span>Light Mode</span>
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                className={`flex items-center gap-2 px-4 py-3 rounded-md border transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-av-accent/20 border-av-accent text-av-accent'
+                    : 'bg-av-surface-light border-av-border text-av-text-muted hover:text-av-text'
+                }`}
+              >
+                <Moon className="w-5 h-5" />
+                <span>Dark Mode</span>
+              </button>
+            </div>
+            <p className="text-xs text-av-text-muted mt-2">
+              {theme === 'light' 
+                ? 'Light mode is coming soon! Currently in dark mode.'
+                : 'Currently using dark mode theme'}
+            </p>
+          </div>
+
+          {/* Accent Color Picker */}
+          <div>
+            <label className="block text-sm font-medium text-av-text mb-3">
+              Accent Color
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="color"
+                value={accentColor}
+                onChange={(e) => setAccentColor(e.target.value)}
+                className="w-20 h-12 rounded-md border-2 border-av-border cursor-pointer bg-av-surface-light"
+                style={{ colorScheme: 'dark' }}
+              />
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={accentColor}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  placeholder="#0969da"
+                  className="input-field w-full font-mono"
+                />
+              </div>
+              <button
+                onClick={() => setAccentColor('#0969da')}
+                className="px-4 py-2 rounded-md bg-av-surface-light border border-av-border text-av-text-muted hover:text-av-text transition-colors text-sm"
+              >
+                Reset
+              </button>
+            </div>
+            <p className="text-xs text-av-text-muted mt-2">
+              Choose your preferred highlight color for buttons, links, and active states
+            </p>
+            {/* Color Preview */}
+            <div className="mt-4 p-4 bg-av-surface-light rounded-md border border-av-border">
+              <p className="text-xs text-av-text-muted mb-2">Preview:</p>
+              <div className="flex gap-2 items-center">
+                <button 
+                  className="px-4 py-2 rounded-md text-white font-medium transition-colors"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  Primary Button
+                </button>
+                <span 
+                  className="font-medium"
+                  style={{ color: accentColor }}
+                >
+                  Highlighted Text
+                </span>
+                <div 
+                  className="w-12 h-12 rounded-md"
+                  style={{ backgroundColor: accentColor, opacity: 0.2 }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+          </>
+        )}
+      </Card>
+
+      {/* General Settings */}
+      <Card className="p-6 opacity-50">
+        <button 
+          onClick={() => toggleSection('general')}
+          className="w-full flex items-center justify-between mb-2 hover:opacity-80 transition-opacity"
+        >
+          <h2 className="text-xl font-semibold text-av-text">General Settings</h2>
+          {expandedSections.includes('general') ? (
+            <ChevronDown className="w-5 h-5 text-av-text-muted" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-av-text-muted" />
+          )}
+        </button>
+        {expandedSections.includes('general') && (
+          <p className="text-sm text-av-text-muted">Coming soon...</p>
+        )}
+      </Card>
+    </div>
+  );
+}

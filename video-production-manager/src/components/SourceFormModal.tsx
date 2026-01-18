@@ -1,0 +1,530 @@
+import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
+import type { Source, ConnectorType } from '@/types';
+import { SourceService } from '@/services';
+import { useProductionStore } from '@/hooks/useStore';
+
+interface SourceFormModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (source: Source) => void;
+  onSaveAndDuplicate?: (source: Source) => void;
+  existingSources: Source[];
+  editingSource?: Source | null;
+}
+
+// Resolution presets
+interface ResolutionPreset {
+  label: string;
+  hRes: number;
+  vRes: number;
+}
+
+const resolutionPresets: ResolutionPreset[] = [
+  { label: '1920x1080 (Full HD)', hRes: 1920, vRes: 1080 },
+  { label: '1280x720 (HD)', hRes: 1280, vRes: 720 },
+  { label: '3840x2160 (4K UHD)', hRes: 3840, vRes: 2160 },
+  { label: '2560x1440 (QHD)', hRes: 2560, vRes: 1440 },
+  { label: '1024x768 (XGA)', hRes: 1024, vRes: 768 },
+  { label: '1680x1050 (WSXGA+)', hRes: 1680, vRes: 1050 },
+];
+
+// Frame rate presets
+const frameRatePresets = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60, 120];
+
+export function SourceFormModal({ 
+  isOpen, 
+  onClose, 
+  onSave,
+  onSaveAndDuplicate,
+  existingSources,
+  editingSource 
+}: SourceFormModalProps) {
+  const connectorTypes = useProductionStore(state => state.connectorTypes);
+  const sourceTypes = useProductionStore(state => state.sourceTypes);
+  const sends = useProductionStore(state => state.sends);
+  
+  const [formData, setFormData] = useState<Partial<Source>>({
+    id: '',
+    type: 'LAPTOP',
+    name: '',
+    hRes: undefined,
+    vRes: undefined,
+    rate: 59.94,
+    standard: '',
+    note: '',
+    secondaryDevice: '',
+    outputs: [{ id: 'out-1', connector: 'HDMI' }],
+    blanking: 'none',
+  });
+  
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isCustomResolution, setIsCustomResolution] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [selectedFrameRate, setSelectedFrameRate] = useState<string>('59.94');
+
+  useEffect(() => {
+    if (editingSource) {
+      // Ensure outputs array exists for backwards compatibility
+      const sourceWithOutputs = {
+        ...editingSource,
+        outputs: editingSource.outputs || [{ id: 'out-1', connector: 'HDMI' as ConnectorType }]
+      };
+      setFormData(sourceWithOutputs);
+      // Check if it matches a preset
+      const matchingPreset = resolutionPresets.find(
+        p => p.hRes === editingSource.hRes && p.vRes === editingSource.vRes
+      );
+      if (matchingPreset) {
+        setSelectedPreset(`${matchingPreset.hRes}x${matchingPreset.vRes}`);
+        setIsCustomResolution(false);
+      } else if (editingSource.hRes && editingSource.vRes) {
+        setSelectedPreset('custom');
+        setIsCustomResolution(true);
+      } else {
+        setSelectedPreset('');
+        setIsCustomResolution(false);
+      }
+      setSelectedFrameRate(editingSource.rate?.toString() || '59.94');
+    } else {
+      // Auto-generate ID for new source
+      const newId = SourceService.generateId(existingSources);
+      setFormData({
+        id: newId,
+        type: 'LAPTOP',
+        name: '',
+        rate: 59.94,
+        outputs: [{ id: 'out-1', connector: 'HDMI' }],
+      });
+      setSelectedPreset('');
+      setIsCustomResolution(false);
+      setSelectedFrameRate('59.94');
+    }
+  }, [editingSource, existingSources]);
+
+  const handleResolutionPresetChange = (presetKey: string) => {
+    setSelectedPreset(presetKey);
+    
+    if (presetKey === 'custom') {
+      setIsCustomResolution(true);
+      // Keep existing values or clear them
+    } else if (presetKey) {
+      setIsCustomResolution(false);
+      const preset = resolutionPresets.find(p => `${p.hRes}x${p.vRes}` === presetKey);
+      if (preset) {
+        setFormData(prev => ({
+          ...prev,
+          hRes: preset.hRes,
+          vRes: preset.vRes,
+        }));
+      }
+    } else {
+      setIsCustomResolution(false);
+      setFormData(prev => ({
+        ...prev,
+        hRes: undefined,
+        vRes: undefined,
+      }));
+    }
+    setErrors([]);
+  };
+
+  const handleFrameRatePresetChange = (rate: string) => {
+    setSelectedFrameRate(rate);
+    if (rate) {
+      const rateValue = parseFloat(rate);
+      setFormData(prev => ({ ...prev, rate: rateValue }));
+    } else {
+      setFormData(prev => ({ ...prev, rate: undefined }));
+    }
+    setErrors([]);
+  };
+
+  const handleChange = (field: keyof Source, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setErrors([]); // Clear errors on change
+  };
+
+  const handleSubmit = (e: React.FormEvent, action: 'close' | 'duplicate' = 'close') => {
+    e.preventDefault();
+    
+    // Validate
+    const validation = SourceService.validate(formData);
+    if (!validation.valid) {
+      setErrors(validation.errors);
+      return;
+    }
+
+    // Check for ID conflicts (only if creating new or changing ID)
+    if (!editingSource || editingSource.id !== formData.id) {
+      if (SourceService.idExists(formData.id!, existingSources, editingSource?.id, sends)) {
+        setErrors([`ID "${formData.id}" already exists. IDs must be unique across all Sources and Sends.`]);
+        return;
+      }
+    }
+
+    const sourceData = formData as Source;
+    onSave(sourceData);
+    
+    if (action === 'duplicate' && onSaveAndDuplicate) {
+      onSaveAndDuplicate(sourceData);
+    } else {
+      handleClose();
+    }
+  };
+
+  const handleClose = () => {
+    setFormData({
+      id: '',
+      type: 'LAPTOP',
+      name: '',
+      rate: 59.94,
+      outputs: [{ id: 'out-1', connector: 'HDMI' }],
+    });
+    setErrors([]);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-av-border">
+          <h2 className="text-2xl font-bold text-av-text">
+            {editingSource ? 'Edit Source' : 'Add New Source'}
+          </h2>
+          <button
+            onClick={handleClose}
+            className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-text transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Errors */}
+          {errors.length > 0 && (
+            <div className="p-4 rounded-md bg-av-danger/10 border border-av-danger/30">
+              <p className="text-sm font-medium text-av-danger mb-2">Please fix the following errors:</p>
+              <ul className="list-disc list-inside text-sm text-av-danger space-y-1">
+                {errors.map((error, idx) => (
+                  <li key={idx}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* ID and Type Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-av-text mb-2">
+                ID <span className="text-av-danger">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.id}
+                onChange={(e) => handleChange('id', e.target.value)}
+                className="input-field w-full"
+                placeholder="SRC 1"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-av-text mb-2">
+                Type <span className="text-av-danger">*</span>
+              </label>
+              <select
+                value={formData.type}
+                onChange={(e) => handleChange('type', e.target.value)}
+                className="input-field w-full"
+                required
+              >
+                {sourceTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-av-text mb-2">
+              Name <span className="text-av-danger">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => handleChange('name', e.target.value)}
+              className="input-field w-full"
+              placeholder="e.g., Main Presentation Laptop"
+              required
+            />
+          </div>
+
+          {/* Resolution and Frame Rate Presets */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-av-text mb-2">
+                Resolution Preset
+              </label>
+              <select
+                value={selectedPreset}
+                onChange={(e) => handleResolutionPresetChange(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">Select preset...</option>
+                {resolutionPresets.map(preset => (
+                  <option key={`${preset.hRes}x${preset.vRes}`} value={`${preset.hRes}x${preset.vRes}`}>
+                    {preset.label}
+                  </option>
+                ))}
+                <option value="custom">Custom...</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-av-text mb-2">
+                Frame Rate
+              </label>
+              <select
+                value={selectedFrameRate}
+                onChange={(e) => handleFrameRatePresetChange(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">Select...</option>
+                {frameRatePresets.map(rate => (
+                  <option key={rate} value={rate}>
+                    {rate} fps
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Resolution Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-av-text mb-2">
+                Horizontal Resolution
+              </label>
+              <input
+                type="number"
+                value={formData.hRes || ''}
+                onChange={(e) => handleChange('hRes', e.target.value ? parseInt(e.target.value) : undefined)}
+                className="input-field w-full"
+                placeholder="1920"
+                min="0"
+                disabled={!isCustomResolution && selectedPreset !== ''}
+                readOnly={!isCustomResolution && selectedPreset !== ''}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-av-text mb-2">
+                Vertical Resolution
+              </label>
+              <input
+                type="number"
+                value={formData.vRes || ''}
+                onChange={(e) => handleChange('vRes', e.target.value ? parseInt(e.target.value) : undefined)}
+                className="input-field w-full"
+                placeholder="1080"
+                min="0"
+                disabled={!isCustomResolution && selectedPreset !== ''}
+                readOnly={!isCustomResolution && selectedPreset !== ''}
+              />
+            </div>
+          </div>
+
+          {/* Outputs Section */}
+          <div>
+            <label className="block text-sm font-medium text-av-text mb-2">
+              Outputs <span className="text-av-danger">*</span>
+              {formData.type === 'LAPTOP' && (formData.outputs?.length || 0) < 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextId = `out-${(formData.outputs?.length || 0) + 1}`;
+                    setFormData({
+                      ...formData,
+                      outputs: [...(formData.outputs || []), { id: nextId, connector: 'HDMI' }]
+                    });
+                  }}
+                  className="ml-2 text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30"
+                >
+                  + Add Output
+                </button>
+              )}
+              {formData.type === 'SERVER' && (formData.outputs?.length || 0) < 8 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextId = `out-${(formData.outputs?.length || 0) + 1}`;
+                    setFormData({
+                      ...formData,
+                      outputs: [...(formData.outputs || []), { id: nextId, connector: 'HDMI' }]
+                    });
+                  }}
+                  className="ml-2 text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30"
+                >
+                  + Add Output
+                </button>
+              )}
+            </label>
+            <div className="space-y-2">
+              {(formData.outputs || []).map((output, idx) => (
+                <div key={output.id} className="flex gap-2 items-center">
+                  <span className="text-sm text-av-text-muted w-16">Out {idx + 1}:</span>
+                  <select
+                    value={output.connector}
+                    onChange={(e) => {
+                      const newOutputs = [...(formData.outputs || [])];
+                      newOutputs[idx] = { ...output, connector: e.target.value as ConnectorType };
+                      setFormData({ ...formData, outputs: newOutputs });
+                    }}
+                    className="input-field flex-1"
+                    required
+                  >
+                    {connectorTypes.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                  {(formData.outputs || []).length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newOutputs = (formData.outputs || []).filter((_, i) => i !== idx);
+                        setFormData({ ...formData, outputs: newOutputs });
+                      }}
+                      className="p-2 text-av-danger hover:bg-av-danger/10 rounded"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Secondary Device Row */}
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-av-text mb-2">
+                Secondary Device
+              </label>
+              <select
+                value={formData.secondaryDevice || ''}
+                onChange={(e) => handleChange('secondaryDevice', e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">None</option>
+                {secondaryDevices.map(device => (
+                  <option key={device} value={device}>{device}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Blanking */}
+          <div>
+            <label className="block text-sm font-medium text-av-text mb-2">
+              Blanking
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="blanking"
+                  value="none"
+                  checked={formData.blanking === 'none' || !formData.blanking}
+                  onChange={(e) => handleChange('blanking', e.target.value)}
+                  className="w-4 h-4 text-av-accent"
+                />
+                <span className="text-sm text-av-text">None</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="blanking"
+                  value="RBv1"
+                  checked={formData.blanking === 'RBv1'}
+                  onChange={(e) => handleChange('blanking', e.target.value)}
+                  className="w-4 h-4 text-av-accent"
+                />
+                <span className="text-sm text-av-text">RBv1</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="blanking"
+                  value="RBv2"
+                  checked={formData.blanking === 'RBv2'}
+                  onChange={(e) => handleChange('blanking', e.target.value)}
+                  className="w-4 h-4 text-av-accent"
+                />
+                <span className="text-sm text-av-text">RBv2</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="blanking"
+                  value="RBv3"
+                  checked={formData.blanking === 'RBv3'}
+                  onChange={(e) => handleChange('blanking', e.target.value)}
+                  className="w-4 h-4 text-av-accent"
+                />
+                <span className="text-sm text-av-text">RBv3</span>
+              </label>
+            </div>
+            <p className="text-xs text-av-text-muted mt-1">
+              Reduced blanking affects bandwidth requirements for link type calculation
+            </p>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-av-text mb-2">
+              Notes
+            </label>
+            <textarea
+              value={formData.note || ''}
+              onChange={(e) => handleChange('note', e.target.value)}
+              className="input-field w-full"
+              rows={3}
+              placeholder="Additional notes about this source..."
+            />
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-4">
+            <button 
+              type="button" 
+              onClick={(e) => handleSubmit(e as any, 'close')} 
+              className="btn-primary flex-1"
+            >
+              Save & Close
+            </button>
+            <button 
+              type="button" 
+              onClick={(e) => handleSubmit(e as any, 'duplicate')} 
+              className="btn-secondary flex-1"
+            >
+              Save & Duplicate
+            </button>
+            <button 
+              type="button" 
+              onClick={handleClose} 
+              className="btn-secondary flex-1"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
