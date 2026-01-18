@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { 
   Production, 
-  Source, 
+  Source,
+  SourceType,
   Send, 
   LEDScreen, 
   IPAddress, 
@@ -275,7 +276,7 @@ export const useProductionStore = create<ProductionStore>()(
       
       // Equipment Spec Actions
       addEquipmentSpec: (spec) => {
-        LogService.logEquipmentChange('add', spec.id, `${spec.category} - ${spec.name}`, `Added equipment: ${spec.name}`);
+        LogService.logEquipmentChange('add', spec.id, `${spec.category}`, `Added equipment: ${spec.category}`);
         set((state) => ({
           equipmentSpecs: [...state.equipmentSpecs, spec]
         }));
@@ -289,7 +290,7 @@ export const useProductionStore = create<ProductionStore>()(
             oldValue: (spec as any)[field],
             newValue
           }));
-          LogService.logEquipmentChange('update', id, `${spec.category} - ${spec.name}`, `Updated equipment: ${spec.name}`, changes);
+          LogService.logEquipmentChange('update', id, `${spec.category}`, `Updated equipment: ${spec.category}`, changes);
         }
         set((state) => ({
           equipmentSpecs: state.equipmentSpecs.map(spec => 
@@ -301,7 +302,7 @@ export const useProductionStore = create<ProductionStore>()(
         const state = useProductionStore.getState();
         const spec = state.equipmentSpecs.find(s => s.id === id);
         if (spec) {
-          LogService.logEquipmentChange('delete', id, `${spec.category} - ${spec.name}`, `Removed equipment: ${spec.name}`);
+          LogService.logEquipmentChange('delete', id, `${spec.category}`, `Removed equipment: ${spec.category}`);
         }
         set((state) => ({
           equipmentSpecs: state.equipmentSpecs.filter(spec => spec.id !== id)
@@ -503,7 +504,7 @@ export const useProductionStore = create<ProductionStore>()(
           if (state.sources) {
             state.sources = state.sources.map(source => ({
               ...source,
-              type: typeMapping[source.type] || source.type
+              type: (typeMapping[source.type] || source.type) as SourceType
             }));
           }
         }

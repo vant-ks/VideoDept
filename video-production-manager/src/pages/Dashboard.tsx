@@ -181,7 +181,7 @@ export const Dashboard: React.FC = () => {
             </h3>
             <div className="flex flex-wrap gap-2">
               {['HDMI', 'SDI', 'DP', 'FIBER'].map(connector => {
-                const count = sources.filter(s => s.output === connector).length;
+                const count = sources.filter(s => s.outputs?.some(o => o.connector === connector)).length;
                 return (
                   <div key={connector} className="flex items-center gap-2">
                     <ConnectorBadge connector={connector} />

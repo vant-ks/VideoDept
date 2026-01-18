@@ -531,7 +531,7 @@ export default function Equipment() {
                                       <ChevronRight className="w-4 h-4 text-av-text-muted" />
                                     )}
                                     <span className="text-sm font-medium text-av-text">
-                                      Slot {card.slotNumber}: {card.manufacturer} {card.model || '(Unnamed Card)'}
+                                      Slot {card.slotNumber}
                                     </span>
                                     <span className="text-xs text-av-text-muted">
                                       {card.inputs.length} in / {card.outputs.length} out

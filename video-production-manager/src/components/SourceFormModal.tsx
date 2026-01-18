@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import type { Source, ConnectorType } from '@/types';
+import type { Source, ConnectorType, SourceType } from '@/types';
 import { SourceService } from '@/services';
 import { useProductionStore } from '@/hooks/useStore';
 
@@ -45,7 +45,7 @@ export function SourceFormModal({
   const sends = useProductionStore(state => state.sends);
   
   // Get default type from sourceTypes array (fallback to 'Laptop' if empty)
-  const defaultType = sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop';
+  const defaultType = (sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop') as SourceType;
   
   const [formData, setFormData] = useState<Partial<Source>>({
     id: '',
@@ -85,9 +85,9 @@ export function SourceFormModal({
       const normalizedType = typeMapping[editingSource.type] || editingSource.type;
       
       // Ensure the type exists in sourceTypes, fallback to first available or default
-      const validType = sourceTypes.includes(normalizedType) 
+      const validType = (sourceTypes.includes(normalizedType) 
         ? normalizedType 
-        : (sourceTypes.length > 0 ? sourceTypes[0] : defaultType);
+        : (sourceTypes.length > 0 ? sourceTypes[0] : defaultType)) as SourceType;
       
       // Ensure outputs array exists for backwards compatibility
       const sourceWithOutputs = {
@@ -447,7 +447,7 @@ export function SourceFormModal({
                 className="input-field w-full"
               >
                 <option value="">None</option>
-                {secondaryDevices.map(device => (
+                {connectorTypes.map((device: string) => (
                   <option key={device} value={device}>{device}</option>
                 ))}
               </select>

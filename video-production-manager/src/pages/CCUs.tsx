@@ -300,7 +300,7 @@ export default function CCUs() {
                   <div className="space-y-2">
                     {formData.outputs.map((output, index) => (
                       <div key={output.id} className="flex items-center gap-2 p-3 bg-av-surface-hover rounded-lg">
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="default" className="text-xs">
                           {index + 1}
                         </Badge>
                         <span className="text-sm text-av-text w-32">{output.type}</span>

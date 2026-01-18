@@ -48,7 +48,7 @@ export const IPManagement: React.FC = () => {
     filteredIPs.forEach(ip => {
       const subnet = ip.ip.split('.').slice(0, 3).join('.');
       if (!groups[subnet]) groups[subnet] = [];
-      groups[subnet].push(ip);
+      groups[subnet].push(ip as any);
     });
     return groups;
   }, [filteredIPs]);
@@ -155,16 +155,16 @@ export const IPManagement: React.FC = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="font-medium text-av-text">{ip.device}</span>
+                    <span className="font-medium text-av-text">{(ip as any).device}</span>
                   </TableCell>
                   <TableCell>
-                    <Badge className={getCategoryColor(ip.category)}>
-                      {ip.category}
+                    <Badge className={getCategoryColor((ip as any).category)}>
+                      {(ip as any).category}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="text-sm text-av-text-muted">
-                      {ip.notes || '—'}
+                      {(ip as any).notes || '—'}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
