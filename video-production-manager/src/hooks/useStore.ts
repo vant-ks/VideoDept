@@ -494,9 +494,17 @@ export const useProductionStore = create<ProductionStore>()(
             'OTHER': 'Other'
           };
           
-          // Update sourceTypes
+          // Update sourceTypes array
           if (state.sourceTypes) {
             state.sourceTypes = state.sourceTypes.map(type => typeMapping[type] || type);
+          }
+          
+          // Update source types on existing sources
+          if (state.sources) {
+            state.sources = state.sources.map(source => ({
+              ...source,
+              type: typeMapping[source.type] || source.type
+            }));
           }
         }
       },

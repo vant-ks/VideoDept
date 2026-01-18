@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Storage</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        h1 { margin-bottom: 1rem; }
+        .status { margin: 1rem 0; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Storage Cleared</h1>
+        <div class="status">✓ LocalStorage has been cleared</div>
+        <div>Redirecting to app...</div>
+    </div>
+    <script>
+        localStorage.clear();
+        console.log('LocalStorage cleared - all data reset');
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 2000);
+    </script>
+</body>
+</html>

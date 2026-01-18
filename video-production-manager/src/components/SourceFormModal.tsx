@@ -44,9 +44,12 @@ export function SourceFormModal({
   const sourceTypes = useProductionStore(state => state.sourceTypes) || [];
   const sends = useProductionStore(state => state.sends);
   
+  // Get default type from sourceTypes array (fallback to 'Laptop' if empty)
+  const defaultType = sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop';
+  
   const [formData, setFormData] = useState<Partial<Source>>({
     id: '',
-    type: 'LAPTOP',
+    type: defaultType,
     name: '',
     hRes: undefined,
     vRes: undefined,
@@ -65,9 +68,31 @@ export function SourceFormModal({
 
   useEffect(() => {
     if (editingSource) {
+      // Type mapping for backwards compatibility (uppercase to title case)
+      const typeMapping: Record<string, string> = {
+        'LAPTOP': 'Laptop',
+        'CAM': 'Camera',
+        'SERVER': 'Server',
+        'PLAYBACK': 'Playback',
+        'GRAPHICS': 'Graphics',
+        'PTZ': 'PTZ',
+        'ROBO': 'Robo',
+        'MEDIA_SERVER': 'Media Server',
+        'OTHER': 'Other'
+      };
+      
+      // Normalize the type to match sourceTypes array
+      const normalizedType = typeMapping[editingSource.type] || editingSource.type;
+      
+      // Ensure the type exists in sourceTypes, fallback to first available or default
+      const validType = sourceTypes.includes(normalizedType) 
+        ? normalizedType 
+        : (sourceTypes.length > 0 ? sourceTypes[0] : defaultType);
+      
       // Ensure outputs array exists for backwards compatibility
       const sourceWithOutputs = {
         ...editingSource,
+        type: validType,
         outputs: editingSource.outputs || [{ id: 'out-1', connector: 'HDMI' as ConnectorType }]
       };
       setFormData(sourceWithOutputs);
@@ -91,7 +116,7 @@ export function SourceFormModal({
       const newId = SourceService.generateId(existingSources);
       setFormData({
         id: newId,
-        type: 'LAPTOP',
+        type: defaultType,
         name: '',
         rate: 59.94,
         outputs: [{ id: 'out-1', connector: 'HDMI' }],
@@ -100,7 +125,7 @@ export function SourceFormModal({
       setIsCustomResolution(false);
       setSelectedFrameRate('59.94');
     }
-  }, [editingSource, existingSources]);
+  }, [editingSource, existingSources, sourceTypes, defaultType]);
 
   const handleResolutionPresetChange = (presetKey: string) => {
     setSelectedPreset(presetKey);
