@@ -152,25 +152,27 @@ export default function MediaServers() {
         </button>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">Server Pairs</p>
-          <p className="text-3xl font-bold text-av-text">{serverPairs.length}</p>
-        </Card>
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">Total Outputs</p>
-          <p className="text-3xl font-bold text-av-accent">
-            {mediaServers.reduce((sum, s) => sum + s.outputs.length, 0)}
-          </p>
-        </Card>
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">Content Layers</p>
-          <p className="text-3xl font-bold text-av-info">
-            {mediaServerLayers.length}
-          </p>
-        </Card>
-      </div>
+      {/* Statistics - Only show on servers tab */}
+      {activeTab === 'servers' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="p-6">
+            <p className="text-sm text-av-text-muted mb-1">Server Pairs</p>
+            <p className="text-3xl font-bold text-av-text">{serverPairs.length}</p>
+          </Card>
+          <Card className="p-6">
+            <p className="text-sm text-av-text-muted mb-1">Total Outputs</p>
+            <p className="text-3xl font-bold text-av-accent">
+              {mediaServers.reduce((sum, s) => sum + s.outputs.length, 0)}
+            </p>
+          </Card>
+          <Card className="p-6">
+            <p className="text-sm text-av-text-muted mb-1">Content Layers</p>
+            <p className="text-3xl font-bold text-av-info">
+              {mediaServerLayers.length}
+            </p>
+          </Card>
+        </div>
+      )}
 
       {/* Search */}
       <Card className="p-4">
@@ -397,26 +399,16 @@ export default function MediaServers() {
                 {/* Output Headers - Server Columns */}
                 <div className="overflow-x-auto">
                   <div className="min-w-max">
-                    {/* Header Row */}
+                    {/* Header Row - Only Main Servers */}
                     <div className="flex gap-2 mb-4">
                       <div className="w-48 flex-shrink-0" />
                       {serverPairs.map((pair) => (
                         <React.Fragment key={pair.main.pairNumber}>
-                          {/* Main Server Outputs */}
+                          {/* Main Server Outputs Only */}
                           {pair.main.outputs.map((output) => (
                             <div key={output.id} className="w-32 flex-shrink-0">
                               <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center">
                                 <div className="text-xs font-semibold text-av-text truncate">{pair.main.name}</div>
-                                <div className="text-xs text-av-text-muted truncate mt-1">{output.name}</div>
-                                <Badge className="mt-1 text-xs">{output.type}</Badge>
-                              </div>
-                            </div>
-                          ))}
-                          {/* Backup Server Outputs */}
-                          {pair.backup.outputs.map((output) => (
-                            <div key={output.id} className="w-32 flex-shrink-0">
-                              <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center opacity-60">
-                                <div className="text-xs font-semibold text-av-text truncate">{pair.backup.name}</div>
                                 <div className="text-xs text-av-text-muted truncate mt-1">{output.name}</div>
                                 <Badge className="mt-1 text-xs">{output.type}</Badge>
                               </div>
@@ -444,10 +436,10 @@ export default function MediaServers() {
                               <div className="text-xs text-av-text-muted truncate mt-1">{layer.content}</div>
                             </div>
 
-                            {/* Output Assignment Cells */}
+                            {/* Output Assignment Cells - Only Main Servers */}
                             {serverPairs.map((pair) => (
                               <React.Fragment key={pair.main.pairNumber}>
-                                {/* Main Server Output Cells */}
+                                {/* Main Server Output Cells Only */}
                                 {pair.main.outputs.map((output) => {
                                   const isAssigned = layer.outputAssignments.some(
                                     a => a.serverId === pair.main.id && a.outputId === output.id
@@ -473,32 +465,6 @@ export default function MediaServers() {
                                     </div>
                                   );
                                 })}
-                                {/* Backup Server Output Cells */}
-                                {pair.backup.outputs.map((output) => {
-                                  const isAssigned = layer.outputAssignments.some(
-                                    a => a.serverId === pair.backup.id && a.outputId === output.id
-                                  );
-                                  return (
-                                    <div 
-                                      key={output.id} 
-                                      className="w-32 flex-shrink-0 flex items-center justify-center"
-                                    >
-                                      {isAssigned ? (
-                                        <div 
-                                          className="w-full h-16 bg-gradient-to-br from-av-accent/10 to-av-accent/20 border-2 border-av-accent/50 rounded-md flex items-center justify-center opacity-60"
-                                          style={{
-                                            backgroundColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%, 0.1)`,
-                                            borderColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%, 0.5)`
-                                          }}
-                                        >
-                                          <Layers className="w-5 h-5" style={{ color: `hsl(${(layerIndex * 137.5) % 360}, 70%, 40%)` }} />
-                                        </div>
-                                      ) : (
-                                        <div className="w-full h-16 bg-av-surface border border-av-border/20 rounded-md opacity-60" />
-                                      )}
-                                    </div>
-                                  );
-                                })}
                               </React.Fragment>
                             ))}
                           </div>
@@ -514,11 +480,7 @@ export default function MediaServers() {
                   <div className="flex flex-wrap gap-4 text-xs text-av-text-muted">
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 bg-av-accent/30 border-2 border-av-accent rounded" />
-                      <span>Main Server Output (Active)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-av-accent/10 border-2 border-av-accent/50 rounded opacity-60" />
-                      <span>Backup Server Output</span>
+                      <span>Assigned Output</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 bg-av-surface border border-av-border/30 rounded" />

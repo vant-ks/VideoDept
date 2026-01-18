@@ -89,26 +89,6 @@ export const Computers: React.FC = () => {
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">Total Computers</p>
-          <p className="text-3xl font-bold text-av-text">{stats.total}</p>
-        </Card>
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">HD Sources</p>
-          <p className="text-3xl font-bold text-av-accent">{stats.hdCount}</p>
-        </Card>
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">4K/UHD Sources</p>
-          <p className="text-3xl font-bold text-av-info">{stats.uhd4kCount}</p>
-        </Card>
-        <Card className="p-6">
-          <p className="text-sm text-av-text-muted mb-1">Computer Types</p>
-          <p className="text-3xl font-bold text-av-text">{Object.keys(stats.byType).length}</p>
-        </Card>
-      </div>
-
       {/* Filters */}
       <Card className="p-4">
         <div className="flex flex-col md:flex-row gap-4">
