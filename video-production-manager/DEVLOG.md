@@ -2,6 +2,13 @@
 
 ## January 18, 2026
 
+### Bug Fixes & UX Improvements
+- **Fixed** Settings page blank screen - added missing frameRates and resolutions initialization
+- **Fixed** Source edit modal blank screen - added safety checks for undefined arrays
+- **Disabled** auto-open browser on server restart
+- **Improved** Settings UX: All sections now collapsed by default
+- **Added** Settings section state persistence to localStorage (remembers user's expand/collapse preferences)
+
 ### Version Control & Logging System
 - **Established** automatic git commit and push protocol for code changes
 - **Created** DEVLOG.md for human-readable development history
