@@ -44,14 +44,20 @@ export default function Settings() {
   const [draggedFrameRateIndex, setDraggedFrameRateIndex] = useState<number | null>(null);
   const [draggedResolutionIndex, setDraggedResolutionIndex] = useState<number | null>(null);
   
-  const [expandedSections, setExpandedSections] = useState<string[]>(['general', 'types', 'connectors', 'framerates', 'resolutions', 'display']);
+  // Load expanded sections from localStorage or default to empty (all collapsed)
+  const [expandedSections, setExpandedSections] = useState<string[]>(() => {
+    const saved = localStorage.getItem('settings-expanded-sections');
+    return saved ? JSON.parse(saved) : [];
+  });
   
   const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev => 
-      prev.includes(sectionId) 
+    setExpandedSections(prev => {
+      const newSections = prev.includes(sectionId) 
         ? prev.filter(id => id !== sectionId)
-        : [...prev, sectionId]
-    );
+        : [...prev, sectionId];
+      localStorage.setItem('settings-expanded-sections', JSON.stringify(newSections));
+      return newSections;
+    });
   };
 
   const handleAddDevice = (e: React.FormEvent) => {

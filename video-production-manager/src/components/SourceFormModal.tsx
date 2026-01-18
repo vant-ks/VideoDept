@@ -40,8 +40,8 @@ export function SourceFormModal({
   existingSources,
   editingSource 
 }: SourceFormModalProps) {
-  const connectorTypes = useProductionStore(state => state.connectorTypes);
-  const sourceTypes = useProductionStore(state => state.sourceTypes);
+  const connectorTypes = useProductionStore(state => state.connectorTypes) || [];
+  const sourceTypes = useProductionStore(state => state.sourceTypes) || [];
   const sends = useProductionStore(state => state.sends);
   
   const [formData, setFormData] = useState<Partial<Source>>({
