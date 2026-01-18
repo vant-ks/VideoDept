@@ -5,7 +5,8 @@ import type {
   Source,
   SourceType,
   Send, 
-  LEDScreen, 
+  LEDScreen,
+  ProjectionScreen, 
   IPAddress, 
   ChecklistItem,
   VideoSwitcher,
@@ -39,6 +40,7 @@ interface ProductionStore {
   mediaServers: MediaServer[];
   mediaServerLayers: MediaServerLayer[];
   ledScreens: LEDScreen[];
+  projectionScreens: ProjectionScreen[];
   ipAddresses: IPAddress[];
   checklist: ChecklistItem[];
   videoSwitchers: VideoSwitcher[];
@@ -121,6 +123,12 @@ interface ProductionStore {
   updateCamera: (id: string, camera: Partial<Camera>) => void;
   deleteCamera: (id: string) => void;
   
+  // ProjectionScreen Actions
+  addProjectionScreen: (screen: ProjectionScreen) => void;
+  updateProjectionScreen: (id: string, screen: Partial<ProjectionScreen>) => void;
+  deleteProjectionScreen: (id: string) => void;
+  duplicateProjectionScreen: (id: string) => void;
+  
   // Checklist Actions
   toggleChecklistItem: (id: string) => void;
   updateChecklistItem: (id: string, item: Partial<ChecklistItem>) => void;
@@ -146,6 +154,7 @@ export const useProductionStore = create<ProductionStore>()(
       mediaServers: [],
       mediaServerLayers: [],
       ledScreens: [sampleLEDScreen],
+      projectionScreens: [],
       ipAddresses: sampleIPAddresses,
       checklist: sampleChecklist,
       videoSwitchers: [sampleVideoSwitcher],
@@ -440,6 +449,42 @@ export const useProductionStore = create<ProductionStore>()(
       deleteMediaServerLayer: (id) => set((state) => ({
         mediaServerLayers: state.mediaServerLayers.filter(l => l.id !== id)
       })),
+      
+      // ProjectionScreen Actions
+      addProjectionScreen: (screen) => {
+        LogService.logEquipmentChange('add', screen.id, screen.name, `Added projection screen: ${screen.name}`);
+        set((state) => ({
+          projectionScreens: [...state.projectionScreens, screen]
+        }));
+      },
+      updateProjectionScreen: (id, updates) => {
+        LogService.logEquipmentChange('update', id, 'ProjectionScreen', `Updated projection screen: ${id}`);
+        set((state) => ({
+          projectionScreens: state.projectionScreens.map(s => s.id === id ? { ...s, ...updates } : s)
+        }));
+      },
+      deleteProjectionScreen: (id) => {
+        LogService.logEquipmentChange('delete', id, 'ProjectionScreen', `Deleted projection screen: ${id}`);
+        set((state) => ({
+          projectionScreens: state.projectionScreens.filter(s => s.id !== id)
+        }));
+      },
+      duplicateProjectionScreen: (id) => {
+        set((state) => {
+          const screen = state.projectionScreens.find(s => s.id === id);
+          if (!screen) return state;
+          
+          const newScreen = { 
+            ...screen, 
+            id: `${Date.now()}`,
+            name: `${screen.name} (Copy)`
+          };
+          LogService.logEquipmentChange('add', newScreen.id, newScreen.name, `Duplicated projection screen: ${screen.name}`);
+          return {
+            projectionScreens: [...state.projectionScreens, newScreen]
+          };
+        });
+      },
       
       // Checklist Actions
       toggleChecklistItem: (id) => set((state) => ({

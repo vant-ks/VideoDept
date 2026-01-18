@@ -1,23 +1,14 @@
-import React from 'react';
-import { Plus, Search, Edit2, Trash2, Monitor, Radio } from 'lucide-react';
-import { 
-  Card, 
-  Button, 
-  ConnectorBadge,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  EmptyState
-} from '@/components/ui';
+import React, { useState } from 'react';
+import { Plus, Edit2, Trash2, Copy, Monitor, Radio } from 'lucide-react';
+import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { cn, formatResolution } from '@/utils/helpers';
+import type { Send } from '@/types';
 
 export const Sends: React.FC = () => {
-  const { sends, searchQuery, setSearchQuery } = useProductionStore();
-  const [selectedType, setSelectedType] = React.useState<string>('all');
+  const { sends } = useProductionStore();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<string>('all');
 
   const sendTypes = React.useMemo(() => {
     const types = new Set(sends.map(s => s.type));
@@ -34,50 +25,75 @@ export const Sends: React.FC = () => {
     });
   }, [sends, searchQuery, selectedType]);
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'MONITOR': return '🖥️';
-      case 'ROUTER': return '🔀';
-      case 'VIDEO SWITCH': return '📺';
-      case 'LED PROCESSOR': return '💡';
-      case 'PROJECTOR': return '📽️';
-      case 'RECORD': return '⏺️';
-      case 'STREAM': return '📡';
-      default: return '📤';
+  const handleAddNew = () => {
+    // TODO: Open add send modal
+  };
+
+  const handleEdit = (send: Send) => {
+    // TODO: Open edit send modal
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this send?')) {
+      // TODO: Delete send
     }
   };
 
+  const handleDuplicate = (id: string) => {
+    // TODO: Duplicate send
+  };
+
+  const stats = {
+    total: sends.length,
+    screens: sends.filter(s => s.type === 'VIDEO SWITCH').length,
+    routers: sends.filter(s => s.type === 'ROUTER').length,
+    monitors: sends.filter(s => s.type === 'MONITOR').length,
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-display font-bold text-av-text">Sends / Destinations</h2>
-          <p className="text-sm text-av-text-muted">
-            Manage video outputs and destination devices
-          </p>
+          <h1 className="text-3xl font-bold text-av-text mb-2">Sends / Destinations</h1>
+          <p className="text-av-text-muted">Manage video outputs and destination devices</p>
         </div>
-        <Button variant="primary">
-          <Plus className="w-4 h-4 mr-2" />
+        <button onClick={handleAddNew} className="btn-primary flex items-center gap-2">
+          <Plus className="w-4 h-4" />
           Add Send
-        </Button>
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-6">
+          <p className="text-sm text-av-text-muted mb-1">Total Sends</p>
+          <p className="text-3xl font-bold text-av-text">{stats.total}</p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm text-av-text-muted mb-1">Screens</p>
+          <p className="text-3xl font-bold text-av-accent">{stats.screens}</p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm text-av-text-muted mb-1">Router Feeds</p>
+          <p className="text-3xl font-bold text-av-info">{stats.routers}</p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm text-av-text-muted mb-1">Monitors</p>
+          <p className="text-3xl font-bold text-av-text">{stats.monitors}</p>
+        </Card>
       </div>
 
       {/* Filters */}
       <Card className="p-4">
         <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-av-text-muted" />
-              <input
-                type="text"
-                placeholder="Search sends..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field w-full pl-10"
-              />
-            </div>
-          </div>
+          <input
+            type="text"
+            placeholder="Search sends..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-field flex-1"
+          />
           <div className="flex gap-2 flex-wrap">
             {sendTypes.map(type => (
               <button
@@ -97,125 +113,103 @@ export const Sends: React.FC = () => {
         </div>
       </Card>
 
-      {/* Sends Table */}
-      <Card className="overflow-hidden">
-        {filteredSends.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Resolution</TableHead>
-                <TableHead>Rate</TableHead>
-                <TableHead>Output</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSends.map((send, index) => (
-                <TableRow 
-                  key={send.id}
-                  className="animate-slide-up"
-                  style={{ animationDelay: `${index * 30}ms` }}
-                >
-                  <TableCell>
-                    <span className="text-av-info">{send.id}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span>{getTypeIcon(send.type)}</span>
-                      <span className="text-sm text-av-text-muted">{send.type}</span>
+      {/* Sends List */}
+      {filteredSends.length === 0 ? (
+        <Card className="p-12 text-center">
+          <h3 className="text-lg font-semibold text-av-text mb-2">No Sends Found</h3>
+          <p className="text-av-text-muted mb-4">
+            {sends.length === 0 
+              ? 'Add your first send to get started'
+              : 'No sends match your search criteria'
+            }
+          </p>
+          {sends.length === 0 && (
+            <button onClick={handleAddNew} className="btn-primary">Add Send</button>
+          )}
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredSends.map((send) => (
+            <Card key={send.id} className="p-6 hover:border-av-accent/30 transition-colors">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-3">
+                    <h3 className="text-lg font-semibold text-av-text">{send.name}</h3>
+                    <Badge>{send.type}</Badge>
+                    <Badge>{send.output}</Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                    <div>
+                      <span className="text-av-text-muted">ID:</span>
+                      <span className="text-av-text ml-2">{send.id}</span>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-medium text-av-text">{send.name}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">
-                      {formatResolution(send.hRes, send.vRes)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{send.rate}fps</span>
-                  </TableCell>
-                  <TableCell>
-                    <ConnectorBadge connector={send.output} />
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-av-text-muted truncate max-w-[200px] block">
-                      {send.note || send.secondaryDevice || '—'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="p-1.5 rounded hover:bg-av-surface-light text-av-text-muted hover:text-av-text transition-colors">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    {send.hRes && send.vRes && (
+                      <div>
+                        <span className="text-av-text-muted">Resolution:</span>
+                        <span className="text-av-text ml-2">{send.hRes}x{send.vRes}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-av-text-muted">Frame Rate:</span>
+                      <span className="text-av-text ml-2">{send.rate}</span>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <EmptyState
-            icon={<Search className="w-8 h-8" />}
-            title="No sends found"
-            description="Try adjusting your search or filters"
-          />
-        )}
-      </Card>
+                    {send.standard && (
+                      <div>
+                        <span className="text-av-text-muted">Standard:</span>
+                        <span className="text-av-text ml-2">{send.standard}</span>
+                      </div>
+                    )}
+                    {send.secondaryDevice && (
+                      <div>
+                        <span className="text-av-text-muted">Device:</span>
+                        <span className="text-av-text ml-2">{send.secondaryDevice}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {send.note && (
+                    <p className="text-sm text-av-text-muted mt-3">
+                      <span className="font-medium">Note:</span> {send.note}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex gap-2 ml-4">
+                  <button
+                    onClick={() => handleEdit(send)}
+                    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDuplicate(send.id)}
+                    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+                    title="Duplicate"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(send.id)}
+                    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <Monitor className="w-8 h-8 text-av-info" />
-            <div>
-              <p className="text-sm text-av-text-muted">Screens</p>
-              <p className="text-xl font-bold text-av-text">
-                {sends.filter(s => s.type === 'VIDEO SWITCH').length}
-              </p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <Radio className="w-8 h-8 text-av-purple" />
-            <div>
-              <p className="text-sm text-av-text-muted">Router Feeds</p>
-              <p className="text-xl font-bold text-av-text">
-                {sends.filter(s => s.type === 'ROUTER').length}
-              </p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🖥️</span>
-            <div>
-              <p className="text-sm text-av-text-muted">Monitors</p>
-              <p className="text-xl font-bold text-av-text">
-                {sends.filter(s => s.type === 'MONITOR').length}
-              </p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📤</span>
-            <div>
-              <p className="text-sm text-av-text-muted">Total Sends</p>
-              <p className="text-xl font-bold text-av-text">{sends.length}</p>
-            </div>
-          </div>
-        </Card>
-      </div>
+      {/* Results Count */}
+      {filteredSends.length > 0 && (
+        <div className="text-center text-sm text-av-text-muted">
+          Showing {filteredSends.length} of {sends.length} sends
+        </div>
+      )}
     </div>
   );
 };
