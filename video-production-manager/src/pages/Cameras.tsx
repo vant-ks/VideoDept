@@ -2,13 +2,20 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Video, Link as LinkIcon } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
 import type { Camera } from '@/types';
 
 export default function Cameras() {
-  const { cameras, ccus, addCamera, updateCamera, deleteCamera } = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const oldStore = useProductionStore();
+  
+  const cameras = activeProject?.cameras || oldStore.cameras;
+  const ccus = activeProject?.ccus || oldStore.ccus;
+  const addCamera = oldStore.addCamera;
+  const updateCamera = oldStore.updateCamera;
+  const deleteCamera = oldStore.deleteCamera;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState<Partial<Camera>>({
     id: '',
     name: '',
@@ -27,17 +34,6 @@ export default function Cameras() {
     note: '',
   });
   const [errors, setErrors] = useState<string[]>([]);
-
-  const filteredCameras = React.useMemo(() => {
-    return cameras.filter(cam => {
-      const query = searchQuery.toLowerCase();
-      return (
-        cam.id.toLowerCase().includes(query) ||
-        cam.name.toLowerCase().includes(query) ||
-        cam.model?.toLowerCase().includes(query)
-      );
-    });
-  }, [cameras, searchQuery]);
 
   const camerasWithCCU = cameras.filter(c => c.ccuId).length;
   const camerasWithSupport = cameras.filter(c => c.hasTripod || c.hasShortTripod || c.hasDolly || c.hasJib).length;
@@ -172,32 +168,19 @@ export default function Cameras() {
         </button>
       </div>
 
-      {/* Search */}
-      <Card className="p-4">
-        <input
-          type="text"
-          placeholder="Search cameras..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="input-field w-full"
-        />
-      </Card>
-
       {/* Cameras List */}
-      {filteredCameras.length === 0 ? (
+      {cameras.length === 0 ? (
         <Card className="p-12 text-center">
           <Video className="w-12 h-12 text-av-text-muted mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-av-text mb-2">No Cameras Found</h3>
           <p className="text-av-text-muted mb-4">
-            {cameras.length === 0 ? 'Add your first camera to get started' : 'No cameras match your search'}
+            Add your first camera to get started
           </p>
-          {cameras.length === 0 && (
-            <button onClick={handleAddNew} className="btn-primary">Add Camera</button>
-          )}
+          <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">Add Camera</button>
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredCameras.map((camera) => {
+          {cameras.map((camera) => {
             const supportBadges = getSupportBadges(camera);
             const ccuName = getCCUName(camera.ccuId);
             
@@ -226,7 +209,7 @@ export default function Cameras() {
                   {/* Right 1/3: Format Mode, CCU Connection, and Action Buttons */}
                   <div className="flex items-center justify-between">
                     <div className="text-sm">
-                      <div className="font-mono text-av-text">
+                      <div className="text-av-text">
                         {camera.formatMode || 'N/A'}
                       </div>
                       {ccuName && (

@@ -10,10 +10,24 @@ import {
 } from 'lucide-react';
 import { Card, StatCard, ProgressBar, Badge, ConnectorBadge } from '@/components/ui';
 import { useProductionStore, useChecklistProgress } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
+import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { cn, formatResolution } from '@/utils/helpers';
 
 export const Dashboard: React.FC = () => {
-  const { production, sources, sends, checklist, ledScreens } = useProductionStore();
+  // Use new stores
+  const { activeProject } = useProjectStore();
+  const { setActiveTab } = usePreferencesStore();
+  
+  // Fallback to old store for backward compatibility
+  const oldStore = useProductionStore();
+  
+  const production = activeProject?.production || oldStore.production;
+  const sources = activeProject?.sources || oldStore.sources;
+  const sends = activeProject?.sends || oldStore.sends;
+  const checklist = activeProject?.checklist || oldStore.checklist;
+  const ledScreens = activeProject?.ledScreens || oldStore.ledScreens;
+  
   const { total, completed, percentage } = useChecklistProgress();
 
   const sourcesByType = React.useMemo(() => {
@@ -28,92 +42,162 @@ export const Dashboard: React.FC = () => {
     .filter(item => !item.completed && item.daysBeforeShow && item.daysBeforeShow <= 14)
     .slice(0, 5);
 
+  const recentlyCompleted = checklist
+    .filter(item => item.completed)
+    .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+    .slice(0, 5);
+
+  const calculateDueDate = (daysBeforeShow: number): string => {
+    // Try new format first, fallback to old
+    const loadInDate = production?.loadinDate || production?.loadIn;
+    if (!loadInDate) return '';
+    const dueDate = new Date(loadInDate);
+    dueDate.setDate(dueDate.getDate() - daysBeforeShow);
+    return dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const handleTaskClick = (category: string) => {
+    // Store the category to scroll to
+    sessionStorage.setItem('scrollToCategory', category);
+    // Switch to checklist tab
+    setActiveTab('checklist');
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Production Header */}
       {production && (
         <Card className="p-6 bg-gradient-to-r from-av-surface to-av-surface-light">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-display font-bold text-av-text mb-1">
+          <div className="flex items-center gap-6">
+            {/* Show Info - 40% */}
+            <div className="flex-[4]">
+              <h2 className="text-2xl font-bold text-av-text mb-1">
                 {production.showName}
               </h2>
               <p className="text-av-text-muted">
                 {production.client} • {production.venue} • {production.room}
               </p>
             </div>
-            <div className="flex items-center gap-4 text-sm">
+            
+            {/* Dates - 20% */}
+            <div className="flex-[2] flex items-center gap-4 text-sm">
               <div className="text-center">
                 <p className="text-av-text-muted mb-1">Load In</p>
-                <p className="text-av-accent">{production.loadIn}</p>
+                <p className="text-av-accent">{production.loadinDate || production.loadIn}</p>
               </div>
               <div className="w-px h-8 bg-av-border" />
               <div className="text-center">
                 <p className="text-av-text-muted mb-1">Load Out</p>
-                <p className="text-av-accent">{production.loadOut}</p>
+                <p className="text-av-accent">{production.loadoutDate || production.loadOut}</p>
+              </div>
+            </div>
+            
+            {/* Progress - 40% */}
+            <div className="flex-[4]">
+              <div className="mb-3">
+                <ProgressBar value={percentage} showPercentage={false} />
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                <div className="text-center">
+                  <p className="text-lg font-bold text-av-accent">{completed}</p>
+                  <p className="text-xs text-av-text-muted">Completed</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-av-warning">
+                    {checklist.filter(i => !i.completed && i.daysBeforeShow && i.daysBeforeShow <= 7).length}
+                  </p>
+                  <p className="text-xs text-av-text-muted">Due Soon</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-av-text-muted">{total - completed}</p>
+                  <p className="text-xs text-av-text-muted">Remaining</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-av-accent">{Math.round(percentage)}%</p>
+                  <p className="text-xs text-av-text-muted">Completion</p>
+                </div>
               </div>
             </div>
           </div>
         </Card>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Sources"
-          value={sources.length}
-          icon={<MonitorPlay className="w-5 h-5" />}
-        />
-        <StatCard
-          label="Total Sends"
-          value={sends.length}
-          icon={<Send className="w-5 h-5" />}
-        />
-        <StatCard
-          label="LED Screens"
-          value={ledScreens.length}
-          icon={<Projector className="w-5 h-5" />}
-        />
-        <StatCard
-          label="Tasks Complete"
-          value={`${completed}/${total}`}
-          icon={<CheckCircle2 className="w-5 h-5" />}
-        />
-      </div>
-
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Progress & Tasks */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Checklist Progress */}
+          {/* Recently Completed Tasks */}
           <Card className="p-6">
-            <h3 className="text-lg font-display font-semibold text-av-text mb-4">
-              Production Progress
-            </h3>
-            <ProgressBar value={percentage} label="Overall Completion" />
-            
-            <div className="mt-6 grid grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-av-surface-light rounded-lg">
-                <p className="text-2xl font-bold text-av-accent">{completed}</p>
-                <p className="text-xs text-av-text-muted">Completed</p>
-              </div>
-              <div className="text-center p-3 bg-av-surface-light rounded-lg">
-                <p className="text-2xl font-bold text-av-warning">
-                  {checklist.filter(i => !i.completed && i.daysBeforeShow && i.daysBeforeShow <= 7).length}
-                </p>
-                <p className="text-xs text-av-text-muted">Due Soon</p>
-              </div>
-              <div className="text-center p-3 bg-av-surface-light rounded-lg">
-                <p className="text-2xl font-bold text-av-text-muted">{total - completed}</p>
-                <p className="text-xs text-av-text-muted">Remaining</p>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-av-text">
+                Recently Completed Tasks
+              </h3>
+              <Badge variant="success">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Last 5
+              </Badge>
             </div>
+            
+            {recentlyCompleted.length > 0 ? (
+              <div className="space-y-2">
+                {recentlyCompleted.map((task, index) => {
+                  const latestCompletion = task.completionNote && task.completionNote.length > 0
+                    ? task.completionNote[task.completionNote.length - 1].text
+                    : '';
+                  const latestInfo = task.moreInfo && task.moreInfo.length > 0
+                    ? task.moreInfo[task.moreInfo.length - 1].text
+                    : '';
+                  
+                  return (
+                  <div 
+                    key={task.id}
+                    className={cn(
+                      'flex items-center gap-3 p-3 bg-av-surface-light rounded-lg hover:bg-av-surface-light/70 transition-colors cursor-pointer opacity-60',
+                      'animate-slide-up',
+                    )}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                    onClick={() => handleTaskClick(task.category)}
+                  >
+                    {/* Item Description - 30% */}
+                    <div className="text-sm text-av-text truncate" style={{ width: '30%' }}>
+                      {task.item}
+                    </div>
+                    
+                    {/* Completion Note - 55% */}
+                    <div className="text-sm text-av-text-muted truncate" style={{ width: '55%' }}>
+                      {latestCompletion || latestInfo}
+                    </div>
+                    
+                    {/* Due Badge - 15% */}
+                    <div className="flex justify-end" style={{ width: '15%' }}>
+                      {task.daysBeforeShow && (
+                        <Badge 
+                          variant="default"
+                          className="flex items-center gap-1 w-32 justify-center"
+                        >
+                          <Clock className="w-3 h-3" />
+                          {task.daysBeforeShow}d
+                          {production?.loadIn && (
+                            <span className="ml-1 text-xs">({calculateDueDate(task.daysBeforeShow)})</span>
+                          )}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-av-text-muted text-center py-4">
+                No completed tasks
+              </p>
+            )}
           </Card>
 
           {/* Upcoming Tasks */}
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-display font-semibold text-av-text">
+              <h3 className="text-lg font-semibold text-av-text">
                 Upcoming Tasks
               </h3>
               <Badge variant="warning">
@@ -123,23 +207,50 @@ export const Dashboard: React.FC = () => {
             </div>
             
             {upcomingTasks.length > 0 ? (
-              <div className="space-y-3">
-                {upcomingTasks.map((task, index) => (
-                  <div 
-                    key={task.id}
-                    className={cn(
-                      'flex items-center justify-between p-3 bg-av-surface-light rounded-lg',
-                      'animate-slide-up',
-                    )}
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <AlertTriangle className="w-4 h-4 text-av-warning" />
-                      <span className="text-sm text-av-text">{task.item}</span>
+              <div className="space-y-2">
+                {upcomingTasks.map((task, index) => {
+                  const latestInfo = task.moreInfo && task.moreInfo.length > 0
+                    ? task.moreInfo[task.moreInfo.length - 1].text
+                    : '';
+                  
+                  return (
+                    <div 
+                      key={task.id}
+                      className={cn(
+                        'flex items-center gap-3 p-3 bg-av-surface-light rounded-lg hover:bg-av-surface-light/70 transition-colors cursor-pointer',
+                        'animate-slide-up',
+                      )}
+                      style={{ animationDelay: `${index * 50}ms` }}
+                      onClick={() => handleTaskClick(task.category)}
+                    >
+                      {/* Item Description - 30% */}
+                      <div className="text-sm text-av-text truncate" style={{ width: '30%' }}>
+                        {task.item}
+                      </div>
+                      
+                      {/* More Info - 55% */}
+                      <div className="text-sm text-av-text-muted truncate" style={{ width: '55%' }}>
+                        {latestInfo}
+                      </div>
+                      
+                      {/* Due Badge - 15% */}
+                      <div className="flex justify-end" style={{ width: '15%' }}>
+                        {task.daysBeforeShow && (
+                          <Badge 
+                            variant={task.daysBeforeShow <= 7 ? 'danger' : task.daysBeforeShow <= 14 ? 'warning' : 'default'}
+                            className="flex items-center gap-1 w-32 justify-center"
+                          >
+                            <Clock className="w-3 h-3" />
+                            {task.daysBeforeShow}d
+                            {production?.loadIn && (
+                              <span className="ml-1 text-xs">({calculateDueDate(task.daysBeforeShow)})</span>
+                            )}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <Badge variant="warning">{task.daysBeforeShow} days</Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-av-text-muted text-center py-4">
@@ -151,12 +262,14 @@ export const Dashboard: React.FC = () => {
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Sources by Type */}
+          {/* Sources */}
           <Card className="p-6">
-            <h3 className="text-lg font-display font-semibold text-av-text mb-4">
-              Sources by Type
+            <h3 className="text-lg font-semibold text-av-text mb-4">
+              Sources
             </h3>
-            <div className="space-y-3">
+            
+            {/* Sources by Type */}
+            <div className="space-y-3 mb-6">
               {Object.entries(sourcesByType).map(([type, count]) => (
                 <div key={type} className="flex items-center justify-between">
                   <span className="text-sm text-av-text-muted">{type}</span>
@@ -172,54 +285,52 @@ export const Dashboard: React.FC = () => {
                 </div>
               ))}
             </div>
-          </Card>
 
-          {/* Signal Types */}
-          <Card className="p-6">
-            <h3 className="text-lg font-display font-semibold text-av-text mb-4">
-              Signal Types
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {['HDMI', 'SDI', 'DP', 'FIBER'].map(connector => {
-                const count = sources.filter(s => s.outputs?.some(o => o.connector === connector)).length;
-                return (
-                  <div key={connector} className="flex items-center gap-2">
-                    <ConnectorBadge connector={connector} />
-                    <span className="text-sm text-av-text-muted">×{count}</span>
-                  </div>
-                );
-              })}
+            {/* Signal Types */}
+            <div className="border-t border-av-border pt-4">
+              <h4 className="text-sm font-medium text-av-text-muted mb-3">Signal Types</h4>
+              <div className="flex flex-wrap gap-2">
+                {['HDMI', 'SDI', 'DP', 'FIBER'].map(connector => {
+                  const count = sources.filter(s => s.outputs?.some(o => o.connector === connector)).length;
+                  return (
+                    <div key={connector} className="flex items-center gap-2">
+                      <ConnectorBadge connector={connector} />
+                      <span className="text-sm text-av-text-muted">×{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </Card>
 
           {/* LED Screen Info */}
           {ledScreens[0] && (
             <Card className="p-6">
-              <h3 className="text-lg font-display font-semibold text-av-text mb-4">
+              <h3 className="text-lg font-semibold text-av-text mb-4">
                 Main LED Screen
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-av-text-muted">Resolution</span>
-                  <span className="font-mono text-av-text">
+                  <span className="text-av-text">
                     {formatResolution(ledScreens[0].pixels.width, ledScreens[0].pixels.height)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-av-text-muted">Total Pixels</span>
-                  <span className="font-mono text-av-text">
+                  <span className="text-av-text">
                     {ledScreens[0].totalPixels.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-av-text-muted">Tile Model</span>
-                  <span className="font-mono text-av-text text-right text-xs">
+                  <span className="text-av-text text-right text-xs">
                     {ledScreens[0].tileModel}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-av-text-muted">Modules</span>
-                  <span className="font-mono text-av-text">
+                  <span className="text-av-text">
                     {ledScreens[0].totalModules.full} full
                   </span>
                 </div>
@@ -231,7 +342,7 @@ export const Dashboard: React.FC = () => {
           <Card className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <Activity className="w-5 h-5 text-av-accent" />
-              <h3 className="text-lg font-display font-semibold text-av-text">
+              <h3 className="text-lg font-semibold text-av-text">
                 System Status
               </h3>
             </div>

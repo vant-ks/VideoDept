@@ -43,6 +43,10 @@ export function SourceFormModal({
   const connectorTypes = useProductionStore(state => state.connectorTypes) || [];
   const sourceTypes = useProductionStore(state => state.sourceTypes) || [];
   const sends = useProductionStore(state => state.sends);
+  const equipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  
+  // Filter equipment that can be used as secondary devices
+  const secondaryDeviceOptions = equipmentSpecs.filter(spec => spec.isSecondaryDevice);
   
   // Get default type from sourceTypes array (fallback to 'Laptop' if empty)
   const defaultType = (sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop') as SourceType;
@@ -447,10 +451,17 @@ export function SourceFormModal({
                 className="input-field w-full"
               >
                 <option value="">None</option>
-                {connectorTypes.map((device: string) => (
-                  <option key={device} value={device}>{device}</option>
+                {secondaryDeviceOptions.map((equipment) => (
+                  <option key={equipment.id} value={`${equipment.manufacturer} ${equipment.model}`}>
+                    {equipment.manufacturer} {equipment.model} ({equipment.category})
+                  </option>
                 ))}
               </select>
+              {secondaryDeviceOptions.length === 0 && (
+                <p className="text-xs text-av-text-muted mt-1">
+                  No equipment marked as secondary device. Add equipment in the Equipment page and check "Available as Secondary Device".
+                </p>
+              )}
             </div>
           </div>
 

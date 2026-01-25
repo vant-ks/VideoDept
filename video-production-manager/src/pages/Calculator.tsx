@@ -40,7 +40,7 @@ export const ScalingCalculator: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-display font-bold text-av-text">Scaling Calculator</h2>
+        <h2 className="text-xl font-bold text-av-text">Scaling Calculator</h2>
         <p className="text-sm text-av-text-muted">
           Calculate resolution scaling, pixel-to-inch conversions, and more
         </p>
@@ -74,7 +74,7 @@ export const ScalingCalculator: React.FC = () => {
         <Card className="p-6 lg:col-span-2">
           <div className="flex items-center gap-2 mb-6">
             <Calculator className="w-5 h-5 text-av-accent" />
-            <h3 className="text-lg font-display font-semibold text-av-text">Resolution Scaling</h3>
+            <h3 className="text-lg font-semibold text-av-text">Resolution Scaling</h3>
           </div>
 
           <div className="flex flex-col md:flex-row items-center gap-6">
@@ -174,7 +174,7 @@ export const ScalingCalculator: React.FC = () => {
 
         {/* Pixel to Inches */}
         <Card className="p-6">
-          <h3 className="text-lg font-display font-semibold text-av-text mb-4">
+          <h3 className="text-lg font-semibold text-av-text mb-4">
             Pixel ↔ Inches
           </h3>
           
@@ -216,7 +216,7 @@ export const ScalingCalculator: React.FC = () => {
 
       {/* LED Pixel Pitch Calculator */}
       <Card className="p-6">
-        <h3 className="text-lg font-display font-semibold text-av-text mb-4">
+        <h3 className="text-lg font-semibold text-av-text mb-4">
           LED Pixel Pitch Reference
         </h3>
         <div className="overflow-x-auto">

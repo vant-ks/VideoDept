@@ -2,6 +2,22 @@
 
 export * from './mediaServer';
 
+export interface TimestampedEntry {
+  id: string;
+  text: string;
+  timestamp: number;
+  type: 'info' | 'completion';
+}
+
+export interface Location {
+  venueName: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state: string;
+  zipCode: string;
+}
+
 export interface Production {
   id: string;
   client: string;
@@ -11,6 +27,12 @@ export interface Production {
   loadIn: string;
   loadOut: string;
   showInfoUrl?: string;
+  // New fields for v2 architecture
+  loadinDate?: string;
+  showStartDate?: string;
+  showEndDate?: string;
+  loadoutDate?: string;
+  location?: Location;
 }
 
 export interface Source {
@@ -96,6 +118,9 @@ export interface EquipmentSpec {
   deviceFormats?: string[]; // Formats supported by the device
   formatByIO?: boolean; // true = format per I/O, false = device-wide format
   
+  // Secondary Device Designation
+  isSecondaryDevice?: boolean; // Can this equipment be used as a secondary device (converter, scaler, etc.)
+  
   // Legacy support for CCU migration
   specs?: Record<string, any>; // Additional specifications
 }
@@ -118,6 +143,17 @@ export interface Camera {
   // CCU connection
   ccuId?: string; // Connected CCU ID
   smpteCableLength?: number; // SMPTE Fiber cable length in feet/meters
+  note?: string;
+}
+
+export interface Computer {
+  id: string;
+  name: string;
+  type?: 'playback' | 'graphics' | 'control' | 'media-server' | 'other';
+  os?: string;
+  specs?: string;
+  ipAddress?: string;
+  connectedTo?: string;
   note?: string;
 }
 
@@ -319,8 +355,12 @@ export interface ChecklistItem {
   id: string;
   category: ChecklistCategory;
   item: string;
+  moreInfo?: TimestampedEntry[];  // Array of timestamped notes
+  completionNote?: TimestampedEntry[];  // Array of timestamped completion notes
+  assignedTo?: string;  // For future email/calendar/slack integration
   dueDate?: string;
   completionDate?: string;
+  completedAt?: number;  // Timestamp of completion
   completed: boolean;
   answer?: string;
   reference?: string;
@@ -403,4 +443,49 @@ export interface AppState {
   checklists: ChecklistItem[];
   cableSnakes: CableSnake[];
   presets: Preset[];
+}
+
+// Project File Format (.vdpx)
+
+export interface VideoDepProject {
+  // Metadata
+  version: string;  // Format version (e.g., "1.0.0")
+  created: number;  // Timestamp
+  modified: number; // Timestamp
+  
+  // Production Info
+  production: Production;
+  
+  // Show-specific Resources
+  sources: Source[];
+  sends: Send[];
+  checklist: ChecklistItem[];
+  ledScreens: LEDScreen[];
+  projectionScreens: ProjectionScreen[];
+  computers: Computer[];
+  ccus: CCU[];
+  cameras: Camera[];
+  mediaServers: any[]; // TODO: Import MediaServer type
+  mediaServerLayers: any[]; // TODO: Import MediaServerLayer type
+  videoSwitchers: VideoSwitcher[];
+  routers: Router[];
+  serverAllocations: ServerAllocation[];
+  ipAddresses: IPAddress[];
+  cableSnakes: CableSnake[];
+  presets: Preset[];
+  
+  // Equipment References (IDs only, specs come from library)
+  usedEquipmentIds: string[];
+}
+
+// Change Tracking (for sync)
+
+export interface ChangeRecord {
+  id: string;
+  timestamp: number;
+  userId?: string; // Optional for future multi-user
+  action: 'create' | 'update' | 'delete';
+  entityType: string; // e.g., 'source', 'send', 'checklist'
+  entityId: string;
+  changes: any; // Delta of what changed
 }

@@ -2,30 +2,44 @@ import React, { useState } from 'react';
 import { Plus, X, Moon, Sun, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
+import { usePreferencesStore } from '@/hooks/usePreferencesStore';
+import { ServerConnection } from '@/components/ServerConnection';
 
 export default function Settings() {
-  const { 
-    connectorTypes,
-    addConnectorType,
-    removeConnectorType,
-    reorderConnectorTypes,
-    sourceTypes,
-    addSourceType,
-    removeSourceType,
-    reorderSourceTypes,
-    frameRates,
-    addFrameRate,
-    removeFrameRate,
-    reorderFrameRates,
-    resolutions,
-    addResolution,
-    removeResolution,
-    reorderResolutions,
-    theme,
-    setTheme,
-    accentColor,
-    setAccentColor
-  } = useProductionStore();
+  // Use new stores
+  const equipmentLibrary = useEquipmentLibrary();
+  const preferences = usePreferencesStore();
+  
+  // Fallback to old store for backward compatibility
+  const oldStore = useProductionStore();
+  
+  const connectorTypes = equipmentLibrary.connectorTypes.length > 0 ? equipmentLibrary.connectorTypes : oldStore.connectorTypes;
+  const addConnectorType = equipmentLibrary.addConnectorType || oldStore.addConnectorType;
+  const removeConnectorType = equipmentLibrary.removeConnectorType || oldStore.removeConnectorType;
+  const reorderConnectorTypes = equipmentLibrary.reorderConnectorTypes || oldStore.reorderConnectorTypes;
+  
+  const sourceTypes = equipmentLibrary.sourceTypes.length > 0 ? equipmentLibrary.sourceTypes : oldStore.sourceTypes;
+  const addSourceType = equipmentLibrary.addSourceType || oldStore.addSourceType;
+  const removeSourceType = equipmentLibrary.removeSourceType || oldStore.removeSourceType;
+  const reorderSourceTypes = equipmentLibrary.reorderSourceTypes || oldStore.reorderSourceTypes;
+  
+  const frameRates = equipmentLibrary.frameRates.length > 0 ? equipmentLibrary.frameRates : oldStore.frameRates;
+  const addFrameRate = equipmentLibrary.addFrameRate || oldStore.addFrameRate;
+  const removeFrameRate = equipmentLibrary.removeFrameRate || oldStore.removeFrameRate;
+  const reorderFrameRates = equipmentLibrary.reorderFrameRates || oldStore.reorderFrameRates;
+  
+  const resolutions = equipmentLibrary.resolutions.length > 0 ? equipmentLibrary.resolutions : oldStore.resolutions;
+  const addResolution = equipmentLibrary.addResolution || oldStore.addResolution;
+  const removeResolution = equipmentLibrary.removeResolution || oldStore.removeResolution;
+  const reorderResolutions = equipmentLibrary.reorderResolutions || oldStore.reorderResolutions;
+  
+  const theme = preferences.theme || oldStore.theme;
+  const setTheme = preferences.setTheme || oldStore.setTheme;
+  const accentColor = preferences.accentColor || oldStore.accentColor;
+  const setAccentColor = preferences.setAccentColor || oldStore.setAccentColor;
+  const userRole = preferences.userRole || 'operator';
+  const setUserRole = preferences.setUserRole;
   
   const [newConnector, setNewConnector] = useState('');
   const [connectorError, setConnectorError] = useState('');
@@ -44,10 +58,12 @@ export default function Settings() {
   const [draggedFrameRateIndex, setDraggedFrameRateIndex] = useState<number | null>(null);
   const [draggedResolutionIndex, setDraggedResolutionIndex] = useState<number | null>(null);
   
-  // Load expanded sections from localStorage or default to empty (all collapsed)
+  const [serverStatusElement, setServerStatusElement] = useState<JSX.Element | null>(null);
+  
+  // Load expanded sections from localStorage or default to all sections expanded
   const [expandedSections, setExpandedSections] = useState<string[]>(() => {
     const saved = localStorage.getItem('settings-expanded-sections');
-    return saved ? JSON.parse(saved) : [];
+    return saved ? JSON.parse(saved) : ['types', 'connectors', 'framerates', 'resolutions'];
   });
   
   const toggleSection = (sectionId: string) => {
@@ -249,20 +265,53 @@ export default function Settings() {
 
   const accentColors = [
     { name: 'Blue', value: '#3b82f6' },
-    { name: 'Purple', value: '#a855f7' },
-    { name: 'Pink', value: '#ec4899' },
-    { name: 'Orange', value: '#f97316' },
-    { name: 'Teal', value: '#14b8a6' },
     { name: 'Green', value: '#22c55e' },
+    { name: 'Cyan', value: '#06b6d4' },
+    { name: 'White', value: '#ffffff' },
+    { name: 'Magenta', value: '#ec4899' },
+    { name: 'Yellow', value: '#eab308' },
+    { name: 'Orange', value: '#f97316' },
+    { name: 'Red', value: '#ef4444' },
   ];
+
+  const [customColorMode, setCustomColorMode] = useState<'hex' | 'rgb'>('hex');
+  const [customHex, setCustomHex] = useState(accentColor);
+  const [customRgb, setCustomRgb] = useState({ r: 59, g: 130, b: 246 });
+
+  // Permission helper - only admin and manager can edit equipment settings
+  const canEditEquipmentSettings = userRole === 'admin' || userRole === 'manager';
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-av-text mb-2">Settings</h1>
-        <p className="text-av-text-muted">Manage application preferences and options</p>
       </div>
+
+      {/* User Role Selector */}
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold text-av-text mb-4">User Role</h2>
+        <div className="flex gap-3">
+          {(['admin', 'manager', 'operator'] as const).map((role) => (
+            <button
+              key={role}
+              onClick={() => setUserRole && setUserRole(role)}
+              className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all ${
+                userRole === role
+                  ? 'border-av-accent bg-av-accent/10 text-av-accent'
+                  : 'border-av-border text-av-text hover:border-av-accent/50'
+              }`}
+            >
+              <span className="text-sm font-medium capitalize">{role}</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-av-text-muted mt-3">
+          {userRole === 'admin' && 'Full access to all settings and configurations'}
+          {userRole === 'manager' && 'Can edit equipment settings and manage system defaults'}
+          {userRole === 'operator' && 'Read-only access to settings'}
+        </p>
+      </Card>
 
       {/* General Settings Section */}
       <Card className="p-6">
@@ -278,7 +327,199 @@ export default function Settings() {
           )}
         </button>
         {expandedSections.includes('general') && (
-          <p className="text-sm text-av-text-muted">Coming soon...</p>
+          <div className="mt-6 space-y-8">
+            {/* Server Connection Subsection */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-av-text">Server Connection</h3>
+                {serverStatusElement}
+              </div>
+              <ServerConnection 
+                onConnect={() => {
+                  // Trigger sync after connection
+                  const store = useProductionStore.getState();
+                  store.syncWithServer();
+                }}
+                renderStatus={(element) => setServerStatusElement(element)}
+              />
+            </div>
+
+            <div className="border-t border-av-border" />
+
+            {/* Display Preferences Subsection */}
+            <div>
+              <h3 className="text-lg font-semibold text-av-text mb-4">Display Preferences</h3>
+              
+              <div className="flex gap-6">
+                {/* Left 1/3: Theme and Custom Color Chooser */}
+                <div className="w-1/3 space-y-6">
+                  {/* Theme Section */}
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-3">
+                      Theme
+                    </label>
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={() => setTheme('light')}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          theme === 'light' 
+                            ? 'border-av-accent bg-av-accent/10' 
+                            : 'border-av-border hover:border-av-accent/50'
+                        }`}
+                      >
+                        <Sun className="w-5 h-5 mx-auto mb-2" />
+                        <span className="text-sm font-medium">Light</span>
+                      </button>
+                      <button
+                        onClick={() => setTheme('dark')}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          theme === 'dark' 
+                            ? 'border-av-accent bg-av-accent/10' 
+                            : 'border-av-border hover:border-av-accent/50'
+                        }`}
+                      >
+                        <Moon className="w-5 h-5 mx-auto mb-2" />
+                        <span className="text-sm font-medium">Dark</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Custom Color Chooser */}
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-3">
+                      Custom Color Chooser
+                    </label>
+                    <div className="space-y-3">
+                      {/* Mode Toggle */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCustomColorMode('hex')}
+                          className={`flex-1 px-3 py-2 text-sm rounded border transition-all ${
+                            customColorMode === 'hex'
+                              ? 'bg-av-accent text-white border-av-accent'
+                              : 'border-av-border text-av-text hover:border-av-accent/50'
+                          }`}
+                        >
+                          HEX
+                        </button>
+                        <button
+                          onClick={() => setCustomColorMode('rgb')}
+                          className={`flex-1 px-3 py-2 text-sm rounded border transition-all ${
+                            customColorMode === 'rgb'
+                              ? 'bg-av-accent text-white border-av-accent'
+                              : 'border-av-border text-av-text hover:border-av-accent/50'
+                          }`}
+                        >
+                          RGB
+                        </button>
+                      </div>
+
+                      {/* Color Input */}
+                      {customColorMode === 'hex' ? (
+                        <input
+                          type="text"
+                          value={customHex}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setCustomHex(value);
+                            if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                              setAccentColor(value);
+                            }
+                          }}
+                          placeholder="#3b82f6"
+                          className="input-field w-full"
+                        />
+                      ) : (
+                        <div className="space-y-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="255"
+                            value={customRgb.r}
+                            onChange={(e) => {
+                              const r = parseInt(e.target.value) || 0;
+                              setCustomRgb({ ...customRgb, r });
+                              const hex = `#${r.toString(16).padStart(2, '0')}${customRgb.g.toString(16).padStart(2, '0')}${customRgb.b.toString(16).padStart(2, '0')}`;
+                              setAccentColor(hex);
+                              setCustomHex(hex);
+                            }}
+                            placeholder="R (0-255)"
+                            className="input-field w-full"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            max="255"
+                            value={customRgb.g}
+                            onChange={(e) => {
+                              const g = parseInt(e.target.value) || 0;
+                              setCustomRgb({ ...customRgb, g });
+                              const hex = `#${customRgb.r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${customRgb.b.toString(16).padStart(2, '0')}`;
+                              setAccentColor(hex);
+                              setCustomHex(hex);
+                            }}
+                            placeholder="G (0-255)"
+                            className="input-field w-full"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            max="255"
+                            value={customRgb.b}
+                            onChange={(e) => {
+                              const b = parseInt(e.target.value) || 0;
+                              setCustomRgb({ ...customRgb, b });
+                              const hex = `#${customRgb.r.toString(16).padStart(2, '0')}${customRgb.g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+                              setAccentColor(hex);
+                              setCustomHex(hex);
+                            }}
+                            placeholder="B (0-255)"
+                            className="input-field w-full"
+                          />
+                        </div>
+                      )}
+
+                      {/* Color Preview Swatch */}
+                      <div 
+                        className="w-full h-16 rounded-lg border-2 border-av-border"
+                        style={{ backgroundColor: accentColor }}
+                        title="Current color preview"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right 2/3: Color Quick Selects */}
+                <div className="w-2/3">
+                  <label className="block text-sm font-medium text-av-text mb-3">
+                    Accent Color Quick Select
+                  </label>
+                  <div className="grid grid-cols-4 gap-4">
+                    {accentColors.map((color) => (
+                      <button
+                        key={color.value}
+                        onClick={() => {
+                          setAccentColor(color.value);
+                          setCustomHex(color.value);
+                        }}
+                        className={`relative aspect-square rounded-lg border-4 transition-all hover:scale-95 ${
+                          accentColor === color.value 
+                            ? 'border-av-text' 
+                            : 'border-av-border'
+                        }`}
+                        style={{ backgroundColor: color.value }}
+                        title={color.name}
+                      >
+                        <span className="absolute bottom-1 left-0 right-0 text-center text-xs font-medium bg-black/50 text-white rounded px-1 py-0.5 mx-2">
+                          {color.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </Card>
 
@@ -288,7 +529,12 @@ export default function Settings() {
           onClick={() => toggleSection('types')}
           className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
         >
-          <h2 className="text-xl font-semibold text-av-text">Source Types</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold text-av-text">Source Types</h2>
+            {!canEditEquipmentSettings && (
+              <span className="text-xs text-av-warning px-2 py-1 bg-av-warning/10 rounded">Read-only</span>
+            )}
+          </div>
           {expandedSections.includes('types') ? (
             <ChevronDown className="w-5 h-5 text-av-text-muted" />
           ) : (
@@ -298,39 +544,37 @@ export default function Settings() {
         
         {expandedSections.includes('types') && (
           <>
-            <p className="text-sm text-av-text-muted mb-6">
-              Manage the list of source types available when creating computer sources
-            </p>
-
             {/* Add Source Type Form */}
-            <form onSubmit={handleAddSourceType} className="mb-6">
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={newSourceType}
-                    onChange={(e) => {
-                      setNewSourceType(e.target.value);
-                      setTypeError('');
-                    }}
-                    placeholder="Enter source type (e.g., Laptop, Camera)"
-                    className="input-field w-full"
-                  />
-                  {typeError && (
-                    <p className="text-sm text-av-danger mt-1">{typeError}</p>
-                  )}
+            {canEditEquipmentSettings && (
+              <form onSubmit={handleAddSourceType} className="mb-6">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={newSourceType}
+                      onChange={(e) => {
+                        setNewSourceType(e.target.value);
+                        setTypeError('');
+                      }}
+                      placeholder="Enter source type (e.g., Laptop, Camera)"
+                      className="input-field w-full"
+                    />
+                    {typeError && (
+                      <p className="text-sm text-av-danger mt-1">{typeError}</p>
+                    )}
+                  </div>
+                  <button type="submit" className="btn-primary flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Type
+                  </button>
                 </div>
-                <button type="submit" className="btn-primary flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Type
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
 
             {/* Source Type List */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-av-text-muted mb-3">
-                Active Types ({sourceTypes.length}) - Drag to reorder
+                Active Types ({sourceTypes.length}){canEditEquipmentSettings && ' - Drag to reorder'}
               </h3>
               {sourceTypes.length === 0 ? (
                 <div className="text-center py-8 text-av-text-muted">
@@ -341,21 +585,23 @@ export default function Settings() {
                   {sourceTypes.map((type, index) => (
                     <div
                       key={type}
-                      draggable
-                      onDragStart={() => handleTypeDragStart(index)}
-                      onDragOver={(e) => handleTypeDragOver(e, index)}
-                      onDragEnd={handleTypeDragEnd}
-                      className="flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border transition-colors hover:border-av-accent/30 cursor-move"
+                      draggable={canEditEquipmentSettings}
+                      onDragStart={() => canEditEquipmentSettings && handleTypeDragStart(index)}
+                      onDragOver={(e) => canEditEquipmentSettings && handleTypeDragOver(e, index)}
+                      onDragEnd={canEditEquipmentSettings ? handleTypeDragEnd : undefined}
+                      className={`flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border transition-colors hover:border-av-accent/30 ${canEditEquipmentSettings ? 'cursor-move' : ''}`}
                     >
-                      <GripVertical className="w-4 h-4 text-av-text-muted" />
+                      {canEditEquipmentSettings && <GripVertical className="w-4 h-4 text-av-text-muted" />}
                       <span className="text-av-text flex-1">{type}</span>
-                      <button
-                        onClick={() => handleRemoveSourceType(type)}
-                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors"
-                        title="Delete type"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      {canEditEquipmentSettings && (
+                        <button
+                          onClick={() => handleRemoveSourceType(type)}
+                          className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors"
+                          title="Delete type"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -371,7 +617,12 @@ export default function Settings() {
           onClick={() => toggleSection('connectors')}
           className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
         >
-          <h2 className="text-xl font-semibold text-av-text">Connector Types</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold text-av-text">Connector Types</h2>
+            {!canEditEquipmentSettings && (
+              <span className="text-xs text-av-warning px-2 py-1 bg-av-warning/10 rounded">Read-only</span>
+            )}
+          </div>
           {expandedSections.includes('connectors') ? (
             <ChevronDown className="w-5 h-5 text-av-text-muted" />
           ) : (
@@ -381,12 +632,9 @@ export default function Settings() {
         
         {expandedSections.includes('connectors') && (
           <>
-            <p className="text-sm text-av-text-muted mb-6">
-              Manage the list of connector types available for equipment and sources
-            </p>
-
             {/* Add Connector Form */}
-            <form onSubmit={handleAddDevice} className="mb-6">
+            {canEditEquipmentSettings && (
+              <form onSubmit={handleAddDevice} className="mb-6">
               <div className="flex gap-3">
                 <div className="flex-1">
                   <input
@@ -409,11 +657,12 @@ export default function Settings() {
                 </button>
               </div>
             </form>
+            )
 
             {/* Connector List */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-av-text-muted mb-3">
-                Active Connectors ({connectorTypes.length}) - Drag to reorder
+                Active Connectors ({connectorTypes.length}){canEditEquipmentSettings && ' - Drag to reorder'}
               </h3>
               {connectorTypes.length === 0 ? (
                 <div className="text-center py-8 text-av-text-muted">
@@ -424,21 +673,23 @@ export default function Settings() {
                   {connectorTypes.map((connector, index) => (
                     <div
                       key={connector}
-                      draggable
-                      onDragStart={() => handleConnectorDragStart(index)}
-                      onDragOver={(e) => handleConnectorDragOver(e, index)}
-                      onDragEnd={handleConnectorDragEnd}
-                      className="flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border transition-colors hover:border-av-accent/30 cursor-move"
+                      draggable={canEditEquipmentSettings}
+                      onDragStart={() => canEditEquipmentSettings && handleConnectorDragStart(index)}
+                      onDragOver={(e) => canEditEquipmentSettings && handleConnectorDragOver(e, index)}
+                      onDragEnd={canEditEquipmentSettings ? handleConnectorDragEnd : undefined}
+                      className={`flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border transition-colors hover:border-av-accent/30 ${canEditEquipmentSettings ? 'cursor-move' : ''}`}
                     >
-                      <GripVertical className="w-4 h-4 text-av-text-muted" />
+                      {canEditEquipmentSettings && <GripVertical className="w-4 h-4 text-av-text-muted" />}
                       <span className="text-av-text flex-1">{connector}</span>
-                      <button
-                        onClick={() => handleRemoveDevice(connector)}
-                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors"
-                        title="Delete connector"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      {canEditEquipmentSettings && (
+                        <button
+                          onClick={() => handleRemoveDevice(connector)}
+                          className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors"
+                          title="Delete connector"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -454,7 +705,12 @@ export default function Settings() {
           onClick={() => toggleSection('framerates')}
           className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
         >
-          <h2 className="text-xl font-semibold text-av-text">Frame Rates</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold text-av-text">Frame Rates</h2>
+            {!canEditEquipmentSettings && (
+              <span className="text-xs text-av-warning px-2 py-1 bg-av-warning/10 rounded">Read-only</span>
+            )}
+          </div>
           {expandedSections.includes('framerates') ? (
             <ChevronDown className="w-5 h-5 text-av-text-muted" />
           ) : (
@@ -464,39 +720,37 @@ export default function Settings() {
         
         {expandedSections.includes('framerates') && (
           <>
-            <p className="text-sm text-av-text-muted mb-6">
-              Manage the list of frame rates available throughout the application
-            </p>
-
             {/* Add Frame Rate Form */}
-            <form onSubmit={handleAddFrameRate} className="mb-6">
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={newFrameRate}
-                    onChange={(e) => {
-                      setNewFrameRate(e.target.value);
-                      setFrameRateError('');
-                    }}
-                    placeholder="Enter frame rate (e.g., 60, 59.94, 23.98)"
-                    className="input-field w-full"
-                  />
-                  {frameRateError && (
-                    <p className="text-sm text-av-danger mt-1">{frameRateError}</p>
-                  )}
+            {canEditEquipmentSettings && (
+              <form onSubmit={handleAddFrameRate} className="mb-6">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={newFrameRate}
+                      onChange={(e) => {
+                        setNewFrameRate(e.target.value);
+                        setFrameRateError('');
+                      }}
+                      placeholder="Enter frame rate (e.g., 60, 59.94, 23.98)"
+                      className="input-field w-full"
+                    />
+                    {frameRateError && (
+                      <p className="text-sm text-av-danger mt-1">{frameRateError}</p>
+                    )}
+                  </div>
+                  <button type="submit" className="btn-primary flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Rate
+                  </button>
                 </div>
-                <button type="submit" className="btn-primary flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Rate
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
 
             {/* Frame Rate List */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-av-text-muted mb-3">
-                Active Frame Rates ({frameRates.length}) - Drag to reorder
+                Active Frame Rates ({frameRates.length}){canEditEquipmentSettings && ' - Drag to reorder'}
               </h3>
               {frameRates.length === 0 ? (
                 <div className="text-center py-8 text-av-text-muted">
@@ -507,21 +761,23 @@ export default function Settings() {
                   {frameRates.map((rate, index) => (
                     <div
                       key={rate}
-                      draggable
-                      onDragStart={() => handleFrameRateDragStart(index)}
-                      onDragOver={(e) => handleFrameRateDragOver(e, index)}
-                      onDragEnd={handleFrameRateDragEnd}
-                      className="flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border transition-colors hover:border-av-accent/30 cursor-move"
+                      draggable={canEditEquipmentSettings}
+                      onDragStart={() => canEditEquipmentSettings && handleFrameRateDragStart(index)}
+                      onDragOver={(e) => canEditEquipmentSettings && handleFrameRateDragOver(e, index)}
+                      onDragEnd={canEditEquipmentSettings ? handleFrameRateDragEnd : undefined}
+                      className={`flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border transition-colors hover:border-av-accent/30 ${canEditEquipmentSettings ? 'cursor-move' : ''}`}
                     >
-                      <GripVertical className="w-4 h-4 text-av-text-muted" />
+                      {canEditEquipmentSettings && <GripVertical className="w-4 h-4 text-av-text-muted" />}
                       <span className="text-av-text flex-1">{rate}</span>
-                      <button
-                        onClick={() => handleRemoveFrameRate(rate)}
-                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors"
-                        title="Delete frame rate"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      {canEditEquipmentSettings && (
+                        <button
+                          onClick={() => handleRemoveFrameRate(rate)}
+                          className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors"
+                          title="Delete frame rate"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -537,7 +793,12 @@ export default function Settings() {
           onClick={() => toggleSection('resolutions')}
           className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
         >
-          <h2 className="text-xl font-semibold text-av-text">Resolutions</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold text-av-text">Resolutions</h2>
+            {!canEditEquipmentSettings && (
+              <span className="text-xs text-av-warning px-2 py-1 bg-av-warning/10 rounded">Read-only</span>
+            )}
+          </div>
           {expandedSections.includes('resolutions') ? (
             <ChevronDown className="w-5 h-5 text-av-text-muted" />
           ) : (
@@ -547,39 +808,37 @@ export default function Settings() {
         
         {expandedSections.includes('resolutions') && (
           <>
-            <p className="text-sm text-av-text-muted mb-6">
-              Manage the list of resolutions available throughout the application
-            </p>
-
             {/* Add Resolution Form */}
-            <form onSubmit={handleAddResolution} className="mb-6">
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={newResolution}
-                    onChange={(e) => {
-                      setNewResolution(e.target.value);
-                      setResolutionError('');
-                    }}
-                    placeholder="Enter resolution (e.g., 1080p, 4K, 720p)"
-                    className="input-field w-full"
-                  />
-                  {resolutionError && (
-                    <p className="text-sm text-av-danger mt-1">{resolutionError}</p>
-                  )}
+            {canEditEquipmentSettings && (
+              <form onSubmit={handleAddResolution} className="mb-6">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={newResolution}
+                      onChange={(e) => {
+                        setNewResolution(e.target.value);
+                        setResolutionError('');
+                      }}
+                      placeholder="Enter resolution (e.g., 1080p, 4K, 720p)"
+                      className="input-field w-full"
+                    />
+                    {resolutionError && (
+                      <p className="text-sm text-av-danger mt-1">{resolutionError}</p>
+                    )}
+                  </div>
+                  <button type="submit" className="btn-primary flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Resolution
+                  </button>
                 </div>
-                <button type="submit" className="btn-primary flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Resolution
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
 
             {/* Resolution List */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-av-text-muted mb-3">
-                Active Resolutions ({resolutions.length}) - Drag to reorder
+                Active Resolutions ({resolutions.length}){canEditEquipmentSettings && ' - Drag to reorder'}
               </h3>
               {resolutions.length === 0 ? (
                 <div className="text-center py-8 text-av-text-muted">
@@ -590,101 +849,29 @@ export default function Settings() {
                   {resolutions.map((resolution, index) => (
                     <div
                       key={resolution}
-                      draggable
-                      onDragStart={() => handleResolutionDragStart(index)}
-                      onDragOver={(e) => handleResolutionDragOver(e, index)}
-                      onDragEnd={handleResolutionDragEnd}
-                      className="flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border transition-colors hover:border-av-accent/30 cursor-move"
+                      draggable={canEditEquipmentSettings}
+                      onDragStart={() => canEditEquipmentSettings && handleResolutionDragStart(index)}
+                      onDragOver={(e) => canEditEquipmentSettings && handleResolutionDragOver(e, index)}
+                      onDragEnd={canEditEquipmentSettings ? handleResolutionDragEnd : undefined}
+                      className={`flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border transition-colors hover:border-av-accent/30 ${canEditEquipmentSettings ? 'cursor-move' : ''}`}
                     >
-                      <GripVertical className="w-4 h-4 text-av-text-muted" />
+                      {canEditEquipmentSettings && <GripVertical className="w-4 h-4 text-av-text-muted" />}
                       <span className="text-av-text flex-1">{resolution}</span>
-                      <button
-                        onClick={() => handleRemoveResolution(resolution)}
-                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors"
-                        title="Delete resolution"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      {canEditEquipmentSettings && (
+                        <button
+                          onClick={() => handleRemoveResolution(resolution)}
+                          className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors"
+                          title="Delete resolution"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
           </>
-        )}
-      </Card>
-
-      {/* Display Preferences Section */}
-      <Card className="p-6">
-        <button 
-          onClick={() => toggleSection('display')}
-          className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
-        >
-          <h2 className="text-xl font-semibold text-av-text">Display Preferences</h2>
-          {expandedSections.includes('display') ? (
-            <ChevronDown className="w-5 h-5 text-av-text-muted" />
-          ) : (
-            <ChevronRight className="w-5 h-5 text-av-text-muted" />
-          )}
-        </button>
-        
-        {expandedSections.includes('display') && (
-          <div className="space-y-6">
-            {/* Theme Toggle */}
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-3">
-                Theme
-              </label>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setTheme('dark')}
-                  className={`flex-1 p-4 rounded-lg border-2 transition-all ${
-                    theme === 'dark' 
-                      ? 'border-av-accent bg-av-accent/10' 
-                      : 'border-av-border hover:border-av-accent/50'
-                  }`}
-                >
-                  <Moon className="w-5 h-5 mx-auto mb-2" />
-                  <span className="text-sm font-medium">Dark</span>
-                </button>
-                <button
-                  onClick={() => setTheme('light')}
-                  className={`flex-1 p-4 rounded-lg border-2 transition-all ${
-                    theme === 'light' 
-                      ? 'border-av-accent bg-av-accent/10' 
-                      : 'border-av-border hover:border-av-accent/50'
-                  }`}
-                >
-                  <Sun className="w-5 h-5 mx-auto mb-2" />
-                  <span className="text-sm font-medium">Light</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Accent Color */}
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-3">
-                Accent Color
-              </label>
-              <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                {accentColors.map((color) => (
-                  <button
-                    key={color.value}
-                    onClick={() => setAccentColor(color.value)}
-                    className={`aspect-square rounded-lg border-4 transition-all ${
-                      accentColor === color.value 
-                        ? 'border-av-text scale-95' 
-                        : 'border-transparent hover:scale-95'
-                    }`}
-                    style={{ backgroundColor: color.value }}
-                    title={color.name}
-                  >
-                    <span className="sr-only">{color.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
         )}
       </Card>
     </div>

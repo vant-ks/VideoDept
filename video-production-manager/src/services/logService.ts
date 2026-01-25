@@ -6,7 +6,7 @@
 export interface LogEntry {
   id: string;
   timestamp: string;
-  category: 'settings' | 'equipment' | 'general';
+  category: 'settings' | 'equipment' | 'general' | 'debug';
   action: 'add' | 'update' | 'delete' | 'reorder';
   entityType: string;
   entityId?: string;
@@ -81,6 +81,47 @@ class LogService {
       entityName: equipmentName,
       details,
       changes,
+    });
+  }
+
+  /**
+   * Log general change (sources, sends, checklist, etc.)
+   */
+  static logGeneralChange(
+    action: 'add' | 'update' | 'delete' | 'reorder',
+    entityType: string,
+    entityName: string,
+    details: string,
+    entityId?: string,
+    changes?: { field: string; oldValue: any; newValue: any }[]
+  ): void {
+    this.log({
+      category: 'general',
+      action,
+      entityType,
+      entityId,
+      entityName,
+      details,
+      changes,
+    });
+  }
+
+  /**
+   * Log debug information
+   */
+  static logDebug(
+    entityType: string,
+    details: string,
+    entityName?: string,
+    entityId?: string
+  ): void {
+    this.log({
+      category: 'debug',
+      action: 'update',
+      entityType,
+      entityId,
+      entityName,
+      details,
     });
   }
 

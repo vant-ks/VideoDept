@@ -2,19 +2,25 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Copy, Monitor, Radio, Projector } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
 import { ProjectionScreenFormModal } from '@/components/ProjectionScreenFormModal';
 import { cn, formatResolution } from '@/utils/helpers';
 import type { Send, ProjectionScreen } from '@/types';
 
 export const Sends: React.FC = () => {
-  const { 
-    sends, 
-    projectionScreens,
-    addProjectionScreen,
-    updateProjectionScreen,
-    deleteProjectionScreen,
-    duplicateProjectionScreen
-  } = useProductionStore();
+  // Use new stores
+  const { activeProject } = useProjectStore();
+  
+  // Fallback to old store for backward compatibility
+  const oldStore = useProductionStore();
+  
+  const sends = activeProject?.sends || oldStore.sends;
+  const projectionScreens = activeProject?.projectionScreens || oldStore.projectionScreens;
+  const addProjectionScreen = oldStore.addProjectionScreen;
+  const updateProjectionScreen = oldStore.updateProjectionScreen;
+  const deleteProjectionScreen = oldStore.deleteProjectionScreen;
+  const duplicateProjectionScreen = oldStore.duplicateProjectionScreen;
+  
   const [activeTab, setActiveTab] = useState<'sends' | 'projection' | 'led'>('sends');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -101,8 +107,7 @@ export const Sends: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-av-text mb-2">Sends / Destinations</h1>
-          <p className="text-av-text-muted">Manage video outputs and destination devices</p>
+          <h1 className="text-3xl font-bold text-av-text">Sends / Destinations</h1>
         </div>
         <button onClick={handleAddNew} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
@@ -251,7 +256,7 @@ export const Sends: React.FC = () => {
                 }
               </p>
               {sends.length === 0 && (
-                <button onClick={handleAddNew} className="btn-primary">Add Send</button>
+                <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">Add Send</button>
               )}
             </Card>
           ) : (

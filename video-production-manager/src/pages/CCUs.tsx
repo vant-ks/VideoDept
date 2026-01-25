@@ -2,13 +2,22 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import type { CCU } from '@/types';
 
 export default function CCUs() {
-  const { ccus, addCCU, updateCCU, deleteCCU, equipmentSpecs } = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const equipmentLib = useEquipmentLibrary();
+  const oldStore = useProductionStore();
+  
+  const ccus = activeProject?.ccus || oldStore.ccus;
+  const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;
+  const addCCU = oldStore.addCCU;
+  const updateCCU = oldStore.updateCCU;
+  const deleteCCU = oldStore.deleteCCU;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCCU, setEditingCCU] = useState<CCU | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState<Partial<CCU>>({
     manufacturer: '',
     model: '',
@@ -50,18 +59,6 @@ export default function CCUs() {
     '4K 25',
     '4K 24'
   ];
-
-  const filteredCCUs = React.useMemo(() => {
-    return ccus.filter(ccu => {
-      const query = searchQuery.toLowerCase();
-      return (
-        ccu.id.toLowerCase().includes(query) ||
-        ccu.name.toLowerCase().includes(query) ||
-        ccu.manufacturer?.toLowerCase().includes(query) ||
-        ccu.model?.toLowerCase().includes(query)
-      );
-    });
-  }, [ccus, searchQuery]);
 
   const handleAddNew = () => {
     setFormData({ manufacturer: '', model: '', outputs: [] });
@@ -140,8 +137,7 @@ export default function CCUs() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-av-text">CCUs</h1>
-          <p className="text-av-text-muted">Manage Camera Control Units</p>
+          <h1 className="text-3xl font-bold text-av-textPrimary">CCUs</h1>
         </div>
         <button onClick={handleAddNew} className="btn-primary flex items-center gap-2">
           <Plus className="w-5 h-5" />
@@ -149,31 +145,18 @@ export default function CCUs() {
         </button>
       </div>
 
-      {/* Search */}
-      <Card className="p-4">
-        <input
-          type="text"
-          placeholder="Search CCUs..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="input-field w-full"
-        />
-      </Card>
-
       {/* CCUs List */}
-      {filteredCCUs.length === 0 ? (
+      {ccus.length === 0 ? (
         <Card className="p-12 text-center">
           <h3 className="text-lg font-semibold text-av-text mb-2">No CCUs Found</h3>
           <p className="text-av-text-muted mb-4">
-            {ccus.length === 0 ? 'Add your first CCU to get started' : 'No CCUs match your search'}
+            Add your first CCU to get started
           </p>
-          {ccus.length === 0 && (
-            <button onClick={handleAddNew} className="btn-primary">Add CCU</button>
-          )}
+          <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">Add CCU</button>
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredCCUs.map((ccu) => (
+          {ccus.map((ccu) => (
             <Card key={ccu.id} className="p-6 hover:border-av-accent/30 transition-colors">
               <div className="grid grid-cols-3 gap-6 items-center">
                 {/* Left 1/3: ID and Name */}

@@ -9,8 +9,7 @@ export default function Routers() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-av-text mb-2">Routers</h1>
-          <p className="text-av-text-muted">Manage video and signal routing matrices</p>
+          <h1 className="text-3xl font-bold text-av-text">Routers</h1>
         </div>
         <button className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />

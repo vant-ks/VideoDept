@@ -7,8 +7,7 @@ export default function Snakes() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-av-text mb-2">Snakes</h1>
-          <p className="text-av-text-muted">Manage cable snakes and signal routing</p>
+          <h1 className="text-3xl font-bold text-av-text">Snakes</h1>
         </div>
         <button className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />

@@ -1,0 +1,537 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// PRODUCTIONS
+// ============================================================================
+
+model Production {
+  id           String   @id @default(uuid())
+  client       String
+  showName     String   @map("show_name")
+  venue        String?
+  room         String?
+  loadIn       DateTime? @map("load_in")
+  loadOut      DateTime? @map("load_out")
+  showInfoUrl  String?  @map("show_info_url")
+  status       ProductionStatus @default(PLANNING)
+  
+  // Relationships
+  sources      Source[]
+  sends        Send[]
+  ccus         CCU[]
+  cameras      Camera[]
+  connections  Connection[]
+  ipAddresses  IPAddress[]
+  checklist    ChecklistItem[]
+  
+  // Sync metadata
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  syncedAt         DateTime? @map("synced_at")
+  lastModifiedBy   String? @map("last_modified_by")
+  version          Int @default(1)
+  isDeleted        Boolean @default(false) @map("is_deleted")
+  
+  @@map("productions")
+  @@index([status, isDeleted])
+}
+
+enum ProductionStatus {
+  PLANNING
+  READY
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+// ============================================================================
+// EQUIPMENT
+// ============================================================================
+
+model EquipmentSpec {
+  id                String   @id @default(uuid())
+  category          EquipmentCategory
+  manufacturer      String
+  model             String
+  ioArchitecture    IoArchitecture @map("io_architecture")
+  cardSlots         Int? @map("card_slots")
+  formatByIo        Boolean @default(true) @map("format_by_io")
+  isSecondaryDevice Boolean @default(false) @map("is_secondary_device")
+  deviceFormats     Json? @map("device_formats")
+  specs             Json?
+  
+  // Relationships
+  ioPorts           EquipmentIoPort[]
+  cards             EquipmentCard[]
+  
+  // Sync metadata
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  syncedAt         DateTime? @map("synced_at")
+  lastModifiedBy   String? @map("last_modified_by")
+  version          Int @default(1)
+  isDeleted        Boolean @default(false) @map("is_deleted")
+  
+  @@map("equipment_specs")
+  @@index([category, isDeleted])
+  @@index([isSecondaryDevice])
+}
+
+enum EquipmentCategory {
+  CAMERA
+  CCU
+  SWITCHER
+  ROUTER
+  LED_PROCESSOR
+  LED_TILE
+  PROJECTOR
+  RECORDER
+  MONITOR
+  CONVERTER
+}
+
+enum IoArchitecture {
+  DIRECT
+  CARD_BASED
+}
+
+model EquipmentIoPort {
+  id           String   @id @default(uuid())
+  equipmentId  String   @map("equipment_id")
+  equipment    EquipmentSpec @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  portType     PortType @map("port_type")
+  ioType       String   @map("io_type")
+  label        String?
+  format       String?
+  portIndex    Int?     @map("port_index")
+  
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  version      Int @default(1)
+  
+  @@map("equipment_io_ports")
+  @@index([equipmentId])
+}
+
+enum PortType {
+  INPUT
+  OUTPUT
+}
+
+model EquipmentCard {
+  id           String   @id @default(uuid())
+  equipmentId  String   @map("equipment_id")
+  equipment    EquipmentSpec @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  slotNumber   Int      @map("slot_number")
+  
+  // Relationships
+  ioPorts      EquipmentCardIo[]
+  
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  version      Int @default(1)
+  
+  @@unique([equipmentId, slotNumber])
+  @@map("equipment_cards")
+}
+
+model EquipmentCardIo {
+  id          String   @id @default(uuid())
+  cardId      String   @map("card_id")
+  card        EquipmentCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  portType    PortType @map("port_type")
+  ioType      String   @map("io_type")
+  label       String?
+  format      String?
+  portIndex   Int?     @map("port_index")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  version     Int @default(1)
+  
+  @@map("equipment_card_io")
+  @@index([cardId])
+}
+
+// ============================================================================
+// SOURCES
+// ============================================================================
+
+model Source {
+  id              String   @id @default(uuid())
+  productionId    String   @map("production_id")
+  production      Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  type            String
+  name            String
+  hRes            Int?     @map("h_res")
+  vRes            Int?     @map("v_res")
+  rate            Float?
+  standard        String?
+  note            String?
+  secondaryDevice String?  @map("secondary_device")
+  blanking        String?
+  
+  // Relationships
+  outputs         SourceOutput[]
+  connections     Connection[]
+  
+  // Sync metadata
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  syncedAt         DateTime? @map("synced_at")
+  lastModifiedBy   String? @map("last_modified_by")
+  version          Int @default(1)
+  isDeleted        Boolean @default(false) @map("is_deleted")
+  
+  @@map("sources")
+  @@index([productionId, isDeleted])
+  @@index([type])
+}
+
+model SourceOutput {
+  id          String   @id @default(uuid())
+  sourceId    String   @map("source_id")
+  source      Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  connector   String
+  outputIndex Int      @default(1) @map("output_index")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  version     Int @default(1)
+  
+  @@map("source_outputs")
+  @@index([sourceId])
+}
+
+// ============================================================================
+// SENDS
+// ============================================================================
+
+model Send {
+  id              String   @id @default(uuid())
+  productionId    String   @map("production_id")
+  production      Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  type            String
+  name            String
+  hRes            Int?     @map("h_res")
+  vRes            Int?     @map("v_res")
+  rate            Float?
+  standard        String?
+  note            String?
+  secondaryDevice String?  @map("secondary_device")
+  outputConnector String?  @map("output_connector")
+  
+  // Sync metadata
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  syncedAt         DateTime? @map("synced_at")
+  lastModifiedBy   String? @map("last_modified_by")
+  version          Int @default(1)
+  isDeleted        Boolean @default(false) @map("is_deleted")
+  
+  @@map("sends")
+  @@index([productionId, isDeleted])
+  @@index([type])
+}
+
+// ============================================================================
+// CCU & CAMERAS
+// ============================================================================
+
+model CCU {
+  id              String   @id @default(uuid())
+  productionId    String   @map("production_id")
+  production      Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  name            String
+  manufacturer    String?
+  model           String?
+  formatMode      String?  @map("format_mode")
+  fiberInput      String?  @map("fiber_input")
+  referenceInput  String?  @map("reference_input")
+  outputs         Json?
+  note            String?
+  
+  // Relationships
+  cameras         Camera[]
+  
+  // Sync metadata
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  version          Int @default(1)
+  isDeleted        Boolean @default(false) @map("is_deleted")
+  
+  @@map("ccus")
+  @@index([productionId])
+}
+
+model Camera {
+  id                 String   @id @default(uuid())
+  productionId       String   @map("production_id")
+  production         Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  name               String
+  model              String?
+  formatMode         String?  @map("format_mode")
+  lensType           String?  @map("lens_type")
+  maxZoom            Float?   @map("max_zoom")
+  shootingDistance   Float?   @map("shooting_distance")
+  calculatedZoom     Float?   @map("calculated_zoom")
+  hasTripod          Boolean? @map("has_tripod")
+  hasShortTripod     Boolean? @map("has_short_tripod")
+  hasDolly           Boolean? @map("has_dolly")
+  hasJib             Boolean? @map("has_jib")
+  ccuId              String?  @map("ccu_id")
+  ccu                CCU?     @relation(fields: [ccuId], references: [id], onDelete: SetNull)
+  smpteCableLength   Float?   @map("smpte_cable_length")
+  note               String?
+  
+  // Sync metadata
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  version          Int @default(1)
+  isDeleted        Boolean @default(false) @map("is_deleted")
+  
+  @@map("cameras")
+  @@index([productionId])
+  @@index([ccuId])
+}
+
+// ============================================================================
+// CONNECTIONS
+// ============================================================================
+
+model Connection {
+  id                 String   @id @default(uuid())
+  productionId       String   @map("production_id")
+  production         Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  
+  // Source
+  sourceId           String?  @map("source_id")
+  source             Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  sourceOutputId     String?  @map("source_output_id")
+  
+  // Intermediate
+  intermediateType   String?  @map("intermediate_type")
+  intermediateId     String?  @map("intermediate_id")
+  intermediateInput  String?  @map("intermediate_input")
+  intermediateOutput String?  @map("intermediate_output")
+  
+  // Destination
+  destinationType    String   @map("destination_type")
+  destinationId      String?  @map("destination_id")
+  
+  // Metadata
+  signalPath         Json?    @map("signal_path")
+  note               String?
+  
+  // Sync metadata
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  version            Int @default(1)
+  isDeleted          Boolean @default(false) @map("is_deleted")
+  
+  @@map("connections")
+  @@index([productionId])
+  @@index([sourceId])
+}
+
+// ============================================================================
+// IP ADDRESSES
+// ============================================================================
+
+model IPAddress {
+  id             String   @id @default(uuid())
+  productionId   String   @map("production_id")
+  production     Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  ip             String
+  deviceName     String   @map("device_name")
+  category       String
+  subnet         String?
+  gateway        String?
+  note           String?
+  
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  version        Int @default(1)
+  
+  @@unique([productionId, ip])
+  @@map("ip_addresses")
+  @@index([productionId])
+}
+
+// ============================================================================
+// CHECKLIST
+// ============================================================================
+
+model ChecklistItem {
+  id             String   @id @default(uuid())
+  productionId   String   @map("production_id")
+  production     Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  category       String
+  task           String
+  completed      Boolean  @default(false)
+  sortOrder      Int?     @map("sort_order")
+  
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  version        Int @default(1)
+  
+  @@map("checklist_items")
+  @@index([productionId])
+}
+
+// ============================================================================
+// SETTINGS (User preferences and config)
+// ============================================================================
+
+model Setting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  category    String?
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("settings")
+}
+
+// ============================================================================
+// SYNC CONTROL
+// ============================================================================
+
+model SyncLog {
+  id                String   @id @default(uuid())
+  syncDirection     SyncDirection @map("sync_direction")
+  startedAt         DateTime @default(now()) @map("started_at")
+  completedAt       DateTime? @map("completed_at")
+  status            SyncStatus
+  recordsSynced     Int @default(0) @map("records_synced")
+  conflictsDetected Int @default(0) @map("conflicts_detected")
+  errors            Json?
+  serverId          String?  @map("server_id")
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  
+  @@map("sync_log")
+}
+
+enum SyncDirection {
+  UPLOAD
+  DOWNLOAD
+  BIDIRECTIONAL
+}
+
+enum SyncStatus {
+  STARTED
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+model SyncConflict {
+  id               String   @id @default(uuid())
+  tableName        String   @map("table_name")
+  recordId         String   @map("record_id")
+  cloudVersion     Int?     @map("cloud_version")
+  localVersion     Int?     @map("local_version")
+  cloudData        Json?    @map("cloud_data")
+  localData        Json?    @map("local_data")
+  cloudUpdatedAt   DateTime? @map("cloud_updated_at")
+  localUpdatedAt   DateTime? @map("local_updated_at")
+  resolution       ConflictResolution @default(PENDING)
+  resolvedAt       DateTime? @map("resolved_at")
+  resolvedBy       String?  @map("resolved_by")
+  
+  createdAt        DateTime @default(now()) @map("created_at")
+  
+  @@map("sync_conflicts")
+}
+
+enum ConflictResolution {
+  PENDING
+  CLOUD_WINS
+  LOCAL_WINS
+  MANUAL
+}
+
+// ============================================================================
+// SERVER REGISTRY (for LAN server discovery)
+// ============================================================================
+
+model ServerRegistry {
+  id              String   @id @default(uuid())
+  serverName      String   @map("server_name")
+  ipAddress       String   @map("ip_address")
+  port            Int
+  isActive        Boolean  @default(true) @map("is_active")
+  lastHeartbeat   DateTime @map("last_heartbeat")
+  metadata        Json?
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@map("server_registry")
+  @@index([isActive, lastHeartbeat])
+}
+
+// ============================================================================
+// SETTINGS (managed configuration)
+// ============================================================================
+
+model ConnectorType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("connector_types")
+  @@index([sortOrder, isActive])
+}
+
+model SourceType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("source_types")
+  @@index([sortOrder, isActive])
+}
+
+model FrameRate {
+  id          String   @id @default(uuid())
+  rate        String   @unique
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("frame_rates")
+  @@index([sortOrder, isActive])
+}
+
+model ResolutionPreset {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("resolution_presets")
+  @@index([sortOrder, isActive])
+}

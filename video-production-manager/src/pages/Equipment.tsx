@@ -2,27 +2,43 @@ import { useState } from 'react';
 import { Plus, Edit2, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import EquipmentFormModal from '@/components/EquipmentFormModal';
 import type { EquipmentSpec, IOPort, EquipmentCard } from '@/types';
 
 export default function Equipment() {
-  const { 
-    equipmentSpecs, 
-    updateEquipmentSpec, 
-    addEquipmentSpec,
-    connectorTypes,
-    frameRates,
-    resolutions
-  } = useProductionStore();
+  // Use new stores
+  const equipmentLib = useEquipmentLibrary();
+  
+  // Fallback to old store for backward compatibility
+  const oldStore = useProductionStore();
+  
+  const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;
+  const updateEquipmentSpec = equipmentLib.updateEquipmentSpec || oldStore.updateEquipmentSpec;
+  const addEquipmentSpec = equipmentLib.addEquipmentSpec || oldStore.addEquipmentSpec;
+  const connectorTypes = equipmentLib.connectorTypes.length > 0 ? equipmentLib.connectorTypes : oldStore.connectorTypes;
+  const frameRates = equipmentLib.frameRates.length > 0 ? equipmentLib.frameRates : oldStore.frameRates;
+  const resolutions = equipmentLib.resolutions.length > 0 ? equipmentLib.resolutions : oldStore.resolutions;
+  
   const [editingEquipment, setEditingEquipment] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSpec, setEditingSpec] = useState<EquipmentSpec | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'camera' | 'ccu' | 'switcher' | 'router' | 'led-processor' | 'led-tile' | 'projector' | 'recorder' | 'monitor' | 'converter'>('all');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [collapsedEquipment, setCollapsedEquipment] = useState<Set<string>>(() => {
+    // Start with all collapsed
+    return new Set(equipmentSpecs.map(spec => spec.id));
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  const filteredSpecs = selectedCategory === 'all' 
-    ? equipmentSpecs 
-    : equipmentSpecs.filter(spec => spec.category === selectedCategory);
+  const filteredSpecs = equipmentSpecs.filter(spec => {
+    const matchesCategory = selectedCategory === 'all' || spec.category === selectedCategory;
+    const matchesSearch = searchQuery === '' || 
+      spec.manufacturer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      spec.model.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   // Build format options from resolutions and frame rates
   const FORMAT_OPTIONS = [
@@ -42,6 +58,18 @@ export default function Equipment() {
         newSet.delete(key);
       } else {
         newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleEquipmentCollapse = (equipId: string) => {
+    setCollapsedEquipment(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(equipId)) {
+        newSet.delete(equipId);
+      } else {
+        newSet.add(equipId);
       }
       return newSet;
     });
@@ -242,33 +270,54 @@ export default function Equipment() {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-av-text">Equipment Specifications</h1>
-          <p className="text-av-text-muted">Manage equipment models, I/O configurations, and card-based systems</p>
         </div>
-        <button onClick={handleAddNew} className="btn-primary">
+        <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">
           <Plus className="w-5 h-5 mr-2" />
           Add Equipment
         </button>
       </div>
 
-      {/* Category Filter */}
+      {/* Search and Category Filter */}
       <Card className="p-4">
-        <div className="flex flex-wrap gap-2">
-          {['all', 'camera', 'ccu', 'switcher', 'router', 'led-processor', 'led-tile', 'projector', 'recorder', 'monitor', 'converter'].map(category => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category as any)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedCategory === category
-                  ? 'bg-av-accent text-white'
-                  : 'bg-av-surface-light text-av-text hover:bg-av-surface'
-              }`}
-            >
-              {category === 'all' ? 'All Equipment' : `${getCategoryLabel(category)}s`}
-            </button>
-          ))}
+        <div className="flex gap-3">
+          <input
+            type="text"
+            placeholder="Search equipment..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-field flex-1"
+          />
+          <button
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="px-4 py-2 bg-av-surface-light hover:bg-av-surface text-av-text border border-av-border rounded-md transition-colors flex items-center gap-2"
+            title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+          >
+            {sortOrder === 'asc' ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4 rotate-[-90deg]" />
+            )}
+          </button>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value as any)}
+            className="input-field w-48"
+          >
+            <option value="all">All Equipment</option>
+            <option value="camera">Cameras</option>
+            <option value="ccu">CCUs</option>
+            <option value="switcher">Switchers</option>
+            <option value="router">Routers</option>
+            <option value="led-processor">LED Processors</option>
+            <option value="led-tile">LED Tiles</option>
+            <option value="projector">Projectors</option>
+            <option value="recorder">Recorders</option>
+            <option value="monitor">Monitors</option>
+            <option value="converter">Converters</option>
+          </select>
         </div>
       </Card>
 
@@ -284,29 +333,48 @@ export default function Equipment() {
             .sort((a, b) => {
               // Sort by category, then manufacturer, then model
               const catCompare = a.category.localeCompare(b.category);
-              if (catCompare !== 0) return catCompare;
+              if (catCompare !== 0) return sortOrder === 'asc' ? catCompare : -catCompare;
               const mfrCompare = a.manufacturer.localeCompare(b.manufacturer);
-              if (mfrCompare !== 0) return mfrCompare;
-              return a.model.localeCompare(b.model);
+              if (mfrCompare !== 0) return sortOrder === 'asc' ? mfrCompare : -mfrCompare;
+              return sortOrder === 'asc' ? a.model.localeCompare(b.model) : b.model.localeCompare(a.model);
             })
-            .map((spec) => (
-              <Card key={spec.id} className="p-6">
-                <div className="flex items-start justify-between mb-4">
+            .map((spec) => {
+              const isCollapsed = collapsedEquipment.has(spec.id);
+              return (
+              <Card key={spec.id} className={isCollapsed ? "p-3" : "p-6"}>
+                <div 
+                  className={`flex items-start justify-between cursor-pointer ${isCollapsed ? '' : 'mb-4'}`}
+                  onClick={() => toggleEquipmentCollapse(spec.id)}
+                >
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3">
+                      {isCollapsed ? (
+                        <ChevronRight className="w-5 h-5 text-av-text-muted" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-av-text-muted" />
+                      )}
                       <h3 className="text-lg font-semibold text-av-text">
                         {spec.manufacturer} {spec.model}
                       </h3>
                       <span className={`text-xs px-2 py-1 rounded border ${getCategoryColor(spec.category)}`}>
                         {getCategoryLabel(spec.category)}
                       </span>
+                      {spec.isSecondaryDevice && (
+                        <span className="text-xs px-2 py-1 rounded border bg-green-500/20 text-green-400 border-green-500/30">
+                          Secondary Device
+                        </span>
+                      )}
                       {editingEquipment === spec.id ? (
                         <select
                           value={spec.ioArchitecture}
-                          onChange={(e) => updateEquipmentSpec(spec.id, { 
-                            ioArchitecture: e.target.value as 'direct' | 'card-based',
-                            ...(e.target.value === 'direct' ? { cards: [] } : {})
-                          })}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            updateEquipmentSpec(spec.id, { 
+                              ioArchitecture: e.target.value as 'direct' | 'card-based',
+                              ...(e.target.value === 'direct' ? { cards: [] } : {})
+                            });
+                          }}
+                          onClick={(e) => e.stopPropagation()}
                           className="text-xs px-2 py-1 rounded border bg-av-surface-light text-av-text border-av-border"
                         >
                           <option value="direct">Direct I/O</option>
@@ -322,13 +390,8 @@ export default function Equipment() {
                         </span>
                       )}
                     </div>
-                    {spec.deviceFormats && spec.deviceFormats.length > 0 && (
-                      <p className="text-sm text-av-text-muted">
-                        Formats: {spec.deviceFormats.join(', ')}
-                      </p>
-                    )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleEditSpec(spec)}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
@@ -351,7 +414,8 @@ export default function Equipment() {
                   </div>
                 </div>
 
-                {/* Device I/O Display/Edit - always available */}
+                {!isCollapsed && (
+                  <>
                 <div className="grid grid-cols-2 gap-6">
                     {/* Inputs */}
                     <div>
@@ -683,8 +747,11 @@ export default function Equipment() {
                     )}
                   </div>
                 )}
+                  </>
+                )}
               </Card>
-            ))
+              );
+            })
         )}
       </div>
     </div>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reset Settings</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1d24;
+            color: #e0e0e0;
+        }
+        button {
+            background: #0969da;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0757ba;
+        }
+        .success {
+            background: #28a745;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 20px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Reset Video Production Manager Settings</h1>
+    <p>This will clear your localStorage and reset all settings to default values.</p>
+    
+    <button onclick="resetSettings()">Reset All Settings</button>
+    <button onclick="resetSettingsOnly()">Reset Settings Lists Only</button>
+    <button onclick="goToApp()" style="background: #6c757d;">Don't Reset - Go to App</button>
+    
+    <div class="success" id="success">Settings reset successfully! Reload the app.</div>
+    
+    <script>
+        function goToApp() {
+            window.location.href = '/';
+        }
+    </script>
+    
+    <script>
+        function resetSettings() {
+            // Clear all localStorage (old and new stores)
+            localStorage.clear();
+            
+            // Clear IndexedDB (new project database)
+            if (window.indexedDB) {
+                const deleteRequest = indexedDB.deleteDatabase('VideoDeptDB');
+                deleteRequest.onsuccess = () => {
+                    console.log('IndexedDB cleared successfully');
+                };
+                deleteRequest.onerror = () => {
+                    console.error('Error clearing IndexedDB');
+                };
+            }
+            
+            document.getElementById('success').style.display = 'block';
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        }
+        
+        function resetSettingsOnly() {
+            // Reset equipment library settings (new architecture)
+            const equipmentDefaults = {
+                version: '1.0.0',
+                lastUpdated: Date.now(),
+                connectorTypes: ['HDMI','SDI','DP','NDI','USB-C','ETH','OPTICON DUO','OPTICON QUAD','SMPTE FIBER','LC - FIBER (SM)','ST - FIBER (SM)','SC - FIBER (SM)','LC - FIBER (MM)','ST - FIBER (MM)','SC - FIBER (MM)','XLR','DMX'],
+                sourceTypes: ['Laptop - PC MISC','Laptop - PC GFX','Laptop - PC WIDE','Laptop - MAC MISC','Laptop - MAC GFX','Desktop - PC MISC','Desktop - PC GFX','Desktop - PC SERVER','Desktop - MAC MISC','Desktop - MAC GFX','Desktop - MAC SERVER'],
+                frameRates: ['60','59.94','50','30','29.97','25','24','23.98'],
+                resolutions: ['8192 x 1080','7680 x 1080','4096 x 2160','3840 x 2160','3840 x 1080','3240 x 1080','1920 x 1200','1920 x 1080','1280 x 720'],
+                equipmentSpecs: [],
+                customEquipment: []
+            };
+            localStorage.setItem('equipment-library', JSON.stringify({ state: equipmentDefaults }));
+            
+            // Reset old store if it exists (backward compatibility)
+            const oldKey = 'video-production-storage';
+            const stored = localStorage.getItem(oldKey);
+            if (stored) {
+                const data = JSON.parse(stored);
+                data.state.connectorTypes = equipmentDefaults.connectorTypes;
+                data.state.sourceTypes = equipmentDefaults.sourceTypes;
+                data.state.frameRates = equipmentDefaults.frameRates;
+                data.state.resolutions = equipmentDefaults.resolutions;
+                localStorage.setItem(oldKey, JSON.stringify(data));
+            }
+            
+            document.getElementById('success').style.display = 'block';
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

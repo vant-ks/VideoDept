@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { EquipmentSpec } from '@/types';
 import { useProductionStore } from '@/hooks/useStore';
@@ -14,16 +14,17 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
   const { resolutions = [], frameRates = [] } = useProductionStore();
   
   const [formData, setFormData] = useState<Partial<EquipmentSpec>>({
-    category: editingEquipment?.category || 'ccu',
-    manufacturer: editingEquipment?.manufacturer || '',
-    model: editingEquipment?.model || '',
-    ioArchitecture: editingEquipment?.ioArchitecture || 'direct',
-    inputs: editingEquipment?.inputs || [],
-    outputs: editingEquipment?.outputs || [],
-    cardSlots: editingEquipment?.cardSlots || 0,
-    cards: editingEquipment?.cards || [],
-    deviceFormats: editingEquipment?.deviceFormats || [],
-    formatByIO: editingEquipment?.formatByIO !== undefined ? editingEquipment.formatByIO : true
+    category: 'ccu',
+    manufacturer: '',
+    model: '',
+    ioArchitecture: 'direct',
+    inputs: [],
+    outputs: [],
+    cardSlots: 0,
+    cards: [],
+    deviceFormats: [],
+    formatByIO: true,
+    isSecondaryDevice: false
   });
 
   // Separate state for resolution and rate when in device-wide mode
@@ -31,6 +32,54 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
   const [deviceRate, setDeviceRate] = useState<string>(frameRates[0] || '60');
 
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Update form data when editingEquipment changes
+  useEffect(() => {
+    if (editingEquipment) {
+      setFormData({
+        category: editingEquipment.category || 'ccu',
+        manufacturer: editingEquipment.manufacturer || '',
+        model: editingEquipment.model || '',
+        ioArchitecture: editingEquipment.ioArchitecture || 'direct',
+        inputs: editingEquipment.inputs || [],
+        outputs: editingEquipment.outputs || [],
+        cardSlots: editingEquipment.cardSlots || 0,
+        cards: editingEquipment.cards || [],
+        deviceFormats: editingEquipment.deviceFormats || [],
+        formatByIO: editingEquipment.formatByIO !== undefined ? editingEquipment.formatByIO : true,
+        isSecondaryDevice: editingEquipment.isSecondaryDevice || false
+      });
+      
+      // Extract resolution and rate from device formats if available
+      if (editingEquipment.deviceFormats && editingEquipment.deviceFormats.length > 0 && !editingEquipment.formatByIO) {
+        const format = editingEquipment.deviceFormats[0];
+        // Try to parse format like "1080p60" or "4K59.94"
+        const match = format.match(/^(.+?)([\d.]+)$/);
+        if (match) {
+          setDeviceResolution(match[1]);
+          setDeviceRate(match[2]);
+        }
+      }
+    } else {
+      // Reset to defaults when adding new equipment
+      setFormData({
+        category: 'ccu',
+        manufacturer: '',
+        model: '',
+        ioArchitecture: 'direct',
+        inputs: [],
+        outputs: [],
+        cardSlots: 0,
+        cards: [],
+        deviceFormats: [],
+        formatByIO: true,
+        isSecondaryDevice: false
+      });
+      setDeviceResolution(resolutions[0] || '1080p');
+      setDeviceRate(frameRates[0] || '60');
+    }
+    setErrors([]);
+  }, [editingEquipment, resolutions, frameRates]);
 
   if (!isOpen) return null;
 
@@ -226,6 +275,24 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
               />
             </div>
           )}
+
+          {/* Secondary Device Checkbox */}
+          <div className="bg-av-surface-light border border-av-border rounded-md p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.isSecondaryDevice || false}
+                onChange={(e) => setFormData({ ...formData, isSecondaryDevice: e.target.checked })}
+                className="mt-0.5 w-4 h-4 text-av-accent rounded border-av-border focus:ring-2 focus:ring-av-accent"
+              />
+              <div>
+                <span className="text-sm font-medium text-av-text">Available as Secondary Device</span>
+                <p className="text-xs text-av-text-muted mt-1">
+                  Check this if this equipment can be used as a secondary device for sources (e.g., converters, scalers, processors)
+                </p>
+              </div>
+            </label>
+          </div>
 
           {/* Note about I/O */}
           <div className="bg-av-surface-light border border-av-border rounded-md p-4">

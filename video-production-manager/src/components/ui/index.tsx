@@ -180,7 +180,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         <div className="flex justify-between text-sm">
           {label && <span className="text-av-text-muted">{label}</span>}
           {showPercentage && (
-            <span className="font-mono text-av-accent">{percentage.toFixed(0)}%</span>
+            <span className="text-av-accent">{percentage.toFixed(0)}%</span>
           )}
         </div>
       )}

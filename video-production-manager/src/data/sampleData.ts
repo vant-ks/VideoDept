@@ -231,6 +231,9 @@ export const sampleChecklist: ChecklistItem[] = [
   { id: 'chk-40', category: 'DOCUMENTATION', item: 'Equipment List', daysBeforeShow: 60, completed: false },
 ];
 
+// Default checklist items (without id and completed) used as templates
+export const defaultChecklistItems = sampleChecklist.map(({ id, completed, ...rest }) => rest);
+
 // Resolution presets from the Video Data sheet
 export const resolutionPresets = [
   { name: 'QUAD Drive', width: 5120, height: 3200, totalPixels: 16384000, term: '5120 x 3200' },

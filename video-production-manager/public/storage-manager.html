@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear Storage - Video Production Manager</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #0d1117;
+      color: #c9d1d9;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #238636;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    button:hover {
+      background: #2ea043;
+    }
+    .danger {
+      background: #da3633;
+    }
+    .danger:hover {
+      background: #f85149;
+    }
+    .success {
+      color: #3fb950;
+      font-weight: 600;
+    }
+    .info {
+      background: #1f6feb;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 16px 0;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    a {
+      color: #58a6ff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔧 Storage Manager</h1>
+    <p>Use this page to manage your browser's storage for the Video Production Manager.</p>
+    
+    <div class="info">
+      <strong>Current Storage:</strong>
+      <div id="storage-info" style="margin-top: 8px; font-family: monospace; font-size: 14px;"></div>
+    </div>
+
+    <button onclick="viewStorage()">View Storage Contents</button>
+    <button class="danger" onclick="clearStorage()" style="margin-left: 10px;">Clear All Storage</button>
+    
+    <div id="result" style="margin-top: 20px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>Quick Actions</h2>
+    <p>After clearing storage, you can:</p>
+    <ul>
+      <li><a href="/">Return to Home Page</a></li>
+      <li><a href="javascript:location.reload()">Reload This Page</a></li>
+    </ul>
+  </div>
+
+  <script>
+    function getStorageSize() {
+      const storage = localStorage.getItem('video-production-storage');
+      if (!storage) return 0;
+      return new Blob([storage]).size;
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    function updateStorageInfo() {
+      const size = getStorageSize();
+      const keys = Object.keys(localStorage);
+      document.getElementById('storage-info').innerHTML = `
+        Size: <span class="success">${formatBytes(size)}</span><br>
+        Keys: <span class="success">${keys.length}</span><br>
+        Main Store: <span class="success">${localStorage.getItem('video-production-storage') ? 'Present' : 'Empty'}</span>
+      `;
+    }
+
+    function viewStorage() {
+      const storage = localStorage.getItem('video-production-storage');
+      if (!storage) {
+        document.getElementById('result').innerHTML = '<p>No storage data found.</p>';
+        return;
+      }
+      
+      try {
+        const data = JSON.parse(storage);
+        const preview = {
+          sources: data.state?.sources?.length || 0,
+          sends: data.state?.sends?.length || 0,
+          projectionScreens: data.state?.projectionScreens?.length || 0,
+          mediaServers: data.state?.mediaServers?.length || 0,
+          cameras: data.state?.cameras?.length || 0,
+          ccus: data.state?.ccus?.length || 0
+        };
+        
+        document.getElementById('result').innerHTML = `
+          <div style="background: #0d1117; padding: 16px; border-radius: 6px; margin-top: 16px;">
+            <h3 style="margin-top: 0;">Storage Contents:</h3>
+            <pre style="overflow-x: auto;">${JSON.stringify(preview, null, 2)}</pre>
+          </div>
+        `;
+      } catch (e) {
+        document.getElementById('result').innerHTML = `<p style="color: #f85149;">Error parsing storage: ${e.message}</p>`;
+      }
+    }
+
+    function clearStorage() {
+      if (confirm('Are you sure you want to clear all storage? This will reset the app to defaults.')) {
+        localStorage.clear();
+        sessionStorage.clear();
+        document.getElementById('result').innerHTML = '<p class="success">✓ Storage cleared successfully!</p>';
+        updateStorageInfo();
+      }
+    }
+
+    // Update info on load
+    updateStorageInfo();
+  </script>
+</body>
+</html>

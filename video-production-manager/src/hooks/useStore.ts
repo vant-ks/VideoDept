@@ -9,6 +9,7 @@ import type {
   ProjectionScreen, 
   IPAddress, 
   ChecklistItem,
+  TimestampedEntry,
   VideoSwitcher,
   ServerAllocation,
   CCU,
@@ -24,11 +25,13 @@ import {
   sampleLEDScreen,
   sampleIPAddresses,
   sampleChecklist,
+  defaultChecklistItems as importedDefaultChecklistItems,
   sampleVideoSwitcher,
   sampleServerAllocation
 } from '@/data/sampleData';
 import { defaultEquipmentSpecs } from '@/data/equipmentData';
 import { SourceService, SendService, LogService } from '@/services';
+import { apiClient } from '@/services/apiClient';
 
 interface ProductionStore {
   // Data
@@ -43,6 +46,7 @@ interface ProductionStore {
   projectionScreens: ProjectionScreen[];
   ipAddresses: IPAddress[];
   checklist: ChecklistItem[];
+  defaultChecklistItems: Omit<ChecklistItem, 'id' | 'completed'>[];
   videoSwitchers: VideoSwitcher[];
   serverAllocations: ServerAllocation[];
   connectorTypes: string[];
@@ -51,11 +55,22 @@ interface ProductionStore {
   resolutions: string[];
   equipmentSpecs: EquipmentSpec[];
   
+  // API State
+  isLoading: boolean;
+  error: string | null;
+  isConnected: boolean;
+  
   // UI State
   activeTab: string;
   searchQuery: string;
   theme: 'light' | 'dark';
   accentColor: string;
+  collapsedCategories: string[];
+  
+  // API Actions
+  checkServerConnection: () => Promise<boolean>;
+  syncWithServer: () => Promise<void>;
+  setError: (error: string | null) => void;
   
   // Actions
   setProduction: (production: Production) => void;
@@ -63,6 +78,8 @@ interface ProductionStore {
   setSearchQuery: (query: string) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setAccentColor: (color: string) => void;
+  toggleCategoryCollapsed: (category: string) => void;
+  setCollapsedCategories: (categories: string[]) => void;
   
   // Connector Type Actions
   addConnectorType: (type: string) => void;
@@ -85,9 +102,9 @@ interface ProductionStore {
   reorderResolutions: (resolutions: string[]) => void;
   
   // Equipment Spec Actions
-  addEquipmentSpec: (spec: EquipmentSpec) => void;
-  updateEquipmentSpec: (id: string, updates: Partial<EquipmentSpec>) => void;
-  removeEquipmentSpec: (id: string) => void;
+  addEquipmentSpec: (spec: EquipmentSpec) => void | Promise<void>;
+  updateEquipmentSpec: (id: string, updates: Partial<EquipmentSpec>) => void | Promise<void>;
+  removeEquipmentSpec: (id: string) => void | Promise<void>;
   
   // Media Server Actions
   addMediaServerPair: (platform: string, outputs: any[], note?: string) => void;
@@ -132,6 +149,11 @@ interface ProductionStore {
   // Checklist Actions
   toggleChecklistItem: (id: string) => void;
   updateChecklistItem: (id: string, item: Partial<ChecklistItem>) => void;
+  addChecklistItem: (item: Omit<ChecklistItem, 'id' | 'completed'>) => void;
+  deleteChecklistItem: (id: string) => void;
+  addDefaultChecklistItem: (item: Omit<ChecklistItem, 'id' | 'completed'>) => void;
+  updateDefaultChecklistItem: (index: number, item: Omit<ChecklistItem, 'id' | 'completed'>) => void;
+  deleteDefaultChecklistItem: (index: number) => void;
   
   // IP Address Actions
   addIPAddress: (ip: IPAddress) => void;
@@ -157,6 +179,7 @@ export const useProductionStore = create<ProductionStore>()(
       projectionScreens: [],
       ipAddresses: sampleIPAddresses,
       checklist: sampleChecklist,
+      defaultChecklistItems: importedDefaultChecklistItems,
       videoSwitchers: [sampleVideoSwitcher],
       serverAllocations: [sampleServerAllocation],
       connectorTypes: [
@@ -165,51 +188,74 @@ export const useProductionStore = create<ProductionStore>()(
         'DP',
         'FIBER',
         'NDI',
-        'USB-C',
+        'USB-C'
       ],
       sourceTypes: [
-        'Laptop',
-        'Camera',
-        'Server',
-        'Playback',
-        'Graphics',
+        'LAPTOP',
+        'CAM',
+        'SERVER',
+        'PLAYBACK',
+        'GRAPHICS',
         'PTZ',
-        'Robo',
-        'Media Server',
-        'Other'
+        'ROBO',
+        'OTHER'
       ],
       frameRates: [
-        '60',
         '59.94',
+        '60',
         '50',
-        '30',
         '29.97',
+        '30',
         '25',
         '24',
         '23.98'
       ],
       resolutions: [
-        '1080i',
-        '1080p',
-        '720p',
-        '4K',
-        '8K',
-        'SD'
+        '1920 x 1080',
+        '1920 x 1200',
+        '3840 x 2160',
+        '4096 x 2160',
+        '1280 x 720'
       ],
       equipmentSpecs: defaultEquipmentSpecs,
+      
+      // API State
+      isLoading: false,
+      error: null,
+      isConnected: false,
       
       // UI State
       activeTab: 'dashboard',
       searchQuery: '',
       theme: 'dark',
       accentColor: '#0969da',
+      collapsedCategories: Array.from(new Set(sampleChecklist.map(item => item.category))),
       
       // Actions
       setProduction: (production) => set({ production }),
       setActiveTab: (tab) => set({ activeTab: tab }),
       setSearchQuery: (query) => set({ searchQuery: query }),
-      setTheme: (theme) => set({ theme }),
-      setAccentColor: (color) => set({ accentColor: color }),
+      setTheme: (theme) => {
+        LogService.logDebug('theme', `Theme changed to: ${theme}`);
+        set({ theme });
+      },
+      setAccentColor: (color) => {
+        LogService.logDebug('theme', `Accent color changed to: ${color}`);
+        set({ accentColor: color });
+      },
+      toggleCategoryCollapsed: (category) => {
+        set(state => {
+          const isCollapsed = state.collapsedCategories.includes(category);
+          return {
+            collapsedCategories: isCollapsed
+              ? state.collapsedCategories.filter(c => c !== category)
+              : [...state.collapsedCategories, category]
+          };
+        });
+      },
+      setCollapsedCategories: (categories) => {
+        set({ collapsedCategories: categories });
+      },
       
       // Connector Type Actions
       addConnectorType: (type) => {
@@ -283,14 +329,86 @@ export const useProductionStore = create<ProductionStore>()(
         set({ resolutions: resolutions });
       },
       
+      // API Actions
+      checkServerConnection: async () => {
+        LogService.logDebug('api', 'Checking server connection...');
+        try {
+          const connected = await apiClient.checkHealth();
+          set({ isConnected: connected, error: null });
+          LogService.logDebug('api', `Server connection check: ${connected ? 'connected' : 'disconnected'}`);
+          return connected;
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          LogService.logDebug('api', `Server connection failed: ${errorMsg}`);
+          set({ isConnected: false, error: 'Server connection failed' });
+          return false;
+        }
+      },
+      
+      syncWithServer: async () => {
+        const state = useProductionStore.getState();
+        if (!state.isConnected) {
+          LogService.logDebug('sync', 'Not connected to server, skipping sync');
+          console.log('Not connected to server, skipping sync');
+          return;
+        }
+        
+        LogService.logDebug('sync', 'Starting data sync with server...');
+        set({ isLoading: true, error: null });
+        
+        try {
+          // Fetch data from API
+          const [equipment, settings] = await Promise.all([
+            apiClient.getEquipment(),
+            apiClient.getSettings()
+          ]);
+          
+          LogService.logDebug('sync', `Sync completed: ${equipment?.length || 0} equipment items, settings updated`);
+          
+          // Update store with API data
+          set({ 
+            equipmentSpecs: equipment || state.equipmentSpecs,
+            connectorTypes: settings.connectorTypes || state.connectorTypes,
+            sourceTypes: settings.sourceTypes || state.sourceTypes,
+            frameRates: settings.frameRates || state.frameRates,
+            resolutions: settings.resolutions || state.resolutions,
+            isLoading: false
+          });
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          LogService.logDebug('sync', `Sync failed: ${errorMsg}`);
+          console.error('Sync failed:', error);
+          set({ 
+            isLoading: false, 
+            error: 'Failed to sync with server'
+          });
+        }
+      },
+      
+      setError: (error) => set({ error }),
+      
       // Equipment Spec Actions
-      addEquipmentSpec: (spec) => {
+      addEquipmentSpec: async (spec) => {
         LogService.logEquipmentChange('add', spec.id, `${spec.category}`, `Added equipment: ${spec.category}`);
+        LogService.logDebug('equipment', `Adding equipment spec: ${spec.category}`, spec.id);
+        
+        // Optimistically update UI
         set((state) => ({
           equipmentSpecs: [...state.equipmentSpecs, spec]
         }));
+        
+        // Sync to server if connected
+        const state = useProductionStore.getState();
+        if (state.isConnected) {
+          try {
+            await apiClient.createEquipment(spec);
+          } catch (error) {
+            console.error('Failed to sync equipment to server:', error);
+            set({ error: 'Failed to save to server' });
+          }
+        }
       },
-      updateEquipmentSpec: (id, updates) => {
+      updateEquipmentSpec: async (id, updates) => {
         const state = useProductionStore.getState();
         const spec = state.equipmentSpecs.find(s => s.id === id);
         if (spec) {
@@ -301,21 +419,45 @@ export const useProductionStore = create<ProductionStore>()(
           }));
           LogService.logEquipmentChange('update', id, `${spec.category}`, `Updated equipment: ${spec.category}`, changes);
         }
+        
+        // Optimistically update UI
         set((state) => ({
           equipmentSpecs: state.equipmentSpecs.map(spec => 
             spec.id === id ? { ...spec, ...updates } : spec
           )
         }));
+        
+        // Sync to server if connected
+        if (state.isConnected && spec) {
+          try {
+            await apiClient.updateEquipment(id, { ...spec, ...updates });
+          } catch (error) {
+            console.error('Failed to sync equipment to server:', error);
+            set({ error: 'Failed to save to server' });
+          }
+        }
       },
-      removeEquipmentSpec: (id) => {
+      removeEquipmentSpec: async (id) => {
         const state = useProductionStore.getState();
         const spec = state.equipmentSpecs.find(s => s.id === id);
         if (spec) {
           LogService.logEquipmentChange('delete', id, `${spec.category}`, `Removed equipment: ${spec.category}`);
         }
+        
+        // Optimistically update UI
         set((state) => ({
           equipmentSpecs: state.equipmentSpecs.filter(spec => spec.id !== id)
         }));
+        
+        // Sync to server if connected
+        if (state.isConnected) {
+          try {
+            await apiClient.deleteEquipment(id);
+          } catch (error) {
+            console.error('Failed to delete equipment from server:', error);
+            set({ error: 'Failed to delete from server' });
+          }
+        }
       },
       
       // Source Actions
@@ -488,14 +630,88 @@ export const useProductionStore = create<ProductionStore>()(
       
       // Checklist Actions
       toggleChecklistItem: (id) => set((state) => ({
-        checklist: state.checklist.map(item =>
-          item.id === id ? { ...item, completed: !item.completed } : item
-        )
+        checklist: state.checklist.map(item => {
+          if (item.id === id) {
+            return {
+              ...item,
+              completed: !item.completed,
+              completedAt: !item.completed ? Date.now() : item.completedAt
+            };
+          }
+          return item;
+        })
       })),
       updateChecklistItem: (id, updates) => set((state) => ({
-        checklist: state.checklist.map(item =>
-          item.id === id ? { ...item, ...updates } : item
+        checklist: state.checklist.map(item => {
+          if (item.id === id) {
+            const updatedItem = { ...item, ...updates };
+            
+            // If moreInfo is provided as a string (legacy), convert to timestamped entry
+            if (typeof updates.moreInfo === 'string' && updates.moreInfo.trim()) {
+              const newEntry: TimestampedEntry = {
+                id: `entry-${Date.now()}`,
+                text: updates.moreInfo.trim(),
+                timestamp: Date.now(),
+                type: 'info'
+              };
+              updatedItem.moreInfo = [...(item.moreInfo || []), newEntry];
+            }
+            
+            // If completionNote is provided as a string (legacy), convert to timestamped entry
+            if (typeof updates.completionNote === 'string' && updates.completionNote.trim()) {
+              const newEntry: TimestampedEntry = {
+                id: `entry-${Date.now()}`,
+                text: updates.completionNote.trim(),
+                timestamp: Date.now(),
+                type: 'completion'
+              };
+              updatedItem.completionNote = [...(item.completionNote || []), newEntry];
+            }
+            
+            return updatedItem;
+          }
+          return item;
+        })
+      })),
+      addChecklistItem: (item) => set((state) => {
+        const newItem: ChecklistItem = {
+          ...item,
+          id: `chk-${Date.now()}`,
+          completed: false,
+          moreInfo: item.moreInfo && (typeof item.moreInfo === 'string' && item.moreInfo.trim())
+            ? [{
+                id: `entry-${Date.now()}`,
+                text: item.moreInfo,
+                timestamp: Date.now(),
+                type: 'info' as const
+              }]
+            : (Array.isArray(item.moreInfo) ? item.moreInfo : undefined),
+          completionNote: undefined
+        };
+        LogService.logGeneralChange('add', 'checklist', item.item, `Added checklist item: ${item.item}`);
+        return {
+          checklist: [...state.checklist, newItem]
+        };
+      }),
+      deleteChecklistItem: (id) => set((state) => {
+        const item = state.checklist.find(i => i.id === id);
+        if (item) {
+          LogService.logGeneralChange('delete', 'checklist', item.item, `Deleted checklist item: ${item.item}`);
+        }
+        return {
+          checklist: state.checklist.filter(i => i.id !== id)
+        };
+      }),
+      addDefaultChecklistItem: (item) => set((state) => ({
+        defaultChecklistItems: [...state.defaultChecklistItems, item]
+      })),
+      updateDefaultChecklistItem: (index, item) => set((state) => ({
+        defaultChecklistItems: state.defaultChecklistItems.map((defaultItem, i) =>
+          i === index ? item : defaultItem
         )
+      })),
+      deleteDefaultChecklistItem: (index) => set((state) => ({
+        defaultChecklistItems: state.defaultChecklistItems.filter((_, i) => i !== index)
       })),
       
       // IP Address Actions
@@ -552,6 +768,31 @@ export const useProductionStore = create<ProductionStore>()(
               type: (typeMapping[source.type] || source.type) as SourceType
             }));
           }
+
+          // Migration: Update to new categorized source types if using old defaults
+          const oldDefaults = ['Laptop', 'Camera', 'Server', 'Playback', 'Graphics', 'PTZ', 'Robo', 'Media Server', 'Other'];
+          const newDefaults = [
+            'Laptop - PC MISC',
+            'Laptop - PC GFX',
+            'Laptop - PC WIDE',
+            'Laptop - MAC MISC',
+            'Laptop - MAC GFX',
+            'Desktop - PC MISC',
+            'Desktop - PC GFX',
+            'Desktop - PC SERVER',
+            'Desktop - MAC MISC',
+            'Desktop - MAC GFX',
+            'Desktop - MAC SERVER'
+          ];
+          
+          // Check if user has the old defaults (or subset)
+          if (state.sourceTypes) {
+            const hasOldDefaults = oldDefaults.some(oldType => state.sourceTypes.includes(oldType));
+            if (hasOldDefaults) {
+              // Replace with new defaults
+              state.sourceTypes = newDefaults;
+            }
+          }
         }
       },
     }
@@ -585,3 +826,12 @@ export const useChecklistProgress = () =>
     const completed = state.checklist.filter(item => item.completed).length;
     return { total, completed, percentage: total > 0 ? (completed / total) * 100 : 0 };
   });
+
+// Initialize connection on app startup
+export const initializeStore = async () => {
+  const store = useProductionStore.getState();
+  const connected = await store.checkServerConnection();
+  if (connected) {
+    await store.syncWithServer();
+  }
+};

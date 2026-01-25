@@ -1,17 +1,20 @@
 import React from 'react';
 import { Card, Badge, ConnectorBadge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
 import { Projector, Tv2, Cable, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
 
 // Screens Page
 export const Screens: React.FC = () => {
-  const { ledScreens } = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const oldStore = useProductionStore();
+  const ledScreens = activeProject?.ledScreens || oldStore.ledScreens;
   const screen = ledScreens[0];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h2 className="text-xl font-display font-bold text-av-text">Screens</h2>
+        <h2 className="text-xl font-bold text-av-text">Screens</h2>
         <p className="text-sm text-av-text-muted">LED and projection screen configuration</p>
       </div>
 
@@ -22,7 +25,7 @@ export const Screens: React.FC = () => {
               <Projector className="w-6 h-6 text-av-accent" />
             </div>
             <div>
-              <h3 className="text-lg font-display font-semibold text-av-text">{screen.name}</h3>
+              <h3 className="text-lg font-semibold text-av-text">{screen.name}</h3>
               <p className="text-sm text-av-text-muted">{screen.tileModel}</p>
             </div>
           </div>
@@ -88,13 +91,15 @@ export const Screens: React.FC = () => {
 
 // Switchers Page
 export const Switchers: React.FC = () => {
-  const { videoSwitchers } = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const oldStore = useProductionStore();
+  const videoSwitchers = activeProject?.videoSwitchers || oldStore.videoSwitchers;
   const switcher = videoSwitchers[0];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h2 className="text-xl font-display font-bold text-av-text">Video Switchers</h2>
+        <h2 className="text-xl font-bold text-av-text">Video Switchers</h2>
         <p className="text-sm text-av-text-muted">E2, Q8, and other video processing equipment</p>
       </div>
 
@@ -106,7 +111,7 @@ export const Switchers: React.FC = () => {
                 <Tv2 className="w-6 h-6 text-av-info" />
               </div>
               <div>
-                <h3 className="text-lg font-display font-semibold text-av-text">{switcher.name}</h3>
+                <h3 className="text-lg font-semibold text-av-text">{switcher.name}</h3>
                 <p className="text-sm text-av-text-muted">{switcher.type}</p>
               </div>
             </div>
@@ -165,7 +170,7 @@ export const Cabling: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h2 className="text-xl font-display font-bold text-av-text">Cabling & Snakes</h2>
+        <h2 className="text-xl font-bold text-av-text">Cabling & Snakes</h2>
         <p className="text-sm text-av-text-muted">Cable routing and snake management</p>
       </div>
 
@@ -184,7 +189,7 @@ export const Cabling: React.FC = () => {
       </div>
 
       <Card className="p-6">
-        <h3 className="text-lg font-display font-semibold text-av-text mb-4">Cable Length Calculator</h3>
+        <h3 className="text-lg font-semibold text-av-text mb-4">Cable Length Calculator</h3>
         <p className="text-av-text-muted text-sm">
           Cable management and length tracking coming soon. This will integrate with the LED Cable Tracker sheet data.
         </p>
@@ -195,17 +200,20 @@ export const Cabling: React.FC = () => {
 
 // Settings Page
 export const Settings: React.FC = () => {
-  const { production, resetToSampleData } = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const oldStore = useProductionStore();
+  const production = activeProject?.production || oldStore.production;
+  const resetToSampleData = oldStore.resetToSampleData;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h2 className="text-xl font-display font-bold text-av-text">Settings</h2>
+        <h2 className="text-xl font-bold text-av-text">Settings</h2>
         <p className="text-sm text-av-text-muted">Application configuration and data management</p>
       </div>
 
       <Card className="p-6">
-        <h3 className="text-lg font-display font-semibold text-av-text mb-4">Production Info</h3>
+        <h3 className="text-lg font-semibold text-av-text mb-4">Production Info</h3>
         {production && (
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -237,7 +245,7 @@ export const Settings: React.FC = () => {
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-display font-semibold text-av-text mb-4">Data Management</h3>
+        <h3 className="text-lg font-semibold text-av-text mb-4">Data Management</h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-av-surface-light rounded-lg">
             <div>
@@ -270,7 +278,7 @@ export const Settings: React.FC = () => {
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-display font-semibold text-av-text mb-2">About</h3>
+        <h3 className="text-lg font-semibold text-av-text mb-2">About</h3>
         <p className="text-sm text-av-text-muted">
           Video Production Manager v1.0.0
         </p>

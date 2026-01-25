@@ -1,20 +1,29 @@
 # Video Production Manager
 
-A professional web application for managing video production workflows, built with React, TypeScript, and Tailwind CSS. This app is designed for AV production teams to manage sources, sends, screens, IP addresses, and production checklists.
+A professional web application for managing video production workflows, built with React, TypeScript, and a PostgreSQL backend. This app is designed for AV production teams to manage sources, sends, screens, IP addresses, and production checklists with **cloud-first planning** and **offline-capable on-site operations**.
 
 ![Video Production Manager](https://via.placeholder.com/800x400/0a0e14/00ff88?text=Video+Production+Manager)
 
-## 📚 New to React/TypeScript/Tailwind?
+## 🎯 Architecture: Cloud + Local Sync
 
-**[→ Start with the Getting Started Tutorial](docs/GETTING_STARTED_TUTORIAL.md)**
+- **Planning Phase (Office)**: Collaborate via cloud database
+- **On-Site (Venue)**: Promote any laptop to LAN server for fast local operations
+- **Offline-First**: Continue working without internet
+- **Auto-Sync**: Server syncs to cloud when connectivity allows
 
-This comprehensive guide covers:
-- React fundamentals (components, hooks, JSX)
-- TypeScript basics (types, interfaces)
-- Tailwind CSS styling
-- How the file structure works
-- Making your first change
-- Common patterns you'll see
+**[→ Database Architecture Documentation](docs/DATABASE_ARCHITECTURE.md)**
+
+## 📚 Documentation
+
+### Getting Started
+- **[Frontend Tutorial](docs/GETTING_STARTED_TUTORIAL.md)** - React/TypeScript/Tailwind basics
+- **[Database Setup](docs/GETTING_STARTED_DATABASE.md)** - Setting up the backend
+- **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - What's been built
+
+### Architecture
+- **[Database Architecture](docs/DATABASE_ARCHITECTURE.md)** - Hybrid cloud + local design
+- **[Implementation Roadmap](docs/IMPLEMENTATION_ROADMAP.md)** - Development plan
+- **[AI Agent Protocol](docs/AI_AGENT_PROTOCOL.md)** - Development guidelines
 
 ## Features
 

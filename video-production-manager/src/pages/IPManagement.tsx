@@ -13,10 +13,15 @@ import {
   EmptyState
 } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
 import { cn, getCategoryColor, sortIPAddresses } from '@/utils/helpers';
 
 export const IPManagement: React.FC = () => {
-  const { ipAddresses, searchQuery, setSearchQuery } = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const oldStore = useProductionStore();
+  const ipAddresses = activeProject?.ipAddresses || oldStore.ipAddresses;
+  const searchQuery = oldStore.searchQuery;
+  const setSearchQuery = oldStore.setSearchQuery;
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
   const [copiedIP, setCopiedIP] = React.useState<string | null>(null);
 
@@ -58,7 +63,7 @@ export const IPManagement: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-display font-bold text-av-text">IP Management</h2>
+          <h2 className="text-xl font-bold text-av-text">IP Management</h2>
           <p className="text-sm text-av-text-muted">
             Network configuration and IP address allocation
           </p>

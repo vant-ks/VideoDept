@@ -2,26 +2,27 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
 import type { MediaServer, MediaServerOutput, MediaServerLayer } from '@/types';
 import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
 
 export default function MediaServers() {
-  const { 
-    mediaServers, 
-    mediaServerLayers,
-    addMediaServerPair, 
-    updateMediaServer, 
-    deleteMediaServerPair,
-    addMediaServerLayer,
-    updateMediaServerLayer,
-    deleteMediaServerLayer 
-  } = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const oldStore = useProductionStore();
+  
+  const mediaServers = activeProject?.mediaServers || oldStore.mediaServers;
+  const mediaServerLayers = activeProject?.mediaServerLayers || oldStore.mediaServerLayers;
+  const addMediaServerPair = oldStore.addMediaServerPair;
+  const updateMediaServer = oldStore.updateMediaServer;
+  const deleteMediaServerPair = oldStore.deleteMediaServerPair;
+  const addMediaServerLayer = oldStore.addMediaServerLayer;
+  const updateMediaServerLayer = oldStore.updateMediaServerLayer;
+  const deleteMediaServerLayer = oldStore.deleteMediaServerLayer;
   
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
   const [isLayerModalOpen, setIsLayerModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<MediaServer | null>(null);
   const [editingLayer, setEditingLayer] = useState<MediaServerLayer | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'servers' | 'layers' | 'layermap'>('servers');
 
   // Group servers by pair
@@ -39,24 +40,6 @@ export default function MediaServers() {
     });
     return Object.values(pairs).filter(pair => pair.main && pair.backup);
   }, [mediaServers]);
-
-  const filteredPairs = React.useMemo(() => {
-    if (!searchQuery) return serverPairs;
-    const query = searchQuery.toLowerCase();
-    return serverPairs.filter(pair => 
-      pair.main.name.toLowerCase().includes(query) ||
-      pair.main.platform.toLowerCase().includes(query)
-    );
-  }, [serverPairs, searchQuery]);
-
-  const filteredLayers = React.useMemo(() => {
-    if (!searchQuery) return mediaServerLayers;
-    const query = searchQuery.toLowerCase();
-    return mediaServerLayers.filter(layer => 
-      layer.name.toLowerCase().includes(query) ||
-      layer.content.toLowerCase().includes(query)
-    );
-  }, [mediaServerLayers, searchQuery]);
 
   const handleAddServerPair = () => {
     setEditingServer(null);
@@ -95,8 +78,7 @@ export default function MediaServers() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-av-text mb-2">Media Servers</h1>
-          <p className="text-av-text-muted">Manage media server pairs, outputs, and content layers</p>
+          <h1 className="text-3xl font-bold text-av-textPrimary">Media Servers</h1>
         </div>
         {activeTab !== 'layermap' && (
           <button 
@@ -152,59 +134,21 @@ export default function MediaServers() {
         </button>
       </div>
 
-      {/* Statistics - Only show on servers tab */}
-      {activeTab === 'servers' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="p-6">
-            <p className="text-sm text-av-text-muted mb-1">Server Pairs</p>
-            <p className="text-3xl font-bold text-av-text">{serverPairs.length}</p>
-          </Card>
-          <Card className="p-6">
-            <p className="text-sm text-av-text-muted mb-1">Total Outputs</p>
-            <p className="text-3xl font-bold text-av-accent">
-              {mediaServers.reduce((sum, s) => sum + s.outputs.length, 0)}
-            </p>
-          </Card>
-          <Card className="p-6">
-            <p className="text-sm text-av-text-muted mb-1">Content Layers</p>
-            <p className="text-3xl font-bold text-av-info">
-              {mediaServerLayers.length}
-            </p>
-          </Card>
-        </div>
-      )}
-
-      {/* Search */}
-      <Card className="p-4">
-        <input
-          type="text"
-          placeholder={`Search ${activeTab}...`}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="input-field w-full"
-        />
-      </Card>
-
       {/* Servers Tab */}
       {activeTab === 'servers' && (
         <>
-          {filteredPairs.length === 0 ? (
+          {serverPairs.length === 0 ? (
             <Card className="p-12 text-center">
               <Server className="w-16 h-16 mx-auto text-av-text-muted mb-4" />
               <h3 className="text-lg font-semibold text-av-text mb-2">No Media Servers Found</h3>
               <p className="text-av-text-muted mb-4">
-                {serverPairs.length === 0 
-                  ? 'Add your first media server pair to get started'
-                  : 'No servers match your search criteria'
-                }
+                Add your first media server pair to get started
               </p>
-              {serverPairs.length === 0 && (
-                <button onClick={handleAddServerPair} className="btn-primary">Add Server Pair</button>
-              )}
+              <button onClick={handleAddServerPair} className="btn-primary">Add Server Pair</button>
             </Card>
           ) : (
             <div className="space-y-4">
-              {filteredPairs.map((pair) => (
+              {serverPairs.map((pair) => (
                 <Card key={pair.main.pairNumber} className="p-6 hover:border-av-accent/30 transition-colors">
                   {/* Pair Header */}
                   <div className="flex items-start justify-between mb-4">
@@ -303,23 +247,18 @@ export default function MediaServers() {
       {/* Layers Tab */}
       {activeTab === 'layers' && (
         <>
-          {filteredLayers.length === 0 ? (
+          {mediaServerLayers.length === 0 ? (
             <Card className="p-12 text-center">
               <Layers className="w-16 h-16 mx-auto text-av-text-muted mb-4" />
               <h3 className="text-lg font-semibold text-av-text mb-2">No Layers Found</h3>
               <p className="text-av-text-muted mb-4">
-                {mediaServerLayers.length === 0 
-                  ? 'Add your first content layer to get started'
-                  : 'No layers match your search criteria'
-                }
+                Add your first content layer to get started
               </p>
-              {mediaServerLayers.length === 0 && (
-                <button onClick={handleAddLayer} className="btn-primary">Add Layer</button>
-              )}
+              <button onClick={handleAddLayer} className="btn-primary">Add Layer</button>
             </Card>
           ) : (
             <div className="space-y-3">
-              {filteredLayers.map((layer) => (
+              {mediaServerLayers.map((layer) => (
                 <Card key={layer.id} className="p-6 hover:border-av-accent/30 transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -495,11 +434,11 @@ export default function MediaServers() {
       )}
 
       {/* Results Count */}
-      {activeTab !== 'layermap' && (activeTab === 'servers' ? filteredPairs.length : filteredLayers.length) > 0 && (
+      {activeTab !== 'layermap' && (activeTab === 'servers' ? serverPairs.length : mediaServerLayers.length) > 0 && (
         <div className="text-center text-sm text-av-text-muted">
-          Showing {activeTab === 'servers' ? filteredPairs.length : filteredLayers.length}{' '}
+          Showing {activeTab === 'servers' ? serverPairs.length : mediaServerLayers.length}{' '}
           {activeTab === 'servers' ? 'server pair' : 'layer'}
-          {(activeTab === 'servers' ? filteredPairs.length : filteredLayers.length) !== 1 ? 's' : ''}
+          {(activeTab === 'servers' ? serverPairs.length : mediaServerLayers.length) !== 1 ? 's' : ''}
         </div>
       )}
 
@@ -577,7 +516,9 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
   const [customResolutions, setCustomResolutions] = useState<{[key: number]: boolean}>({});
   
   // Get the next server number for display purposes
-  const { mediaServers } = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const oldStore = useProductionStore();
+  const mediaServers = activeProject?.mediaServers || oldStore.mediaServers;
   const nextPairNumber = editingServer?.pairNumber || 
     (mediaServers.length > 0 ? Math.max(...mediaServers.map(s => s.pairNumber)) + 1 : 1);
 

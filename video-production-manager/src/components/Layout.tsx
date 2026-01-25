@@ -21,9 +21,13 @@ import {
   Wrench,
   ScrollText,
   Server,
-  Box
+  Box,
+  FolderOpen,
+  LogOut
 } from 'lucide-react';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
+import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { cn } from '@/utils/helpers';
 import { Logo } from './Logo';
 
@@ -80,9 +84,22 @@ const navItems: NavItem[] = [
 ];
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [expandedSections, setExpandedSections] = React.useState<string[]>([]);
-  const { activeTab, setActiveTab, production } = useProductionStore();
+  
+  // Use new stores
+  const { activeProject } = useProjectStore();
+  const { 
+    activeTab, 
+    setActiveTab, 
+    sidebarCollapsed, 
+    setSidebarCollapsed 
+  } = usePreferencesStore();
+  
+  // Fallback to old store for backward compatibility
+  const oldStore = useProductionStore();
+  const production = activeProject?.production || oldStore.production;
+  const sidebarOpen = !sidebarCollapsed;
+  const setSidebarOpen = (open: boolean) => setSidebarCollapsed(!open);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => 
@@ -144,17 +161,30 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         'fixed inset-y-0 left-0 z-50 flex flex-col bg-av-surface border-r border-av-border transition-all duration-300',
         sidebarOpen ? 'w-64' : 'w-16'
       )}>
-        {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-av-border">
-          {sidebarOpen && (
-            <Logo size={32} showText={true} />
+        {/* Logo and Current Show */}
+        <div className="border-b border-av-border">
+          {/* Logo */}
+          <div className="flex items-center justify-between h-16 px-4">
+            {sidebarOpen && (
+              <Logo size={32} showText={true} />
+            )}
+            <button 
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-text transition-colors"
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+
+          {/* Current Show Info */}
+          {production && sidebarOpen && (
+            <div className="px-4 pb-4">
+              <div className="bg-gradient-to-r from-av-surface-light to-av-surface p-3 rounded-lg border border-av-border">
+                <h3 className="text-sm font-bold text-av-text mb-1 truncate">{production.showName}</h3>
+                <p className="text-xs text-av-text-muted truncate">{production.client}</p>
+              </div>
+            </div>
           )}
-          <button 
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-text transition-colors"
-          >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
         </div>
 
         {/* Navigation */}
@@ -163,7 +193,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </nav>
 
         {/* Settings */}
-        <div className="px-2 py-4 border-t border-av-border">
+        <div className="px-2 py-4 border-t border-av-border space-y-1">
           <button
             onClick={() => setActiveTab('settings')}
             className={cn(
@@ -177,6 +207,26 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Settings className="w-5 h-5 flex-shrink-0" />
             {sidebarOpen && <span className="text-sm font-medium">Settings</span>}
           </button>
+          
+          {/* Close Project Button */}
+          {activeProject && (
+            <button
+              onClick={() => {
+                const { closeProject } = useProjectStore.getState();
+                closeProject();
+                setActiveTab('dashboard');
+              }}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-200',
+                'text-av-text-muted hover:text-av-text hover:bg-av-surface-light',
+                !sidebarOpen && 'justify-center'
+              )}
+              title="Close Project"
+            >
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span className="text-sm font-medium">Close Project</span>}
+            </button>
+          )}
         </div>
       </aside>
 
@@ -185,29 +235,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         'flex-1 overflow-y-auto transition-all duration-300',
         sidebarOpen ? 'ml-64' : 'ml-16'
       )}>
-        {/* Header */}
-        <header className="sticky top-0 z-40 flex items-center justify-between h-16 px-6 bg-av-bg/80 backdrop-blur-md border-b border-av-border">
-          {production ? (
-            <div>
-              <p className="text-xs text-av-text-muted uppercase tracking-wider">Current Show</p>
-              <p className="text-lg font-display font-bold text-av-text">{production.showName}</p>
-              <p className="text-xs text-av-text-muted">{production.client}</p>
-            </div>
-          ) : (
-            <div>
-              <h1 className="text-xl font-display font-bold text-av-text capitalize">
-                {activeTab === 'dashboard' ? 'Production Dashboard' : activeTab}
-              </h1>
-            </div>
-          )}
-          <div className="flex items-center gap-4">
-            {/* Reserved space for future user account menu */}
-            <div className="w-10 h-10">
-              {/* User menu will go here */}
-            </div>
-          </div>
-        </header>
-
         {/* Page Content */}
         <div className="p-6">
           {children}

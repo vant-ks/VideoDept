@@ -2,15 +2,22 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Copy } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
 import { SourceFormModal } from '@/components/SourceFormModal';
 import { SourceService } from '@/services';
 import type { Source } from '@/types';
 
 export const Computers: React.FC = () => {
-  const { sources, addSource, updateSource, deleteSource, duplicateSource } = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const oldStore = useProductionStore();
+  
+  const sources = activeProject?.sources || oldStore.sources;
+  const addSource = oldStore.addSource;
+  const updateSource = oldStore.updateSource;
+  const deleteSource = oldStore.deleteSource;
+  const duplicateSource = oldStore.duplicateSource;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
 
   const sourceTypes = React.useMemo(() => {
@@ -19,10 +26,10 @@ export const Computers: React.FC = () => {
   }, [sources]);
 
   const filteredSources = React.useMemo(() => {
-    return SourceService.search(sources, searchQuery).filter(source => {
+    return sources.filter(source => {
       return selectedType === 'all' || source.type === selectedType;
     });
-  }, [sources, searchQuery, selectedType]);
+  }, [sources, selectedType]);
 
   const handleAddNew = () => {
     setEditingSource(null);
@@ -80,42 +87,13 @@ export const Computers: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-av-text mb-2">Computers</h1>
-          <p className="text-av-text-muted">Manage computer sources and playback devices</p>
+          <h1 className="text-3xl font-bold text-av-textPrimary">Computers</h1>
         </div>
         <button onClick={handleAddNew} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Add Computer
         </button>
       </div>
-
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <input
-            type="text"
-            placeholder="Search computers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-field flex-1"
-          />
-          <div className="flex gap-2 flex-wrap">
-            {sourceTypes.map(type => (
-              <button
-                key={type}
-                onClick={() => setSelectedType(type)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  selectedType === type
-                    ? 'bg-av-accent/20 text-av-accent border border-av-accent/30'
-                    : 'bg-av-surface-light text-av-text-muted hover:text-av-text'
-                }`}
-              >
-                {type === 'all' ? 'All Types' : type}
-              </button>
-            ))}
-          </div>
-        </div>
-      </Card>
 
       {/* Sources List */}
       {filteredSources.length === 0 ? (
@@ -128,7 +106,7 @@ export const Computers: React.FC = () => {
             }
           </p>
           {sources.length === 0 && (
-            <button onClick={handleAddNew} className="btn-primary">Add Source</button>
+            <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">Add Source</button>
           )}
         </Card>
       ) : (

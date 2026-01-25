@@ -2,12 +2,24 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Copy } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
 import { SourceFormModal } from '@/components/SourceFormModal';
 import { SourceService } from '@/services';
 import type { Source } from '@/types';
 
 export const Sources: React.FC = () => {
-  const { sources, addSource, updateSource, deleteSource, duplicateSource } = useProductionStore();
+  // Use new stores
+  const { activeProject } = useProjectStore();
+  
+  // Fallback to old store for backward compatibility
+  const oldStore = useProductionStore();
+  
+  const sources = activeProject?.sources || oldStore.sources;
+  const addSource = oldStore.addSource;
+  const updateSource = oldStore.updateSource;
+  const deleteSource = oldStore.deleteSource;
+  const duplicateSource = oldStore.duplicateSource;
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,8 +71,7 @@ export const Sources: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-av-text mb-2">Sources</h1>
-          <p className="text-av-text-muted">Manage video inputs and source devices</p>
+          <h1 className="text-3xl font-bold text-av-text">Sources</h1>
         </div>
         <button onClick={handleAddNew} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
@@ -127,7 +138,7 @@ export const Sources: React.FC = () => {
             }
           </p>
           {sources.length === 0 && (
-            <button onClick={handleAddNew} className="btn-primary">Add Source</button>
+            <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">Add Source</button>
           )}
         </Card>
       ) : (
