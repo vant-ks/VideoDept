@@ -133,16 +133,33 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   loadProject: async (id: string) => {
     set({ isLoading: true });
     try {
-      const project = await projectDB.getProject(id);
-      if (!project) {
-        throw new Error('Project not found');
+      // First check local cache for quick access
+      const cachedProject = await projectDB.getProject(id);
+      
+      if (cachedProject) {
+        // Load from cache immediately for fast UX
+        set({ 
+          activeProjectId: id, 
+          activeProject: cachedProject,
+          lastSyncTime: Date.now(),
+          isLoading: false 
+        });
+        
+        // Then refresh from Railway in background to get latest changes
+        try {
+          const production = await apiClient.getProduction(cachedProject.production.id);
+          if (production?.metadata) {
+            const freshProject = production.metadata as VideoDepProject;
+            await projectDB.updateProject(id, freshProject);
+            set({ activeProject: { ...freshProject, id } as any });
+            console.log('✅ Loaded latest version from Railway database');
+          }
+        } catch (refreshError) {
+          console.warn('⚠️ Using cached version, could not refresh from database:', refreshError);
+        }
+      } else {
+        throw new Error('Project not found locally. Please sync with Railway.');
       }
-      set({ 
-        activeProjectId: id, 
-        activeProject: project,
-        lastSyncTime: Date.now(),
-        isLoading: false 
-      });
     } catch (error) {
       console.error('Failed to load project:', error);
       set({ isLoading: false });
@@ -166,24 +183,25 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     }
 
     try {
-      // Save to IndexedDB for local access
-      await projectDB.createProject({ ...project, id } as any);
+      // PRIMARY: Save to Railway database first
+      await apiClient.createProduction({
+        id: project.production.id,
+        name: project.production.name,
+        client: project.production.client,
+        location: project.production.location,
+        productionDate: project.production.productionDate,
+        status: project.production.status,
+        notes: project.production.notes,
+        metadata: project // Store full project data in metadata
+      });
+      console.log('✅ Production saved to Railway database');
       
-      // Sync to Railway API
+      // SECONDARY: Cache locally for offline access
       try {
-        await apiClient.createProduction({
-          id: project.production.id,
-          name: project.production.name,
-          client: project.production.client,
-          location: project.production.location,
-          productionDate: project.production.productionDate,
-          status: project.production.status,
-          notes: project.production.notes,
-          metadata: project // Store full project data in metadata
-        });
-        console.log('✅ Production synced to Railway API');
-      } catch (apiError) {
-        console.warn('⚠️ Failed to sync to API, saved locally:', apiError);
+        await projectDB.createProject({ ...project, id } as any);
+        console.log('✅ Production cached locally');
+      } catch (cacheError) {
+        console.warn('⚠️ Failed to cache locally (non-critical):', cacheError);
       }
       
       set({ 
@@ -192,8 +210,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       });
       return id;
     } catch (error) {
-      console.error('Failed to create project:', error);
-      throw error;
+      console.error('❌ Failed to save production to database:', error);
+      throw new Error('Failed to save to database. Please check your internet connection and try again.');
     }
   },
 
@@ -209,30 +227,31 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         modified: Date.now()
       };
       
-      // Save to IndexedDB
-      await projectDB.updateProject(activeProjectId, updatedProject);
+      // PRIMARY: Update in Railway database first
+      await apiClient.updateProduction(activeProject.production.id, {
+        name: activeProject.production.name,
+        client: activeProject.production.client,
+        location: activeProject.production.location,
+        productionDate: activeProject.production.productionDate,
+        status: activeProject.production.status,
+        notes: activeProject.production.notes,
+        metadata: updatedProject // Store full project data
+      });
+      console.log('✅ Production updated in Railway database');
       
-      // Sync to Railway API
+      // SECONDARY: Update local cache
       try {
-        await apiClient.updateProduction(activeProject.production.id, {
-          name: activeProject.production.name,
-          client: activeProject.production.client,
-          location: activeProject.production.location,
-          productionDate: activeProject.production.productionDate,
-          status: activeProject.production.status,
-          notes: activeProject.production.notes,
-          metadata: updatedProject // Store full project data
-        });
-        console.log('✅ Production updated on Railway API');
-      } catch (apiError) {
-        console.warn('⚠️ Failed to sync update to API:', apiError);
+        await projectDB.updateProject(activeProjectId, updatedProject);
+        console.log('✅ Local cache updated');
+      } catch (cacheError) {
+        console.warn('⚠️ Failed to update local cache (non-critical):', cacheError);
       }
       
       set({ isSaving: false, lastSyncTime: Date.now() });
     } catch (error) {
-      console.error('Failed to save project:', error);
+      console.error('❌ Failed to update production in database:', error);
       set({ isSaving: false });
-      throw error;
+      throw new Error('Failed to save to database. Please check your internet connection and try again.');
     }
   },
 
@@ -293,25 +312,28 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       // Get project to find production ID
       const project = await projectDB.getProject(id);
       
-      // Delete from IndexedDB
-      await projectDB.deleteProject(id);
+      if (!project?.production?.id) {
+        throw new Error('Invalid project data');
+      }
       
-      // Delete from Railway API
-      if (project?.production?.id) {
-        try {
-          await apiClient.deleteProduction(project.production.id);
-          console.log('✅ Production deleted from Railway API');
-        } catch (apiError) {
-          console.warn('⚠️ Failed to delete from API:', apiError);
-        }
+      // PRIMARY: Delete from Railway database first
+      await apiClient.deleteProduction(project.production.id);
+      console.log('✅ Production deleted from Railway database');
+      
+      // SECONDARY: Delete from local cache
+      try {
+        await projectDB.deleteProject(id);
+        console.log('✅ Production removed from local cache');
+      } catch (cacheError) {
+        console.warn('⚠️ Failed to delete from local cache (non-critical):', cacheError);
       }
       
       if (get().activeProjectId === id) {
         get().closeProject();
       }
     } catch (error) {
-      console.error('Failed to delete project:', error);
-      throw error;
+      console.error('❌ Failed to delete production from database:', error);
+      throw new Error('Failed to delete from database. Please check your internet connection and try again.');
     }
   },
 
@@ -325,28 +347,46 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     }
   },
 
-  // Sync with Railway API - pull down remote productions
+  // Sync with Railway API - pull down remote productions (Railway is source of truth)
   syncWithAPI: async () => {
     try {
-      console.log('🔄 Syncing with Railway API...');
+      console.log('🔄 Syncing with Railway database...');
       const remoteProductions = await apiClient.getProductions();
+      const localProjects = await projectDB.listProjects();
       
+      // Download new productions from Railway
       for (const production of remoteProductions) {
-        // Check if we have this production locally
-        const localProjects = await projectDB.listProjects();
         const exists = localProjects.some(p => p.production.id === production.id);
         
         if (!exists && production.metadata) {
-          // Download and save locally
+          // New production - download and cache
           const project = production.metadata as VideoDepProject;
           await projectDB.createProject(project as any);
           console.log(`✅ Downloaded production: ${production.name}`);
+        } else if (exists && production.metadata) {
+          // Existing production - update cache with latest from Railway
+          const project = production.metadata as VideoDepProject;
+          const localProject = localProjects.find(p => p.production.id === production.id);
+          if (localProject && new Date(production.updatedAt).getTime() > localProject.modified) {
+            await projectDB.updateProject(localProject.id!, project);
+            console.log(`✅ Updated production: ${production.name}`);
+          }
         }
       }
       
-      console.log('✅ Sync complete');
+      // Remove productions that were deleted from Railway
+      for (const localProject of localProjects) {
+        const existsRemotely = remoteProductions.some(p => p.id === localProject.production.id);
+        if (!existsRemotely) {
+          await projectDB.deleteProject(localProject.id!);
+          console.log(`🗑️ Removed deleted production: ${localProject.production.name}`);
+        }
+      }
+      
+      console.log('✅ Sync complete - Railway database is source of truth');
     } catch (error) {
-      console.error('⚠️ Failed to sync with API:', error);
+      console.error('❌ Failed to sync with Railway database:', error);
+      throw new Error('Failed to sync with database. Please check your internet connection.');
     }
   },
   

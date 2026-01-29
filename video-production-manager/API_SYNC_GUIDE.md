@@ -6,18 +6,19 @@ Your Video Production Manager app now **automatically syncs productions** with t
 
 ## How It Works
 
-### Automatic Sync
-- **Create a show**: Instantly saved to both local browser storage AND Railway database
-- **Edit a show**: Changes sync to Railway every time you save
-- **Delete a show**: Removed from both local and Railway
-- **Open the app**: Automatically downloads any shows from Railway that aren't on your current device
+### Database-First Architecture
+- **Create a show**: Saved to Railway database first, then cached locally
+- **Edit a show**: Updates Railway database, then updates local cache
+- **Delete a show**: Deleted from Railway database, then removed from cache
+- **Open the app**: Downloads all shows from Railway (source of truth)
 
-### Hybrid Storage Strategy
-The app uses a **hybrid approach** for best performance:
+### Storage Strategy
+The app uses **Railway PostgreSQL as the primary database**:
 
-1. **Local-first**: All data is stored in your browser's IndexedDB for instant access (works offline)
-2. **Cloud backup**: Every change is also sent to Railway PostgreSQL database
-3. **Auto-sync on startup**: When you open the app, it checks Railway and downloads any missing shows
+1. **Cloud-first**: All data is saved to Railway database (required, internet needed)
+2. **Local cache**: Browser's IndexedDB caches data for fast loading
+3. **Auto-sync on startup**: Railway database is the source of truth, local cache is updated
+4. **Team access**: All team members see the same data from Railway
 
 ## Using Multiple Devices
 
@@ -55,8 +56,12 @@ The app uses a **hybrid approach** for best performance:
 
 ### Data Flow
 ```
-Browser (IndexedDB) ←→ React State (Zustand) ←→ Railway API ←→ PostgreSQL
+Railway PostgreSQL (PRIMARY) → Local IndexedDB Cache (SECONDARY)
+                ↓
+          All devices sync from Railway
 ```
+
+**Railway database is the single source of truth**. Local cache speeds up loading but always defers to Railway data.
 
 ## Troubleshooting
 
@@ -72,10 +77,15 @@ Browser (IndexedDB) ←→ React State (Zustand) ←→ Railway API ←→ Postg
 
 ### "Sync Failed" Messages
 
-If you see warnings in the console:
-- **Internet connection**: Check you're online
-- **Railway status**: API might be temporarily down
-- **Don't worry**: Data is still saved locally and will sync when possible
+**These are now critical errors** (not warnings):
+- **Creating/editing/deleting requires internet** - Operations will fail if Railway is unreachable
+- **Error messages** will appear if database operations fail
+- **Check internet connection** - App requires online connection for production management
+- **Railway status** - Verify API is running: `curl https://videodept-api-production.up.railway.app/health`
+
+### Offline Mode
+
+**Important:** This app now **requires internet connection** for production management because Railway database is the primary storage. Local cache is read-only and used only for faster loading.
 
 ### Manual Sync
 
