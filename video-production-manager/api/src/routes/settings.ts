@@ -3,78 +3,8 @@ import { prisma } from '../server';
 
 const router = Router();
 
-// GET all settings
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const settings = await prisma.setting.findMany();
-    
-    // Convert to key-value object
-    const settingsObj = settings.reduce((acc, setting) => {
-      acc[setting.key] = setting.value;
-      return acc;
-    }, {} as Record<string, any>);
-
-    res.json(settingsObj);
-  } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch settings' });
-  }
-});
-
-// GET single setting
-router.get('/:key', async (req: Request, res: Response) => {
-  try {
-    const setting = await prisma.setting.findUnique({
-      where: { key: req.params.key }
-    });
-
-    if (!setting) {
-      return res.status(404).json({ error: 'Setting not found' });
-    }
-
-    res.json(setting.value);
-  } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch setting' });
-  }
-});
-
-// POST/PUT upsert setting
-router.post('/:key', async (req: Request, res: Response) => {
-  try {
-    const { value, category } = req.body;
-
-    const setting = await prisma.setting.upsert({
-      where: { key: req.params.key },
-      create: {
-        key: req.params.key,
-        value,
-        category
-      },
-      update: {
-        value,
-        category
-      }
-    });
-
-    res.json(setting);
-  } catch (error: any) {
-    res.status(500).json({ error: 'Failed to save setting' });
-  }
-});
-
-// DELETE setting
-router.delete('/:key', async (req: Request, res: Response) => {
-  try {
-    await prisma.setting.delete({
-      where: { key: req.params.key }
-    });
-    res.json({ success: true });
-  } catch (error: any) {
-    res.status(500).json({ error: 'Failed to delete setting' });
-  }
-});
-
 // ============================================================================
-// CONNECTOR TYPES
+// CONNECTOR TYPES (Must come before generic :key routes)
 // ============================================================================
 
 router.get('/connector-types', async (req: Request, res: Response) => {
@@ -318,6 +248,80 @@ router.put('/resolutions/reorder', async (req: Request, res: Response) => {
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to reorder resolutions' });
+  }
+});
+
+// ============================================================================
+// GENERIC SETTINGS (Must come LAST - after all specific routes)
+// ============================================================================
+
+// GET all settings
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const settings = await prisma.setting.findMany();
+    
+    // Convert to key-value object
+    const settingsObj = settings.reduce((acc, setting) => {
+      acc[setting.key] = setting.value;
+      return acc;
+    }, {} as Record<string, any>);
+
+    res.json(settingsObj);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+// GET single setting
+router.get('/:key', async (req: Request, res: Response) => {
+  try {
+    const setting = await prisma.setting.findUnique({
+      where: { key: req.params.key }
+    });
+
+    if (!setting) {
+      return res.status(404).json({ error: 'Setting not found' });
+    }
+
+    res.json(setting.value);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch setting' });
+  }
+});
+
+// POST/PUT upsert setting
+router.post('/:key', async (req: Request, res: Response) => {
+  try {
+    const { value, category } = req.body;
+
+    const setting = await prisma.setting.upsert({
+      where: { key: req.params.key },
+      create: {
+        key: req.params.key,
+        value,
+        category
+      },
+      update: {
+        value,
+        category
+      }
+    });
+
+    res.json(setting);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to save setting' });
+  }
+});
+
+// DELETE setting
+router.delete('/:key', async (req: Request, res: Response) => {
+  try {
+    await prisma.setting.delete({
+      where: { key: req.params.key }
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to delete setting' });
   }
 });
 
