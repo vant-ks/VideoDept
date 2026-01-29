@@ -14,7 +14,7 @@ export const prisma = new PrismaClient();
 
 // Initialize Express app
 const app: Express = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3010;
 const ENABLE_MDNS = process.env.ENABLE_MDNS === 'true';
 
 // Middleware

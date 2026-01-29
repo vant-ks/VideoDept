@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Video, Link as LinkIcon } from 'lucide-react';
-import { Card, Badge } from '@/components/ui';
+import { Plus, Edit2, Trash2, Video, Link as LinkIcon, Copy } from 'lucide-react';
+import { Card, Badge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import type { Camera } from '@/types';
 
 export default function Cameras() {
   const { activeProject } = useProjectStore();
+  const projectStore = useProjectStore();
   const oldStore = useProductionStore();
   
   const cameras = activeProject?.cameras || oldStore.cameras;
   const ccus = activeProject?.ccus || oldStore.ccus;
-  const addCamera = oldStore.addCamera;
-  const updateCamera = oldStore.updateCamera;
-  const deleteCamera = oldStore.deleteCamera;
+  
+  // Use project store CRUD if activeProject exists, otherwise use old store
+  const addCamera = activeProject ? projectStore.addCamera : oldStore.addCamera;
+  const updateCamera = activeProject ? projectStore.updateCamera : oldStore.updateCamera;
+  const deleteCamera = activeProject ? projectStore.deleteCamera : oldStore.deleteCamera;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null);
   const [formData, setFormData] = useState<Partial<Camera>>({
@@ -160,7 +163,6 @@ export default function Cameras() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-av-text">Cameras</h1>
-          <p className="text-av-text-muted">Manage cameras and IMAG equipment</p>
         </div>
         <button onClick={handleAddNew} className="btn-primary flex items-center gap-2">
           <Plus className="w-5 h-5" />
@@ -170,14 +172,13 @@ export default function Cameras() {
 
       {/* Cameras List */}
       {cameras.length === 0 ? (
-        <Card className="p-12 text-center">
-          <Video className="w-12 h-12 text-av-text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-av-text mb-2">No Cameras Found</h3>
-          <p className="text-av-text-muted mb-4">
-            Add your first camera to get started
-          </p>
-          <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">Add Camera</button>
-        </Card>
+        <EmptyState
+          icon={Video}
+          title="No Cameras Found"
+          description="Add your first camera to get started"
+          actionLabel="Add Camera"
+          onAction={handleAddNew}
+        />
       ) : (
         <div className="space-y-3">
           {cameras.map((camera) => {
@@ -230,6 +231,24 @@ export default function Cameras() {
                         title="Edit"
                       >
                         <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Duplicate camera by opening modal with duplicated data
+                          const newId = generateId();
+                          setFormData({
+                            ...camera,
+                            id: newId,
+                            name: `${camera.name} (Copy)`,
+                            ccuId: camera.ccuId // Preserve CCU connection
+                          });
+                          setEditingCamera(null);
+                          setIsModalOpen(true);
+                        }}
+                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+                        title="Duplicate"
+                      >
+                        <Copy className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(camera.id)}
@@ -373,19 +392,31 @@ export default function Cameras() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-av-text mb-2">
-                      Format Mode
+                      Connected CCU
                     </label>
-                    <input
-                      type="text"
-                      value={formData.formatMode || ''}
-                      onChange={(e) => setFormData({ ...formData, formatMode: e.target.value })}
+                    <select
+                      value={formData.ccuId || ''}
+                      onChange={(e) => {
+                        const selectedCCUId = e.target.value;
+                        const selectedCCU = ccus.find(c => c.id === selectedCCUId);
+                        setFormData({
+                          ...formData,
+                          ccuId: selectedCCUId,
+                          formatMode: selectedCCU?.formatMode || formData.formatMode,
+                        });
+                      }}
                       className="input-field w-full"
-                      placeholder={formData.ccuId ? 'Inherited from CCU' : 'Enter format mode'}
-                      disabled={!!formData.ccuId}
-                    />
-                    {formData.ccuId && (
+                    >
+                      <option value="">No CCU connection</option>
+                      {ccus.map(ccu => (
+                        <option key={ccu.id} value={ccu.id}>
+                          {ccu.name} ({ccu.id})
+                        </option>
+                      ))}
+                    </select>
+                    {ccus.length === 0 && (
                       <p className="text-xs text-av-text-muted mt-1">
-                        Format mode will be inherited from connected CCU
+                        No CCUs available. Add CCUs first.
                       </p>
                     )}
                   </div>
@@ -479,95 +510,67 @@ export default function Cameras() {
               <div>
                 <h3 className="text-lg font-semibold text-av-text mb-3">Support Equipment</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer p-3 rounded-md border border-av-border hover:border-av-accent/30 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={formData.hasTripod || false}
-                      onChange={(e) => setFormData({ ...formData, hasTripod: e.target.checked })}
-                      className="w-4 h-4"
-                    />
+                  <div 
+                    onClick={() => setFormData({ ...formData, hasTripod: !formData.hasTripod })}
+                    className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                      formData.hasTripod 
+                        ? 'border-av-accent bg-av-accent/10' 
+                        : 'border-av-border hover:border-av-accent/30'
+                    }`}
+                  >
                     <span className="text-av-text">Tripod</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer p-3 rounded-md border border-av-border hover:border-av-accent/30 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={formData.hasShortTripod || false}
-                      onChange={(e) => setFormData({ ...formData, hasShortTripod: e.target.checked })}
-                      className="w-4 h-4"
-                    />
+                  </div>
+                  <div 
+                    onClick={() => setFormData({ ...formData, hasShortTripod: !formData.hasShortTripod })}
+                    className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                      formData.hasShortTripod 
+                        ? 'border-av-accent bg-av-accent/10' 
+                        : 'border-av-border hover:border-av-accent/30'
+                    }`}
+                  >
                     <span className="text-av-text">Short Tripod</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer p-3 rounded-md border border-av-border hover:border-av-accent/30 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={formData.hasDolly || false}
-                      onChange={(e) => setFormData({ ...formData, hasDolly: e.target.checked })}
-                      className="w-4 h-4"
-                    />
+                  </div>
+                  <div 
+                    onClick={() => setFormData({ ...formData, hasDolly: !formData.hasDolly })}
+                    className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                      formData.hasDolly 
+                        ? 'border-av-accent bg-av-accent/10' 
+                        : 'border-av-border hover:border-av-accent/30'
+                    }`}
+                  >
                     <span className="text-av-text">Dolly</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer p-3 rounded-md border border-av-border hover:border-av-accent/30 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={formData.hasJib || false}
-                      onChange={(e) => setFormData({ ...formData, hasJib: e.target.checked })}
-                      className="w-4 h-4"
-                    />
+                  </div>
+                  <div 
+                    onClick={() => setFormData({ ...formData, hasJib: !formData.hasJib })}
+                    className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                      formData.hasJib 
+                        ? 'border-av-accent bg-av-accent/10' 
+                        : 'border-av-border hover:border-av-accent/30'
+                    }`}
+                  >
                     <span className="text-av-text">Jib</span>
-                  </label>
+                  </div>
                 </div>
               </div>
               
-              {/* CCU Connection */}
-              <div>
-                <h3 className="text-lg font-semibold text-av-text mb-3">CCU Connection</h3>
-                <div className="grid grid-cols-2 gap-4">
+              {/* SMPTE Cable Length (only show if CCU is connected) */}
+              {formData.ccuId && (
+                <div>
+                  <h3 className="text-lg font-semibold text-av-text mb-3">CCU Connection Details</h3>
                   <div>
                     <label className="block text-sm font-medium text-av-text mb-2">
-                      Connected CCU
+                      SMPTE Fiber Cable Length (ft)
                     </label>
-                    <select
-                      value={formData.ccuId || ''}
-                      onChange={(e) => {
-                        const selectedCCUId = e.target.value;
-                        const selectedCCU = ccus.find(c => c.id === selectedCCUId);
-                        setFormData({
-                          ...formData,
-                          ccuId: selectedCCUId,
-                          formatMode: selectedCCU?.formatMode || formData.formatMode,
-                        });
-                      }}
+                    <input
+                      type="number"
+                      value={formData.smpteCableLength || ''}
+                      onChange={(e) => setFormData({ ...formData, smpteCableLength: parseFloat(e.target.value) })}
                       className="input-field w-full"
-                    >
-                      <option value="">No CCU connection</option>
-                      {ccus.map(ccu => (
-                        <option key={ccu.id} value={ccu.id}>
-                          {ccu.name} ({ccu.id})
-                        </option>
-                      ))}
-                    </select>
-                    {ccus.length === 0 && (
-                      <p className="text-xs text-av-text-muted mt-1">
-                        No CCUs available. Add CCUs first.
-                      </p>
-                    )}
+                      placeholder="e.g., 100"
+                    />
                   </div>
-                  {formData.ccuId && (
-                    <div>
-                      <label className="block text-sm font-medium text-av-text mb-2">
-                        SMPTE Fiber Cable Length (ft)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.smpteCableLength || ''}
-                        onChange={(e) => setFormData({ ...formData, smpteCableLength: parseFloat(e.target.value) })}
-                        className="input-field w-full"
-                        placeholder="e.g., 100"
-                      />
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
               
               {/* Notes */}
               <div>

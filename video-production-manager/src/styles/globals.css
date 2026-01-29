@@ -43,8 +43,8 @@
   }
 
   ::selection {
-    background-color: rgba(var(--accent-color-rgb), 0.25);
-    @apply text-av-text;
+    background-color: rgba(var(--accent-color-rgb), 0.5);
+    color: white;
   }
 
   /* Custom scrollbar */
@@ -218,5 +218,17 @@
 
   .text-gradient {
     @apply bg-gradient-to-r from-av-accent to-av-info bg-clip-text text-transparent;
+  }
+}
+
+@keyframes progress-slide {
+  0% {
+    left: -30%;
+  }
+  50% {
+    left: 100%;
+  }
+  100% {
+    left: -30%;
   }
 }

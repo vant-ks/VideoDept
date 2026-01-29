@@ -8,22 +8,26 @@ import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
 
 export default function MediaServers() {
   const { activeProject } = useProjectStore();
+  const projectStore = useProjectStore();
   const oldStore = useProductionStore();
   
   const mediaServers = activeProject?.mediaServers || oldStore.mediaServers;
   const mediaServerLayers = activeProject?.mediaServerLayers || oldStore.mediaServerLayers;
-  const addMediaServerPair = oldStore.addMediaServerPair;
-  const updateMediaServer = oldStore.updateMediaServer;
-  const deleteMediaServerPair = oldStore.deleteMediaServerPair;
-  const addMediaServerLayer = oldStore.addMediaServerLayer;
-  const updateMediaServerLayer = oldStore.updateMediaServerLayer;
-  const deleteMediaServerLayer = oldStore.deleteMediaServerLayer;
+  
+  // Use project store CRUD if activeProject exists, otherwise use old store
+  const addMediaServerPair = activeProject ? projectStore.addMediaServerPair : oldStore.addMediaServerPair;
+  const updateMediaServer = activeProject ? projectStore.updateMediaServer : oldStore.updateMediaServer;
+  const deleteMediaServerPair = oldStore.deleteMediaServerPair; // Keep old for now - needs refactor
+  const addMediaServerLayer = activeProject ? projectStore.addMediaServerLayer : oldStore.addMediaServerLayer;
+  const updateMediaServerLayer = activeProject ? projectStore.updateMediaServerLayer : oldStore.updateMediaServerLayer;
+  const deleteMediaServerLayer = activeProject ? projectStore.deleteMediaServerLayer : oldStore.deleteMediaServerLayer;
   
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
   const [isLayerModalOpen, setIsLayerModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<MediaServer | null>(null);
   const [editingLayer, setEditingLayer] = useState<MediaServerLayer | null>(null);
   const [activeTab, setActiveTab] = useState<'servers' | 'layers' | 'layermap'>('servers');
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Group servers by pair
   const serverPairs = React.useMemo(() => {
@@ -168,6 +172,24 @@ export default function MediaServers() {
                         title="Edit servers"
                       >
                         <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Duplicate the server pair by opening modal with duplicated data
+                          const nextPairNum = Math.max(...mediaServers.map(s => s.pairNumber)) + 1;
+                          setEditingServer({
+                            ...pair.main,
+                            pairNumber: nextPairNum,
+                            id: `${nextPairNum}A`,
+                            name: `Media ${nextPairNum}A`
+                          });
+                          setIsDuplicating(true);
+                          setIsServerModalOpen(true);
+                        }}
+                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+                        title="Duplicate pair"
+                      >
+                        <Copy className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeletePair(pair.main.pairNumber)}
@@ -449,9 +471,10 @@ export default function MediaServers() {
           onClose={() => {
             setIsServerModalOpen(false);
             setEditingServer(null);
+            setIsDuplicating(false);
           }}
           onSave={(platform, outputs, note) => {
-            if (editingServer) {
+            if (editingServer && !isDuplicating) {
               // Update both main and backup
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
@@ -463,6 +486,7 @@ export default function MediaServers() {
             }
             setIsServerModalOpen(false);
             setEditingServer(null);
+            setIsDuplicating(false);
           }}
           editingServer={editingServer}
         />
@@ -507,9 +531,18 @@ interface ServerPairModalProps {
 
 function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairModalProps) {
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
-  const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(
-    editingServer?.outputs.map(o => ({ name: o.name, type: o.type, resolution: o.resolution, frameRate: o.frameRate })) || []
-  );
+  const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
+    if (editingServer?.outputs) {
+      return editingServer.outputs.map(o => ({ name: o.name, type: o.type, resolution: o.resolution, frameRate: o.frameRate }));
+    }
+    // Default: 1 DP output for new server pairs
+    return [{
+      name: `MEDIA 1A.1`,
+      type: 'DP',
+      resolution: { width: 1920, height: 1080 },
+      frameRate: 59.94
+    }];
+  });
   const [note, setNote] = useState(editingServer?.note || '');
   
   // Track which outputs have custom resolution
@@ -547,10 +580,14 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
   ];
 
   const handleAddOutput = () => {
+    if (outputs.length >= 8) {
+      alert('Maximum 8 outputs per server');
+      return;
+    }
     const outputNum = outputs.length + 1;
     setOutputs([...outputs, { 
       name: `MEDIA ${nextPairNumber}A.${outputNum}`, 
-      type: 'HDMI',
+      type: 'DP',
       resolution: { width: 1920, height: 1080 },
       frameRate: 59.94
     }]);
@@ -558,6 +595,19 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
 
   const handleRemoveOutput = (index: number) => {
     setOutputs(outputs.filter((_, i) => i !== index));
+  };
+  
+  const handleDuplicateOutput = (index: number) => {
+    if (outputs.length >= 8) {
+      alert('Maximum 8 outputs per server');
+      return;
+    }
+    const outputToDuplicate = outputs[index];
+    const outputNum = outputs.length + 1;
+    setOutputs([...outputs, { 
+      ...outputToDuplicate,
+      name: `MEDIA ${nextPairNumber}A.${outputNum}`
+    }]);
   };
 
   const handleUpdateOutput = (index: number, updates: Partial<Omit<MediaServerOutput, 'id'>>) => {
@@ -625,8 +675,8 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
                   return (
                     <Card key={index} className="p-4">
                       <div className="space-y-3">
-                        {/* Row 1: Name, Type, Delete */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* Row 1: Name, Type, Duplicate, Delete */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-av-text-muted mb-1">Name</label>
                             <input
@@ -652,8 +702,20 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
                           <div className="flex items-end">
                             <button
                               type="button"
+                              onClick={() => handleDuplicateOutput(index)}
+                              className="w-full p-2 rounded hover:bg-av-info/20 text-av-info transition-colors"
+                              title="Duplicate this output"
+                              disabled={outputs.length >= 8}
+                            >
+                              <Copy className="w-4 h-4 mx-auto" />
+                            </button>
+                          </div>
+                          <div className="flex items-end">
+                            <button
+                              type="button"
                               onClick={() => handleRemoveOutput(index)}
                               className="w-full p-2 rounded hover:bg-av-danger/20 text-av-danger transition-colors"
+                              title="Delete this output"
                             >
                               <Trash2 className="w-4 h-4 mx-auto" />
                             </button>

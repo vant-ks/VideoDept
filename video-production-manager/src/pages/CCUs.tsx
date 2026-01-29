@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -8,14 +8,17 @@ import type { CCU } from '@/types';
 
 export default function CCUs() {
   const { activeProject } = useProjectStore();
+  const projectStore = useProjectStore();
   const equipmentLib = useEquipmentLibrary();
   const oldStore = useProductionStore();
   
   const ccus = activeProject?.ccus || oldStore.ccus;
   const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;
-  const addCCU = oldStore.addCCU;
-  const updateCCU = oldStore.updateCCU;
-  const deleteCCU = oldStore.deleteCCU;
+  
+  // Use project store CRUD if activeProject exists, otherwise use old store
+  const addCCU = activeProject ? projectStore.addCCU : oldStore.addCCU;
+  const updateCCU = activeProject ? projectStore.updateCCU : oldStore.updateCCU;
+  const deleteCCU = activeProject ? projectStore.deleteCCU : oldStore.deleteCCU;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCCU, setEditingCCU] = useState<CCU | null>(null);
   const [formData, setFormData] = useState<Partial<CCU>>({
@@ -184,6 +187,30 @@ export default function CCUs() {
                       title="Edit"
                     >
                       <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Duplicate CCU by opening modal with duplicated data
+                        const ccuNumbers = ccus
+                          .map(c => {
+                            const match = c.id.match(/^CCU\s*(\d+)$/i);
+                            return match ? parseInt(match[1], 10) : 0;
+                          })
+                          .filter(n => !isNaN(n));
+                        const maxNumber = ccuNumbers.length > 0 ? Math.max(...ccuNumbers) : 0;
+                        const newId = `CCU ${maxNumber + 1}`;
+                        setFormData({
+                          ...ccu,
+                          id: newId,
+                          name: `${ccu.name} (Copy)`
+                        });
+                        setEditingCCU(null);
+                        setIsModalOpen(true);
+                      }}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+                      title="Duplicate"
+                    >
+                      <Copy className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(ccu.id)}

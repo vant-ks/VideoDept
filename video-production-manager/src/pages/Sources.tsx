@@ -10,15 +10,18 @@ import type { Source } from '@/types';
 export const Sources: React.FC = () => {
   // Use new stores
   const { activeProject } = useProjectStore();
+  const projectStore = useProjectStore();
   
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();
   
   const sources = activeProject?.sources || oldStore.sources;
-  const addSource = oldStore.addSource;
-  const updateSource = oldStore.updateSource;
-  const deleteSource = oldStore.deleteSource;
-  const duplicateSource = oldStore.duplicateSource;
+  
+  // Use project store CRUD if activeProject exists, otherwise use old store
+  const addSource = activeProject ? projectStore.addSource : oldStore.addSource;
+  const updateSource = activeProject ? projectStore.updateSource : oldStore.updateSource;
+  const deleteSource = activeProject ? projectStore.deleteSource : oldStore.deleteSource;
+  const duplicateSource = activeProject ? projectStore.duplicateSource : oldStore.duplicateSource;
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);

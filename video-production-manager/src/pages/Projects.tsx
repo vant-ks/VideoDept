@@ -35,6 +35,17 @@ export const Projects: React.FC = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [includeArchivedInSearch, setIncludeArchivedInSearch] = useState(false);
 
+  // Calculate default load-out date: current value if entered, else day after load-in, else today
+  const getDefaultLoadOutDate = () => {
+    if (newShowLoadOut) return newShowLoadOut;
+    if (newShowLoadIn) {
+      const loadInDate = new Date(newShowLoadIn);
+      loadInDate.setDate(loadInDate.getDate() + 1);
+      return loadInDate.toISOString().split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
+  };
+
   useEffect(() => {
     loadShowsList();
   }, []);
@@ -247,11 +258,20 @@ export const Projects: React.FC = () => {
     <div className="min-h-screen bg-av-background p-8">
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-8">
-        {/* Top Row - Centered Search */}
-        <div className="flex justify-center mb-6">
-          {/* Search Bar with Archive Toggle */}
-          <div className="flex items-center gap-2">
-            <div className="w-96 relative">
+        {/* Main Header Row - Logo, Search, and Buttons */}
+        <div className="flex items-center justify-between gap-6 mb-4">
+          {/* Logo and Title */}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <Logo size={48} showText={false} />
+            <div>
+              <h1 className="text-3xl font-bold text-av-text">Video Department</h1>
+              <p className="text-av-text-muted">Production Management</p>
+            </div>
+          </div>
+
+          {/* Search Bar - Center */}
+          <div className="flex items-center gap-2 flex-1 max-w-md">
+            <div className="w-full relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-av-text-muted" />
               <input
                 type="text"
@@ -271,7 +291,7 @@ export const Projects: React.FC = () => {
               )}
             </div>
             
-            {/* Show/Hide Archived Toggle - Right of Search */}
+            {/* Show/Hide Archived Toggle */}
             <button
               onClick={() => setShowArchived(!showArchived)}
               className={cn(
@@ -285,36 +305,9 @@ export const Projects: React.FC = () => {
               {showArchived ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
             </button>
           </div>
-        </div>
 
-        {/* Include archived checkbox below search when searching */}
-        {searchQuery && (
-          <div className="flex justify-center mb-4">
-            <label className="flex items-center gap-2 text-xs text-av-text-muted cursor-pointer whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={includeArchivedInSearch}
-                onChange={(e) => setIncludeArchivedInSearch(e.target.checked)}
-                className="rounded"
-              />
-              Include archived shows
-            </label>
-          </div>
-        )}
-
-        {/* Bottom Row - Logo and Buttons */}
-        <div className="flex items-center justify-between">
-          {/* Logo and Title */}
-          <div className="flex items-center gap-4 flex-shrink-0">
-            <Logo size={48} showText={false} />
-            <div>
-              <h1 className="text-3xl font-bold text-av-text">Video Department</h1>
-              <p className="text-av-text-muted">Production Management</p>
-            </div>
-          </div>
-
-          {/* Action Buttons - Right aligned */}
-          <div className="flex items-center gap-2">
+          {/* Action Buttons - Right */}
+          <div className="flex items-center gap-2 flex-shrink-0 min-w-[200px] justify-end">
             {/* Conditional buttons */}
             {selectedShows.size > 0 && (
               <>
@@ -345,28 +338,63 @@ export const Projects: React.FC = () => {
             {/* Always visible buttons */}
             <button
               onClick={() => alert('Import coming soon')}
-              className="p-2 bg-av-surface hover:bg-av-surface-light text-av-text rounded-lg transition-colors"
-              title="Import show"
+              disabled={isLoading}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                isLoading
+                  ? "bg-av-surface/50 text-av-text-muted cursor-not-allowed opacity-50"
+                  : "bg-av-surface hover:bg-av-surface-light text-av-text"
+              )}
+              title={isLoading ? "Connecting to server..." : "Import show"}
             >
               <Upload className="w-4 h-4" />
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="p-2 bg-av-accent hover:bg-av-accent-dark text-white rounded-lg transition-colors"
-              title="Create new show"
+              disabled={isLoading}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                isLoading
+                  ? "bg-av-accent/50 text-white cursor-not-allowed opacity-50"
+                  : "bg-av-accent hover:bg-av-accent-dark text-white"
+              )}
+              title={isLoading ? "Connecting to server..." : "Create new show"}
             >
               <Plus className="w-4 h-4" />
             </button>
           </div>
         </div>
+
+        {/* Include archived checkbox below header when searching */}
+        {searchQuery && (
+          <div className="flex justify-center">
+            <label className="flex items-center gap-2 text-xs text-av-text-muted cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={includeArchivedInSearch}
+                onChange={(e) => setIncludeArchivedInSearch(e.target.checked)}
+                className="rounded"
+              />
+              Include archived shows
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Shows List */}
       <div className="max-w-7xl mx-auto">
         {isLoading ? (
-          <div className="text-center py-12 text-av-text-muted">
-            Loading shows...
-          </div>
+          <Card className="p-8">
+            <div className="flex flex-col items-center gap-4">
+              <div className="text-av-text font-medium">Connecting to server...</div>
+              <div className="w-full max-w-md">
+                <ProgressBar 
+                  variant="indeterminate"
+                  className="h-2"
+                />
+              </div>
+            </div>
+          </Card>
         ) : filteredShows.length === 0 ? (
           <Card className="p-12 text-center">
             <FolderOpen className="w-16 h-16 mx-auto mb-4 text-av-text-muted opacity-50" />
@@ -703,6 +731,14 @@ export const Projects: React.FC = () => {
                     type="date"
                     value={newShowLoadOut}
                     onChange={(e) => setNewShowLoadOut(e.target.value)}
+                    min={newShowLoadIn || undefined}
+                    onFocus={(e) => {
+                      // Set default value when calendar opens if field is empty
+                      if (!e.target.value) {
+                        e.target.value = getDefaultLoadOutDate();
+                        setNewShowLoadOut(e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 bg-av-surface border border-av-border rounded-lg text-av-text focus:outline-none focus:border-av-accent"
                   />
                 </div>

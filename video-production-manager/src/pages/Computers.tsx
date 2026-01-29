@@ -9,13 +9,16 @@ import type { Source } from '@/types';
 
 export const Computers: React.FC = () => {
   const { activeProject } = useProjectStore();
+  const projectStore = useProjectStore();
   const oldStore = useProductionStore();
   
   const sources = activeProject?.sources || oldStore.sources;
-  const addSource = oldStore.addSource;
-  const updateSource = oldStore.updateSource;
-  const deleteSource = oldStore.deleteSource;
-  const duplicateSource = oldStore.duplicateSource;
+  
+  // Use project store CRUD if activeProject exists, otherwise use old store
+  const addSource = activeProject ? projectStore.addSource : oldStore.addSource;
+  const updateSource = activeProject ? projectStore.updateSource : oldStore.updateSource;
+  const deleteSource = activeProject ? projectStore.deleteSource : oldStore.deleteSource;
+  const duplicateSource = activeProject ? projectStore.duplicateSource : oldStore.duplicateSource;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -42,32 +45,14 @@ export const Computers: React.FC = () => {
   };
 
   const handleSave = (source: Source) => {
+    console.log('Saving computer:', source);
     if (editingSource) {
       updateSource(editingSource.id, source);
     } else {
       addSource(source);
     }
-  };
-
-  const handleSaveAndDuplicate = (source: Source) => {
-    // Save first
-    if (editingSource) {
-      updateSource(editingSource.id, source);
-    } else {
-      addSource(source);
-    }
-    
-    // Then duplicate
-    const newId = SourceService.generateId([...sources, source]);
-    const duplicated = {
-      ...source,
-      id: newId,
-      name: `${source.name} (Copy)`,
-    };
-    
-    // Set as editing source for next modal open
-    setEditingSource(duplicated);
-    addSource(duplicated);
+    setIsModalOpen(false);
+    setEditingSource(null);
   };
 
   const handleDelete = (id: string) => {
@@ -112,7 +97,11 @@ export const Computers: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {filteredSources.map((source) => (
-            <Card key={source.id} className="p-6 hover:border-av-accent/30 transition-colors">
+            <Card 
+              key={source.id} 
+              className="p-6 hover:border-av-accent/30 transition-colors cursor-pointer"
+              onDoubleClick={() => handleEdit(source)}
+            >
               <div className="grid grid-cols-3 gap-6 items-center">
                 {/* Left 1/3: ID and Name */}
                 <div className="flex items-center gap-12">
@@ -141,26 +130,25 @@ export const Computers: React.FC = () => {
                   
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleEdit(source)}
-                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
-                      title="Edit"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDuplicate(source.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDuplicate(source.id);
+                      }}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
                       title="Duplicate"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
                     <button
-                    onClick={() => handleDelete(source.id)}
-                    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(source.id);
+                      }}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -187,9 +175,22 @@ export const Computers: React.FC = () => {
       {/* Form Modal */}
       <SourceFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingSource(null);
+        }}
         onSave={handleSave}
-        onSaveAndDuplicate={handleSaveAndDuplicate}
+        onSaveAndDuplicate={(source) => {
+          handleSave(source);
+          // Generate new ID and open modal with duplicated data
+          const newId = SourceService.generateId([...sources, source]);
+          setEditingSource({
+            ...source,
+            id: newId,
+            name: `${source.name} (Copy)`
+          });
+          setIsModalOpen(true);
+        }}
         existingSources={sources}
         editingSource={editingSource}
       />

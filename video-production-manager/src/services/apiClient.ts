@@ -50,7 +50,7 @@ export class ApiClient {
     }
 
     // Default to localhost for development
-    return 'http://localhost:3001';
+    return 'http://localhost:3010';
   }
 
   public updateBaseUrl(url: string) {

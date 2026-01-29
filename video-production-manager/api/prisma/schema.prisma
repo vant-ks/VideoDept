@@ -87,7 +87,8 @@ model EquipmentSpec {
 enum EquipmentCategory {
   CAMERA
   CCU
-  SWITCHER
+  CAM_SWITCHER
+  VISION_SWITCHER
   ROUTER
   LED_PROCESSOR
   LED_TILE
@@ -170,6 +171,7 @@ model Source {
   production      Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
   type            String
   name            String
+  formatAssignmentMode String? @default("system-wide") @map("format_assignment_mode") // "system-wide" or "per-io"
   hRes            Int?     @map("h_res")
   vRes            Int?     @map("v_res")
   rate            Float?
@@ -201,6 +203,12 @@ model SourceOutput {
   source      Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   connector   String
   outputIndex Int      @default(1) @map("output_index")
+  
+  // Format fields for per-I/O format assignment
+  hRes        Int?     @map("h_res")
+  vRes        Int?     @map("v_res")
+  rate        Float?
+  standard    String?
   
   createdAt   DateTime @default(now()) @map("created_at")
   version     Int @default(1)

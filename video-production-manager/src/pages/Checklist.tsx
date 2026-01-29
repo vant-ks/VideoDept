@@ -23,19 +23,57 @@ const categoryLabels: Record<string, string> = {
 
 export const Checklist: React.FC = () => {
   // Use new stores
-  const { activeProject } = useProjectStore();
-  const { collapsedCategories, toggleCategoryCollapsed } = usePreferencesStore();
+  const { activeProject, saveProject } = useProjectStore();
+  const { collapsedCategories: globalCollapsedCategories, toggleCategoryCollapsed: toggleGlobalCategory } = usePreferencesStore();
+  
+  // Use project-specific collapsed categories if project exists, otherwise use global
+  const collapsedCategories = activeProject?.uiPreferences?.collapsedChecklistCategories ?? globalCollapsedCategories;
+  
+  // Initialize collapsed categories for new projects with all categories collapsed by default
+  React.useEffect(() => {
+    if (activeProject && !activeProject.uiPreferences?.collapsedChecklistCategories) {
+      // First time opening checklist for this project - collapse all categories by default
+      const allCategories = Object.keys(categoryLabels);
+      activeProject.uiPreferences = {
+        ...activeProject.uiPreferences,
+        collapsedChecklistCategories: allCategories
+      };
+      saveProject();
+    }
+  }, [activeProject?.production?.id]);
+  
+  const toggleCategoryCollapsed = (category: string) => {
+    if (activeProject) {
+      // Update project-specific preferences
+      const currentCollapsed = activeProject.uiPreferences?.collapsedChecklistCategories || [];
+      const newCollapsed = currentCollapsed.includes(category)
+        ? currentCollapsed.filter(c => c !== category)
+        : [...currentCollapsed, category];
+      
+      activeProject.uiPreferences = {
+        ...activeProject.uiPreferences,
+        collapsedChecklistCategories: newCollapsed
+      };
+      saveProject();
+    } else {
+      // Fallback to global preferences
+      toggleGlobalCategory(category);
+    }
+  };
   
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();
+  const projectStore = useProjectStore();
   
   const production = activeProject?.production || oldStore.production;
   const checklist = activeProject?.checklist || oldStore.checklist;
-  const toggleChecklistItem = oldStore.toggleChecklistItem;
-  const addChecklistItem = oldStore.addChecklistItem;
-  const deleteChecklistItem = oldStore.deleteChecklistItem;
-  const updateChecklistItem = oldStore.updateChecklistItem;
   const defaultChecklistItems = oldStore.defaultChecklistItems;
+  
+  // Use project store CRUD if activeProject exists, otherwise use old store
+  const toggleChecklistItem = activeProject ? projectStore.toggleChecklistItem : oldStore.toggleChecklistItem;
+  const addChecklistItem = activeProject ? projectStore.addChecklistItem : oldStore.addChecklistItem;
+  const deleteChecklistItem = activeProject ? projectStore.deleteChecklistItem : oldStore.deleteChecklistItem;
+  const updateChecklistItem = activeProject ? projectStore.updateChecklistItem : oldStore.updateChecklistItem;
   
   const { total, completed, percentage } = useChecklistProgress();
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
@@ -173,11 +211,19 @@ export const Checklist: React.FC = () => {
 
   const handleSaveCompletion = () => {
     if (completionItemId) {
+      // Toggle the item first
       toggleChecklistItem(completionItemId);
+      
+      // Add completion note if provided
       if (completionNote.trim() && updateChecklistItem) {
         updateChecklistItem(completionItemId, { completionNote: completionNote.trim() });
       }
+      
+      // Log for debugging
+      console.log('Checklist item toggled:', completionItemId, 'Note:', completionNote);
     }
+    
+    // Clear modal state
     setShowCompletionModal(false);
     setCompletionItemId('');
     setCompletionNote('');
@@ -186,7 +232,10 @@ export const Checklist: React.FC = () => {
   const handleSkipCompletion = () => {
     if (completionItemId) {
       toggleChecklistItem(completionItemId);
+      console.log('Checklist item toggled (no note):', completionItemId);
     }
+    
+    // Clear modal state
     setShowCompletionModal(false);
     setCompletionItemId('');
     setCompletionNote('');
@@ -218,9 +267,11 @@ export const Checklist: React.FC = () => {
       // Only add moreInfo if user entered new text
       if (editItemMoreInfo.trim()) {
         updates.moreInfo = editItemMoreInfo.trim();
+        console.log('Adding moreInfo to checklist item:', editingItem, editItemMoreInfo.trim());
       }
       
       updateChecklistItem(editingItem, updates);
+      console.log('Checklist item updated:', editingItem, updates);
     }
     setShowEditModal(false);
     setEditingItem('');
@@ -324,7 +375,21 @@ export const Checklist: React.FC = () => {
             return (
               <button
                 key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => {
+                  if (cat !== 'all') {
+                    // Toggle collapse state
+                    toggleCategoryCollapsed(cat);
+                    // Scroll to category
+                    setTimeout(() => {
+                      const element = document.getElementById(`category-${cat}`);
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }, 100);
+                  } else {
+                    setSelectedCategory(cat);
+                  }
+                }}
                 className={cn(
                   'px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2',
                   selectedCategory === cat
@@ -725,31 +790,44 @@ export const Checklist: React.FC = () => {
                 <p className="text-xs text-av-text-muted mt-1">Future: Will send email, create calendar event, and Slack message</p>
               </div>
 
-              {/* More Info History */}
-              {editItemHistoryInfo.length > 0 && (
+              {/* Combined Notes Viewer */}
+              {(editItemHistoryInfo.length > 0 || editItemHistoryCompletion.length > 0) && (
                 <div>
                   <label className="block text-sm font-medium text-av-text mb-2">
-                    More Info History
+                    Notes
                   </label>
-                  <div className="space-y-2 mb-2">
-                    {editItemHistoryInfo.map((entry) => (
-                      <div key={entry.id} className="flex items-start gap-2 bg-av-surface-light p-2 rounded border border-av-border">
-                        <div className="flex-1">
-                          <p className="text-sm text-av-text">{entry.text}</p>
-                          <p className="text-xs text-av-text-muted mt-1">
+                  <div className={`space-y-2 mb-2 ${(editItemHistoryInfo.length + editItemHistoryCompletion.length) > 5 ? 'max-h-64 overflow-y-auto pr-2' : ''}`}>
+                    {[...editItemHistoryInfo, ...editItemHistoryCompletion]
+                      .sort((a, b) => a.timestamp - b.timestamp)
+                      .map((entry) => (
+                      <div key={entry.id} className="grid grid-cols-[25%_70%_5%] gap-2 items-start bg-av-surface-light p-2 rounded border border-av-border">
+                        <Badge variant={entry.type === 'completion' ? 'success' : 'default'} className="justify-center">
+                          {entry.type === 'completion' ? 'Completion' : 'Info'}
+                        </Badge>
+                        <div className="min-w-0">
+                          <p className="text-xs text-av-text-muted mb-1">
                             {new Date(entry.timestamp).toLocaleString()}
                           </p>
+                          <p className="text-sm text-av-text">{entry.text}</p>
                         </div>
                         <button
                           onClick={() => {
-                            const updated = editItemHistoryInfo.filter(e => e.id !== entry.id);
-                            setEditItemHistoryInfo(updated);
-                            if (updateChecklistItem && editingItem) {
-                              updateChecklistItem(editingItem, { moreInfo: updated });
+                            if (entry.type === 'completion') {
+                              const updated = editItemHistoryCompletion.filter(e => e.id !== entry.id);
+                              setEditItemHistoryCompletion(updated);
+                              if (updateChecklistItem && editingItem) {
+                                updateChecklistItem(editingItem, { completionNote: updated });
+                              }
+                            } else {
+                              const updated = editItemHistoryInfo.filter(e => e.id !== entry.id);
+                              setEditItemHistoryInfo(updated);
+                              if (updateChecklistItem && editingItem) {
+                                updateChecklistItem(editingItem, { moreInfo: updated });
+                              }
                             }
                           }}
-                          className="text-red-400 hover:text-red-300 p-1"
-                          title="Delete entry"
+                          className="text-red-400 hover:text-red-300 p-1 shrink-0 justify-self-center"
+                          title="Delete note"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -759,10 +837,10 @@ export const Checklist: React.FC = () => {
                 </div>
               )}
 
-              {/* Add More Info */}
+              {/* Add Notes */}
               <div>
                 <label className="block text-sm font-medium text-av-text mb-2">
-                  Add More Info
+                  Add Notes
                 </label>
                 <input
                   type="text"
@@ -772,40 +850,6 @@ export const Checklist: React.FC = () => {
                   className="w-full px-3 py-2 bg-av-cardBg border border-av-border rounded-md text-av-text focus:outline-none focus:border-av-accent input-field"
                 />
               </div>
-
-              {/* Completion Notes History */}
-              {editItemHistoryCompletion.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-av-accent mb-2">
-                    Completion Notes History
-                  </label>
-                  <div className="space-y-2">
-                    {editItemHistoryCompletion.map((entry) => (
-                      <div key={entry.id} className="flex items-start gap-2 bg-av-accent/10 p-2 rounded border border-av-accent/30">
-                        <div className="flex-1">
-                          <p className="text-sm text-av-text">{entry.text}</p>
-                          <p className="text-xs text-av-text-muted mt-1">
-                            {new Date(entry.timestamp).toLocaleString()}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const updated = editItemHistoryCompletion.filter(e => e.id !== entry.id);
-                            setEditItemHistoryCompletion(updated);
-                            if (updateChecklistItem && editingItem) {
-                              updateChecklistItem(editingItem, { completionNote: updated });
-                            }
-                          }}
-                          className="text-red-400 hover:text-red-300 p-1"
-                          title="Delete entry"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

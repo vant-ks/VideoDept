@@ -6,11 +6,13 @@ import { Sends } from '@/pages/Sends';
 import { IPManagement } from '@/pages/IPManagement';
 import { Checklist } from '@/pages/Checklist';
 import { ScalingCalculator } from '@/pages/Calculator';
-import { Screens, Switchers } from '@/pages/OtherPages';
+import { Screens, VisionSwitcher } from '@/pages/OtherPages';
+import { CamSwitcher } from '@/pages/CamSwitcher';
 import Snakes from '@/pages/Snakes';
 import Routers from '@/pages/Routers';
 import Cameras from '@/pages/Cameras';
 import Records from '@/pages/Records';
+import Streams from '@/pages/Streams';
 import MediaServers from '@/pages/MediaServers';
 import CCUs from '@/pages/CCUs';
 import Equipment from '@/pages/Equipment';
@@ -103,8 +105,10 @@ const App: React.FC = () => {
         return <Screens />;
       case 'monitors':
         return <Screens />;
-      case 'switchers':
-        return <Switchers />;
+      case 'vision-switcher':
+        return <VisionSwitcher />;
+      case 'cam-switcher':
+        return <CamSwitcher />;
       case 'network':
         return <IPManagement />;
       case 'checklist':
@@ -123,6 +127,8 @@ const App: React.FC = () => {
         return <Equipment />;
       case 'records':
         return <Records />;
+      case 'streams':
+        return <Streams />;
       case 'calculator':
         return <ScalingCalculator />;
       case 'settings':

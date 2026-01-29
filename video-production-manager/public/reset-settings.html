@@ -1,107 +1,280 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Reset Settings</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #1a1d24;
-            color: #e0e0e0;
-        }
-        button {
-            background: #0969da;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 10px 5px;
-        }
-        button:hover {
-            background: #0757ba;
-        }
-        .success {
-            background: #28a745;
-            padding: 12px;
-            border-radius: 6px;
-            margin: 20px 0;
-            display: none;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Production Manager - Reset Options</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0a0e14 0%, #141a23 100%);
+      color: #e6edf3;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 600px;
+      width: 100%;
+      background: #141a23;
+      border: 2px solid #2d3748;
+      border-radius: 16px;
+      padding: 48px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #06b6d4;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #6b7785;
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    button {
+      padding: 20px 24px;
+      border: 2px solid #2d3748;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+      background: #1a2332;
+      color: #e6edf3;
+    }
+
+    button:hover {
+      border-color: #06b6d4;
+      background: #1e2730;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+    }
+
+    .btn-keep {
+      border-color: #22c55e;
+    }
+
+    .btn-keep:hover {
+      border-color: #22c55e;
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .btn-reload {
+      border-color: #f59e0b;
+    }
+
+    .btn-reload:hover {
+      border-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.1);
+    }
+
+    .btn-settings {
+      border-color: #8b5cf6;
+    }
+
+    .btn-settings:hover {
+      border-color: #8b5cf6;
+      background: rgba(139, 92, 246, 0.1);
+    }
+
+    .btn-clear {
+      border-color: #ef4444;
+    }
+
+    .btn-clear:hover {
+      border-color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .btn-title {
+      font-size: 18px;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .btn-desc {
+      font-size: 13px;
+      color: #6b7785;
+      font-weight: 400;
+    }
+
+    .status {
+      text-align: center;
+      padding: 16px;
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 8px;
+      display: none;
+      margin-top: 24px;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(6, 182, 212, 0.3);
+      border-top-color: #06b6d4;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
-    <h1>Reset Video Production Manager Settings</h1>
-    <p>This will clear your localStorage and reset all settings to default values.</p>
-    
-    <button onclick="resetSettings()">Reset All Settings</button>
-    <button onclick="resetSettingsOnly()">Reset Settings Lists Only</button>
-    <button onclick="goToApp()" style="background: #6c757d;">Don't Reset - Go to App</button>
-    
-    <div class="success" id="success">Settings reset successfully! Reload the app.</div>
-    
-    <script>
-        function goToApp() {
-            window.location.href = '/';
-        }
-    </script>
-    
-    <script>
-        function resetSettings() {
-            // Clear all localStorage (old and new stores)
-            localStorage.clear();
-            
-            // Clear IndexedDB (new project database)
-            if (window.indexedDB) {
-                const deleteRequest = indexedDB.deleteDatabase('VideoDeptDB');
-                deleteRequest.onsuccess = () => {
-                    console.log('IndexedDB cleared successfully');
-                };
-                deleteRequest.onerror = () => {
-                    console.error('Error clearing IndexedDB');
-                };
-            }
-            
-            document.getElementById('success').style.display = 'block';
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
+  <div class="container">
+    <h1>🔄 Server Reset Options</h1>
+    <p class="subtitle">Choose how you'd like to proceed</p>
+
+    <div class="options">
+      <button class="btn-keep" onclick="handleKeepData()">
+        <span class="btn-title">✓ Keep All Data</span>
+        <span class="btn-desc">Restart server without clearing any stored data</span>
+      </button>
+
+      <button class="btn-reload" onclick="handleForceReload()">
+        <span class="btn-title">⟳ Force Reload</span>
+        <span class="btn-desc">Hard refresh the app (keeps localStorage)</span>
+      </button>
+
+      <button class="btn-settings" onclick="handleResetSettingsOnly()">
+        <span class="btn-title">⚙️ Reset Settings Lists Only</span>
+        <span class="btn-desc">Reset equipment library settings to defaults</span>
+      </button>
+
+      <button class="btn-clear" onclick="handleClearData()">
+        <span class="btn-title">⚠️ Clear All Data</span>
+        <span class="btn-desc">Reset everything including localStorage and IndexedDB</span>
+      </button>
+    </div>
+
+    <div class="status" id="status">
+      <span class="spinner"></span>
+      <span id="status-text">Processing...</span>
+    </div>
+  </div>
+
+  <script>
+    function showStatus(message) {
+      const status = document.getElementById('status');
+      const statusText = document.getElementById('status-text');
+      statusText.textContent = message;
+      status.classList.add('show');
+    }
+
+    function handleKeepData() {
+      showStatus('Restarting server...');
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+    }
+
+    function handleForceReload() {
+      showStatus('Force reloading...');
+      setTimeout(() => {
+        window.location.href = '/?t=' + Date.now();
+        setTimeout(() => {
+          window.location.reload(true);
+        }, 500);
+      }, 1000);
+    }
+
+    function handleResetSettingsOnly() {
+      if (confirm('Reset equipment library settings to defaults?')) {
+        showStatus('Resetting settings lists...');
+        
+        // Reset equipment library settings (new architecture)
+        const equipmentDefaults = {
+          version: '1.0.0',
+          lastUpdated: Date.now(),
+          connectorTypes: ['HDMI','SDI','DP','NDI','USB-C','ETH','OPTICON DUO','OPTICON QUAD','SMPTE FIBER','LC - FIBER (SM)','ST - FIBER (SM)','SC - FIBER (SM)','LC - FIBER (MM)','ST - FIBER (MM)','SC - FIBER (MM)','XLR','DMX'],
+          sourceTypes: ['Laptop - PC MISC','Laptop - PC GFX','Laptop - PC WIDE','Laptop - MAC MISC','Laptop - MAC GFX','Desktop - PC MISC','Desktop - PC GFX','Desktop - PC SERVER','Desktop - MAC MISC','Desktop - MAC GFX','Desktop - MAC SERVER'],
+          frameRates: ['60','59.94','50','30','29.97','25','24','23.98'],
+          resolutions: ['8192 x 1080','7680 x 1080','4096 x 2160','3840 x 2160','3840 x 1080','3240 x 1080','1920 x 1200','1920 x 1080','1280 x 720'],
+          equipmentSpecs: [],
+          customEquipment: []
+        };
+        localStorage.setItem('equipment-library', JSON.stringify({ state: equipmentDefaults }));
+        
+        // Reset old store if it exists (backward compatibility)
+        const oldKey = 'video-production-storage';
+        const stored = localStorage.getItem(oldKey);
+        if (stored) {
+          const data = JSON.parse(stored);
+          data.state.connectorTypes = equipmentDefaults.connectorTypes;
+          data.state.sourceTypes = equipmentDefaults.sourceTypes;
+          data.state.frameRates = equipmentDefaults.frameRates;
+          data.state.resolutions = equipmentDefaults.resolutions;
+          localStorage.setItem(oldKey, JSON.stringify(data));
         }
         
-        function resetSettingsOnly() {
-            // Reset equipment library settings (new architecture)
-            const equipmentDefaults = {
-                version: '1.0.0',
-                lastUpdated: Date.now(),
-                connectorTypes: ['HDMI','SDI','DP','NDI','USB-C','ETH','OPTICON DUO','OPTICON QUAD','SMPTE FIBER','LC - FIBER (SM)','ST - FIBER (SM)','SC - FIBER (SM)','LC - FIBER (MM)','ST - FIBER (MM)','SC - FIBER (MM)','XLR','DMX'],
-                sourceTypes: ['Laptop - PC MISC','Laptop - PC GFX','Laptop - PC WIDE','Laptop - MAC MISC','Laptop - MAC GFX','Desktop - PC MISC','Desktop - PC GFX','Desktop - PC SERVER','Desktop - MAC MISC','Desktop - MAC GFX','Desktop - MAC SERVER'],
-                frameRates: ['60','59.94','50','30','29.97','25','24','23.98'],
-                resolutions: ['8192 x 1080','7680 x 1080','4096 x 2160','3840 x 2160','3840 x 1080','3240 x 1080','1920 x 1200','1920 x 1080','1280 x 720'],
-                equipmentSpecs: [],
-                customEquipment: []
-            };
-            localStorage.setItem('equipment-library', JSON.stringify({ state: equipmentDefaults }));
-            
-            // Reset old store if it exists (backward compatibility)
-            const oldKey = 'video-production-storage';
-            const stored = localStorage.getItem(oldKey);
-            if (stored) {
-                const data = JSON.parse(stored);
-                data.state.connectorTypes = equipmentDefaults.connectorTypes;
-                data.state.sourceTypes = equipmentDefaults.sourceTypes;
-                data.state.frameRates = equipmentDefaults.frameRates;
-                data.state.resolutions = equipmentDefaults.resolutions;
-                localStorage.setItem(oldKey, JSON.stringify(data));
-            }
-            
-            document.getElementById('success').style.display = 'block';
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1500);
+      }
+    }
+
+    function handleClearData() {
+      if (confirm('Are you sure? This will delete all projects, equipment, and settings.')) {
+        showStatus('Clearing all data...');
+        
+        // Clear all localStorage (old and new stores)
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Clear IndexedDB (new project database)
+        if (window.indexedDB) {
+          const deleteRequest = indexedDB.deleteDatabase('VideoDeptDB');
+          deleteRequest.onsuccess = () => {
+            console.log('IndexedDB cleared successfully');
+          };
+          deleteRequest.onerror = () => {
+            console.error('Error clearing IndexedDB');
+          };
         }
-    </script>
+        
+        // Clear cache if possible
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => caches.delete(name));
+          });
+        }
+
+        setTimeout(() => {
+          window.location.href = '/?cleared=true';
+        }, 1500);
+      }
+    }
+  </script>
 </body>
 </html>

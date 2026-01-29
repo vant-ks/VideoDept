@@ -11,7 +11,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "equipment:export": "tsx prisma/export-equipment-data.ts",
+    "equipment:seed": "npm run equipment:export && tsx prisma/seed-equipment.ts",
+    "seed:all": "npm run equipment:export && tsx prisma/seed-settings.ts && tsx prisma/seed-equipment.ts"
   },
   "keywords": ["video", "production", "api"],
   "author": "",

@@ -400,7 +400,23 @@ export default function Equipment() {
                       <Edit2 className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => setEditingEquipment(editingEquipment === spec.id ? null : spec.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const isCurrentlyEditing = editingEquipment === spec.id;
+                        setEditingEquipment(isCurrentlyEditing ? null : spec.id);
+                        // Reveal equipment when entering edit mode, collapse when exiting
+                        if (isCurrentlyEditing) {
+                          // Exiting edit mode - collapse
+                          setCollapsedEquipment(prev => new Set([...prev, spec.id]));
+                        } else {
+                          // Entering edit mode - reveal
+                          setCollapsedEquipment(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(spec.id);
+                            return newSet;
+                          });
+                        }
+                      }}
                       className={`p-2 rounded-md transition-colors ${
                         editingEquipment === spec.id
                           ? 'bg-av-accent/20 text-av-accent'

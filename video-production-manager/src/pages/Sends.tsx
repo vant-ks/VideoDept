@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Copy, Monitor, Radio, Projector } from 'lucide-react';
-import { Card, Badge } from '@/components/ui';
+import { Card, Badge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { ProjectionScreenFormModal } from '@/components/ProjectionScreenFormModal';
@@ -10,22 +10,29 @@ import type { Send, ProjectionScreen } from '@/types';
 export const Sends: React.FC = () => {
   // Use new stores
   const { activeProject } = useProjectStore();
+  const projectStore = useProjectStore();
   
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();
   
   const sends = activeProject?.sends || oldStore.sends;
   const projectionScreens = activeProject?.projectionScreens || oldStore.projectionScreens;
-  const addProjectionScreen = oldStore.addProjectionScreen;
-  const updateProjectionScreen = oldStore.updateProjectionScreen;
-  const deleteProjectionScreen = oldStore.deleteProjectionScreen;
-  const duplicateProjectionScreen = oldStore.duplicateProjectionScreen;
+  
+  // Use project store CRUD if activeProject exists, otherwise use old store
+  const addProjectionScreen = activeProject ? projectStore.addProjectionScreen : oldStore.addProjectionScreen;
+  const updateProjectionScreen = activeProject ? projectStore.updateProjectionScreen : oldStore.updateProjectionScreen;
+  const deleteProjectionScreen = activeProject ? projectStore.deleteProjectionScreen : oldStore.deleteProjectionScreen;
+  const duplicateProjectionScreen = activeProject ? projectStore.duplicateProjectionScreen : oldStore.duplicateProjectionScreen;
   
   const [activeTab, setActiveTab] = useState<'sends' | 'projection' | 'led'>('sends');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [isProjectionModalOpen, setIsProjectionModalOpen] = useState(false);
   const [editingProjectionScreen, setEditingProjectionScreen] = useState<ProjectionScreen | null>(null);
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [isLEDModalOpen, setIsLEDModalOpen] = useState(false);
+  const [sendFormData, setSendFormData] = useState({ id: '', name: '' });
+  const [ledFormData, setLedFormData] = useState({ id: '', name: '' });
 
   const sendTypes = React.useMemo(() => {
     const types = new Set(sends.map(s => s.type));
@@ -46,8 +53,10 @@ export const Sends: React.FC = () => {
     if (activeTab === 'projection') {
       setEditingProjectionScreen(null);
       setIsProjectionModalOpen(true);
+    } else if (activeTab === 'led') {
+      setIsLEDModalOpen(true);
     } else {
-      // TODO: Open add send modal
+      setIsSendModalOpen(true);
     }
   };
 
@@ -86,6 +95,20 @@ export const Sends: React.FC = () => {
     } else {
       addProjectionScreen(screen);
     }
+  };
+
+  const handleSubmitSend = () => {
+    if (!sendFormData.id || !sendFormData.name) return;
+    // TODO: Add to store
+    setIsSendModalOpen(false);
+    setSendFormData({ id: '', name: '' });
+  };
+
+  const handleSubmitLED = () => {
+    if (!ledFormData.id || !ledFormData.name) return;
+    // TODO: Add to store
+    setIsLEDModalOpen(false);
+    setLedFormData({ id: '', name: '' });
   };
 
   const stats = {
@@ -247,18 +270,20 @@ export const Sends: React.FC = () => {
 
           {/* Sends List */}
           {filteredSends.length === 0 ? (
-            <Card className="p-12 text-center">
-              <h3 className="text-lg font-semibold text-av-text mb-2">No Sends Found</h3>
-              <p className="text-av-text-muted mb-4">
-                {sends.length === 0 
-                  ? 'Add your first send to get started'
-                  : 'No sends match your search criteria'
-                }
-              </p>
-              {sends.length === 0 && (
-                <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">Add Send</button>
-              )}
-            </Card>
+            sends.length === 0 ? (
+              <EmptyState
+                icon={Monitor}
+                title="No Sends Yet"
+                description="Add your first send to start managing video destinations"
+                actionLabel="Add Send"
+                onAction={handleAddNew}
+              />
+            ) : (
+              <Card className="p-12 text-center">
+                <h3 className="text-lg font-semibold text-av-text mb-2">No Sends Found</h3>
+                <p className="text-av-text-muted">No sends match your search criteria</p>
+              </Card>
+            )
           ) : (
             <div className="space-y-3">
               {filteredSends.map((send) => (
@@ -360,19 +385,20 @@ export const Sends: React.FC = () => {
 
           {/* Projection Screens List */}
           {filteredProjectionScreens.length === 0 ? (
-            <Card className="p-12 text-center">
-              <Projector className="w-12 h-12 mx-auto mb-4 text-av-text-muted" />
-              <h3 className="text-lg font-semibold text-av-text mb-2">No Projection Screens</h3>
-              <p className="text-av-text-muted mb-4">
-                {projectionScreens.length === 0 
-                  ? 'Add your first projection screen to get started'
-                  : 'No projection screens match your search'
-                }
-              </p>
-              {projectionScreens.length === 0 && (
-                <button onClick={handleAddNew} className="btn-primary">Add Projection Screen</button>
-              )}
-            </Card>
+            projectionScreens.length === 0 ? (
+              <EmptyState
+                icon={Projector}
+                title="No Projection Screens Yet"
+                description="Add your first projection screen to start managing displays"
+                actionLabel="Add Projection Screen"
+                onAction={handleAddNew}
+              />
+            ) : (
+              <Card className="p-12 text-center">
+                <h3 className="text-lg font-semibold text-av-text mb-2">No Projection Screens</h3>
+                <p className="text-av-text-muted">No projection screens match your search</p>
+              </Card>
+            )
           ) : (
             <div className="space-y-3">
               {filteredProjectionScreens.map((screen) => (
@@ -469,10 +495,13 @@ export const Sends: React.FC = () => {
       )}
 
       {activeTab === 'led' && (
-        <Card className="p-12 text-center">
-          <h3 className="text-lg font-semibold text-av-text mb-2">LED Screens</h3>
-          <p className="text-av-text-muted">LED screen management coming soon</p>
-        </Card>
+        <EmptyState
+          icon={Monitor}
+          title="No LED Screens Yet"
+          description="Add your first LED screen to start managing LED displays"
+          actionLabel="Add LED Screen"
+          onAction={handleAddNew}
+        />
       )}
 
       {/* Projection Screen Modal */}
@@ -485,6 +514,76 @@ export const Sends: React.FC = () => {
         onSave={handleSaveProjectionScreen}
         editingScreen={editingProjectionScreen}
       />
+
+      {/* Send Modal */}
+      {isSendModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsSendModalOpen(false)}>
+          <div className="bg-av-cardBg rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-av-text mb-4">Add Send</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">ID</label>
+                <input
+                  type="text"
+                  value={sendFormData.id}
+                  onChange={(e) => setSendFormData({...sendFormData, id: e.target.value})}
+                  className="input-field w-full"
+                  placeholder="e.g., SEND-01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">Name</label>
+                <input
+                  type="text"
+                  value={sendFormData.name}
+                  onChange={(e) => setSendFormData({...sendFormData, name: e.target.value})}
+                  className="input-field w-full"
+                  placeholder="e.g., Main Screen"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-6">
+              <button onClick={() => setIsSendModalOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={handleSubmitSend} disabled={!sendFormData.id || !sendFormData.name} className="btn-primary">Submit</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LED Modal */}
+      {isLEDModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsLEDModalOpen(false)}>
+          <div className="bg-av-cardBg rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-av-text mb-4">Add LED Screen</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">ID</label>
+                <input
+                  type="text"
+                  value={ledFormData.id}
+                  onChange={(e) => setLedFormData({...ledFormData, id: e.target.value})}
+                  className="input-field w-full"
+                  placeholder="e.g., LED-01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">Name</label>
+                <input
+                  type="text"
+                  value={ledFormData.name}
+                  onChange={(e) => setLedFormData({...ledFormData, name: e.target.value})}
+                  className="input-field w-full"
+                  placeholder="e.g., Main LED Wall"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-6">
+              <button onClick={() => setIsLEDModalOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={handleSubmitLED} disabled={!ledFormData.id || !ledFormData.name} className="btn-primary">Submit</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -23,7 +23,8 @@ import {
   Server,
   Box,
   FolderOpen,
-  LogOut
+  LogOut,
+  Radio
 } from 'lucide-react';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -64,6 +65,7 @@ const navItems: NavItem[] = [
       { id: 'projection', label: 'Projection', icon: Projector },
       { id: 'monitors', label: 'Monitors', icon: Tv2 },
       { id: 'records', label: 'Records', icon: Circle },
+      { id: 'streams', label: 'Streams', icon: Radio },
     ]
   },
   { 
@@ -71,7 +73,8 @@ const navItems: NavItem[] = [
     label: 'Signal Flow', 
     icon: Workflow,
     children: [
-      { id: 'switchers', label: 'Switchers', icon: Tv2 },
+      { id: 'vision-switcher', label: 'Vision Switcher', icon: Tv2 },
+      { id: 'cam-switcher', label: 'Cam Switcher', icon: Tv2 },
       { id: 'routers', label: 'Routers', icon: Share2 },
       { id: 'snakes', label: 'Snakes', icon: Cable },
     ]

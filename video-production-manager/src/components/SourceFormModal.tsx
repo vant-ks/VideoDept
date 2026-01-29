@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import type { Source, ConnectorType, SourceType } from '@/types';
 import { SourceService } from '@/services';
 import { useProductionStore } from '@/hooks/useStore';
@@ -55,6 +55,7 @@ export function SourceFormModal({
     id: '',
     type: defaultType,
     name: '',
+    formatAssignmentMode: 'system-wide',
     hRes: undefined,
     vRes: undefined,
     rate: 59.94,
@@ -69,6 +70,11 @@ export function SourceFormModal({
   const [isCustomResolution, setIsCustomResolution] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>('');
   const [selectedFrameRate, setSelectedFrameRate] = useState<string>('59.94');
+  
+  // Per-I/O format states (for when formatAssignmentMode is 'per-io')
+  const [perIoPresets, setPerIoPresets] = useState<Record<string, string>>({});
+  const [perIoFrameRates, setPerIoFrameRates] = useState<Record<string, string>>({});
+  const [perIoCustomResolution, setPerIoCustomResolution] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (editingSource) {
@@ -168,14 +174,59 @@ export function SourceFormModal({
     }
     setErrors([]);
   };
+  
+  // Per-I/O format handlers
+  const handlePerIoResolutionPresetChange = (outputId: string, presetKey: string) => {
+    setPerIoPresets(prev => ({ ...prev, [outputId]: presetKey }));
+    
+    if (presetKey === 'custom') {
+      setPerIoCustomResolution(prev => ({ ...prev, [outputId]: true }));
+    } else if (presetKey) {
+      setPerIoCustomResolution(prev => ({ ...prev, [outputId]: false }));
+      const preset = resolutionPresets.find(p => `${p.hRes}x${p.vRes}` === presetKey);
+      if (preset) {
+        const newOutputs = (formData.outputs || []).map(output =>
+          output.id === outputId ? { ...output, hRes: preset.hRes, vRes: preset.vRes } : output
+        );
+        setFormData(prev => ({ ...prev, outputs: newOutputs }));
+      }
+    } else {
+      setPerIoCustomResolution(prev => ({ ...prev, [outputId]: false }));
+      const newOutputs = (formData.outputs || []).map(output =>
+        output.id === outputId ? { ...output, hRes: undefined, vRes: undefined } : output
+      );
+      setFormData(prev => ({ ...prev, outputs: newOutputs }));
+    }
+    setErrors([]);
+  };
+
+  const handlePerIoFrameRateChange = (outputId: string, rate: string) => {
+    setPerIoFrameRates(prev => ({ ...prev, [outputId]: rate }));
+    if (rate) {
+      const rateValue = parseFloat(rate);
+      const newOutputs = (formData.outputs || []).map(output =>
+        output.id === outputId ? { ...output, rate: rateValue } : output
+      );
+      setFormData(prev => ({ ...prev, outputs: newOutputs }));
+    } else {
+      const newOutputs = (formData.outputs || []).map(output =>
+        output.id === outputId ? { ...output, rate: undefined } : output
+      );
+      setFormData(prev => ({ ...prev, outputs: newOutputs }));
+    }
+    setErrors([]);
+  };
 
   const handleChange = (field: keyof Source, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors([]); // Clear errors on change
   };
 
-  const handleSubmit = (e: React.FormEvent, action: 'close' | 'duplicate' = 'close') => {
-    e.preventDefault();
+  const handleSubmit = (e: React.FormEvent | React.MouseEvent, action: 'close' | 'duplicate' = 'close') => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     
     // Validate
     const validation = SourceService.validate(formData);
@@ -279,101 +330,122 @@ export function SourceFormModal({
             </div>
           </div>
 
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-av-text mb-2">
-              Name <span className="text-av-danger">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              className="input-field w-full"
-              placeholder="e.g., Main Presentation Laptop"
-              required
-            />
-          </div>
-
-          {/* Resolution and Frame Rate Presets */}
+          {/* Name and Format Assignment Mode Row */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
-                Resolution Preset
+                Name <span className="text-av-danger">*</span>
               </label>
-              <select
-                value={selectedPreset}
-                onChange={(e) => handleResolutionPresetChange(e.target.value)}
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleChange('name', e.target.value)}
                 className="input-field w-full"
-              >
-                <option value="">Select preset...</option>
-                {resolutionPresets.map(preset => (
-                  <option key={`${preset.hRes}x${preset.vRes}`} value={`${preset.hRes}x${preset.vRes}`}>
-                    {preset.label}
-                  </option>
-                ))}
-                <option value="custom">Custom...</option>
-              </select>
+                placeholder="e.g., Main Presentation Laptop"
+                required
+              />
             </div>
-
+            
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
-                Frame Rate
+                Format Assignment
               </label>
               <select
-                value={selectedFrameRate}
-                onChange={(e) => handleFrameRatePresetChange(e.target.value)}
+                value={formData.formatAssignmentMode || 'system-wide'}
+                onChange={(e) => handleChange('formatAssignmentMode', e.target.value)}
                 className="input-field w-full"
               >
-                <option value="">Select...</option>
-                {frameRatePresets.map(rate => (
-                  <option key={rate} value={rate}>
-                    {rate} fps
-                  </option>
-                ))}
+                <option value="system-wide">System Wide</option>
+                <option value="per-io">Per I/O</option>
               </select>
             </div>
           </div>
 
-          {/* Resolution Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                Horizontal Resolution
-              </label>
-              <input
-                type="number"
-                value={formData.hRes || ''}
-                onChange={(e) => handleChange('hRes', e.target.value ? parseInt(e.target.value) : undefined)}
-                className="input-field w-full"
-                placeholder="1920"
-                min="0"
-                disabled={!isCustomResolution && selectedPreset !== ''}
-                readOnly={!isCustomResolution && selectedPreset !== ''}
-              />
-            </div>
+          {/* System-wide format fields - only show if formatAssignmentMode is 'system-wide' */}
+          {formData.formatAssignmentMode === 'system-wide' && (
+            <>
+              {/* Resolution and Frame Rate Presets */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Resolution Preset
+                  </label>
+                  <select
+                    value={selectedPreset}
+                    onChange={(e) => handleResolutionPresetChange(e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="">Select preset...</option>
+                    {resolutionPresets.map(preset => (
+                      <option key={`${preset.hRes}x${preset.vRes}`} value={`${preset.hRes}x${preset.vRes}`}>
+                        {preset.label}
+                      </option>
+                    ))}
+                    <option value="custom">Custom...</option>
+                  </select>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                Vertical Resolution
-              </label>
-              <input
-                type="number"
-                value={formData.vRes || ''}
-                onChange={(e) => handleChange('vRes', e.target.value ? parseInt(e.target.value) : undefined)}
-                className="input-field w-full"
-                placeholder="1080"
-                min="0"
-                disabled={!isCustomResolution && selectedPreset !== ''}
-                readOnly={!isCustomResolution && selectedPreset !== ''}
-              />
-            </div>
-          </div>
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Frame Rate
+                  </label>
+                  <select
+                    value={selectedFrameRate}
+                    onChange={(e) => handleFrameRatePresetChange(e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="">Select...</option>
+                    {frameRatePresets.map(rate => (
+                      <option key={rate} value={rate}>
+                        {rate} fps
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Resolution Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Horizontal Resolution
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.hRes || ''}
+                    onChange={(e) => handleChange('hRes', e.target.value ? parseInt(e.target.value) : undefined)}
+                    className="input-field w-full"
+                    placeholder="1920"
+                    min="0"
+                    disabled={!isCustomResolution && selectedPreset !== ''}
+                    readOnly={!isCustomResolution && selectedPreset !== ''}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Vertical Resolution
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.vRes || ''}
+                    onChange={(e) => handleChange('vRes', e.target.value ? parseInt(e.target.value) : undefined)}
+                    className="input-field w-full"
+                    placeholder="1080"
+                    min="0"
+                    disabled={!isCustomResolution && selectedPreset !== ''}
+                    readOnly={!isCustomResolution && selectedPreset !== ''}
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Outputs Section */}
           <div>
             <label className="block text-sm font-medium text-av-text mb-2">
               Outputs <span className="text-av-danger">*</span>
-              {formData.type === 'LAPTOP' && (formData.outputs?.length || 0) < 2 && (
+              {(formData.outputs?.length || 0) < 2 && formData.type !== 'SERVER' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -383,9 +455,9 @@ export function SourceFormModal({
                       outputs: [...(formData.outputs || []), { id: nextId, connector: 'HDMI' }]
                     });
                   }}
-                  className="ml-2 text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30"
+                  className="ml-2 text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 inline-flex items-center gap-1"
                 >
-                  + Add Output
+                  <Plus className="w-3 h-3" /> Add Output
                 </button>
               )}
               {formData.type === 'SERVER' && (formData.outputs?.length || 0) < 8 && (
@@ -398,41 +470,132 @@ export function SourceFormModal({
                       outputs: [...(formData.outputs || []), { id: nextId, connector: 'HDMI' }]
                     });
                   }}
-                  className="ml-2 text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30"
+                  className="ml-2 text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 inline-flex items-center gap-1"
                 >
-                  + Add Output
+                  <Plus className="w-3 h-3" /> Add Output
                 </button>
               )}
             </label>
-            <div className="space-y-2">
+            <div className="space-y-4">
               {(formData.outputs || []).map((output, idx) => (
-                <div key={output.id} className="flex gap-2 items-center">
-                  <span className="text-sm text-av-text-muted w-16">Out {idx + 1}:</span>
-                  <select
-                    value={output.connector}
-                    onChange={(e) => {
-                      const newOutputs = [...(formData.outputs || [])];
-                      newOutputs[idx] = { ...output, connector: e.target.value as ConnectorType };
-                      setFormData({ ...formData, outputs: newOutputs });
-                    }}
-                    className="input-field flex-1"
-                    required
-                  >
-                    {connectorTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                  {(formData.outputs || []).length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newOutputs = (formData.outputs || []).filter((_, i) => i !== idx);
+                <div key={output.id} className="border border-av-border rounded-lg p-4">
+                  {/* Connector row */}
+                  <div className="flex gap-2 items-center mb-3">
+                    <span className="text-sm font-medium text-av-text w-16">Out {idx + 1}:</span>
+                    <select
+                      value={output.connector}
+                      onChange={(e) => {
+                        const newOutputs = [...(formData.outputs || [])];
+                        newOutputs[idx] = { ...output, connector: e.target.value as ConnectorType };
                         setFormData({ ...formData, outputs: newOutputs });
                       }}
-                      className="p-2 text-av-danger hover:bg-av-danger/10 rounded"
+                      className="input-field flex-1"
+                      required
                     >
-                      <X className="w-4 h-4" />
-                    </button>
+                      {connectorTypes.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                    {(formData.outputs || []).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newOutputs = (formData.outputs || []).filter((_, i) => i !== idx);
+                          setFormData({ ...formData, outputs: newOutputs });
+                        }}
+                        className="p-2 text-av-danger hover:bg-av-danger/10 rounded"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Per-I/O format fields - only show if formatAssignmentMode is 'per-io' */}
+                  {formData.formatAssignmentMode === 'per-io' && (
+                    <>
+                      {/* Resolution and Frame Rate Presets for this output */}
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                          <label className="block text-xs font-medium text-av-text-muted mb-1">
+                            Resolution Preset
+                          </label>
+                          <select
+                            value={perIoPresets[output.id] || ''}
+                            onChange={(e) => handlePerIoResolutionPresetChange(output.id, e.target.value)}
+                            className="input-field w-full text-sm"
+                          >
+                            <option value="">Select...</option>
+                            {resolutionPresets.map(preset => (
+                              <option key={`${output.id}-${preset.hRes}x${preset.vRes}`} value={`${preset.hRes}x${preset.vRes}`}>
+                                {preset.label}
+                              </option>
+                            ))}
+                            <option value="custom">Custom...</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-av-text-muted mb-1">
+                            Frame Rate
+                          </label>
+                          <select
+                            value={perIoFrameRates[output.id] || ''}
+                            onChange={(e) => handlePerIoFrameRateChange(output.id, e.target.value)}
+                            className="input-field w-full text-sm"
+                          >
+                            <option value="">Select...</option>
+                            {frameRatePresets.map(rate => (
+                              <option key={`${output.id}-${rate}`} value={rate}>
+                                {rate} fps
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Resolution fields for this output */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-av-text-muted mb-1">
+                            H Res
+                          </label>
+                          <input
+                            type="number"
+                            value={output.hRes || ''}
+                            onChange={(e) => {
+                              const newOutputs = [...(formData.outputs || [])];
+                              newOutputs[idx] = { ...output, hRes: e.target.value ? parseInt(e.target.value) : undefined };
+                              setFormData({ ...formData, outputs: newOutputs });
+                            }}
+                            className="input-field w-full text-sm"
+                            placeholder="1920"
+                            min="0"
+                            disabled={!perIoCustomResolution[output.id] && perIoPresets[output.id] !== '' && perIoPresets[output.id] !== undefined}
+                            readOnly={!perIoCustomResolution[output.id] && perIoPresets[output.id] !== '' && perIoPresets[output.id] !== undefined}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-av-text-muted mb-1">
+                            V Res
+                          </label>
+                          <input
+                            type="number"
+                            value={output.vRes || ''}
+                            onChange={(e) => {
+                              const newOutputs = [...(formData.outputs || [])];
+                              newOutputs[idx] = { ...output, vRes: e.target.value ? parseInt(e.target.value) : undefined };
+                              setFormData({ ...formData, outputs: newOutputs });
+                            }}
+                            className="input-field w-full text-sm"
+                            placeholder="1080"
+                            min="0"
+                            disabled={!perIoCustomResolution[output.id] && perIoPresets[output.id] !== '' && perIoPresets[output.id] !== undefined}
+                            readOnly={!perIoCustomResolution[output.id] && perIoPresets[output.id] !== '' && perIoPresets[output.id] !== undefined}
+                          />
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               ))}

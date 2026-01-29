@@ -657,7 +657,7 @@ export default function Settings() {
                 </button>
               </div>
             </form>
-            )
+            )}
 
             {/* Connector List */}
             <div className="space-y-2">

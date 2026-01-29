@@ -1,43 +1,27 @@
-#!/bin/bash
+#!/usr/bin/osascript
 
-# Video Production Manager - Reset & Restart Script
-# This script clears localStorage and restarts the development server
+# Video Production Manager - Reset & Restart (AppleScript)
+# Runs silently without opening Terminal windows
 
-echo "🔄 Video Production Manager - Reset & Restart"
-echo "=============================================="
-echo ""
+do shell script "
+cd '/Users/kevin/Dropbox (Personal)/Development/VideoDept/VideoDept/video-production-manager'
 
-# Navigate to project directory
-PROJECT_DIR="/Users/kevin/Dropbox (Personal)/Development/VideoDept/VideoDept/video-production-manager"
-cd "$PROJECT_DIR" || { echo "❌ Failed to navigate to project directory"; exit 1; }
-
-# Kill any running Vite servers
-echo "🛑 Stopping running servers..."
+# Kill any running servers
 pkill -f 'vite' 2>/dev/null
-sleep 2
-
-# Clear browser localStorage using AppleScript (opens browser to reset page)
-echo "🧹 Opening reset page in browser..."
-open "http://localhost:3000/reset-settings.html" 2>/dev/null &
-
-# Wait for reset page to load
-sleep 3
-
-# Start the dev server in a new terminal that will stay open
-echo "🚀 Starting development server in new terminal..."
-echo ""
-echo "✅ Server will start in a new terminal window"
-echo "This window will close in 2 seconds..."
-sleep 2
-
-# Open new terminal with dev server using full hardcoded path
-osascript <<'APPLESCRIPT'
-tell application "Terminal"
-    do script "cd '/Users/kevin/Dropbox (Personal)/Development/VideoDept/VideoDept/video-production-manager' && npm run dev"
-    activate
-end tell
-APPLESCRIPT
-
-# Close this terminal window after a delay
+pkill -f 'node.*vite' 2>/dev/null
+pkill -f 'tsx.*server.ts' 2>/dev/null
+lsof -ti:3000 | xargs kill -9 2>/dev/null
+lsof -ti:3010 | xargs kill -9 2>/dev/null
 sleep 1
-exit 0
+
+# Start dev server in background
+nohup npm run dev > /dev/null 2>&1 &
+
+# Wait for server to be ready
+sleep 3
+"
+
+# Open reset page in browser
+tell application "System Events"
+	open location "http://localhost:3000/reset-settings.html"
+end tell

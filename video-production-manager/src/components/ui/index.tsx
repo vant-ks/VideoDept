@@ -158,21 +158,47 @@ export const Select: React.FC<SelectProps> = ({
 
 // Progress Bar
 interface ProgressBarProps {
-  value: number;
+  value?: number;
   max?: number;
   label?: string;
   showPercentage?: boolean;
   className?: string;
+  variant?: 'default' | 'indeterminate';
+  progress?: number; // Alias for value for backward compatibility
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({ 
   value, 
+  progress,
   max = 100, 
   label,
   showPercentage = true,
-  className 
+  className,
+  variant = 'default'
 }) => {
-  const percentage = Math.min((value / max) * 100, 100);
+  const actualValue = progress ?? value ?? 0;
+  const percentage = Math.min((actualValue / max) * 100, 100);
+  
+  if (variant === 'indeterminate') {
+    return (
+      <div className={cn('space-y-1', className)}>
+        {label && (
+          <div className="flex justify-between text-sm">
+            <span className="text-av-text-muted">{label}</span>
+          </div>
+        )}
+        <div className="h-2 bg-av-surface-light rounded-full overflow-hidden relative">
+          <div 
+            className="h-full bg-gradient-to-r from-av-accent to-av-info rounded-full absolute"
+            style={{ 
+              width: '30%',
+              animation: 'progress-slide 1.5s ease-in-out infinite'
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className={cn('space-y-1', className)}>
@@ -208,32 +234,6 @@ export const SignalIndicator: React.FC<SignalIndicatorProps> = ({
     active ? 'signal-active' : 'signal-inactive',
     className
   )} />
-);
-
-// Empty State
-interface EmptyStateProps {
-  icon?: React.ReactNode;
-  title: string;
-  description?: string;
-  action?: React.ReactNode;
-}
-
-export const EmptyState: React.FC<EmptyStateProps> = ({ 
-  icon, 
-  title, 
-  description, 
-  action 
-}) => (
-  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-    {icon && (
-      <div className="text-4xl text-av-text-muted mb-4">{icon}</div>
-    )}
-    <h3 className="text-lg font-medium text-av-text mb-1">{title}</h3>
-    {description && (
-      <p className="text-sm text-av-text-muted mb-4">{description}</p>
-    )}
-    {action}
-  </div>
 );
 
 // Stat Card
@@ -327,3 +327,6 @@ export const TableCell: React.FC<React.TdHTMLAttributes<HTMLTableCellElement>> =
     {children}
   </td>
 );
+
+// Export EmptyState component
+export { EmptyState } from '../EmptyState';

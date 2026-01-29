@@ -35,17 +35,29 @@ export interface Production {
   location?: Location;
 }
 
+export interface SourceOutput {
+  id: string;
+  connector: ConnectorType;
+  // Per-I/O format fields (used when formatAssignmentMode is 'per-io')
+  hRes?: number;
+  vRes?: number;
+  rate?: number;
+  standard?: string;
+}
+
 export interface Source {
   id: string;
   type: SourceType;
   name: string;
+  formatAssignmentMode?: 'system-wide' | 'per-io'; // How format is assigned
+  // System-wide format fields (used when formatAssignmentMode is 'system-wide')
   hRes?: number;
   vRes?: number;
   rate: number;
   standard?: string;
   note?: string;
   secondaryDevice?: string;
-  outputs: Array<{ id: string; connector: ConnectorType }>;
+  outputs: SourceOutput[];
   blanking?: 'none' | 'RBv1' | 'RBv2' | 'RBv3';
 }
 
@@ -476,6 +488,11 @@ export interface VideoDepProject {
   
   // Equipment References (IDs only, specs come from library)
   usedEquipmentIds: string[];
+  
+  // Project-specific UI preferences
+  uiPreferences?: {
+    collapsedChecklistCategories?: string[];
+  };
 }
 
 // Change Tracking (for sync)

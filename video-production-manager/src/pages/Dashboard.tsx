@@ -38,6 +38,11 @@ export const Dashboard: React.FC = () => {
     return grouped;
   }, [sources]);
 
+  // Separate counts for dashboard
+  const computerCount = sources.filter(s => s.type === 'Computer').length;
+  const serverCount = activeProject?.mediaServers?.length || oldStore.mediaServers.length;
+  const cameraCount = activeProject?.cameras?.length || oldStore.cameras.length;
+
   const upcomingTasks = checklist
     .filter(item => !item.completed && item.daysBeforeShow && item.daysBeforeShow <= 14)
     .slice(0, 5);
@@ -268,36 +273,37 @@ export const Dashboard: React.FC = () => {
               Sources
             </h3>
             
-            {/* Sources by Type */}
+            {/* Device Counts */}
             <div className="space-y-3 mb-6">
-              {Object.entries(sourcesByType).map(([type, count]) => (
-                <div key={type} className="flex items-center justify-between">
-                  <span className="text-sm text-av-text-muted">{type}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 h-2 bg-av-surface-light rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-av-accent rounded-full"
-                        style={{ width: `${(count / sources.length) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-sm text-av-text w-6 text-right">{count}</span>
-                  </div>
-                </div>
-              ))}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-av-text-muted">Computers</span>
+                <span className="text-lg font-semibold text-av-text">{computerCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-av-text-muted">Media Servers</span>
+                <span className="text-lg font-semibold text-av-text">{serverCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-av-text-muted">Cameras</span>
+                <span className="text-lg font-semibold text-av-text">{cameraCount}</span>
+              </div>
             </div>
 
-            {/* Signal Types */}
+            {/* Output Connectors - Count all outputs from all sources */}
             <div className="border-t border-av-border pt-4">
-              <h4 className="text-sm font-medium text-av-text-muted mb-3">Signal Types</h4>
+              <h4 className="text-sm font-medium text-av-text-muted mb-3">Output Connectors</h4>
               <div className="flex flex-wrap gap-2">
                 {['HDMI', 'SDI', 'DP', 'FIBER'].map(connector => {
-                  const count = sources.filter(s => s.outputs?.some(o => o.connector === connector)).length;
-                  return (
+                  // Count all outputs with this connector type across all sources
+                  const count = sources.reduce((total, s) => {
+                    return total + (s.outputs?.filter(o => o.connector === connector).length || 0);
+                  }, 0);
+                  return count > 0 ? (
                     <div key={connector} className="flex items-center gap-2">
                       <ConnectorBadge connector={connector} />
                       <span className="text-sm text-av-text-muted">×{count}</span>
                     </div>
-                  );
+                  ) : null;
                 })}
               </div>
             </div>

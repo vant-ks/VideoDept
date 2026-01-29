@@ -1,8 +1,8 @@
-import React from 'react';
-import { Card, Badge, ConnectorBadge } from '@/components/ui';
+import React, { useState } from 'react';
+import { Card, Badge, ConnectorBadge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
-import { Projector, Tv2, Cable, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
+import { Projector, Tv2, Cable, Plus, Edit2, Trash2 } from 'lucide-react';
 
 // Screens Page
 export const Screens: React.FC = () => {
@@ -10,15 +10,28 @@ export const Screens: React.FC = () => {
   const oldStore = useProductionStore();
   const ledScreens = activeProject?.ledScreens || oldStore.ledScreens;
   const screen = ledScreens[0];
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
+      <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-av-text">Screens</h2>
-        <p className="text-sm text-av-text-muted">LED and projection screen configuration</p>
+        <button onClick={() => setIsModalOpen(true)} className="btn-primary flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Add Screen
+        </button>
       </div>
 
-      {screen && (
+      {!screen ? (
+        <EmptyState
+          icon={Projector}
+          title="No Screens Yet"
+          description="Add your first screen to start managing projection and LED displays"
+          actionLabel="Add Screen"
+          onAction={() => setIsModalOpen(true)}
+        />
+      ) : (
+        screen && (
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-lg bg-av-accent/20 flex items-center justify-center">
@@ -84,26 +97,46 @@ export const Screens: React.FC = () => {
             </div>
           </div>
         </Card>
-      )}
+      ))}
     </div>
   );
 };
 
-// Switchers Page
-export const Switchers: React.FC = () => {
+// Vision Switcher Page
+export const VisionSwitcher: React.FC = () => {
   const { activeProject } = useProjectStore();
   const oldStore = useProductionStore();
   const videoSwitchers = activeProject?.videoSwitchers || oldStore.videoSwitchers;
   const switcher = videoSwitchers[0];
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({ id: '', name: '' });
+
+  const handleSubmit = () => {
+    if (!formData.id || !formData.name) return;
+    // TODO: Add to store
+    setIsModalOpen(false);
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h2 className="text-xl font-bold text-av-text">Video Switchers</h2>
-        <p className="text-sm text-av-text-muted">E2, Q8, and other video processing equipment</p>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-av-text">Vision Switcher</h2>
+        <button onClick={() => setIsModalOpen(true)} className="btn-primary flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Add Switcher
+        </button>
       </div>
 
-      {switcher && (
+      {!switcher ? (
+        <EmptyState
+          icon={Tv2}
+          title="No Vision Switcher Yet"
+          description="Add your first vision switcher to start managing video routing"
+          actionLabel="Add Switcher"
+          onAction={() => setIsModalOpen(true)}
+        />
+      ) : (
+        switcher && (
         <Card className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -160,6 +193,41 @@ export const Switchers: React.FC = () => {
             </div>
           </div>
         </Card>
+      ))}
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-av-cardBg rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-av-text mb-4">Add Vision Switcher</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">ID</label>
+                <input
+                  type="text"
+                  value={formData.id}
+                  onChange={(e) => setFormData({...formData, id: e.target.value})}
+                  className="input-field w-full"
+                  placeholder="e.g., E2-01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="input-field w-full"
+                  placeholder="e.g., Main E2"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-6">
+              <button onClick={() => setIsModalOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={handleSubmit} disabled={!formData.id || !formData.name} className="btn-primary">Submit</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

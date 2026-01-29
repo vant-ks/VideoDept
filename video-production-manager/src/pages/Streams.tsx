@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useProductionStore } from '@/hooks/useStore';
 import { Card, Badge, EmptyState } from '@/components/ui';
-import { Circle, Plus } from 'lucide-react';
+import { Radio, Plus } from 'lucide-react';
 
-export default function Records() {
+export default function Streams() {
   const sends = useProductionStore(state => state.sends);
-  const records = sends.filter(s => s.type === 'RECORD');
+  const streams = sends.filter(s => s.type === 'STREAM');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ id: '', name: '' });
 
@@ -21,61 +21,61 @@ export default function Records() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-av-text">Records</h1>
+          <h1 className="text-3xl font-bold text-av-text">Streams</h1>
         </div>
         <button onClick={() => setIsModalOpen(true)} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
-          Add Record
+          Add Stream
         </button>
       </div>
 
-      {/* Records List */}
-      {records.length === 0 ? (
+      {/* Streams List */}
+      {streams.length === 0 ? (
         <EmptyState
-          icon={Circle}
-          title="No Records Yet"
-          description="Add your first recording destination"
-          actionLabel="Add Record"
+          icon={Radio}
+          title="No Streams Yet"
+          description="Add your first streaming destination"
+          actionLabel="Add Stream"
           onAction={() => setIsModalOpen(true)}
         />
       ) : (
         <div className="grid gap-4">
-          {records.map((record) => (
-            <Card key={record.id} className="p-6">
+          {streams.map((stream) => (
+            <Card key={stream.id} className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-av-text">{record.name}</h3>
-                    <Badge variant="danger">RECORD</Badge>
-                    <Badge>{record.output}</Badge>
+                    <h3 className="text-lg font-semibold text-av-text">{stream.name}</h3>
+                    <Badge variant="default">STREAM</Badge>
+                    <Badge>{stream.output}</Badge>
                   </div>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <span className="text-av-text-muted">ID:</span>
-                      <span className="text-av-text ml-2">{record.id}</span>
+                      <span className="text-av-text ml-2">{stream.id}</span>
                     </div>
-                    {record.hRes && record.vRes && (
+                    {stream.hRes && stream.vRes && (
                       <div>
                         <span className="text-av-text-muted">Resolution:</span>
-                        <span className="text-av-text ml-2">{record.hRes}x{record.vRes}</span>
+                        <span className="text-av-text ml-2">{stream.hRes}x{stream.vRes}</span>
                       </div>
                     )}
                     <div>
                       <span className="text-av-text-muted">Frame Rate:</span>
-                      <span className="text-av-text ml-2">{record.rate}</span>
+                      <span className="text-av-text ml-2">{stream.rate}</span>
                     </div>
-                    {record.secondaryDevice && (
+                    {stream.secondaryDevice && (
                       <div>
                         <span className="text-av-text-muted">Device:</span>
-                        <span className="text-av-text ml-2">{record.secondaryDevice}</span>
+                        <span className="text-av-text ml-2">{stream.secondaryDevice}</span>
                       </div>
                     )}
                   </div>
                   
-                  {record.note && (
+                  {stream.note && (
                     <p className="text-sm text-av-text-muted mt-2">
-                      <span className="font-medium">Note:</span> {record.note}
+                      <span className="font-medium">Note:</span> {stream.note}
                     </p>
                   )}
                 </div>
@@ -94,7 +94,7 @@ export default function Records() {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsModalOpen(false)}>
           <div className="bg-av-cardBg rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-av-text mb-4">Add Record</h2>
+            <h2 className="text-xl font-bold text-av-text mb-4">Add Stream</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-av-text mb-2">ID</label>
@@ -103,7 +103,7 @@ export default function Records() {
                   value={formData.id}
                   onChange={(e) => setFormData({...formData, id: e.target.value})}
                   className="input-field w-full"
-                  placeholder="e.g., REC-01"
+                  placeholder="e.g., STREAM-01"
                 />
               </div>
               <div>
@@ -113,7 +113,7 @@ export default function Records() {
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
                   className="input-field w-full"
-                  placeholder="e.g., Main Recorder"
+                  placeholder="e.g., YouTube Stream"
                 />
               </div>
             </div>

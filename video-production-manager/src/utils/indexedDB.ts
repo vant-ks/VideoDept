@@ -58,6 +58,10 @@ class ProjectDatabase {
   // Project CRUD Operations
 
   async getAllProjects(): Promise<VideoDepProject[]> {
+    // Ensure DB is initialized
+    if (!this.db) {
+      await this.init();
+    }
     const store = this.getStore(PROJECTS_STORE);
     return new Promise((resolve, reject) => {
       const request = store.getAll();
@@ -67,6 +71,10 @@ class ProjectDatabase {
   }
 
   async getProject(id: string): Promise<VideoDepProject | undefined> {
+    // Ensure DB is initialized
+    if (!this.db) {
+      await this.init();
+    }
     const store = this.getStore(PROJECTS_STORE);
     return new Promise((resolve, reject) => {
       const request = store.get(id);
@@ -76,6 +84,10 @@ class ProjectDatabase {
   }
 
   async createProject(project: VideoDepProject): Promise<void> {
+    // Ensure DB is initialized
+    if (!this.db) {
+      await this.init();
+    }
     const store = this.getStore(PROJECTS_STORE, 'readwrite');
     return new Promise((resolve, reject) => {
       const request = store.add(project);
