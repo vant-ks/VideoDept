@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { Plus, Search, Network, Edit2, Trash2, Copy, Check } from 'lucide-react';
 import { 

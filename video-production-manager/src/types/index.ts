@@ -289,6 +289,7 @@ export interface ProjectionScreen {
 // Network & Routing
 
 export interface IPAddress {
+  id: string;
   ip: string;
   device: string;
   category: IPCategory;

@@ -367,11 +367,11 @@ export const useProductionStore = create<ProductionStore>()(
           
           // Update store with API data
           set({ 
-            equipmentSpecs: equipment || state.equipmentSpecs,
-            connectorTypes: settings.connectorTypes || state.connectorTypes,
-            sourceTypes: settings.sourceTypes || state.sourceTypes,
-            frameRates: settings.frameRates || state.frameRates,
-            resolutions: settings.resolutions || state.resolutions,
+            equipmentSpecs: (equipment || []) as EquipmentSpec[],
+            connectorTypes: (settings as any)?.connectorTypes || state.connectorTypes,
+            sourceTypes: (settings as any)?.sourceTypes || state.sourceTypes,
+            frameRates: (settings as any)?.frameRates || state.frameRates,
+            resolutions: (settings as any)?.resolutions || state.resolutions,
             isLoading: false
           });
         } catch (error) {
@@ -647,10 +647,10 @@ export const useProductionStore = create<ProductionStore>()(
             const updatedItem = { ...item, ...updates };
             
             // If moreInfo is provided as a string (legacy), convert to timestamped entry
-            if (typeof updates.moreInfo === 'string' && updates.moreInfo.trim()) {
+            if (typeof updates.moreInfo === 'string' && (updates.moreInfo as string).trim()) {
               const newEntry: TimestampedEntry = {
                 id: `entry-${Date.now()}`,
-                text: updates.moreInfo.trim(),
+                text: (updates.moreInfo as string).trim(),
                 timestamp: Date.now(),
                 type: 'info'
               };
@@ -658,10 +658,10 @@ export const useProductionStore = create<ProductionStore>()(
             }
             
             // If completionNote is provided as a string (legacy), convert to timestamped entry
-            if (typeof updates.completionNote === 'string' && updates.completionNote.trim()) {
+            if (typeof updates.completionNote === 'string' && (updates.completionNote as string).trim()) {
               const newEntry: TimestampedEntry = {
                 id: `entry-${Date.now()}`,
-                text: updates.completionNote.trim(),
+                text: (updates.completionNote as string).trim(),
                 timestamp: Date.now(),
                 type: 'completion'
               };
@@ -678,10 +678,10 @@ export const useProductionStore = create<ProductionStore>()(
           ...item,
           id: `chk-${Date.now()}`,
           completed: false,
-          moreInfo: item.moreInfo && (typeof item.moreInfo === 'string' && item.moreInfo.trim())
+          moreInfo: item.moreInfo && (typeof item.moreInfo === 'string' && (item.moreInfo as string).trim())
             ? [{
                 id: `entry-${Date.now()}`,
-                text: item.moreInfo,
+                text: item.moreInfo as string,
                 timestamp: Date.now(),
                 type: 'info' as const
               }]

@@ -435,20 +435,20 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           const updatedItem = { ...item, ...updates };
           
           // Handle timestamped entries (convert strings to timestamped format)
-          if (typeof updates.moreInfo === 'string' && updates.moreInfo.trim()) {
+          if (typeof updates.moreInfo === 'string' && (updates.moreInfo as string).trim()) {
             const newEntry = {
               id: `entry-${Date.now()}`,
-              text: updates.moreInfo.trim(),
+              text: (updates.moreInfo as string).trim(),
               timestamp: Date.now(),
               type: 'info' as const
             };
             updatedItem.moreInfo = [...(item.moreInfo || []), newEntry];
           }
           
-          if (typeof updates.completionNote === 'string' && updates.completionNote.trim()) {
+          if (typeof updates.completionNote === 'string' && (updates.completionNote as string).trim()) {
             const newEntry = {
               id: `entry-${Date.now()}`,
-              text: updates.completionNote.trim(),
+              text: (updates.completionNote as string).trim(),
               timestamp: Date.now(),
               type: 'completion' as const
             };

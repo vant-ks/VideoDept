@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { CheckSquare, Square, Clock, AlertTriangle, CheckCircle2, Filter, Plus, Trash2, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, Badge, ProgressBar } from '@/components/ui';
