@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, Badge, ConnectorBadge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
-import { Projector, Tv2, Cable, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Projector, Tv2, Cable, Plus, Edit2, Trash2, RefreshCw } from 'lucide-react';
 
 // Screens Page
 export const Screens: React.FC = () => {

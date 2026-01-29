@@ -31,6 +31,25 @@ interface EquipmentLibraryState {
   setSourceTypes: (types: string[]) => void;
   setFrameRates: (rates: string[]) => void;
   setResolutions: (resolutions: string[]) => void;
+  // Equipment management
+  updateEquipmentSpec: (id: string, spec: Partial<EquipmentSpec>) => void;
+  addEquipmentSpec: (spec: EquipmentSpec) => void;
+  // Connector type management
+  addConnectorType: (type: string) => void;
+  removeConnectorType: (type: string) => void;
+  reorderConnectorTypes: (types: string[]) => void;
+  // Source type management
+  addSourceType: (type: string) => void;
+  removeSourceType: (type: string) => void;
+  reorderSourceTypes: (types: string[]) => void;
+  // Frame rate management
+  addFrameRate: (rate: string) => void;
+  removeFrameRate: (rate: string) => void;
+  reorderFrameRates: (rates: string[]) => void;
+  // Resolution management
+  addResolution: (resolution: string) => void;
+  removeResolution: (resolution: string) => void;
+  reorderResolutions: (resolutions: string[]) => void;
 }
 
 // Default equipment data
@@ -130,6 +149,85 @@ export const useEquipmentLibrary = create<EquipmentLibraryState>()(
         set({ frameRates, lastUpdated: Date.now() }),
       
       setResolutions: (resolutions) =>
+        set({ resolutions, lastUpdated: Date.now() }),
+      
+      // Equipment management
+      updateEquipmentSpec: (id, updates) =>
+        set((state) => ({
+          equipmentSpecs: state.equipmentSpecs.map((spec) =>
+            spec.id === id ? { ...spec, ...updates } : spec
+          ),
+          lastUpdated: Date.now()
+        })),
+      
+      addEquipmentSpec: (spec) =>
+        set((state) => ({
+          equipmentSpecs: [...state.equipmentSpecs, spec],
+          lastUpdated: Date.now()
+        })),
+      
+      // Connector type management
+      addConnectorType: (type) =>
+        set((state) => ({
+          connectorTypes: [...state.connectorTypes, type],
+          lastUpdated: Date.now()
+        })),
+      
+      removeConnectorType: (type) =>
+        set((state) => ({
+          connectorTypes: state.connectorTypes.filter((t) => t !== type),
+          lastUpdated: Date.now()
+        })),
+      
+      reorderConnectorTypes: (types) =>
+        set({ connectorTypes: types, lastUpdated: Date.now() }),
+      
+      // Source type management
+      addSourceType: (type) =>
+        set((state) => ({
+          sourceTypes: [...state.sourceTypes, type],
+          lastUpdated: Date.now()
+        })),
+      
+      removeSourceType: (type) =>
+        set((state) => ({
+          sourceTypes: state.sourceTypes.filter((t) => t !== type),
+          lastUpdated: Date.now()
+        })),
+      
+      reorderSourceTypes: (types) =>
+        set({ sourceTypes: types, lastUpdated: Date.now() }),
+      
+      // Frame rate management
+      addFrameRate: (rate) =>
+        set((state) => ({
+          frameRates: [...state.frameRates, rate],
+          lastUpdated: Date.now()
+        })),
+      
+      removeFrameRate: (rate) =>
+        set((state) => ({
+          frameRates: state.frameRates.filter((r) => r !== rate),
+          lastUpdated: Date.now()
+        })),
+      
+      reorderFrameRates: (rates) =>
+        set({ frameRates: rates, lastUpdated: Date.now() }),
+      
+      // Resolution management
+      addResolution: (resolution) =>
+        set((state) => ({
+          resolutions: [...state.resolutions, resolution],
+          lastUpdated: Date.now()
+        })),
+      
+      removeResolution: (resolution) =>
+        set((state) => ({
+          resolutions: state.resolutions.filter((r) => r !== resolution),
+          lastUpdated: Date.now()
+        })),
+      
+      reorderResolutions: (resolutions) =>
         set({ resolutions, lastUpdated: Date.now() }),
     }),
     {

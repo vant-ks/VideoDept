@@ -70,6 +70,7 @@ export type SourceType =
   | 'PTZ'
   | 'ROBO'
   | 'MEDIA_SERVER'
+  | 'Computer'
   | 'OTHER';
 
 // CCU (Camera Control Unit) Type
@@ -111,7 +112,7 @@ export interface EquipmentCard {
 // Equipment Specifications
 export interface EquipmentSpec {
   id: string;
-  category: 'camera' | 'ccu' | 'switcher' | 'router' | 'led-processor' | 'led-tile' | 'projector' | 'recorder' | 'monitor' | 'converter';
+  category: 'camera' | 'ccu' | 'switcher' | 'router' | 'led-processor' | 'led-tile' | 'projector' | 'recorder' | 'monitor' | 'converter' | 'cam-switcher' | 'vision-switcher';
   manufacturer: string;
   model: string;
   
