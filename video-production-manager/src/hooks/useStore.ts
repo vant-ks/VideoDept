@@ -363,7 +363,7 @@ export const useProductionStore = create<ProductionStore>()(
             apiClient.getSettings()
           ]);
           
-          LogService.logDebug('sync', `Sync completed: ${equipment?.length || 0} equipment items, settings updated`);
+          LogService.logDebug('sync', `Sync completed: ${(equipment as any)?.length || 0} equipment items, settings updated`);
           
           // Update store with API data
           set({ 
