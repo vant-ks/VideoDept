@@ -1,39 +1,53 @@
 # Railway Deployment Guide - Split Services
 
 This project deploys as two separate Railway services:
-1. **Frontend** - Vite React app
+1. **Frontend** - Vite React app  
 2. **API** - Express/Prisma backend
+
+## Current Status
+
+- Frontend service "VideoDept" is already deployed ✅
+- Need to add API service
 
 ## Setup Instructions
 
-### 1. Create API Service (Backend)
+### 1. Add PostgreSQL Database
+
+In Railway dashboard (project "video-dept"):
+1. Click **+ New**
+2. Select **Database** → **Add PostgreSQL**
+3. This creates a database and auto-generates `DATABASE_URL`
+
+### 2. Create API Service
 
 In Railway dashboard:
-1. Create new service from repo
-2. Set root directory: `video-production-manager/api`
-3. Add PostgreSQL database (Railway will auto-provision)
-4. Set environment variables:
+1. Click **+ New** → **GitHub Repo**
+2. Select your VideoDept repository
+3. **Service Settings:**
+   - Name: `VideoDept-API` (or similar)
+   - **Root Directory**: `video-production-manager/api`
+   - **Watch Paths**: `video-production-manager/api/**`
+4. **Environment Variables** (in service settings):
    ```
-   DATABASE_URL=${DATABASE_URL}  # Auto-set by Railway
-   PORT=${PORT}                  # Auto-set by Railway
+   DATABASE_URL=${{Postgres.DATABASE_URL}}  # Link to your PostgreSQL
    NODE_ENV=production
    ENABLE_MDNS=false
    ```
+5. Deploy service
 
-### 2. Create Frontend Service
+### 3. Update Frontend Service
 
-In Railway dashboard:
-1. Create new service from repo
-2. Set root directory: `video-production-manager` (root)
-3. Set environment variables:
+In your existing "VideoDept" frontend service:
+1. Go to **Settings** → **Variables**
+2. Add environment variable:
    ```
-   VITE_API_URL=<your-api-service-url>
+   VITE_API_URL=https://<your-api-service-domain>.railway.app
    ```
-
-### 3. Link Services
-
-- Frontend needs API URL as environment variable
-- Update `VITE_API_URL` in frontend service to point to API service URL
+   (Get this URL from your API service after it deploys)
+3. **Settings** → **Service**:
+   - Verify **Root Directory**: `video-production-manager`
+   - **Watch Paths**: `video-production-manager/**` (but not `**/api/**`)
+4. Redeploy
 
 ## Deployment Files
 
