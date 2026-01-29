@@ -202,8 +202,97 @@ export const Projects: React.FC = () => {
   };
 
   const handleExportShows = () => {
-    // Export selected shows functionality
-    alert('Export functionality coming soon');
+    const showsToExport = shows.filter(show => selectedShows.has((show as any).id));
+    
+    if (showsToExport.length === 0) {
+      alert('Please select at least one show to export');
+      return;
+    }
+
+    try {
+      const exportData = {
+        version: '1.0.0',
+        exportedAt: new Date().toISOString(),
+        shows: showsToExport,
+      };
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `videodept-shows-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      setSelectedShows(new Set());
+      alert(`Successfully exported ${showsToExport.length} show(s)`);
+    } catch (error) {
+      console.error('Failed to export shows:', error);
+      alert('Failed to export shows');
+    }
+  };
+
+  const handleImportShows = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    
+    input.onchange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const importData = JSON.parse(text);
+        
+        if (!importData.shows || !Array.isArray(importData.shows)) {
+          throw new Error('Invalid file format');
+        }
+
+        let importedCount = 0;
+        let skippedCount = 0;
+
+        for (const show of importData.shows) {
+          try {
+            // Check if show already exists
+            const existingShows = await listProjects();
+            const exists = existingShows.some(s => 
+              s.production.showName === show.production.showName &&
+              s.production.client === show.production.client
+            );
+
+            if (exists) {
+              skippedCount++;
+              continue;
+            }
+
+            // Import the show
+            await createProject(show);
+            importedCount++;
+          } catch (error) {
+            console.error(`Failed to import show: ${show.production.showName}`, error);
+            skippedCount++;
+          }
+        }
+
+        await loadShowsList();
+        
+        let message = `Successfully imported ${importedCount} show(s)`;
+        if (skippedCount > 0) {
+          message += `\n${skippedCount} show(s) skipped (already exist or failed)`;
+        }
+        alert(message);
+      } catch (error) {
+        console.error('Failed to import shows:', error);
+        alert('Failed to import shows. Please check the file format.');
+      }
+    };
+
+    input.click();
   };
 
   const isShowPast = (show: VideoDepProject) => {
@@ -308,12 +397,30 @@ export const Projects: React.FC = () => {
 
           {/* Action Buttons - Right */}
           <div className="flex items-center gap-2 flex-shrink-0 min-w-[200px] justify-end">
-            {/* Conditional buttons */}
+            {/* Import Button */}
+            <button
+              onClick={handleImportShows}
+              className="flex items-center gap-2 px-4 py-2 bg-av-surface hover:bg-av-surface-light text-av-text rounded-lg transition-colors border border-av-border"
+              title="Import shows from JSON file"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="text-sm font-medium">Import</span>
+            </button>
+
+            {/* Conditional buttons when shows are selected */}
             {selectedShows.size > 0 && (
               <>
                 <button
+                  onClick={handleExportShows}
+                  className="flex items-center gap-2 px-4 py-2 bg-av-surface hover:bg-av-surface-light text-av-text rounded-lg transition-colors border border-av-border"
+                  title={`Export ${selectedShows.size} selected show${selectedShows.size > 1 ? 's' : ''}`}
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="text-sm font-medium">Export ({selectedShows.size})</span>
+                </button>
+                <button
                   onClick={handleArchiveShows}
-                  className="p-2 bg-av-surface hover:bg-av-surface-light text-av-text rounded-lg transition-colors"
+                  className="p-2 bg-av-surface hover:bg-av-surface-light text-av-text rounded-lg transition-colors border border-av-border"
                   title={`Archive ${selectedShows.size} show${selectedShows.size > 1 ? 's' : ''}`}
                 >
                   <Archive className="w-4 h-4" />

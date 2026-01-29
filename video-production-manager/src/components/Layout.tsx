@@ -31,6 +31,7 @@ import { useProjectStore } from '@/hooks/useProjectStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { cn } from '@/utils/helpers';
 import { Logo } from './Logo';
+import { PresenceIndicator } from './PresenceIndicator';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -181,11 +182,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* Current Show Info */}
           {production && sidebarOpen && (
-            <div className="px-4 pb-4">
+            <div className="px-4 pb-4 space-y-3">
               <div className="bg-gradient-to-r from-av-surface-light to-av-surface p-3 rounded-lg border border-av-border">
                 <h3 className="text-sm font-bold text-av-text mb-1 truncate">{production.showName}</h3>
                 <p className="text-xs text-av-text-muted truncate">{production.client}</p>
               </div>
+              
+              {/* Active Users Presence Indicator */}
+              <PresenceIndicator 
+                productionId={activeProject?.production?.id}
+                className="w-full"
+              />
             </div>
           )}
         </div>
