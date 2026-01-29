@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { EquipmentSpec } from '@/types';
+import { apiClient } from '@/services';
 
 interface EquipmentLibraryState {
   // Library Version
@@ -22,7 +23,12 @@ interface EquipmentLibraryState {
   // Custom Equipment (user-added)
   customEquipment: EquipmentSpec[];
   
+  // Loading state
+  isLoading: boolean;
+  error: string | null;
+  
   // Actions
+  fetchFromAPI: () => Promise<void>;
   setEquipmentSpecs: (specs: EquipmentSpec[]) => void;
   addCustomEquipment: (spec: EquipmentSpec) => void;
   removeCustomEquipment: (id: string) => void;
@@ -113,8 +119,43 @@ const defaultEquipmentData = {
 
 export const useEquipmentLibrary = create<EquipmentLibraryState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...defaultEquipmentData,
+      isLoading: false,
+      error: null,
+
+      // Fetch data from API
+      fetchFromAPI: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          // Fetch equipment specs
+          const equipment = await apiClient.getEquipment();
+          
+          // Fetch settings separately
+          const [connectorTypes, sourceTypes, frameRates, resolutions] = await Promise.all([
+            apiClient.get<string[]>('/api/settings/connector-types').catch(() => get().connectorTypes),
+            apiClient.get<string[]>('/api/settings/source-types').catch(() => get().sourceTypes),
+            apiClient.get<string[]>('/api/settings/frame-rates').catch(() => get().frameRates),
+            apiClient.get<string[]>('/api/settings/resolutions').catch(() => get().resolutions),
+          ]);
+          
+          set({ 
+            equipmentSpecs: Array.isArray(equipment) ? equipment : [],
+            connectorTypes: Array.isArray(connectorTypes) ? connectorTypes : get().connectorTypes,
+            sourceTypes: Array.isArray(sourceTypes) ? sourceTypes : get().sourceTypes,
+            frameRates: Array.isArray(frameRates) ? frameRates : get().frameRates,
+            resolutions: Array.isArray(resolutions) ? resolutions : get().resolutions,
+            lastUpdated: Date.now(),
+            isLoading: false 
+          });
+        } catch (error: any) {
+          console.error('Failed to fetch equipment from API:', error);
+          set({ 
+            error: error.message || 'Failed to load equipment data',
+            isLoading: false 
+          });
+        }
+      },
 
       // Actions
       setEquipmentSpecs: (equipmentSpecs) => 

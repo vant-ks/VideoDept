@@ -22,18 +22,34 @@ import { Projects } from '@/pages/Projects';
 import { useProductionStore, initializeStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import LogService from '@/services/logService';
 
 const App: React.FC = () => {
   const { activeTab: oldActiveTab, accentColor: oldAccentColor, theme: oldTheme } = useProductionStore();
-  const { activeProjectId, loadProject } = useProjectStore();
+  const { activeProjectId, loadProject, syncWithAPI } = useProjectStore();
   const { theme, accentColor, activeTab, lastOpenedProjectId } = usePreferencesStore();
+  const { fetchFromAPI: fetchEquipment } = useEquipmentLibrary();
   const [isInitializing, setIsInitializing] = React.useState(true);
 
   // Initialize app
   React.useEffect(() => {
     const initialize = async () => {
       LogService.logDebug('app', 'App initializing...');
+
+      // Fetch equipment data from Railway API
+      try {
+        await fetchEquipment();
+      } catch (error) {
+        console.error('Failed to load equipment from API:', error);
+      }
+
+      // Sync productions from Railway API
+      try {
+        await syncWithAPI();
+      } catch (error) {
+        console.error('Failed to sync productions from API:', error);
+      }
 
       // Try to load last opened project
       if (lastOpenedProjectId) {

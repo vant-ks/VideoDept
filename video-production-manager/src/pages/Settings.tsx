@@ -14,22 +14,22 @@ export default function Settings() {
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();
   
-  const connectorTypes = equipmentLibrary.connectorTypes.length > 0 ? equipmentLibrary.connectorTypes : oldStore.connectorTypes;
+  const connectorTypes = (Array.isArray(equipmentLibrary.connectorTypes) && equipmentLibrary.connectorTypes.length > 0) ? equipmentLibrary.connectorTypes : (oldStore.connectorTypes || []);
   const addConnectorType = equipmentLibrary.addConnectorType || oldStore.addConnectorType;
   const removeConnectorType = equipmentLibrary.removeConnectorType || oldStore.removeConnectorType;
   const reorderConnectorTypes = equipmentLibrary.reorderConnectorTypes || oldStore.reorderConnectorTypes;
   
-  const sourceTypes = equipmentLibrary.sourceTypes.length > 0 ? equipmentLibrary.sourceTypes : oldStore.sourceTypes;
+  const sourceTypes = (Array.isArray(equipmentLibrary.sourceTypes) && equipmentLibrary.sourceTypes.length > 0) ? equipmentLibrary.sourceTypes : (oldStore.sourceTypes || []);
   const addSourceType = equipmentLibrary.addSourceType || oldStore.addSourceType;
   const removeSourceType = equipmentLibrary.removeSourceType || oldStore.removeSourceType;
   const reorderSourceTypes = equipmentLibrary.reorderSourceTypes || oldStore.reorderSourceTypes;
   
-  const frameRates = equipmentLibrary.frameRates.length > 0 ? equipmentLibrary.frameRates : oldStore.frameRates;
+  const frameRates = (Array.isArray(equipmentLibrary.frameRates) && equipmentLibrary.frameRates.length > 0) ? equipmentLibrary.frameRates : (oldStore.frameRates || []);
   const addFrameRate = equipmentLibrary.addFrameRate || oldStore.addFrameRate;
   const removeFrameRate = equipmentLibrary.removeFrameRate || oldStore.removeFrameRate;
   const reorderFrameRates = equipmentLibrary.reorderFrameRates || oldStore.reorderFrameRates;
   
-  const resolutions = equipmentLibrary.resolutions.length > 0 ? equipmentLibrary.resolutions : oldStore.resolutions;
+  const resolutions = (Array.isArray(equipmentLibrary.resolutions) && equipmentLibrary.resolutions.length > 0) ? equipmentLibrary.resolutions : (oldStore.resolutions || []);
   const addResolution = equipmentLibrary.addResolution || oldStore.addResolution;
   const removeResolution = equipmentLibrary.removeResolution || oldStore.removeResolution;
   const reorderResolutions = equipmentLibrary.reorderResolutions || oldStore.reorderResolutions;

@@ -30,6 +30,7 @@ import type {
 } from '@/types';
 import { projectDB } from '@/utils/indexedDB';
 import { v4 as uuidv4 } from 'uuid';
+import { apiClient } from '@/services';
 
 interface ProjectStoreState {
   // Active Project
@@ -49,6 +50,7 @@ interface ProjectStoreState {
   closeProject: () => void;
   deleteProject: (id: string) => Promise<void>;
   listProjects: () => Promise<VideoDepProject[]>;
+  syncWithAPI: () => Promise<void>;
   
   // Change Tracking
   recordChange: (action: 'create' | 'update' | 'delete', entityType: string, entityId: string, changes: any) => void;
@@ -164,7 +166,26 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     }
 
     try {
+      // Save to IndexedDB for local access
       await projectDB.createProject({ ...project, id } as any);
+      
+      // Sync to Railway API
+      try {
+        await apiClient.createProduction({
+          id: project.production.id,
+          name: project.production.name,
+          client: project.production.client,
+          location: project.production.location,
+          productionDate: project.production.productionDate,
+          status: project.production.status,
+          notes: project.production.notes,
+          metadata: project // Store full project data in metadata
+        });
+        console.log('✅ Production synced to Railway API');
+      } catch (apiError) {
+        console.warn('⚠️ Failed to sync to API, saved locally:', apiError);
+      }
+      
       set({ 
         activeProjectId: id, 
         activeProject: { ...project, id } as any 
@@ -183,10 +204,30 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     set({ isSaving: true });
     try {
-      await projectDB.updateProject(activeProjectId, {
+      const updatedProject = {
         ...activeProject,
         modified: Date.now()
-      });
+      };
+      
+      // Save to IndexedDB
+      await projectDB.updateProject(activeProjectId, updatedProject);
+      
+      // Sync to Railway API
+      try {
+        await apiClient.updateProduction(activeProject.production.id, {
+          name: activeProject.production.name,
+          client: activeProject.production.client,
+          location: activeProject.production.location,
+          productionDate: activeProject.production.productionDate,
+          status: activeProject.production.status,
+          notes: activeProject.production.notes,
+          metadata: updatedProject // Store full project data
+        });
+        console.log('✅ Production updated on Railway API');
+      } catch (apiError) {
+        console.warn('⚠️ Failed to sync update to API:', apiError);
+      }
+      
       set({ isSaving: false, lastSyncTime: Date.now() });
     } catch (error) {
       console.error('Failed to save project:', error);
@@ -249,7 +290,22 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   // Delete Project
   deleteProject: async (id: string) => {
     try {
+      // Get project to find production ID
+      const project = await projectDB.getProject(id);
+      
+      // Delete from IndexedDB
       await projectDB.deleteProject(id);
+      
+      // Delete from Railway API
+      if (project?.production?.id) {
+        try {
+          await apiClient.deleteProduction(project.production.id);
+          console.log('✅ Production deleted from Railway API');
+        } catch (apiError) {
+          console.warn('⚠️ Failed to delete from API:', apiError);
+        }
+      }
+      
       if (get().activeProjectId === id) {
         get().closeProject();
       }
@@ -266,6 +322,31 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     } catch (error) {
       console.error('Failed to list projects:', error);
       throw error;
+    }
+  },
+
+  // Sync with Railway API - pull down remote productions
+  syncWithAPI: async () => {
+    try {
+      console.log('🔄 Syncing with Railway API...');
+      const remoteProductions = await apiClient.getProductions();
+      
+      for (const production of remoteProductions) {
+        // Check if we have this production locally
+        const localProjects = await projectDB.listProjects();
+        const exists = localProjects.some(p => p.production.id === production.id);
+        
+        if (!exists && production.metadata) {
+          // Download and save locally
+          const project = production.metadata as VideoDepProject;
+          await projectDB.createProject(project as any);
+          console.log(`✅ Downloaded production: ${production.name}`);
+        }
+      }
+      
+      console.log('✅ Sync complete');
+    } catch (error) {
+      console.error('⚠️ Failed to sync with API:', error);
     }
   },
   
