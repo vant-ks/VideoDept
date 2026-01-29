@@ -12,7 +12,11 @@ export const Computers: React.FC = () => {
   const projectStore = useProjectStore();
   const oldStore = useProductionStore();
   
-  const sources = activeProject?.sources || oldStore.sources;
+  const sources = Array.isArray(activeProject?.sources) 
+    ? activeProject.sources 
+    : Array.isArray(oldStore.sources) 
+    ? oldStore.sources 
+    : [];
   
   // Use project store CRUD if activeProject exists, otherwise use old store
   const addSource = activeProject ? projectStore.addSource : oldStore.addSource;
