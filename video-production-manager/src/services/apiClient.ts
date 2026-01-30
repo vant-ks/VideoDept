@@ -50,7 +50,11 @@ export class ApiClient {
     }
 
     // Default to localhost for development
-    return 'http://localhost:3010';
+    return 'http://localhost:3010/api';
+  }
+
+  getBaseURL(): string {
+    return this.baseURL;
   }
 
   public updateBaseUrl(url: string) {
@@ -79,8 +83,8 @@ export class ApiClient {
     return response.data;
   }
 
-  async delete<T>(url: string): Promise<T> {
-    const response = await this.client.delete(url);
+  async delete<T>(url: string, config?: any): Promise<T> {
+    const response = await this.client.delete(url, config);
     return response.data;
   }
 
@@ -102,108 +106,108 @@ export class ApiClient {
       addresses: string[];
       isLANServer: boolean;
       uptime: number;
-    }>('/api/server/info');
+    }>('/server/info');
   }
 
   // Productions
   async getProductions() {
-    return this.get('/api/productions');
+    return this.get('/productions');
   }
 
   async getProduction(id: string) {
-    return this.get(`/api/productions/${id}`);
+    return this.get(`/productions/${id}`);
   }
 
   async createProduction(data: any) {
-    return this.post('/api/productions', data);
+    return this.post('/productions', data);
   }
 
   async updateProduction(id: string, data: any) {
-    return this.put(`/api/productions/${id}`, data);
+    return this.put(`/productions/${id}`, data);
   }
 
   async deleteProduction(id: string) {
-    return this.delete(`/api/productions/${id}`);
+    return this.delete(`/productions/${id}`);
   }
 
   // Equipment
   async getEquipment() {
-    return this.get('/api/equipment');
+    return this.get('/equipment');
   }
 
   async getEquipmentById(id: string) {
-    return this.get(`/api/equipment/${id}`);
+    return this.get(`/equipment/${id}`);
   }
 
   async createEquipment(data: any) {
-    return this.post('/api/equipment', data);
+    return this.post('/equipment', data);
   }
 
   async updateEquipment(id: string, data: any) {
-    return this.put(`/api/equipment/${id}`, data);
+    return this.put(`/equipment/${id}`, data);
   }
 
   async deleteEquipment(id: string) {
-    return this.delete(`/api/equipment/${id}`);
+    return this.delete(`/equipment/${id}`);
   }
 
   // Sources
   async getSources(productionId: string) {
-    return this.get(`/api/sources/production/${productionId}`);
+    return this.get(`/sources/production/${productionId}`);
   }
 
   async getSource(id: string) {
-    return this.get(`/api/sources/${id}`);
+    return this.get(`/sources/${id}`);
   }
 
   async createSource(data: any) {
-    return this.post('/api/sources', data);
+    return this.post('/sources', data);
   }
 
   async updateSource(id: string, data: any) {
-    return this.put(`/api/sources/${id}`, data);
+    return this.put(`/sources/${id}`, data);
   }
 
   async deleteSource(id: string) {
-    return this.delete(`/api/sources/${id}`);
+    return this.delete(`/sources/${id}`);
   }
 
   // Sends
   async getSends(productionId: string) {
-    return this.get(`/api/sends/production/${productionId}`);
+    return this.get(`/sends/production/${productionId}`);
   }
 
   async getSend(id: string) {
-    return this.get(`/api/sends/${id}`);
+    return this.get(`/sends/${id}`);
   }
 
   async createSend(data: any) {
-    return this.post('/api/sends', data);
+    return this.post('/sends', data);
   }
 
   async updateSend(id: string, data: any) {
-    return this.put(`/api/sends/${id}`, data);
+    return this.put(`/sends/${id}`, data);
   }
 
   async deleteSend(id: string) {
-    return this.delete(`/api/sends/${id}`);
+    return this.delete(`/sends/${id}`);
   }
 
   // Settings
   async getSettings() {
-    return this.get('/api/settings');
+    return this.get('/settings');
   }
 
   async getSetting(key: string) {
-    return this.get(`/api/settings/${key}`);
+    return this.get(`/settings/${key}`);
   }
 
   async setSetting(key: string, value: any, category?: string) {
-    return this.post(`/api/settings/${key}`, { value, category });
+    return this.post(`/settings/${key}`, { value, category });
   }
 
   async deleteSetting(key: string) {
-    return this.delete(`/api/settings/${key}`);
+    return this.delete(`/settings/${key}`);
   }
 }
 

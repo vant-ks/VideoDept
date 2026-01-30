@@ -85,24 +85,24 @@ npm run prisma:studio
 # Development mode (auto-restart on changes)
 npm run dev
 
-# The server will start on http://localhost:3001
+# The server will start on http://localhost:3010
 ```
 
 You should see:
 ```
 🚀 Video Production API Server
 ================================
-   Port: 3001
+   Port: 3010
    Environment: development
 
 ✅ Database connected
 
 📡 Server Discovery:
    Service Name: Video Production Server
-   Port: 3001
+   Port: 3010
    Local IPs:
-      - http://192.168.1.100:3001
-      - http://10.0.0.50:3001
+      - http://192.168.1.100:3010
+      - http://10.0.0.50:3010
 ```
 
 ## Step 5: Update the Frontend
@@ -142,7 +142,7 @@ export function Settings() {
 
 1. Start API server: `cd api && npm run dev`
 2. Start frontend: `npm run dev`
-3. Frontend automatically connects to `http://localhost:3001`
+3. Frontend automatically connects to `http://localhost:3010`
 
 ### Scenario 2: Office Collaboration (Cloud Mode)
 
@@ -189,17 +189,17 @@ export function Settings() {
 curl http://localhost:3001/health
 
 # Get server info
-curl http://localhost:3001/api/server/info
+curl http://localhost:3010/api/server/info
 
 # List equipment (should be empty initially)
-curl http://localhost:3001/api/equipment
+curl http://localhost:3010/api/equipment
 ```
 
 ### Test Server Discovery
 
 ```bash
 # Discover servers on LAN
-curl http://localhost:3001/api/server/discover
+curl http://localhost:3010/api/server/discover
 ```
 
 ### Test in Frontend
@@ -225,7 +225,7 @@ const data = {
 };
 
 // Send to API
-fetch('http://localhost:3001/api/equipment', {
+fetch('http://localhost:3010/api/equipment', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(data.equipment)
@@ -242,7 +242,7 @@ fetch('http://localhost:3001/api/equipment', {
 
 ### API Server Won't Start
 
-- Port 3001 already in use? Change PORT in `.env`
+- Port 3010 already in use? Change PORT in `.env`
 - Missing dependencies? Run `npm install`
 - Check Node.js version: `node --version` (need v18+)
 
@@ -250,12 +250,12 @@ fetch('http://localhost:3001/api/equipment', {
 
 - **macOS/Linux**: Should work out of the box
 - **Windows**: Install [Bonjour Print Services](https://support.apple.com/kb/DL999)
-- **Firewall**: Ensure port 3001 is allowed
+- **Firewall**: Ensure port 3010 is allowed
 - **Fallback**: Use manual IP connection
 
 ### Frontend Can't Connect to API
 
-- Check API is running: `curl http://localhost:3001/health`
+- Check API is running: `curl http://localhost:3010/health`
 - Check CORS settings in API server
 - Try manual IP connection in Server Connection UI
 

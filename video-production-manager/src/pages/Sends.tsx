@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Copy, Monitor, Radio, Projector } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Edit2, Trash2, Copy, Monitor, Radio, Projector, AlertCircle } from 'lucide-react';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
+import { useSendsAPI } from '@/hooks/useSendsAPI';
+import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { ProjectionScreenFormModal } from '@/components/ProjectionScreenFormModal';
 import { cn, formatResolution } from '@/utils/helpers';
 import type { Send, ProjectionScreen } from '@/types';
@@ -15,8 +17,51 @@ export const Sends: React.FC = () => {
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();
   
-  const sends = activeProject?.sends || oldStore.sends;
+  // API hook for event-enabled operations
+  const sendsAPI = useSendsAPI();
+  
+  // Local state
+  const [sends, setSends] = useState<Send[]>(activeProject?.sends || oldStore.sends);
   const projectionScreens = activeProject?.projectionScreens || oldStore.projectionScreens;
+  
+  // Get production ID
+  const productionId = activeProject?.id || oldStore.production?.id;
+  
+  // Load sends from API on mount
+  useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      sendsAPI.fetchSends(productionId).then(setSends).catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
+
+  // Real-time event subscriptions
+  useProductionEvents({
+    productionId,
+    onEntityCreated: useCallback((event) => {
+      if (event.entityType === 'send') {
+        console.log('🔔 Send created by', event.userName);
+        setSends(prev => {
+          // Avoid duplicates
+          if (prev.some(s => s.id === event.entity.id)) return prev;
+          return [...prev, event.entity];
+        });
+      }
+    }, []),
+    onEntityUpdated: useCallback((event) => {
+      if (event.entityType === 'send') {
+        console.log('🔔 Send updated by', event.userName);
+        setSends(prev => prev.map(s => 
+          s.id === event.entity.id ? event.entity : s
+        ));
+      }
+    }, []),
+    onEntityDeleted: useCallback((event) => {
+      if (event.entityType === 'send') {
+        console.log('🔔 Send deleted by', event.userName);
+        setSends(prev => prev.filter(s => s.id !== event.entityId));
+      }
+    }, [])
+  });
   
   // Use project store CRUD if activeProject exists, otherwise use old store
   const addProjectionScreen = activeProject ? projectStore.addProjectionScreen : oldStore.addProjectionScreen;
@@ -33,6 +78,11 @@ export const Sends: React.FC = () => {
   const [isLEDModalOpen, setIsLEDModalOpen] = useState(false);
   const [sendFormData, setSendFormData] = useState({ id: '', name: '' });
   const [ledFormData, setLedFormData] = useState({ id: '', name: '' });
+  const [conflictData, setConflictData] = useState<{
+    send: Send;
+    currentVersion: number;
+    clientVersion: number;
+  } | null>(null);
 
   const sendTypes = React.useMemo(() => {
     const types = new Set(sends.map(s => s.type));
@@ -69,9 +119,15 @@ export const Sends: React.FC = () => {
     setIsProjectionModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this send?')) {
-      // TODO: Delete send
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this send?')) return;
+
+    try {
+      await sendsAPI.deleteSend(id);
+      setSends(prev => prev.filter(s => s.id !== id));
+    } catch (error) {
+      console.error('Failed to delete send:', error);
+      alert('Failed to delete send. Please try again.');
     }
   };
 

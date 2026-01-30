@@ -10,18 +10,23 @@ cd '/Users/kevin/Dropbox (Personal)/Development/VideoDept/VideoDept/video-produc
 pkill -f 'vite' 2>/dev/null
 pkill -f 'node.*vite' 2>/dev/null
 pkill -f 'tsx.*server.ts' 2>/dev/null
-lsof -ti:3000 | xargs kill -9 2>/dev/null
+lsof -ti:3011 | xargs kill -9 2>/dev/null
 lsof -ti:3010 | xargs kill -9 2>/dev/null
 sleep 1
 
-# Start dev server in background
+# Start API server in background
+cd api
+nohup npm run dev > /dev/null 2>&1 &
+cd ..
+
+# Start frontend dev server in background
 nohup npm run dev > /dev/null 2>&1 &
 
-# Wait for server to be ready
-sleep 3
+# Wait for servers to be ready
+sleep 5
 "
 
 # Open reset page in browser
 tell application "System Events"
-	open location "http://localhost:3000/reset-settings.html"
+	open location "http://localhost:3011/reset-settings.html"
 end tell

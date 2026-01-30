@@ -1,4 +1,5 @@
 import React from 'react';
+import { Toaster } from 'sonner';
 import { Layout } from '@/components/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { Computers } from '@/pages/Computers';
@@ -34,25 +35,35 @@ const App: React.FC = () => {
 
   // Initialize app
   React.useEffect(() => {
+    let mounted = true;
+    
     const initialize = async () => {
+      if (!mounted) return;
+      
       LogService.logDebug('app', 'App initializing...');
 
-      // Fetch equipment data from Railway API
+      // Fetch equipment data from API
       try {
+        console.log('⏳ Fetching equipment...');
         await fetchEquipment();
+        if (!mounted) return;
+        console.log('✅ Equipment loaded');
       } catch (error) {
         console.error('Failed to load equipment from API:', error);
       }
 
-      // Sync productions from Railway API
+      // Sync productions from API
       try {
+        if (!mounted) return;
         await syncWithAPI();
+        if (!mounted) return;
+        console.log('✅ Sync completed');
       } catch (error) {
         console.error('Failed to sync productions from API:', error);
       }
 
       // Try to load last opened project
-      if (lastOpenedProjectId) {
+      if (lastOpenedProjectId && mounted) {
         try {
           await loadProject(lastOpenedProjectId);
         } catch (error) {
@@ -61,11 +72,23 @@ const App: React.FC = () => {
       }
 
       // Initialize old store for compatibility
-      initializeStore();
-      setIsInitializing(false);
+      if (mounted) {
+        initializeStore();
+        setIsInitializing(false);
+        console.log('✅ App initialized');
+      }
     };
 
-    initialize();
+    initialize().catch(error => {
+      console.error('Fatal initialization error:', error);
+      if (mounted) {
+        setIsInitializing(false); // Ensure we don't hang forever
+      }
+    });
+    
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Apply theme attribute to html element
@@ -159,9 +182,17 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout>
-      {renderPage()}
-    </Layout>
+    <>
+      <Toaster 
+        position="top-right" 
+        richColors 
+        expand={false}
+        duration={4000}
+      />
+      <Layout>
+        {renderPage()}
+      </Layout>
+    </>
   );
 };
 

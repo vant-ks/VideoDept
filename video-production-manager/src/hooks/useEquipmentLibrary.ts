@@ -133,10 +133,10 @@ export const useEquipmentLibrary = create<EquipmentLibraryState>()(
           
           // Fetch settings separately
           const [connectorTypes, sourceTypes, frameRates, resolutions] = await Promise.all([
-            apiClient.get<string[]>('/api/settings/connector-types').catch(() => get().connectorTypes),
-            apiClient.get<string[]>('/api/settings/source-types').catch(() => get().sourceTypes),
-            apiClient.get<string[]>('/api/settings/frame-rates').catch(() => get().frameRates),
-            apiClient.get<string[]>('/api/settings/resolutions').catch(() => get().resolutions),
+            apiClient.get<string[]>('/settings/connector-types').catch(() => get().connectorTypes),
+            apiClient.get<string[]>('/settings/source-types').catch(() => get().sourceTypes),
+            apiClient.get<string[]>('/settings/frame-rates').catch(() => get().frameRates),
+            apiClient.get<string[]>('/settings/resolutions').catch(() => get().resolutions),
           ]);
           
           set({ 

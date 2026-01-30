@@ -31,6 +31,7 @@ import type {
 import { projectDB } from '@/utils/indexedDB';
 import { v4 as uuidv4 } from 'uuid';
 import { apiClient } from '@/services';
+import { getCurrentUserId } from '@/utils/userUtils';
 
 interface ProjectStoreState {
   // Active Project
@@ -152,7 +153,9 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             const freshProject = production.metadata as VideoDepProject;
             await projectDB.updateProject(id, freshProject);
             set({ activeProject: { ...freshProject, id } as any });
-            console.log('✅ Loaded latest version from Railway database');
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+            const isLocal = apiUrl.includes('localhost');
+            console.log(`✅ Loaded latest version from ${isLocal ? 'local' : 'Railway'} database`);
           }
         } catch (refreshError) {
           console.warn('⚠️ Using cached version, could not refresh from database:', refreshError);
@@ -183,22 +186,26 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     }
 
     try {
-      // PRIMARY: Save to Railway database first
-      await apiClient.createProduction({
+      // PRIMARY: Save to API database first
+      // Store full project in metadata for cross-device sync
+      const productionData = {
         id: project.production.id,
-        name: project.production.name,
+        name: project.production.showName || project.production.name, // Use showName as primary, fall back to name
         client: project.production.client,
-        location: project.production.location,
-        productionDate: project.production.productionDate,
-        status: project.production.status,
-        notes: project.production.notes,
-        metadata: project // Store full project data in metadata
-      });
-      console.log('✅ Production saved to Railway database');
+        status: project.production.status || 'PLANNING',
+        metadata: { ...project, id } // Store full project for sync
+      };
+      console.log('📤 Sending to API:', { ...productionData, metadata: '(full project data)' });
+      await apiClient.createProduction(productionData);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+      const isLocal = apiUrl.includes('localhost');
+      console.log(`✅ Production saved to ${isLocal ? 'local' : 'Railway'} database`);
       
       // SECONDARY: Cache locally for offline access
+      // Store full project with all fields so it appears in local database
       try {
-        await projectDB.createProject({ ...project, id } as any);
+        const fullProject = { ...project, id, modified: Date.now(), created: Date.now() };
+        await projectDB.createProject(fullProject as any);
         console.log('✅ Production cached locally');
       } catch (cacheError) {
         console.warn('⚠️ Failed to cache locally (non-critical):', cacheError);
@@ -227,17 +234,80 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         modified: Date.now()
       };
       
-      // PRIMARY: Update in Railway database first
-      await apiClient.updateProduction(activeProject.production.id, {
-        name: activeProject.production.name,
-        client: activeProject.production.client,
-        location: activeProject.production.location,
-        productionDate: activeProject.production.productionDate,
-        status: activeProject.production.status,
-        notes: activeProject.production.notes,
-        metadata: updatedProject // Store full project data
-      });
-      console.log('✅ Production updated in Railway database');
+      // PRIMARY: Update in API database first with conflict detection
+      try {
+        const response = await apiClient.updateProduction(activeProject.production.id, {
+          name: activeProject.production.showName || activeProject.production.name,
+          client: activeProject.production.client,
+          status: activeProject.production.status || 'PLANNING',
+          metadata: updatedProject, // Store full project for sync
+          version: activeProject.version || 1, // Send current version for conflict check
+          lastModifiedBy: getCurrentUserId()
+        });
+        
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+        const isLocal = apiUrl.includes('localhost');
+        console.log(`✅ Production updated in ${isLocal ? 'local' : 'Railway'} database`);
+        
+        // Update local state with new version from server
+        set({ 
+          activeProject: {
+            ...updatedProject,
+            version: response.version // Use server's version
+          },
+          isSaving: false,
+          lastSyncTime: Date.now()
+        });
+        
+      } catch (apiError: any) {
+        // Handle conflict (409)
+        if (apiError.response?.status === 409) {
+          const conflictData = apiError.response.data;
+          console.warn('⚠️ Conflict detected:', conflictData);
+          
+          // Show conflict dialog
+          const userChoice = confirm(
+            `⚠️ CONFLICT DETECTED\n\n` +
+            `Someone else modified this show while you were editing.\n\n` +
+            `Server version: ${conflictData.currentVersion}\n` +
+            `Your version: ${activeProject.version || 1}\n` +
+            `Last modified: ${new Date(conflictData.serverData?.updatedAt).toLocaleString()}\n\n` +
+            `Click OK to reload their changes (you will LOSE your unsaved work)\n` +
+            `Click Cancel to force save (you will OVERWRITE their changes)`
+          );
+          
+          if (userChoice) {
+            // User chose to reload - get fresh data from server
+            await get().loadProject(activeProjectId);
+            set({ isSaving: false });
+            alert('✅ Reloaded latest version from database');
+          } else {
+            // User chose to force save - use server's version number
+            const forceResponse = await apiClient.updateProduction(activeProject.production.id, {
+              name: activeProject.production.showName || activeProject.production.name,
+              client: activeProject.production.client,
+              status: activeProject.production.status || 'PLANNING',
+              metadata: updatedProject, // Store full project for sync
+              version: conflictData.currentVersion, // Use server's version
+              lastModifiedBy: getCurrentUserId()
+            });
+            
+            set({ 
+              activeProject: {
+                ...updatedProject,
+                version: forceResponse.version
+              },
+              isSaving: false,
+              lastSyncTime: Date.now()
+            });
+            console.log('✅ Force saved (overwrote other changes)');
+          }
+          return;
+        }
+        
+        // Other API errors
+        throw apiError;
+      }
       
       // SECONDARY: Update local cache
       try {
@@ -247,7 +317,6 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         console.warn('⚠️ Failed to update local cache (non-critical):', cacheError);
       }
       
-      set({ isSaving: false, lastSyncTime: Date.now() });
     } catch (error) {
       console.error('❌ Failed to update production in database:', error);
       set({ isSaving: false });
@@ -299,8 +368,9 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       // Clear pending changes
       set({ pendingChanges: [] });
       
-      // Save project state
-      await get().saveProject();
+      // Production-level save removed - entities use event sourcing APIs
+      // Only save production metadata when explicitly needed (venue, dates, etc.)
+      // await get().saveProject();
     } catch (error) {
       console.error('Failed to flush changes:', error);
     }
@@ -347,14 +417,16 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     }
   },
 
-  // Sync with Railway API - pull down remote productions (Railway is source of truth)
+  // Sync with API - pull down remote productions (API database is source of truth)
   syncWithAPI: async () => {
     try {
-      console.log('🔄 Syncing with Railway database...');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+      const isLocal = apiUrl.includes('localhost');
+      console.log(`🔄 Syncing with ${isLocal ? 'local' : 'Railway'} database...`);
       const remoteProductions = await apiClient.getProductions();
-      const localProjects = await projectDB.listProjects();
+      const localProjects = await projectDB.getAllProjects();
       
-      // Download new productions from Railway
+      // Download new productions from API
       for (const production of remoteProductions) {
         const exists = localProjects.some(p => p.production.id === production.id);
         
@@ -364,7 +436,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           await projectDB.createProject(project as any);
           console.log(`✅ Downloaded production: ${production.name}`);
         } else if (exists && production.metadata) {
-          // Existing production - update cache with latest from Railway
+          // Existing production - update cache with latest from API
           const project = production.metadata as VideoDepProject;
           const localProject = localProjects.find(p => p.production.id === production.id);
           if (localProject && new Date(production.updatedAt).getTime() > localProject.modified) {
@@ -374,7 +446,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         }
       }
       
-      // Remove productions that were deleted from Railway
+      // Remove productions that were deleted from API
       for (const localProject of localProjects) {
         const existsRemotely = remoteProductions.some(p => p.id === localProject.production.id);
         if (!existsRemotely) {
@@ -383,9 +455,9 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         }
       }
       
-      console.log('✅ Sync complete - Railway database is source of truth');
+      console.log(`✅ Sync complete - ${isLocal ? 'Local' : 'Railway'} database is source of truth`);
     } catch (error) {
-      console.error('❌ Failed to sync with Railway database:', error);
+      console.error(`❌ Failed to sync with ${isLocal ? 'local' : 'Railway'} database:`, error);
       throw new Error('Failed to sync with database. Please check your internet connection.');
     }
   },
@@ -402,10 +474,10 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       activeProject: { ...activeProject, ...updates } 
     });
     
-    // Debounced save - will be picked up by auto-save or manual save
-    setTimeout(() => {
-      get().saveProject();
-    }, 500);
+    // Debounced save disabled - entities use event sourcing, production metadata saves are explicit
+    // setTimeout(() => {
+    //   get().saveProject();
+    // }, 500);
   },
   
   // ===== SOURCE CRUD =====
@@ -925,10 +997,11 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   },
 }));
 
-// Auto-save interval (every 30 seconds)
-setInterval(() => {
-  const store = useProjectStore.getState();
-  if (store.activeProject && !store.isSaving) {
-    store.saveProject();
-  }
-}, 30000);
+// Auto-save disabled - entities are now managed via event sourcing APIs
+// Production-level saves only happen when explicitly saving production metadata
+// setInterval(() => {
+//   const store = useProjectStore.getState();
+//   if (store.activeProject && !store.isSaving) {
+//     store.saveProject();
+//   }
+// }, 30000);

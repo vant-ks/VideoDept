@@ -1,28 +1,71 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Copy } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Edit2, Trash2, Copy, AlertCircle } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
+import { useSourcesAPI } from '@/hooks/useSourcesAPI';
+import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { SourceFormModal } from '@/components/SourceFormModal';
 import { SourceService } from '@/services';
 import type { Source } from '@/types';
 
 export const Computers: React.FC = () => {
+  // Use new stores
   const { activeProject } = useProjectStore();
-  const projectStore = useProjectStore();
   const oldStore = useProductionStore();
   
-  const sources = Array.isArray(activeProject?.sources) 
-    ? activeProject.sources 
-    : Array.isArray(oldStore.sources) 
-    ? oldStore.sources 
-    : [];
+  // API hook for event-enabled operations
+  const sourcesAPI = useSourcesAPI();
   
-  // Use project store CRUD if activeProject exists, otherwise use old store
-  const addSource = activeProject ? projectStore.addSource : oldStore.addSource;
-  const updateSource = activeProject ? projectStore.updateSource : oldStore.updateSource;
-  const deleteSource = activeProject ? projectStore.deleteSource : oldStore.deleteSource;
-  const duplicateSource = activeProject ? projectStore.duplicateSource : oldStore.duplicateSource;
+  // Local state
+  const [sources, setSources] = useState<Source[]>([]);
+  const [conflictError, setConflictError] = useState<{
+    currentVersion: number;
+    clientVersion: number;
+    serverData: Source;
+  } | null>(null);
+  
+  // Get production ID
+  const productionId = activeProject?.id || oldStore.production?.id;
+  
+  // Load sources from API on mount and filter for computers
+  useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      sourcesAPI.fetchSources(productionId)
+        .then(allSources => setSources(allSources.filter(s => s.type === 'Computer')))
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
+
+  // Real-time event subscriptions
+  useProductionEvents({
+    productionId,
+    onEntityCreated: useCallback((event) => {
+      if (event.entityType === 'source' && event.entity.type === 'Computer') {
+        console.log('🔔 Computer created by', event.userName);
+        setSources(prev => {
+          if (prev.some(s => s.id === event.entity.id)) return prev;
+          return [...prev, event.entity];
+        });
+      }
+    }, []),
+    onEntityUpdated: useCallback((event) => {
+      if (event.entityType === 'source' && event.entity.type === 'Computer') {
+        console.log('🔔 Computer updated by', event.userName);
+        setSources(prev => prev.map(s => 
+          s.id === event.entity.id ? event.entity : s
+        ));
+      }
+    }, []),
+    onEntityDeleted: useCallback((event) => {
+      if (event.entityType === 'source') {
+        console.log('🔔 Computer deleted by', event.userName);
+        setSources(prev => prev.filter(s => s.id !== event.entityId));
+      }
+    }, [])
+  });
+  
+  const duplicateSource = activeProject ? useProjectStore().duplicateSource : oldStore.duplicateSource;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -48,20 +91,39 @@ export const Computers: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = (source: Source) => {
+  const handleSave = async (source: Source) => {
     console.log('Saving computer:', source);
-    if (editingSource) {
-      updateSource(editingSource.id, source);
-    } else {
-      addSource(source);
+    setConflictError(null);
+    
+    try {
+      if (editingSource) {
+        const result = await sourcesAPI.updateSource(editingSource.id, source);
+        if ('error' in result && result.error === 'Conflict') {
+          setConflictError(result);
+          return;
+        }
+        setSources(prev => prev.map(s => s.id === editingSource.id ? source : s));
+      } else {
+        const created = await sourcesAPI.createSource(productionId!, source);
+        setSources(prev => [...prev, created]);
+      }
+      setIsModalOpen(false);
+      setEditingSource(null);
+    } catch (error) {
+      console.error('Failed to save computer:', error);
+      alert('Failed to save computer');
     }
-    setIsModalOpen(false);
-    setEditingSource(null);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this source?')) {
-      deleteSource(id);
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this computer?')) {
+      try {
+        await sourcesAPI.deleteSource(id);
+        setSources(prev => prev.filter(s => s.id !== id));
+      } catch (error) {
+        console.error('Failed to delete computer:', error);
+        alert('Failed to delete computer');
+      }
     }
   };
 
@@ -73,6 +135,43 @@ export const Computers: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Conflict Alert */}
+      {conflictError && (
+        <Card className="p-4 border-av-warning bg-av-warning/10">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-av-warning mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-av-text mb-1">Conflict Detected</h3>
+              <p className="text-sm text-av-text-muted mb-3">
+                This computer was modified by another user. Your version: {conflictError.clientVersion}, Current version: {conflictError.currentVersion}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setConflictError(null);
+                    setEditingSource(null);
+                    setIsModalOpen(false);
+                  }}
+                  className="btn-secondary text-sm"
+                >
+                  Discard My Changes
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingSource({ ...conflictError.serverData, version: conflictError.currentVersion });
+                    setConflictError(null);
+                    setIsModalOpen(true);
+                  }}
+                  className="btn-primary text-sm"
+                >
+                  Review & Retry
+                </button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

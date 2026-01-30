@@ -100,19 +100,19 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
     LogService.logDebug('server', 'Attempting to promote to LAN server...');
     try {
       // First check if API is running
-      const healthCheck = await fetch('http://localhost:3001/health', {
+      const healthCheck = await fetch('http://localhost:3010/health', {
         method: 'GET',
         signal: AbortSignal.timeout(3000)
       });
 
       if (!healthCheck.ok) {
         LogService.logDebug('server', 'API server health check failed');
-        alert('API server is not responding. Please start the backend API on port 3001.\n\nRun: cd api && npm install && npm run dev');
+        alert('API server is not responding. Please start the backend API on port 3010.\n\nRun: cd api && npm install && npm run dev');
         return;
       }
 
       // Call backend to start advertising
-      const response = await fetch('http://localhost:3001/api/server/advertise', {
+      const response = await fetch('http://localhost:3010/api/server/advertise', {
         method: 'POST'
       });
 
@@ -120,7 +120,7 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
         LogService.logDebug('server', 'Successfully promoted to LAN server');
         setIsPromotedToServer(true);
         setConnectionType('lan');
-        const serverUrl = 'http://localhost:3001';
+        const serverUrl = 'http://localhost:3010';
         setCurrentServer(serverUrl);
         localStorage.setItem('api_server_url', serverUrl);
         localStorage.setItem('is_lan_server', 'true');
@@ -136,9 +136,9 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
       LogService.logDebug('server', `Failed to promote to LAN server: ${errorMsg}`);
       console.error('Failed to promote to LAN server:', error);
       if (error instanceof Error && error.name === 'TimeoutError') {
-        alert('Connection timeout. The API server on port 3001 is not running.\n\nTo start the backend:\n1. cd api\n2. npm install\n3. npm run dev');
+        alert('Connection timeout. The API server on port 3010 is not running.\n\nTo start the backend:\n1. cd api\n2. npm install\n3. npm run dev');
       } else {
-        alert('Failed to connect to API server on port 3001.\n\nMake sure the backend is running.\n\nTo start: cd api && npm run dev');
+        alert('Failed to connect to API server on port 3010.\n\nMake sure the backend is running.\n\nTo start: cd api && npm run dev');
       }
     }
   };
@@ -146,7 +146,7 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
   const reconnectToCloud = async () => {
     try {
       // Stop advertising as LAN server
-      await fetch('http://localhost:3001/api/server/stop-advertising', {
+      await fetch('http://localhost:3010/api/server/stop-advertising', {
         method: 'POST'
       });
     } catch (error) {
@@ -169,7 +169,7 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
     setDiscoveredServers([]);
     try {
       // Try to find servers via the current API endpoint or localhost
-      const apiUrl = currentServer || 'http://localhost:3001';
+      const apiUrl = currentServer || 'http://localhost:3010';
       const response = await fetch(`${apiUrl}/api/server/discover?timeout=5000`);
       
       if (response.ok) {
@@ -189,7 +189,7 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
       console.error('Discovery failed:', error);
       // Try localhost as fallback
       try {
-        const response = await fetch('http://localhost:3001/api/server/discover?timeout=5000');
+        const response = await fetch('http://localhost:3010/api/server/discover?timeout=5000');
         if (response.ok) {
           const data = await response.json();
           const servers = data.servers || [];
@@ -246,7 +246,7 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
     
     // Add port if missing
     if (!url.match(/:\d+$/)) {
-      url += ':3001';
+      url += ':3010';
     }
     
     connectToServer(url, 'lan');
@@ -261,7 +261,7 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
     
     // Try to connect to cloud
     try {
-      const cloudUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const cloudUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
       const response = await fetch(`${cloudUrl}/health`);
       if (response.ok) {
         setCurrentServer(cloudUrl);
@@ -376,7 +376,7 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
         <div className="space-y-2">
           <button
             onClick={() => {
-              const ip = prompt('Enter LAN server IP address (e.g., 192.168.1.100:3001):');
+              const ip = prompt('Enter LAN server IP address (e.g., 192.168.1.100:3010):');
               if (ip) {
                 setManualIP(ip);
                 let url = ip;
@@ -384,7 +384,7 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
                   url = `http://${url}`;
                 }
                 if (!url.match(/:\d+$/)) {
-                  url += ':3001';
+                  url += ':3010';
                 }
                 connectToServer(url, 'lan');
               }

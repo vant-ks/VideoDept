@@ -31,7 +31,7 @@ cp .env.example .env
 Edit `.env`:
 ```
 DATABASE_URL="postgresql://user:password@localhost:5432/video_production"
-PORT=3001
+PORT=3010
 SERVER_NAME="Video Production Server"
 ENABLE_MDNS=true
 ```
@@ -53,7 +53,7 @@ npm run build
 npm start
 ```
 
-The server will start on `http://localhost:3001`
+The server will start on `http://localhost:3010`
 
 ## Server Discovery & LAN Mode
 
@@ -72,7 +72,7 @@ Response:
 ```json
 {
   "serverName": "Video Production Server",
-  "port": 3001,
+  "port": 3010,
   "addresses": ["192.168.1.100", "10.0.0.50"],
   "isLANServer": true,
   "uptime": 3600
@@ -103,7 +103,7 @@ Response:
     {
       "name": "Video Production Server",
       "host": "Kevins-MacBook.local",
-      "port": 3001,
+      "port": 3010,
       "addresses": ["192.168.1.100"]
     }
   ]

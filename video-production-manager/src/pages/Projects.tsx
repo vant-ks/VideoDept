@@ -3,10 +3,11 @@
  * Landing page for managing multiple shows
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, FolderOpen, Download, Upload, Trash2, Calendar, MapPin, Clock, Search, X, Archive, Eye, EyeOff } from 'lucide-react';
 import { Card, Badge, ProgressBar } from '@/components/ui';
 import { useProjectStore } from '@/hooks/useProjectStore';
+import { useProductionListEvents } from '@/hooks/useProductionListEvents';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { useProductionStore } from '@/hooks/useStore';
 import type { VideoDepProject } from '@/types';
@@ -14,7 +15,7 @@ import { cn } from '@/utils/helpers';
 import { Logo } from '@/components/Logo';
 
 export const Projects: React.FC = () => {
-  const { listProjects, loadProject, deleteProject, createProject } = useProjectStore();
+  const { listProjects, loadProject, deleteProject, createProject, syncWithAPI } = useProjectStore();
   const { setLastOpenedProjectId } = usePreferencesStore();
   const { defaultChecklistItems } = useProductionStore();
   const [shows, setShows] = useState<VideoDepProject[]>([]);
@@ -50,8 +51,33 @@ export const Projects: React.FC = () => {
     loadShowsList();
   }, []);
 
+  // Real-time production list updates
+  useProductionListEvents({
+    onProductionCreated: useCallback((production: any) => {
+      console.log('🔔 New production:', production.name);
+      setShows(prev => {
+        // Avoid duplicates
+        if (prev.some(s => s.id === production.id)) return prev;
+        return [production, ...prev];
+      });
+    }, []),
+    onProductionUpdated: useCallback((production: any) => {
+      console.log('🔔 Production updated:', production.name);
+      setShows(prev => prev.map(s => 
+        s.id === production.id ? production : s
+      ));
+    }, []),
+    onProductionDeleted: useCallback((productionId: string) => {
+      console.log('🔔 Production deleted:', productionId);
+      setShows(prev => prev.filter(s => s.id !== productionId));
+    }, [])
+  });
+
   const loadShowsList = async () => {
     try {
+      // First sync with API to get latest data
+      await syncWithAPI();
+      // Then load from local cache
       const projectList = await listProjects();
       setShows(projectList.sort((a, b) => b.modified - a.modified));
       setIsLoading(false);

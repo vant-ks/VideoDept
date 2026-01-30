@@ -3,76 +3,22 @@
  * Shows who is currently viewing/editing in real-time (Google Docs style)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Users } from 'lucide-react';
 import { cn } from '@/utils/helpers';
-
-interface ActiveUser {
-  id: string;
-  name: string;
-  initials: string;
-  color: string;
-  lastSeen: number;
-}
+import { usePresence } from '@/hooks/usePresence';
 
 interface PresenceIndicatorProps {
   productionId?: string;
   className?: string;
 }
 
-const COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-  '#14b8a6', // teal
-  '#f97316', // orange
-];
-
 export const PresenceIndicator: React.FC<PresenceIndicatorProps> = ({
   productionId,
   className
 }) => {
-  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const { activeUsers, isConnected } = usePresence(productionId);
   const [isExpanded, setIsExpanded] = useState(false);
-
-  useEffect(() => {
-    // TODO: Replace with actual WebSocket implementation
-    // For now, simulate with mock data for testing
-    if (!productionId) {
-      setActiveUsers([]);
-      return;
-    }
-
-    // Mock data for testing - remove when WebSocket implemented
-    const mockUsers: ActiveUser[] = [
-      {
-        id: 'current-user',
-        name: 'You',
-        initials: 'YU',
-        color: COLORS[0],
-        lastSeen: Date.now(),
-      },
-      // Add more mock users when testing
-      // {
-      //   id: 'user-2',
-      //   name: 'Sarah Chen',
-      //   initials: 'SC',
-      //   color: COLORS[1],
-      //   lastSeen: Date.now(),
-      // },
-    ];
-
-    setActiveUsers(mockUsers);
-
-    // TODO: WebSocket connection
-    // const socket = io(API_URL);
-    // socket.emit('production:join', { productionId, userId, userName });
-    // socket.on('presence:update', (users) => setActiveUsers(users));
-    // return () => socket.disconnect();
-  }, [productionId]);
 
   if (activeUsers.length === 0) {
     return null;
