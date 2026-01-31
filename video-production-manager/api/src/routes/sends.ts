@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       },
       orderBy: { created_at: 'asc' }
     });
-    res.json(sends);
+    res.json(toCamelCase(sends));
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch sends' });
   }
@@ -29,11 +30,11 @@ router.get('/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id }
     });
 
-    if (!send || send.isDeleted) {
+    if (!send || send.is_deleted) {
       return res.status(404).json({ error: 'Send not found' });
     }
 
-    res.json(send);
+    res.json(toCamelCase(send));
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch send' });
   }
@@ -155,7 +156,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id }
     });
 
-    if (!currentSend || currentSend.isDeleted) {
+    if (!currentSend || currentSend.is_deleted) {
       return res.status(404).json({ error: 'Send not found' });
     }
 

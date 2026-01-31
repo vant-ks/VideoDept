@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Tool Test Suite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #0f0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #0a0a0a;
+            border: 2px solid #0f0;
+            border-radius: 8px;
+            padding: 2rem;
+        }
+
+        h1 {
+            color: #0ff;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        h2 {
+            color: #ff0;
+            margin: 1.5rem 0 0.75rem 0;
+            font-size: 1.2rem;
+        }
+
+        .test-section {
+            background: #111;
+            border: 1px solid #333;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .status {
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .status.pending { background: #333; color: #aaa; }
+        .status.running { background: #004; color: #0ff; }
+        .status.pass { background: #040; color: #0f0; }
+        .status.fail { background: #400; color: #f00; }
+        .status.warn { background: #440; color: #ff0; }
+
+        pre {
+            background: #000;
+            padding: 1rem;
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        button {
+            background: #0a0;
+            color: #000;
+            border: 2px solid #0f0;
+            padding: 0.75rem 1.5rem;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            background: #0f0;
+        }
+
+        button:disabled {
+            background: #333;
+            border-color: #555;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        .actions {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 4px;
+        }
+
+        .chrome-instructions {
+            background: #002;
+            border: 1px solid #00f;
+            color: #6af;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .chrome-instructions h3 {
+            color: #0ff;
+            margin-bottom: 0.5rem;
+        }
+
+        .chrome-instructions code {
+            background: #000;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #0f0;
+        }
+
+        .info-box {
+            background: #220;
+            border: 1px solid #660;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            color: #fa0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Reset Tool - Test Suite</h1>
+        <p>Comprehensive testing for reset-app.html functionality</p>
+
+        <div class="chrome-instructions">
+            <h3>🌐 Manual Chrome Storage Clear Instructions</h3>
+            <p><strong>Method 1: DevTools Application Tab</strong></p>
+            <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li>Press <code>F12</code> or <code>Cmd+Option+I</code> to open DevTools</li>
+                <li>Click the <strong>Application</strong> tab</li>
+                <li>In left sidebar under "Storage", click <strong>Clear site data</strong></li>
+                <li>Confirm and reload</li>
+            </ol>
+            <p style="margin-top: 1rem;"><strong>Method 2: Console Command</strong></p>
+            <p style="margin-top: 0.5rem;">Open Console (F12 → Console) and paste:</p>
+            <pre>localStorage.clear();
+indexedDB.databases().then(dbs => {
+  dbs.forEach(db => indexedDB.deleteDatabase(db.name));
+  console.log('✅ All storage cleared');
+  location.reload();
+});</pre>
+        </div>
+
+        <div class="actions">
+            <h2>Quick Actions</h2>
+            <button id="btnCheckStorage">1. Check Storage</button>
+            <button id="btnCheckDB">2. Check Database</button>
+            <button id="btnAddTestData">3. Add Test Data</button>
+            <button id="btnClearStorage">4. Clear Browser Storage</button>
+            <button id="btnOpenResetTool">5. Open Reset Tool</button>
+        </div>
+
+        <h2>Test Results</h2>
+
+        <div class="test-section">
+            <h3>📊 Current State</h3>
+            <div id="currentState">
+                <div class="status pending">⏳ Not checked yet - Click "Check Storage" button</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🗄️ Database State</h3>
+            <div id="databaseState">
+                <div class="status pending">⏳ Not checked yet - Click "Check Database" button</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔗 API Health Check</h3>
+            <div id="apiHealth">
+                <div class="status pending">⏳ Checking...</div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <strong>📝 Test Procedure:</strong>
+            <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li>Click "Check Storage" to see current browser storage state</li>
+                <li>Click "Check Database" to see productions in PostgreSQL</li>
+                <li>Click "Add Test Data" to populate test productions</li>
+                <li>Open the main app (localhost:3011) - you should see test productions</li>
+                <li>Click "Open Reset Tool" to access reset-app.html</li>
+                <li>In reset tool: select "Clear Browser Storage" + "Clear Database"</li>
+                <li>Execute reset and verify it redirects to dashboard</li>
+                <li>Come back here and click "Check Database" - should be empty</li>
+                <li>Verify main app shows no productions after refresh</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Test Checklist</h3>
+            <div id="testChecklist">
+                <div class="status pending">☐ Browser storage clears successfully</div>
+                <div class="status pending">☐ Database productions delete successfully</div>
+                <div class="status pending">☐ Tool redirects to dashboard after reset</div>
+                <div class="status pending">☐ App shows empty state after reset</div>
+                <div class="status pending">☐ Fresh data can be created after reset</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Manual Tests</h3>
+            <div>
+                <div class="status warn">
+                    ⚠️ Redirect Test: After running reset tool, verify you are redirected to http://localhost:3011 (NOT /projects)
+                </div>
+                <div class="status warn">
+                    ⚠️ Persistence Test: After reset, refresh browser and verify productions list is still empty
+                </div>
+                <div class="status warn">
+                    ⚠️ Cross-Browser Test: Open app in different browser window and verify changes sync
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3010';
+        const APP_URL = 'http://localhost:3011';
+
+        // Check API health on load
+        checkAPIHealth();
+
+        async function checkAPIHealth() {
+            const el = document.getElementById('apiHealth');
+            el.innerHTML = '<div class="status running">⏳ Checking API status...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/health`, { 
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    el.innerHTML = `
+                        <div class="status pass">✅ API Online</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    throw new Error(`API returned status: ${response.status}`);
+                }
+            } catch (error) {
+                el.innerHTML = `
+                    <div class="status fail">❌ API Offline or unreachable</div>
+                    <pre>Error: ${error.message}</pre>
+                `;
+            }
+        }
+
+        document.getElementById('btnCheckStorage').addEventListener('click', async () => {
+            const el = document.getElementById('currentState');
+            el.innerHTML = '<div class="status running">⏳ Checking browser storage...</div>';
+            
+            try {
+                // Check localStorage
+                const localStorageKeys = Object.keys(localStorage);
+                const localStorageSize = JSON.stringify(localStorage).length;
+                
+                // Check IndexedDB
+                const databases = await indexedDB.databases();
+                
+                let html = '';
+                
+                if (localStorageKeys.length === 0 && databases.length === 0) {
+                    html += '<div class="status pass">✅ Storage is empty (clean state)</div>';
+                } else {
+                    html += '<div class="status warn">⚠️ Storage contains data</div>';
+                }
+                
+                html += `<pre>localStorage Keys (${localStorageKeys.length}):
+${localStorageKeys.map(k => `  - ${k}`).join('\n') || '  (empty)'}
+
+localStorage Size: ~${localStorageSize} bytes
+
+IndexedDB Databases (${databases.length}):
+${databases.map(db => `  - ${db.name} v${db.version}`).join('\n') || '  (none)'}
+</pre>`;
+                
+                el.innerHTML = html;
+            } catch (error) {
+                el.innerHTML = `
+                    <div class="status fail">❌ Error checking storage</div>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        });
+
+        document.getElementById('btnCheckDB').addEventListener('click', async () => {
+            const el = document.getElementById('databaseState');
+            el.innerHTML = '<div class="status running">⏳ Fetching database productions...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/productions`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const productions = await response.json();
+                
+                let html = '';
+                if (productions.length === 0) {
+                    html += '<div class="status pass">✅ Database is empty (clean state)</div>';
+                } else {
+                    html += `<div class="status warn">⚠️ Database contains ${productions.length} production(s)</div>`;
+                }
+                
+                html += `<pre>Productions in Database (${productions.length}):
+${productions.map(p => `  - ${p.name} (${p.id})`).join('\n') || '  (none)'}
+</pre>`;
+                
+                el.innerHTML = html;
+            } catch (error) {
+                el.innerHTML = `
+                    <div class="status fail">❌ Error fetching database</div>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        });
+
+        document.getElementById('btnAddTestData').addEventListener('click', async () => {
+            const el = document.getElementById('databaseState');
+            el.innerHTML = '<div class="status running">⏳ Adding test productions...</div>';
+            
+            try {
+                const testProductions = [
+                    { name: 'Reset Test Show 1', client: 'Test Client', date: '2026-02-01' },
+                    { name: 'Reset Test Show 2', client: 'Another Client', date: '2026-02-02' }
+                ];
+                
+                for (const prod of testProductions) {
+                    const response = await fetch(`${API_URL}/api/productions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(prod)
+                    });
+                    
+                    if (!response.ok) throw new Error(`Failed to create: ${prod.name}`);
+                }
+                
+                el.innerHTML = '<div class="status pass">✅ Test productions added! Click "Check Database" to verify.</div>';
+                
+                // Auto-check database after adding
+                setTimeout(() => {
+                    document.getElementById('btnCheckDB').click();
+                }, 1000);
+                
+            } catch (error) {
+                el.innerHTML = `
+                    <div class="status fail">❌ Error adding test data</div>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        });
+
+        document.getElementById('btnClearStorage').addEventListener('click', async () => {
+            const el = document.getElementById('currentState');
+            
+            const confirmed = confirm('Clear all browser storage (localStorage + IndexedDB)?');
+            if (!confirmed) return;
+            
+            el.innerHTML = '<div class="status running">⏳ Clearing browser storage...</div>';
+            
+            try {
+                // Clear localStorage
+                localStorage.clear();
+                
+                // Clear IndexedDB
+                const databases = await indexedDB.databases();
+                for (const db of databases) {
+                    if (db.name) {
+                        indexedDB.deleteDatabase(db.name);
+                    }
+                }
+                
+                el.innerHTML = `
+                    <div class="status pass">✅ Browser storage cleared!</div>
+                    <p style="margin-top: 0.5rem;">Cleared ${databases.length} IndexedDB database(s)</p>
+                `;
+                
+                // Auto-check storage after clearing
+                setTimeout(() => {
+                    document.getElementById('btnCheckStorage').click();
+                }, 500);
+                
+            } catch (error) {
+                el.innerHTML = `
+                    <div class="status fail">❌ Error clearing storage</div>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        });
+
+        document.getElementById('btnOpenResetTool').addEventListener('click', () => {
+            window.open(`${APP_URL}/reset-app.html`, '_blank');
+        });
+    </script>
+</body>
+</html>

@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -13,13 +14,13 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
     
     const ipAddresses = await prisma.ip_addresses.findMany({
       where: {
-        productionId,
-        isDeleted: false
+        production_id: productionId,
+        // Note: ip_addresses table doesn't have is_deleted field
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     
-    res.json(ipAddresses);
+    res.json(toCamelCase(ipAddresses));
   } catch (error) {
     console.error('Error fetching ip-addresses:', error);
     res.status(500).json({ error: 'Failed to fetch ip-addresses' });
@@ -37,7 +38,7 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      productionId: ipAddress.productionId,
+      productionId: ipAddress.production_id,
       eventType: EventType.IP_ADDRESS,
       operation: EventOperation.CREATE,
       entityId: ipAddress.id,
@@ -48,7 +49,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${ipAddress.productionId}`).emit('entity:created', {
+    io.to(`production:${ipAddress.production_id}`).emit('entity:created', {
       entityType: 'ipAddress',
       entity: ipAddress,
       userId,
@@ -101,7 +102,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, ipAddress);
     
     await recordEventFn({
-      productionId: ipAddress.productionId,
+      productionId: ipAddress.production_id,
       eventType: EventType.IP_ADDRESS,
       operation: EventOperation.UPDATE,
       entityId: ipAddress.id,
@@ -113,7 +114,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${ipAddress.productionId}`).emit('entity:updated', {
+    io.to(`production:${ipAddress.production_id}`).emit('entity:updated', {
       entityType: 'ipAddress',
       entity: ipAddress,
       userId,
@@ -139,15 +140,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'IPAddress not found' });
     }
     
-    // Soft delete
-    await prisma.ip_addresses.update({
-      where: { id },
-      data: { isDeleted: true }
+    // Note: ip_addresses table doesn't have is_deleted field - using hard delete
+    await prisma.ip_addresses.delete({
+      where: { id }
     });
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
+      productionId: current.production_id,
       eventType: EventType.IP_ADDRESS,
       operation: EventOperation.DELETE,
       entityId: id,
@@ -158,7 +158,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${current.productionId}`).emit('entity:deleted', {
+    io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'ipAddress',
       entityId: id,
       userId,

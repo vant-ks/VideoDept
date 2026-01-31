@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       },
       orderBy: { created_at: 'asc' }
     });
-    res.json(cameras);
+    res.json(toCamelCase(cameras));
   } catch (error: any) {
     console.error('Failed to fetch cameras:', error);
     res.status(500).json({ error: 'Failed to fetch cameras' });
@@ -30,11 +31,11 @@ router.get('/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id }
     });
 
-    if (!camera || camera.isDeleted) {
+    if (!camera || camera.is_deleted) {
       return res.status(404).json({ error: 'Camera not found' });
     }
 
-    res.json(camera);
+    res.json(toCamelCase(camera));
   } catch (error: any) {
     console.error('Failed to fetch camera:', error);
     res.status(500).json({ error: 'Failed to fetch camera' });
@@ -49,7 +50,7 @@ router.post('/', async (req: Request, res: Response) => {
     const camera = await prisma.cameras.create({
       data: {
         ...cameraData,
-        productionId,
+        production_id: productionId,
         version: 1
       }
     });
@@ -92,7 +93,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id }
     });
 
-    if (!currentCamera || currentCamera.isDeleted) {
+    if (!currentCamera || currentCamera.is_deleted) {
       return res.status(404).json({ error: 'Camera not found' });
     }
 
@@ -120,7 +121,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Record UPDATE event
     await recordEvent({
-      production_id: currentCamera.productionId,
+      productionId: currentCamera.production_id,
       eventType: EventType.CAMERA,
       operation: EventOperation.UPDATE,
       entityId: camera.id,
@@ -148,7 +149,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id }
     });
 
-    if (!currentCamera || currentCamera.isDeleted) {
+    if (!currentCamera || currentCamera.is_deleted) {
       return res.status(404).json({ error: 'Camera not found' });
     }
 
@@ -160,7 +161,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     // Record DELETE event
     await recordEvent({
-      production_id: currentCamera.productionId,
+      productionId: currentCamera.production_id,
       eventType: EventType.CAMERA,
       operation: EventOperation.DELETE,
       entityId: req.params.id,

@@ -373,7 +373,7 @@
     <script>
         // Configuration
         const API_URL = 'http://localhost:3010';
-        const APP_URL = 'http://localhost:3011/projects';
+        const APP_URL = 'http://localhost:3011';
 
         // State
         let apiOnline = false;
@@ -563,18 +563,12 @@
                     console.log('✅ Browser storage cleared');
                 }
 
-                // Step 4: Reload
-                showStatus('✅ Reset complete! Redirecting...', 'success');
+                // Step 4: Reload and Redirect
+                showStatus('✅ Reset complete! Redirecting to dashboard...', 'success');
                 
                 setTimeout(() => {
-                    if (checks.reload.checked) {
-                        // Hard reload (bypass cache)
-                        window.location.href = APP_URL;
-                        window.location.reload(true);
-                    } else {
-                        // Normal redirect
-                        window.location.href = APP_URL;
-                    }
+                    // Always redirect to the app (clearing storage will force fresh data load)
+                    window.location.href = APP_URL;
                 }, 1500);
 
             } catch (error) {

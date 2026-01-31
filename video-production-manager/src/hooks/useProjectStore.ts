@@ -178,7 +178,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     
     const project: VideoDepProject = {
       ...projectData,
-      version: '1.0.0',
+      version: 1,
       created: Date.now(),
       modified: Date.now(),
     };
@@ -228,7 +228,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               id: item.id,
               production_id: productionData.id,
               title: item.title,
-              completed: item.completed || false
+              completed: item.completed || false,
+              updated_at: new Date().toISOString()
             });
           } catch (error) {
             logger.error(LogContext.API, 'Failed to save checklist item', error as Error, {
@@ -319,12 +320,16 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           console.warn('⚠️ Conflict detected:', conflictData);
           
           // Show conflict dialog
+          const lastModified = conflictData.serverData?.updated_at 
+            ? new Date(conflictData.serverData.updated_at).toLocaleString()
+            : 'Unknown';
+          
           const userChoice = confirm(
             `⚠️ CONFLICT DETECTED\n\n` +
             `Someone else modified this show while you were editing.\n\n` +
             `Server version: ${conflictData.currentVersion}\n` +
             `Your version: ${activeProject.version || 1}\n` +
-            `Last modified: ${new Date(conflictData.serverData?.updatedAt).toLocaleString()}\n\n` +
+            `Last modified: ${lastModified}\n\n` +
             `Click OK to reload their changes (you will LOSE your unsaved work)\n` +
             `Click Cancel to force save (you will OVERWRITE their changes)`
           );

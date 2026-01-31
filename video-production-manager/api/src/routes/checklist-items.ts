@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { created_at: 'asc' }
     });
     
-    res.json(checklistItems);
+    res.json(toCamelCase(checklistItems));
   } catch (error) {
     console.error('Error fetching checklist-items:', error);
     res.status(500).json({ error: 'Failed to fetch checklist-items' });

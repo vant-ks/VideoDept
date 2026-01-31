@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       },
       orderBy: { created_at: 'asc' }
     });
-    res.json(sources);
+    res.json(toCamelCase(sources));
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch sources' });
   }
@@ -33,11 +34,11 @@ router.get('/:id', async (req: Request, res: Response) => {
       include: { outputs: true }
     });
 
-    if (!source || source.isDeleted) {
+    if (!source || source.is_deleted) {
       return res.status(404).json({ error: 'Source not found' });
     }
 
-    res.json(source);
+    res.json(toCamelCase(source));
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch source' });
   }
@@ -104,7 +105,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       include: { outputs: true }
     });
     
-    if (!currentSource || currentSource.isDeleted) {
+    if (!currentSource || currentSource.is_deleted) {
       return res.status(404).json({ error: 'Source not found' });
     }
     
@@ -168,7 +169,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       include: { outputs: true }
     });
     
-    if (!source || source.isDeleted) {
+    if (!source || source.is_deleted) {
       return res.status(404).json({ error: 'Source not found' });
     }
     

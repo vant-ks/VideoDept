@@ -39,7 +39,8 @@ export const Checklist: React.FC = () => {
         ...activeProject.uiPreferences,
         collapsedChecklistCategories: allCategories
       };
-      saveProject();
+      // Don't call saveProject() here - just update local state
+      // UI preferences don't need to trigger a database save
     }
   }, [activeProject?.production?.id]);
   

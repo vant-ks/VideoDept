@@ -367,6 +367,7 @@ export interface ServerLayer {
 
 export interface ChecklistItem {
   id: string;
+  title: string;  // Required for database - derived from category + item
   category: ChecklistCategory;
   item: string;
   moreInfo?: TimestampedEntry[];  // Array of timestamped notes
@@ -463,7 +464,7 @@ export interface AppState {
 
 export interface VideoDepProject {
   // Metadata
-  version: string;  // Format version (e.g., "1.0.0")
+  version: number;  // Version number for conflict detection (matches database Int)
   created: number;  // Timestamp
   modified: number; // Timestamp
   
