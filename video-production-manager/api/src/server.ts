@@ -8,11 +8,14 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import ServerDiscoveryService from './services/ServerDiscoveryService';
 
+console.log('🔥 SERVER.TS LOADING AT:', new Date().toISOString());
+
 // Load environment variables
 dotenv.config();
 
 // Initialize Prisma
 export const prisma = new PrismaClient();
+console.log('🔥 Prisma initialized, models:', Object.keys(prisma).filter(k => /^[a-z]/.test(k)).length);
 
 // Initialize Express app
 const app: Express = express();
@@ -128,15 +131,7 @@ let discoveryService: ServerDiscoveryService | null = null;
 // ============================================================================
 
 // Health check (both root and /api for compatibility)
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    server: 'Video Production API',
-    version: '1.0.0'
-  });
-});
-
+app.use('/', healthRouter); // Provides /health and /health/diagnostics
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'ok', 
@@ -204,6 +199,7 @@ import camerasRouter from './routes/cameras';
 import ccusRouter from './routes/ccus';
 import settingsRouter from './routes/settings';
 import eventsRouter from './routes/events';
+import healthRouter from './routes/health';
 // TODO: Create database tables for these entities
 // import mediaServerRouter from './routes/media-servers';
 // import routerRouter from './routes/routers';

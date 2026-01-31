@@ -34,8 +34,6 @@ router.post('/', async (req: Request, res: Response) => {
     // Convert camelCase to snake_case and prepare data for Prisma
     const snakeCaseData = toSnakeCase(checklistItemData);
     
-    console.log('Creating checklist item with data:', JSON.stringify(snakeCaseData, null, 2));
-    
     // Ensure updated_at is a valid DateTime
     const createData = {
       ...snakeCaseData,
@@ -48,7 +46,7 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      production_id: checklistItem.production_id,
+      productionId: checklistItem.production_id,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.CREATE,
       entityId: checklistItem.id,
@@ -117,7 +115,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, checklistItem);
     
     await recordEventFn({
-      production_id: checklistItem.production_id,
+      productionId: checklistItem.production_id,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.UPDATE,
       entityId: checklistItem.id,
@@ -157,7 +155,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     // Record event before deletion
     await recordEvent({
-      production_id: current.production_id,
+      productionId: current.production_id,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.DELETE,
       entityId: id,

@@ -294,9 +294,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           name: activeProject.production.showName || activeProject.production.name,
           client: activeProject.production.client,
           status: activeProject.production.status || 'PLANNING',
-          metadata: updatedProject, // Store full project for sync
-          version: activeProject.version || 1, // Send current version for conflict check
-          lastModifiedBy: getCurrentUserId()
+          version: activeProject.version || 1 // Send current version for conflict check
         });
         
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
@@ -1116,3 +1114,22 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 //     store.saveProject();
 //   }
 // }, 30000);
+
+// Listen for WebSocket version updates from other clients
+if (typeof window !== 'undefined') {
+  window.addEventListener('production:version-updated', ((event: CustomEvent) => {
+    const { productionId, version } = event.detail;
+    const store = useProjectStore.getState();
+    
+    if (store.activeProject && store.activeProject.production.id === productionId) {
+      console.log(`📡 Syncing version from ${store.activeProject.version} to ${version}`);
+      // Update version and trigger re-render
+      useProjectStore.setState((state) => ({
+        activeProject: state.activeProject ? {
+          ...state.activeProject,
+          version
+        } : null
+      }));
+    }
+  }) as EventListener);
+}

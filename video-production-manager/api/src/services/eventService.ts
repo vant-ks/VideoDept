@@ -3,9 +3,8 @@
  * Records all entity changes for sync, audit, and collaboration
  */
 
-import { PrismaClient, EventType, EventOperation } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { EventType, EventOperation } from '@prisma/client';
+import { prisma } from '../server';
 
 export interface RecordEventParams {
   productionId: string;
@@ -36,16 +35,17 @@ export async function recordEvent(params: RecordEventParams) {
   } = params;
 
   try {
-    const event = await prisma.event.create({
+    const event = await prisma.events.create({
       data: {
-        productionId,
-        eventType,
+        id: `${productionId}-${eventType}-${Date.now()}`,
+        production_id: productionId,
+        event_type: eventType,
         operation,
-        entityId,
-        entityData: entityData || null,
+        entity_id: entityId,
+        entity_data: entityData || null,
         changes: changes || null,
-        userId,
-        userName,
+        user_id: userId,
+        user_name: userName,
         version,
         timestamp: new Date()
       }

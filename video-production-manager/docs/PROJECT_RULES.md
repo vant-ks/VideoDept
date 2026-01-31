@@ -200,6 +200,36 @@ Video Production Info*.xlsx
 
 ## 🛠️ Code Standards
 
+### Data Validation at API Boundaries
+
+**ALWAYS validate and whitelist fields when passing data between:**
+- Client → Server (API endpoints)
+- Route handlers → Database (Prisma)
+- Service → Service
+- Server → Client (responses)
+
+**Required Pattern:**
+1. **Destructure** known fields from request body
+2. **Validate** field existence and types
+3. **Whitelist** only schema-valid fields
+4. **Never spread** unvalidated request data directly into database operations
+
+**Example:**
+```typescript
+// ❌ BAD: Spreads unknown fields
+const { userId, ...updateData } = req.body;
+await prisma.model.update({ data: { ...updateData } });
+
+// ✅ GOOD: Explicit field validation
+const { userId, field1, field2, ...ignored } = req.body;
+const dbData: any = {};
+if (field1 !== undefined) dbData.field1 = field1;
+if (field2 !== undefined) dbData.field2 = field2;
+await prisma.model.update({ data: dbData });
+```
+
+**Rationale:** Prevents database errors, injection attacks, and ensures data integrity across all service boundaries.
+
 ### State Management
 - **Use Zustand** with persist for all application state
 - Store location: `src/data/productionStore.ts`

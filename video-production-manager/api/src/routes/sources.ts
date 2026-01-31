@@ -132,7 +132,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Calculate diff and record event
     const changes = calculateDiff(currentSource, updatedSource);
     await recordEvent({
-      production_id: currentSource.productionId,
+      productionId: currentSource.productionId,
       eventType: EventType.SOURCE,
       operation: EventOperation.UPDATE,
       entityId: updatedSource.id,
@@ -185,7 +185,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     // Record DELETE event
     await recordEvent({
-      production_id: source.productionId,
+      productionId: source.productionId,
       eventType: EventType.SOURCE,
       operation: EventOperation.DELETE,
       entityId: deletedSource.id,

@@ -37,7 +37,7 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      production_id: connection.productionId,
+      productionId: connection.productionId,
       eventType: EventType.CONNECTION,
       operation: EventOperation.CREATE,
       entityId: connection.id,
@@ -101,7 +101,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, connection);
     
     await recordEventFn({
-      production_id: connection.productionId,
+      productionId: connection.productionId,
       eventType: EventType.CONNECTION,
       operation: EventOperation.UPDATE,
       entityId: connection.id,
@@ -147,7 +147,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      production_id: current.productionId,
+      productionId: current.productionId,
       eventType: EventType.CONNECTION,
       operation: EventOperation.DELETE,
       entityId: id,

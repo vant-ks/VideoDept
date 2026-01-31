@@ -158,6 +158,19 @@
             transition: all 0.2s ease;
         }
 
+        .btn-link {
+            background: transparent;
+            border: 1px solid #667eea;
+            color: #667eea;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            flex: none;
+        }
+
+        .btn-link:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -314,7 +327,10 @@
         </div>
 
         <div class="section">
-            <div class="section-title">Select Reset Options</div>
+            <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Select Reset Options</span>
+                <button class="btn-link" id="btnSelectAll" style="font-size: 0.85rem; padding: 0.25rem 0.75rem;">Select All</button>
+            </div>
             
             <div class="option" id="option-reload">
                 <input type="checkbox" id="check-reload">
@@ -381,6 +397,7 @@
         // DOM Elements
         const btnReset = document.getElementById('btnReset');
         const btnCancel = document.getElementById('btnCancel');
+        const btnSelectAll = document.getElementById('btnSelectAll');
         const statusEl = document.getElementById('status');
         const apiUrlEl = document.getElementById('apiUrl');
         const apiStatusEl = document.getElementById('apiStatus');
@@ -449,7 +466,20 @@
             btnCancel.addEventListener('click', () => {
                 window.location.href = APP_URL;
             });
+            btnSelectAll.addEventListener('click', toggleSelectAll);
 
+            updateOptionStyles();
+        }
+
+        // Toggle select all
+        function toggleSelectAll() {
+            const allChecked = Object.values(checks).every(check => check.checked);
+            
+            Object.values(checks).forEach(check => {
+                check.checked = !allChecked;
+            });
+            
+            btnSelectAll.textContent = allChecked ? 'Select All' : 'Deselect All';
             updateOptionStyles();
         }
 

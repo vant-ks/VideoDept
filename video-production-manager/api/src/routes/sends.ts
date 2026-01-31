@@ -119,7 +119,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Record UPDATE event
     await recordEvent({
-      production_id: currentSend.productionId,
+      productionId: currentSend.productionId,
       eventType: EventType.SEND,
       operation: EventOperation.UPDATE,
       entityId: send.id,
@@ -168,7 +168,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     // Record DELETE event
     await recordEvent({
-      production_id: currentSend.productionId,
+      productionId: currentSend.productionId,
       eventType: EventType.SEND,
       operation: EventOperation.DELETE,
       entityId: req.params.id,

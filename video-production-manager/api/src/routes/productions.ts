@@ -2,6 +2,12 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../server';
 import { io } from '../server';
 import { logger, LogCategory } from '../utils/logger';
+import { 
+  initFieldVersions, 
+  mergeNonConflictingFields, 
+  isValidFieldVersions,
+  FieldVersions 
+} from '../utils/fieldVersioning';
 
 const router = Router();
 
@@ -96,7 +102,8 @@ router.post('/', async (req: Request, res: Response) => {
     // Only include fields that exist in the database schema
     const dbData: any = {
       show_name: name || restData.show_name, // Map 'name' to 'show_name'
-      updated_at: new Date()
+      updated_at: new Date(),
+      field_versions: initFieldVersions() // Initialize field-level versions
     };
     
     // Include optional ID if provided, otherwise auto-generate
@@ -148,30 +155,30 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// PUT update production with optimistic locking
+// PUT update production with field-level versioning
 router.put('/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   const requestId = logger.generateRequestId();
   const productionId = req.params.id;
   
   try {
-    const { version: clientVersion, name, userId, userName, ...updateData } = req.body;
+    const { 
+      version: clientVersion, 
+      field_versions: clientFieldVersions,
+      name, 
+      userId, 
+      userName, 
+      ...updateData 
+    } = req.body;
     
     logger.admin(LogCategory.API, `PUT /productions/${productionId}`, {
       requestId,
       productionId,
       clientVersion,
+      hasFieldVersions: !!clientFieldVersions,
       userId,
       userName
     });
-    
-    // Validate version provided
-    if (clientVersion === undefined) {
-      logger.manager(LogCategory.VALIDATION, 'Version missing', { requestId, productionId });
-      return res.status(400).json({ 
-        error: 'Version required for conflict detection'
-      });
-    }
     
     // Get current version from database
     const current = await prisma.productions.findUnique({
@@ -183,58 +190,170 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Production not found' });
     }
     
-    // Check for version conflict
-    if (current.version !== clientVersion) {
-      logger.manager(LogCategory.SYNC, 'Version conflict detected', {
+    // Initialize field_versions if not present (backward compatibility)
+    let serverFieldVersions = current.field_versions as FieldVersions || initFieldVersions();
+    
+    // If client provided field_versions, use field-level conflict detection
+    if (clientFieldVersions && isValidFieldVersions(clientFieldVersions)) {
+      logger.tech(LogCategory.SYNC, 'Using field-level versioning', {
         requestId,
         productionId,
-        clientVersion,
-        serverVersion: current.version
+        fieldsUpdated: Object.keys(updateData)
       });
       
-      return res.status(409).json({ 
-        error: 'Conflict',
-        message: 'Production was modified by another user',
-        currentVersion: current.version,
-        serverData: { ...current, name: current.show_name }
+      // Prepare client data with mapped fields
+      const clientData: Record<string, any> = {};
+      if (name !== undefined) clientData.show_name = name;
+      if (updateData.client !== undefined) clientData.client = updateData.client;
+      if (updateData.status !== undefined) clientData.status = updateData.status;
+      if (updateData.venue !== undefined) clientData.venue = updateData.venue;
+      if (updateData.room !== undefined) clientData.room = updateData.room;
+      if (updateData.load_in !== undefined) clientData.load_in = updateData.load_in;
+      if (updateData.load_out !== undefined) clientData.load_out = updateData.load_out;
+      if (updateData.show_info_url !== undefined) clientData.show_info_url = updateData.show_info_url;
+      if (updateData.production_type !== undefined) clientData.production_type = updateData.production_type;
+      if (updateData.contact_name !== undefined) clientData.contact_name = updateData.contact_name;
+      if (updateData.contact_email !== undefined) clientData.contact_email = updateData.contact_email;
+      if (updateData.contact_phone !== undefined) clientData.contact_phone = updateData.contact_phone;
+      if (updateData.show_date !== undefined) clientData.show_date = updateData.show_date;
+      if (updateData.show_time !== undefined) clientData.show_time = updateData.show_time;
+      
+      // Merge non-conflicting fields
+      const mergeResult = mergeNonConflictingFields(
+        clientFieldVersions,
+        serverFieldVersions,
+        clientData,
+        current
+      );
+      
+      // If conflicts detected, return 409 with details
+      if (mergeResult.hasConflicts) {
+        logger.manager(LogCategory.SYNC, 'Field-level conflicts detected', {
+          requestId,
+          productionId,
+          conflicts: mergeResult.conflicts.map(c => c.fieldName)
+        });
+        
+        return res.status(409).json({
+          error: 'Conflict',
+          message: 'Some fields were modified by another user',
+          conflicts: mergeResult.conflicts,
+          serverData: { ...current, name: current.show_name },
+          serverFieldVersions: serverFieldVersions
+        });
+      }
+      
+      // Apply merged data
+      const dbData: any = {
+        ...mergeResult.mergedData,
+        field_versions: mergeResult.mergedVersions,
+        version: current.version + 1, // Increment record version
+        updated_at: new Date()
+      };
+      
+      if (userId) dbData.last_modified_by = userId;
+      
+      const production = await prisma.productions.update({
+        where: { id: productionId },
+        data: dbData
       });
-    }
-    
-    // Update with incremented version
-    const production = await prisma.productions.update({
-      where: { id: productionId },
-      data: {
-        ...updateData,
-        ...(name && { show_name: name }), // Map name to show_name if provided
+      
+      const duration = Date.now() - startTime;
+      logger.logDbOperation('UPDATE', 'productions', duration, 1, { requestId, productionId });
+      
+      logger.tech(LogCategory.API, `Production updated (field-level): ${production.show_name}`, {
+        requestId,
+        productionId,
+        fieldsUpdated: Object.keys(clientData),
+        newVersion: production.version
+      });
+      
+      // Broadcast update via WebSocket
+      io.emit('production:updated', { ...production, name: production.show_name });
+      
+      res.json({ ...production, name: production.show_name });
+      
+    } else {
+      // Fallback to record-level versioning for backward compatibility
+      logger.tech(LogCategory.SYNC, 'Using record-level versioning (legacy)', {
+        requestId,
+        productionId,
+        clientVersion
+      });
+      
+      // Validate version provided
+      if (clientVersion === undefined) {
+        logger.manager(LogCategory.VALIDATION, 'Version missing', { requestId, productionId });
+        return res.status(400).json({ 
+          error: 'Version required for conflict detection'
+        });
+      }
+      
+      // Check for version conflict
+      if (current.version !== clientVersion) {
+        logger.manager(LogCategory.SYNC, 'Version conflict detected', {
+          requestId,
+          productionId,
+          clientVersion,
+          serverVersion: current.version
+        });
+        
+        return res.status(409).json({ 
+          error: 'Conflict',
+          message: 'Production was modified by another user',
+          currentVersion: current.version,
+          serverData: { ...current, name: current.show_name }
+        });
+      }
+      
+      // Build validated update data - only include known schema fields
+      const dbData: any = {
         version: clientVersion + 1,
         updated_at: new Date()
-      }
-    });
-    
-    const duration = Date.now() - startTime;
-    logger.logDbOperation('UPDATE', 'productions', duration, 1, { requestId, productionId });
-    
-    logger.tech(LogCategory.API, `Production updated: ${production.show_name}`, {
-      requestId,
-      productionId,
-      newVersion: production.version
-    });
-    
-    // Broadcast to production list room
-    logger.logWsEvent('production:updated', 'production-list', { 
-      requestId, 
-      productionId, 
-      userId, 
-      userName 
-    });
-    
-    io.to('production-list').emit('production:updated', {
-      production: { ...production, name: production.show_name },
-      userId: userId || 'system',
-      userName: userName || 'System'
-    });
-    
-    res.json({ ...production, name: production.show_name });
+      };
+      
+      // Map and validate each field explicitly
+      if (name !== undefined) dbData.show_name = name;
+      if (updateData.client !== undefined) dbData.client = updateData.client;
+      if (updateData.status !== undefined) dbData.status = updateData.status;
+      if (updateData.venue !== undefined) dbData.venue = updateData.venue;
+      if (updateData.room !== undefined) dbData.room = updateData.room;
+      if (updateData.load_in !== undefined) dbData.load_in = new Date(updateData.load_in);
+      if (updateData.load_out !== undefined) dbData.load_out = new Date(updateData.load_out);
+      if (updateData.show_info_url !== undefined) dbData.show_info_url = updateData.show_info_url;
+      if (userId) dbData.last_modified_by = userId;
+      
+      // Update with validated data
+      const production = await prisma.productions.update({
+        where: { id: productionId },
+        data: dbData
+      });
+      
+      const duration = Date.now() - startTime;
+      logger.logDbOperation('UPDATE', 'productions', duration, 1, { requestId, productionId });
+      
+      logger.tech(LogCategory.API, `Production updated (record-level): ${production.show_name}`, {
+        requestId,
+        productionId,
+        newVersion: production.version
+      });
+      
+      // Broadcast to production list room
+      logger.logWsEvent('production:updated', 'production-list', { 
+        requestId, 
+        productionId, 
+        userId, 
+        userName 
+      });
+      
+      io.to('production-list').emit('production:updated', {
+        production: { ...production, name: production.show_name },
+        userId: userId || 'system',
+        userName: userName || 'System'
+      });
+      
+      res.json({ ...production, name: production.show_name });
+    }
   } catch (error: any) {
     const duration = Date.now() - startTime;
     logger.error(LogCategory.API, 'Failed to update production', error, { requestId, productionId, duration });
