@@ -137,6 +137,27 @@ export class ApiClient {
     return this.delete(`/productions/${id}`);
   }
 
+  // Checklist Items
+  async getChecklistItems(productionId: string) {
+    return this.get(`/checklist-items/production/${productionId}`);
+  }
+
+  async getChecklistItem(id: string) {
+    return this.get(`/checklist-items/${id}`);
+  }
+
+  async createChecklistItem(productionId: string, data: any) {
+    return this.post('/checklist-items', { ...data, production_id: productionId });
+  }
+
+  async updateChecklistItem(id: string, data: any) {
+    return this.put(`/checklist-items/${id}`, data);
+  }
+
+  async deleteChecklistItem(id: string) {
+    return this.delete(`/checklist-items/${id}`);
+  }
+
   // Equipment
   async getEquipment() {
     return this.get('/equipment');
