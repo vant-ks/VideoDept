@@ -1,7 +1,14 @@
 import { useEffect } from 'react';
 import { io as ioClient, Socket } from 'socket.io-client';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+// WebSocket connects to the root server URL, not the /api path
+const getWebSocketUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010/api';
+  // Remove /api suffix if present for WebSocket connection
+  return apiUrl.replace(/\/api\/?$/, '');
+};
+
+const WS_URL = getWebSocketUrl();
 
 // Singleton socket instance
 let socket: Socket | null = null;
@@ -26,8 +33,8 @@ export const useProductionListEvents = (options: ProductionListEventsOptions) =>
 
     // Create socket if it doesn't exist
     if (!socket) {
-      console.log('🔌 Connecting to WebSocket for production list...');
-      socket = ioClient(API_URL, {
+      console.log('🔌 Connecting to WebSocket for production list...', WS_URL);
+      socket = ioClient(WS_URL, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
