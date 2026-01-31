@@ -325,10 +325,18 @@
             </div>
 
             <div class="option" id="option-localstorage">
-                <input type="checkbox" id="check-localstorage" checked>
+                <input type="checkbox" id="check-localstorage">
                 <div class="option-content">
                     <div class="option-title">Clear Browser Storage</div>
                     <div class="option-desc">Clears localStorage and IndexedDB cache (production data, settings)</div>
+                </div>
+            </div>
+
+            <div class="option" id="option-restart">
+                <input type="checkbox" id="check-restart">
+                <div class="option-content">
+                    <div class="option-title">Restart API Server</div>
+                    <div class="option-desc">Restarts the backend API server (triggers tsx watch reload)</div>
                 </div>
             </div>
 
@@ -381,12 +389,14 @@
         const options = {
             reload: document.getElementById('option-reload'),
             localStorage: document.getElementById('option-localstorage'),
+            restart: document.getElementById('option-restart'),
             database: document.getElementById('option-database')
         };
 
         const checks = {
             reload: document.getElementById('check-reload'),
             localStorage: document.getElementById('check-localstorage'),
+            restart: document.getElementById('check-restart'),
             database: document.getElementById('check-database')
         };
 
@@ -470,6 +480,7 @@
             
             if (checks.reload.checked) tasks.push('Hard Reload');
             if (checks.localStorage.checked) tasks.push('Clear Storage');
+            if (checks.restart.checked) tasks.push('Restart Server');
             if (checks.database.checked) tasks.push('Clear Database');
 
             if (tasks.length === 0) {
@@ -516,7 +527,27 @@
                     console.log('✅ Database cleared');
                 }
 
-                // Step 2: Clear Browser Storage
+                // Step 2: Restart Server
+                if (checks.restart.checked) {
+                    if (!apiOnline) {
+                        throw new Error('Cannot restart server - API is offline');
+                    }
+                    
+                    showStatus('⏳ Restarting API server...', 'processing');
+                    
+                    try {
+                        // Trigger server restart by touching server.ts
+                        await fetch(`${API_URL}/api/server/restart`, { method: 'POST' });
+                        console.log('✅ Server restart triggered');
+                        
+                        // Wait a bit for server to restart
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    } catch (err) {
+                        console.warn('Server restart endpoint not available, continuing...');
+                    }
+                }
+
+                // Step 3: Clear Browser Storage
                 if (checks.localStorage.checked) {
                     showStatus('⏳ Clearing browser storage...', 'processing');
                     localStorage.clear();
@@ -532,7 +563,7 @@
                     console.log('✅ Browser storage cleared');
                 }
 
-                // Step 3: Reload
+                // Step 4: Reload
                 showStatus('✅ Reset complete! Redirecting...', 'success');
                 
                 setTimeout(() => {
