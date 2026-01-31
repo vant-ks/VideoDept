@@ -3,7 +3,7 @@
  * Shows who is currently viewing/editing a production
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { apiClient } from '@/services';
 import { getCurrentUser, getUserColor, getUserInitials, type UserInfo } from '@/utils/userUtils';
@@ -12,11 +12,11 @@ interface ActiveUser extends UserInfo {
   lastSeen: number;
 }
 
-let socket: Socket | null = null;
-
 export function usePresence(productionId: string | undefined) {
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+  const isCleaningUpRef = useRef(false);
   
   useEffect(() => {
     if (!productionId) {
@@ -24,24 +24,35 @@ export function usePresence(productionId: string | undefined) {
       return;
     }
     
-    // Connect to Socket.io
+    isCleaningUpRef.current = false;
+    
+    // Connect to Socket.io (create new socket per mount)
     const wsUrl = apiClient.getWebSocketURL();
     console.log('🔌 Connecting to presence WebSocket...', wsUrl);
-    socket = io(wsUrl, {
+    
+    const socket = io(wsUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5
     });
     
+    socketRef.current = socket;
+    
     const currentUser = getCurrentUser();
     
     socket.on('connect', () => {
+      // Don't join if we're already cleaning up (React StrictMode)
+      if (isCleaningUpRef.current) {
+        console.log('🔌 Connected but cleaning up, not joining room');
+        return;
+      }
+      
       console.log('🔌 Connected to WebSocket');
       setIsConnected(true);
       
       // Join production room
-      socket?.emit('production:join', {
+      socket.emit('production:join', {
         productionId,
         userId: currentUser.id,
         userName: currentUser.name
@@ -78,20 +89,24 @@ export function usePresence(productionId: string | undefined) {
     
     // Cleanup on unmount
     return () => {
-      socket?.emit('production:leave', { 
-        productionId, 
-        userId: currentUser.id 
-      });
-      socket?.disconnect();
-      socket = null;
+      isCleaningUpRef.current = true;
+      
+      if (socketRef.current) {
+        socketRef.current.emit('production:leave', { 
+          productionId, 
+          userId: currentUser.id 
+        });
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
   }, [productionId]);
   
   // Function to broadcast changes to other users
   const broadcastChange = (changeType: string, data: any) => {
-    if (socket && productionId) {
+    if (socketRef.current && productionId) {
       const currentUser = getCurrentUser();
-      socket.emit('production:change', {
+      socketRef.current.emit('production:change', {
         productionId,
         userId: currentUser.id,
         changeType,
