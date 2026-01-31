@@ -9,15 +9,15 @@ const router = Router();
 // GET all sources for a production
 router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
-    const sources = await prisma.source.findMany({
+    const sources = await prisma.sources.findMany({
       where: {
-        productionId: req.params.productionId,
-        isDeleted: false
+        production_id: req.params.productionId,
+        is_deleted: false
       },
       include: {
-        outputs: true
+        source_outputs: true
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     res.json(sources);
   } catch (error: any) {
@@ -28,7 +28,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // GET single source
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const source = await prisma.source.findUnique({
+    const source = await prisma.sources.findUnique({
       where: { id: req.params.id },
       include: { outputs: true }
     });
@@ -48,7 +48,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { outputs, productionId, userId, userName, ...sourceData } = req.body;
 
-    const source = await prisma.source.create({
+    const source = await prisma.sources.create({
       data: {
         ...sourceData,
         productionId,
@@ -99,7 +99,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { outputs, userId, userName, version: clientVersion, ...updateData } = req.body;
     
     // Get current source for diff and conflict detection
-    const currentSource = await prisma.source.findUnique({
+    const currentSource = await prisma.sources.findUnique({
       where: { id: req.params.id },
       include: { outputs: true }
     });
@@ -118,7 +118,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       });
     }
     
-    const updatedSource = await prisma.source.update({
+    const updatedSource = await prisma.sources.update({
       where: { id: req.params.id },
       data: {
         ...updateData,
@@ -131,7 +131,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Calculate diff and record event
     const changes = calculateDiff(currentSource, updatedSource);
     await recordEvent({
-      productionId: currentSource.productionId,
+      production_id: currentSource.productionId,
       eventType: EventType.SOURCE,
       operation: EventOperation.UPDATE,
       entityId: updatedSource.id,
@@ -163,7 +163,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { userId, userName } = req.body;
     
-    const source = await prisma.source.findUnique({
+    const source = await prisma.sources.findUnique({
       where: { id: req.params.id },
       include: { outputs: true }
     });
@@ -172,10 +172,10 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Source not found' });
     }
     
-    const deletedSource = await prisma.source.update({
+    const deletedSource = await prisma.sources.update({
       where: { id: req.params.id },
       data: {
-        isDeleted: true,
+        is_deleted: true,
         version: { increment: 1 },
         lastModifiedBy: userId || 'system'
       },
@@ -184,7 +184,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     // Record DELETE event
     await recordEvent({
-      productionId: source.productionId,
+      production_id: source.productionId,
       eventType: EventType.SOURCE,
       operation: EventOperation.DELETE,
       entityId: deletedSource.id,

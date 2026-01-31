@@ -11,12 +11,12 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const connections = await prisma.connection.findMany({
+    const connections = await prisma.connections.findMany({
       where: {
         productionId,
-        isDeleted: false
+        is_deleted: false
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     
     res.json(connections);
@@ -31,13 +31,13 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, ...connection_data } = req.body;
     
-    const connection = await prisma.connection.create({
+    const connection = await prisma.connections.create({
       data: connection_data
     });
     
     // Record event
     await recordEvent({
-      productionId: connection.productionId,
+      production_id: connection.productionId,
       eventType: EventType.CONNECTION,
       operation: EventOperation.CREATE,
       entityId: connection.id,
@@ -69,7 +69,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
-    const current = await prisma.connection.findUnique({
+    const current = await prisma.connections.findUnique({
       where: { id }
     });
     
@@ -88,7 +88,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const connection = await prisma.connection.update({
+    const connection = await prisma.connections.update({
       where: { id },
       data: {
         ...updates,
@@ -101,7 +101,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, connection);
     
     await recordEventFn({
-      productionId: connection.productionId,
+      production_id: connection.productionId,
       eventType: EventType.CONNECTION,
       operation: EventOperation.UPDATE,
       entityId: connection.id,
@@ -133,21 +133,21 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.connection.findUnique({ where: { id } });
+    const current = await prisma.connections.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'Connection not found' });
     }
     
     // Soft delete
-    await prisma.connection.update({
+    await prisma.connections.update({
       where: { id },
-      data: { isDeleted: true }
+      data: { is_deleted: true }
     });
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
+      production_id: current.productionId,
       eventType: EventType.CONNECTION,
       operation: EventOperation.DELETE,
       entityId: id,

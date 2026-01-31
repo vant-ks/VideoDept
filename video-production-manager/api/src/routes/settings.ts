@@ -9,9 +9,9 @@ const router = Router();
 
 router.get('/connector-types', async (req: Request, res: Response) => {
   try {
-    const connectorTypes = await prisma.connectorType.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' }
+    const connectorTypes = await prisma.connector_types.findMany({
+      where: { is_active: true },
+      orderBy: { sort_order: 'asc' }
     });
     res.json(connectorTypes.map(ct => ct.name));
   } catch (error: any) {
@@ -22,13 +22,13 @@ router.get('/connector-types', async (req: Request, res: Response) => {
 router.post('/connector-types', async (req: Request, res: Response) => {
   try {
     const { name } = req.body;
-    const maxOrder = await prisma.connectorType.aggregate({
-      _max: { sortOrder: true }
+    const maxOrder = await prisma.connector_types.aggregate({
+      _max: { sort_order: true }
     });
-    const connectorType = await prisma.connectorType.create({
+    const connectorType = await prisma.connector_types.create({
       data: {
         name,
-        sortOrder: (maxOrder._max.sortOrder || 0) + 1
+        sort_order: (maxOrder._max.sort_order || 0) + 1
       }
     });
     res.json(connectorType);
@@ -39,9 +39,9 @@ router.post('/connector-types', async (req: Request, res: Response) => {
 
 router.delete('/connector-types/:name', async (req: Request, res: Response) => {
   try {
-    await prisma.connectorType.update({
+    await prisma.connector_types.update({
       where: { name: req.params.name },
-      data: { isActive: false }
+      data: { is_active: false }
     });
     res.json({ success: true });
   } catch (error: any) {
@@ -53,9 +53,9 @@ router.put('/connector-types/reorder', async (req: Request, res: Response) => {
   try {
     const { types } = req.body;
     const updates = types.map((name: string, index: number) => 
-      prisma.connectorType.update({
+      prisma.connector_types.update({
         where: { name },
-        data: { sortOrder: index }
+        data: { sort_order: index }
       })
     );
     await prisma.$transaction(updates);
@@ -71,9 +71,9 @@ router.put('/connector-types/reorder', async (req: Request, res: Response) => {
 
 router.get('/source-types', async (req: Request, res: Response) => {
   try {
-    const sourceTypes = await prisma.sourceType.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' }
+    const sourceTypes = await prisma.source_types.findMany({
+      where: { is_active: true },
+      orderBy: { sort_order: 'asc' }
     });
     res.json(sourceTypes.map(st => st.name));
   } catch (error: any) {
@@ -84,13 +84,13 @@ router.get('/source-types', async (req: Request, res: Response) => {
 router.post('/source-types', async (req: Request, res: Response) => {
   try {
     const { name } = req.body;
-    const maxOrder = await prisma.sourceType.aggregate({
-      _max: { sortOrder: true }
+    const maxOrder = await prisma.source_types.aggregate({
+      _max: { sort_order: true }
     });
-    const sourceType = await prisma.sourceType.create({
+    const sourceType = await prisma.source_types.create({
       data: {
         name,
-        sortOrder: (maxOrder._max.sortOrder || 0) + 1
+        sort_order: (maxOrder._max.sort_order || 0) + 1
       }
     });
     res.json(sourceType);
@@ -101,9 +101,9 @@ router.post('/source-types', async (req: Request, res: Response) => {
 
 router.delete('/source-types/:name', async (req: Request, res: Response) => {
   try {
-    await prisma.sourceType.update({
+    await prisma.source_types.update({
       where: { name: req.params.name },
-      data: { isActive: false }
+      data: { is_active: false }
     });
     res.json({ success: true });
   } catch (error: any) {
@@ -115,9 +115,9 @@ router.put('/source-types/reorder', async (req: Request, res: Response) => {
   try {
     const { types } = req.body;
     const updates = types.map((name: string, index: number) => 
-      prisma.sourceType.update({
+      prisma.source_types.update({
         where: { name },
-        data: { sortOrder: index }
+        data: { sort_order: index }
       })
     );
     await prisma.$transaction(updates);
@@ -133,9 +133,9 @@ router.put('/source-types/reorder', async (req: Request, res: Response) => {
 
 router.get('/frame-rates', async (req: Request, res: Response) => {
   try {
-    const frameRates = await prisma.frameRate.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' }
+    const frameRates = await prisma.frame_rates.findMany({
+      where: { is_active: true },
+      orderBy: { sort_order: 'asc' }
     });
     res.json(frameRates.map(fr => fr.rate));
   } catch (error: any) {
@@ -146,13 +146,13 @@ router.get('/frame-rates', async (req: Request, res: Response) => {
 router.post('/frame-rates', async (req: Request, res: Response) => {
   try {
     const { rate } = req.body;
-    const maxOrder = await prisma.frameRate.aggregate({
-      _max: { sortOrder: true }
+    const maxOrder = await prisma.frame_rates.aggregate({
+      _max: { sort_order: true }
     });
-    const frameRate = await prisma.frameRate.create({
+    const frameRate = await prisma.frame_rates.create({
       data: {
         rate,
-        sortOrder: (maxOrder._max.sortOrder || 0) + 1
+        sort_order: (maxOrder._max.sort_order || 0) + 1
       }
     });
     res.json(frameRate);
@@ -163,9 +163,9 @@ router.post('/frame-rates', async (req: Request, res: Response) => {
 
 router.delete('/frame-rates/:rate', async (req: Request, res: Response) => {
   try {
-    await prisma.frameRate.update({
+    await prisma.frame_rates.update({
       where: { rate: req.params.rate },
-      data: { isActive: false }
+      data: { is_active: false }
     });
     res.json({ success: true });
   } catch (error: any) {
@@ -177,9 +177,9 @@ router.put('/frame-rates/reorder', async (req: Request, res: Response) => {
   try {
     const { rates } = req.body;
     const updates = rates.map((rate: string, index: number) => 
-      prisma.frameRate.update({
+      prisma.frame_rates.update({
         where: { rate },
-        data: { sortOrder: index }
+        data: { sort_order: index }
       })
     );
     await prisma.$transaction(updates);
@@ -195,9 +195,9 @@ router.put('/frame-rates/reorder', async (req: Request, res: Response) => {
 
 router.get('/resolutions', async (req: Request, res: Response) => {
   try {
-    const resolutions = await prisma.resolutionPreset.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' }
+    const resolutions = await prisma.resolution_presets.findMany({
+      where: { is_active: true },
+      orderBy: { sort_order: 'asc' }
     });
     res.json(resolutions.map(r => r.name));
   } catch (error: any) {
@@ -208,13 +208,13 @@ router.get('/resolutions', async (req: Request, res: Response) => {
 router.post('/resolutions', async (req: Request, res: Response) => {
   try {
     const { name } = req.body;
-    const maxOrder = await prisma.resolutionPreset.aggregate({
-      _max: { sortOrder: true }
+    const maxOrder = await prisma.resolution_presets.aggregate({
+      _max: { sort_order: true }
     });
-    const resolution = await prisma.resolutionPreset.create({
+    const resolution = await prisma.resolution_presets.create({
       data: {
         name,
-        sortOrder: (maxOrder._max.sortOrder || 0) + 1
+        sort_order: (maxOrder._max.sort_order || 0) + 1
       }
     });
     res.json(resolution);
@@ -225,9 +225,9 @@ router.post('/resolutions', async (req: Request, res: Response) => {
 
 router.delete('/resolutions/:name', async (req: Request, res: Response) => {
   try {
-    await prisma.resolutionPreset.update({
+    await prisma.resolution_presets.update({
       where: { name: req.params.name },
-      data: { isActive: false }
+      data: { is_active: false }
     });
     res.json({ success: true });
   } catch (error: any) {
@@ -239,9 +239,9 @@ router.put('/resolutions/reorder', async (req: Request, res: Response) => {
   try {
     const { resolutions } = req.body;
     const updates = resolutions.map((name: string, index: number) => 
-      prisma.resolutionPreset.update({
+      prisma.resolution_presets.update({
         where: { name },
-        data: { sortOrder: index }
+        data: { sort_order: index }
       })
     );
     await prisma.$transaction(updates);
@@ -258,7 +258,7 @@ router.put('/resolutions/reorder', async (req: Request, res: Response) => {
 // GET all settings
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const settings = await prisma.setting.findMany();
+    const settings = await prisma.settings.findMany();
     
     // Convert to key-value object
     const settingsObj = settings.reduce((acc, setting) => {
@@ -275,7 +275,7 @@ router.get('/', async (req: Request, res: Response) => {
 // GET single setting
 router.get('/:key', async (req: Request, res: Response) => {
   try {
-    const setting = await prisma.setting.findUnique({
+    const setting = await prisma.settings.findUnique({
       where: { key: req.params.key }
     });
 
@@ -294,7 +294,7 @@ router.post('/:key', async (req: Request, res: Response) => {
   try {
     const { value, category } = req.body;
 
-    const setting = await prisma.setting.upsert({
+    const setting = await prisma.settings.upsert({
       where: { key: req.params.key },
       create: {
         key: req.params.key,
@@ -316,7 +316,7 @@ router.post('/:key', async (req: Request, res: Response) => {
 // DELETE setting
 router.delete('/:key', async (req: Request, res: Response) => {
   try {
-    await prisma.setting.delete({
+    await prisma.settings.delete({
       where: { key: req.params.key }
     });
     res.json({ success: true });

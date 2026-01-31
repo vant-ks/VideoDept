@@ -11,7 +11,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const cable-snakes = await prisma.cableSnake.findMany({
+    const cableSnakes = await prisma.cableSnake.findMany({
       where: {
         productionId,
         isDeleted: false
@@ -19,7 +19,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(cable-snakes);
+    res.json(cableSnakes);
   } catch (error) {
     console.error('Error fetching cable-snakes:', error);
     res.status(500).json({ error: 'Failed to fetch cable-snakes' });

@@ -11,15 +11,14 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const checklist-items = await prisma.checklistItem.findMany({
+    const checklistItems = await prisma.checklist_items.findMany({
       where: {
-        productionId,
-        isDeleted: false
+        production_id: productionId
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     
-    res.json(checklist-items);
+    res.json(checklistItems);
   } catch (error) {
     console.error('Error fetching checklist-items:', error);
     res.status(500).json({ error: 'Failed to fetch checklist-items' });
@@ -31,13 +30,13 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, ...checklistItem_data } = req.body;
     
-    const checklistItem = await prisma.checklistItem.create({
+    const checklistItem = await prisma.checklist_items.create({
       data: checklistItem_data
     });
     
     // Record event
     await recordEvent({
-      productionId: checklistItem.productionId,
+      production_id: checklistItem.productionId,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.CREATE,
       entityId: checklistItem.id,
@@ -69,7 +68,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
-    const current = await prisma.checklistItem.findUnique({
+    const current = await prisma.checklist_items.findUnique({
       where: { id }
     });
     
@@ -88,7 +87,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const checklistItem = await prisma.checklistItem.update({
+    const checklistItem = await prisma.checklist_items.update({
       where: { id },
       data: {
         ...updates,
@@ -101,7 +100,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, checklistItem);
     
     await recordEventFn({
-      productionId: checklistItem.productionId,
+      production_id: checklistItem.productionId,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.UPDATE,
       entityId: checklistItem.id,
@@ -133,21 +132,21 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.checklistItem.findUnique({ where: { id } });
+    const current = await prisma.checklist_items.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'ChecklistItem not found' });
     }
     
     // Soft delete
-    await prisma.checklistItem.update({
+    await prisma.checklist_items.update({
       where: { id },
-      data: { isDeleted: true }
+      data: { is_deleted: true }
     });
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
+      production_id: current.productionId,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.DELETE,
       entityId: id,

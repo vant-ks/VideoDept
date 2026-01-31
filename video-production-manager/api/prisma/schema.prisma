@@ -239,7 +239,6 @@ model productions {
   last_modified_by String?
   version          Int               @default(1)
   is_deleted       Boolean           @default(false)
-  metadata         Json?
   cameras          cameras[]
   ccus             ccus[]
   checklist_items  checklist_items[]
@@ -294,7 +293,6 @@ model server_registry {
   port           Int
   is_active      Boolean  @default(true)
   last_heartbeat DateTime
-  metadata       Json?
   created_at     DateTime @default(now())
   updated_at     DateTime
 

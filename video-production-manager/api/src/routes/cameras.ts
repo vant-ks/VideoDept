@@ -9,12 +9,12 @@ const router = Router();
 // GET all cameras for a production
 router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
-    const cameras = await prisma.camera.findMany({
+    const cameras = await prisma.cameras.findMany({
       where: {
-        productionId: req.params.productionId,
-        isDeleted: false
+        production_id: req.params.productionId,
+        is_deleted: false
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     res.json(cameras);
   } catch (error: any) {
@@ -26,7 +26,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // GET single camera
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const camera = await prisma.camera.findUnique({
+    const camera = await prisma.cameras.findUnique({
       where: { id: req.params.id }
     });
 
@@ -46,7 +46,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { productionId, userId, userName, ...cameraData } = req.body;
     
-    const camera = await prisma.camera.create({
+    const camera = await prisma.cameras.create({
       data: {
         ...cameraData,
         productionId,
@@ -88,7 +88,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { userId, userName, version: clientVersion, ...updateData } = req.body;
     
     // Fetch current camera state
-    const currentCamera = await prisma.camera.findUnique({
+    const currentCamera = await prisma.cameras.findUnique({
       where: { id: req.params.id }
     });
 
@@ -110,7 +110,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(currentCamera, updateData);
 
     // Update camera
-    const camera = await prisma.camera.update({
+    const camera = await prisma.cameras.update({
       where: { id: req.params.id },
       data: {
         ...updateData,
@@ -120,7 +120,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Record UPDATE event
     await recordEvent({
-      productionId: currentCamera.productionId,
+      production_id: currentCamera.productionId,
       eventType: EventType.CAMERA,
       operation: EventOperation.UPDATE,
       entityId: camera.id,
@@ -144,7 +144,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { userId, userName } = req.body;
 
     // Fetch current camera
-    const currentCamera = await prisma.camera.findUnique({
+    const currentCamera = await prisma.cameras.findUnique({
       where: { id: req.params.id }
     });
 
@@ -153,14 +153,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 
     // Soft delete camera
-    await prisma.camera.update({
+    await prisma.cameras.update({
       where: { id: req.params.id },
-      data: { isDeleted: true, version: { increment: 1 } }
+      data: { is_deleted: true, version: { increment: 1 } }
     });
 
     // Record DELETE event
     await recordEvent({
-      productionId: currentCamera.productionId,
+      production_id: currentCamera.productionId,
       eventType: EventType.CAMERA,
       operation: EventOperation.DELETE,
       entityId: req.params.id,

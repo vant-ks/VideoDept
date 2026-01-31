@@ -11,7 +11,7 @@ interface IOPort {
 }
 
 interface Card {
-  slotNumber: number;
+  slot_number: number;
   inputs?: IOPort[];
   outputs?: IOPort[];
 }
@@ -21,7 +21,7 @@ interface EquipmentSpec {
   category: string;
   manufacturer: string;
   model: string;
-  ioArchitecture: 'direct' | 'card-based';
+  io_architecture: 'direct' | 'card-based';
   cardSlots?: number;
   cards?: Card[];
   inputs?: IOPort[];
@@ -40,7 +40,7 @@ async function seedEquipment() {
   
   try {
     // Delete existing equipment specs (cascade will handle related records)
-    await prisma.equipmentSpec.deleteMany({});
+    await prisma.equipment_specs.deleteMany({});
     console.log('✅ Cleared existing equipment specs');
     
     // Load equipment data from JSON file
@@ -93,17 +93,19 @@ async function seedEquipment() {
       };
       
       // Create equipment spec
-      const equipment = await prisma.equipmentSpec.create({
+      const equipment = await prisma.equipment_specs.create({
         data: {
           id,
           category: categoryMap[category],
           manufacturer,
           model,
-          ioArchitecture: ioArchitectureMap[ioArchitecture],
-          cardSlots: cardSlots || null,
-          formatByIo: formatByIO !== false,
-          isSecondaryDevice: isSecondaryDevice || false,
-          deviceFormats: deviceFormats || []
+          io_architecture: ioArchitectureMap[ioArchitecture],
+          card_slots: cardSlots || null,
+          format_by_io: formatByIO !== false,
+          is_secondary_device: isSecondaryDevice || false,
+          device_formats: deviceFormats || [],
+          created_at: new Date(),
+          updated_at: new Date(),
         }
       });
       
@@ -111,14 +113,14 @@ async function seedEquipment() {
       if (ioArchitecture === 'direct' && (inputs || outputs)) {
         if (inputs) {
           for (const [index, input] of inputs.entries()) {
-            await prisma.equipmentIoPort.create({
+            await prisma.equipment_io_ports.create({
               data: {
-                equipmentId: equipment.id,
-                portType: 'INPUT',
-                ioType: input.type,
+                equipment_id: equipment.id,
+                port_type: 'INPUT',
+                io_type: input.type,
                 label: input.label || `Input ${index + 1}`,
                 format: input.format || null,
-                portIndex: index
+                port_index: index
               }
             });
           }
@@ -126,14 +128,14 @@ async function seedEquipment() {
         
         if (outputs) {
           for (const [index, output] of outputs.entries()) {
-            await prisma.equipmentIoPort.create({
+            await prisma.equipment_io_ports.create({
               data: {
-                equipmentId: equipment.id,
-                portType: 'OUTPUT',
-                ioType: output.type,
+                equipment_id: equipment.id,
+                port_type: 'OUTPUT',
+                io_type: output.type,
                 label: output.label || `Output ${index + 1}`,
                 format: output.format || null,
-                portIndex: index
+                port_index: index
               }
             });
           }
@@ -143,24 +145,24 @@ async function seedEquipment() {
       // Create cards for card-based architecture
       if (ioArchitecture === 'card-based' && cards && cards.length > 0) {
         for (const card of cards) {
-          const dbCard = await prisma.equipmentCard.create({
+          const dbCard = await prisma.equipment_cards.create({
             data: {
-              equipmentId: equipment.id,
-              slotNumber: card.slotNumber
+              equipment_id: equipment.id,
+              slot_number: card.slotNumber
             }
           });
           
           // Create IO ports for the card
           if (card.inputs) {
             for (const [index, input] of card.inputs.entries()) {
-              await prisma.equipmentCardIo.create({
+              await prisma.equipment_cardsIo.create({
                 data: {
-                  cardId: dbCard.id,
-                  portType: 'INPUT',
-                  ioType: input.type,
+                  card_id: dbCard.id,
+                  port_type: 'INPUT',
+                  io_type: input.type,
                   label: input.label || `Input ${index + 1}`,
                   format: input.format || null,
-                  portIndex: index
+                  port_index: index
                 }
               });
             }
@@ -168,14 +170,14 @@ async function seedEquipment() {
           
           if (card.outputs) {
             for (const [index, output] of card.outputs.entries()) {
-              await prisma.equipmentCardIo.create({
+              await prisma.equipment_cardsIo.create({
                 data: {
-                  cardId: dbCard.id,
-                  portType: 'OUTPUT',
-                  ioType: output.type,
+                  card_id: dbCard.id,
+                  port_type: 'OUTPUT',
+                  io_type: output.type,
                   label: output.label || `Output ${index + 1}`,
                   format: output.format || null,
-                  portIndex: index
+                  port_index: index
                 }
               });
             }
@@ -189,7 +191,7 @@ async function seedEquipment() {
     console.log(`\n✅ Successfully seeded ${equipmentSpecs.length} equipment specs!`);
     
     // Display summary by category
-    const categoryCounts = await prisma.equipmentSpec.groupBy({
+    const categoryCounts = await prisma.equipment_specs.groupBy({
       by: ['category'],
       _count: true
     });

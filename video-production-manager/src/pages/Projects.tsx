@@ -13,6 +13,7 @@ import { useProductionStore } from '@/hooks/useStore';
 import type { VideoDepProject } from '@/types';
 import { cn } from '@/utils/helpers';
 import { Logo } from '@/components/Logo';
+import { DevResetButton } from '@/components/DevResetButton';
 
 export const Projects: React.FC = () => {
   const { listProjects, loadProject, deleteProject, createProject, syncWithAPI } = useProjectStore();
@@ -895,6 +896,7 @@ export const Projects: React.FC = () => {
           </Card>
         </div>
       )}
+      <DevResetButton />
     </div>
   );
 };
