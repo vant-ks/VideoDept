@@ -32,6 +32,7 @@ import { projectDB } from '@/utils/indexedDB';
 import { v4 as uuidv4 } from 'uuid';
 import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
+import { logger, LogContext } from '@/utils/logger';
 
 interface ProjectStoreState {
   // Active Project
@@ -173,12 +174,19 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   // Create New Project
   createProject: async (projectData) => {
     const id = uuidv4();
+    const startTime = Date.now();
+    
     const project: VideoDepProject = {
       ...projectData,
       version: '1.0.0',
       created: Date.now(),
       modified: Date.now(),
     };
+    
+    logger.info(LogContext.UI, 'Creating new production', {
+      name: project.production?.showName || project.production?.name,
+      client: project.production?.client
+    });
     
     // Add ID to production if not present
     if (!project.production.id) {
@@ -187,37 +195,54 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     try {
       // PRIMARY: Save to API database first
-      // Store full project in metadata for cross-device sync
       const productionData = {
         id: project.production.id,
-        name: project.production.showName || project.production.name, // Use showName as primary, fall back to name
+        name: project.production.showName || project.production.name,
         client: project.production.client,
         status: project.production.status || 'PLANNING',
-        metadata: { ...project, id } // Store full project for sync
+        // Note: metadata field removed - it doesn't exist in database
       };
-      console.log('📤 Sending to API:', { ...productionData, metadata: '(full project data)' });
+      
+      logger.debug(LogContext.API, 'Sending production to API', {
+        productionId: productionData.id,
+        name: productionData.name,
+        client: productionData.client
+      });
+      
       await apiClient.createProduction(productionData);
+      
+      const duration = Date.now() - startTime;
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
       const isLocal = apiUrl.includes('localhost');
-      console.log(`✅ Production saved to ${isLocal ? 'local' : 'Railway'} database`);
+      
+      logger.info(LogContext.API, `Production saved to ${isLocal ? 'local' : 'Railway'} database`, {
+        productionId: productionData.id,
+        duration
+      });
       
       // SECONDARY: Cache locally for offline access
-      // Store full project with all fields so it appears in local database
       try {
         const fullProject = { ...project, id, modified: Date.now(), created: Date.now() };
         await projectDB.createProject(fullProject as any);
-        console.log('✅ Production cached locally');
+        logger.debug(LogContext.STORAGE, 'Production cached locally', { productionId: productionData.id });
       } catch (cacheError) {
-        console.warn('⚠️ Failed to cache locally (non-critical):', cacheError);
+        logger.error(LogContext.STORAGE, 'Failed to cache locally (non-critical)', cacheError as Error);
       }
       
       set({ 
         activeProjectId: id, 
         activeProject: { ...project, id } as any 
       });
+      
+      logger.info(LogContext.UI, 'Production created successfully', {
+        productionId: productionData.id,
+        totalDuration: Date.now() - startTime
+      });
+      
       return id;
     } catch (error) {
-      console.error('❌ Failed to save production to database:', error);
+      const duration = Date.now() - startTime;
+      logger.error(LogContext.API, 'Failed to save production to database', error as Error, { duration });
       throw new Error('Failed to save to database. Please check your internet connection and try again.');
     }
   },
