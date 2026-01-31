@@ -92,11 +92,15 @@ export function usePresence(productionId: string | undefined) {
       isCleaningUpRef.current = true;
       
       if (socketRef.current) {
-        socketRef.current.emit('production:leave', { 
-          productionId, 
-          userId: currentUser.id 
-        });
-        socketRef.current.disconnect();
+        // Only emit/disconnect if socket is actually connected
+        // This prevents "closed before connection" error during StrictMode double-mount
+        if (socketRef.current.connected) {
+          socketRef.current.emit('production:leave', { 
+            productionId, 
+            userId: currentUser.id 
+          });
+          socketRef.current.disconnect();
+        }
         socketRef.current = null;
       }
     };
