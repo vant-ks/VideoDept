@@ -29,10 +29,21 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create checklistItem
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...checklistItem_data } = req.body;
+    const { userId, userName, ...checklistItemData } = req.body;
+    
+    // Convert camelCase to snake_case and prepare data for Prisma
+    const snakeCaseData = toSnakeCase(checklistItemData);
+    
+    console.log('Creating checklist item with data:', JSON.stringify(snakeCaseData, null, 2));
+    
+    // Ensure updated_at is a valid DateTime
+    const createData = {
+      ...snakeCaseData,
+      updated_at: new Date()
+    };
     
     const checklistItem = await prisma.checklist_items.create({
-      data: checklistItem_data
+      data: createData
     });
     
     // Record event
@@ -50,15 +61,16 @@ router.post('/', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${checklistItem.production_id}`).emit('entity:created', {
       entityType: 'checklistItem',
-      entity: checklistItem,
+      entity: toCamelCase(checklistItem),
       userId,
       userName
     });
     
-    res.status(201).json(checklistItem);
+    res.status(201).json(toCamelCase(checklistItem));
   } catch (error) {
     console.error('Error creating checklistItem:', error);
-    res.status(500).json({ error: 'Failed to create checklistItem' });
+    console.error('Request body was:', JSON.stringify(req.body, null, 2));
+    res.status(500).json({ error: 'Failed to create checklistItem', details: (error as Error).message });
   }
 });
 
@@ -67,6 +79,9 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { version: clientVersion, userId, userName, ...updates } = req.body;
+    
+    // Convert camelCase to snake_case
+    const snakeCaseUpdates = toSnakeCase(updates);
     
     // Get current version for conflict detection
     const current = await prisma.checklist_items.findUnique({
@@ -87,11 +102,12 @@ router.put('/:id', async (req: Request, res: Response) => {
       });
     }
     
-    // Update with incremented version
+    // Update with incremented version and ensure updated_at is set
     const checklistItem = await prisma.checklist_items.update({
       where: { id },
       data: {
-        ...updates,
+        ...snakeCaseUpdates,
+        updated_at: new Date(),
         version: current.version + 1
       }
     });
@@ -101,7 +117,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, checklistItem);
     
     await recordEventFn({
-      production_id: checklistItem.productionId,
+      production_id: checklistItem.production_id,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.UPDATE,
       entityId: checklistItem.id,
@@ -113,21 +129,21 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${checklistItem.productionId}`).emit('entity:updated', {
+    io.to(`production:${checklistItem.production_id}`).emit('entity:updated', {
       entityType: 'checklistItem',
-      entity: checklistItem,
+      entity: toCamelCase(checklistItem),
       userId,
       userName
     });
     
-    res.json(checklistItem);
+    res.json(toCamelCase(checklistItem));
   } catch (error) {
     console.error('Error updating checklistItem:', error);
     res.status(500).json({ error: 'Failed to update checklistItem' });
   }
 });
 
-// Delete checklistItem (soft delete)
+// Delete checklistItem (hard delete since no is_deleted field)
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -139,15 +155,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'ChecklistItem not found' });
     }
     
-    // Soft delete
-    await prisma.checklist_items.update({
-      where: { id },
-      data: { is_deleted: true }
-    });
-    
-    // Record event
+    // Record event before deletion
     await recordEvent({
-      production_id: current.productionId,
+      production_id: current.production_id,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.DELETE,
       entityId: id,
@@ -157,8 +167,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
       version: current.version
     });
     
+    // Hard delete (no is_deleted field in schema)
+    await prisma.checklist_items.delete({
+      where: { id }
+    });
+    
     // Broadcast to production room
-    io.to(`production:${current.productionId}`).emit('entity:deleted', {
+    io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'checklistItem',
       entityId: id,
       userId,
