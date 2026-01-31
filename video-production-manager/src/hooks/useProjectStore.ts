@@ -199,6 +199,10 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         id: project.production.id,
         name: project.production.showName || project.production.name,
         client: project.production.client,
+        venue: project.production.venue,
+        room: project.production.room,
+        load_in: project.production.loadIn,
+        load_out: project.production.loadOut,
         status: project.production.status || 'PLANNING',
         // Note: metadata field removed - it doesn't exist in database
       };
@@ -210,6 +214,29 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       });
       
       await apiClient.createProduction(productionData);
+      
+      // Save checklist items to database
+      if (project.checklist && project.checklist.length > 0) {
+        logger.debug(LogContext.API, 'Saving checklist items to database', {
+          productionId: productionData.id,
+          count: project.checklist.length
+        });
+        
+        for (const item of project.checklist) {
+          try {
+            await apiClient.createChecklistItem(productionData.id, {
+              id: item.id,
+              title: item.title,
+              completed: item.completed || false
+            });
+          } catch (error) {
+            logger.error(LogContext.API, 'Failed to save checklist item', error as Error, {
+              productionId: productionData.id,
+              itemId: item.id
+            });
+          }
+        }
+      }
       
       const duration = Date.now() - startTime;
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
@@ -456,18 +483,70 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       for (const production of remoteProductions) {
         const exists = localProjects.some(p => p.production.id === production.id);
         
-        if (!exists && production.metadata) {
-          // New production - download and cache
-          const project = production.metadata as VideoDepProject;
-          await projectDB.createProject(project as any);
-          console.log(`✅ Downloaded production: ${production.name}`);
-        } else if (exists && production.metadata) {
-          // Existing production - update cache with latest from API
-          const project = production.metadata as VideoDepProject;
+        if (!exists) {
+          // New production - fetch full data and cache
+          try {
+            // Fetch checklist items for this production
+            const checklistItems = await apiClient.getChecklistItems(production.id);
+            
+            // Reconstruct full project structure
+            const fullProject: VideoDepProject = {
+              id: `proj-${production.id}`,
+              version: '1.0.0',
+              created: new Date(production.created_at).getTime(),
+              modified: new Date(production.updated_at).getTime(),
+              production: {
+                id: production.id,
+                showName: production.show_name,
+                client: production.client,
+                venue: production.venue || 'TBD',
+                room: production.room || '',
+                loadIn: production.load_in ? new Date(production.load_in).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                loadOut: production.load_out ? new Date(production.load_out).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                status: production.status
+              },
+              checklist: checklistItems.map(item => ({
+                id: item.id,
+                title: item.title,
+                completed: item.completed
+              })),
+              sources: [],
+              sends: [],
+              ledScreens: [],
+              projectionScreens: [],
+              computers: [],
+              ccus: [],
+              cameras: [],
+              mediaServers: [],
+              mediaServerLayers: [],
+              videoSwitchers: [],
+              routers: [],
+              serverAllocations: [],
+              ipAddresses: [],
+              cableSnakes: [],
+              presets: [],
+              usedEquipmentIds: []
+            };
+            
+            await projectDB.createProject(fullProject as any);
+            console.log(`✅ Downloaded production: ${production.show_name}`);
+          } catch (error) {
+            console.error(`Failed to download production ${production.show_name}:`, error);
+          }
+        } else {
+          // Existing production - check if update needed
           const localProject = localProjects.find(p => p.production.id === production.id);
-          if (localProject && new Date(production.updatedAt).getTime() > localProject.modified) {
-            await projectDB.updateProject(localProject.id!, project);
-            console.log(`✅ Updated production: ${production.name}`);
+          if (localProject && new Date(production.updated_at).getTime() > localProject.modified) {
+            // Update production info
+            localProject.production.showName = production.show_name;
+            localProject.production.client = production.client;
+            localProject.production.venue = production.venue || 'TBD';
+            localProject.production.room = production.room || '';
+            localProject.production.status = production.status;
+            localProject.modified = new Date(production.updated_at).getTime();
+            
+            await projectDB.updateProject(localProject.id!, localProject);
+            console.log(`✅ Updated production: ${production.show_name}`);
           }
         }
       }
