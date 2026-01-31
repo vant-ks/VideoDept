@@ -59,8 +59,7 @@ model ccus {
 model checklist_items {
   id            String      @id
   production_id String
-  category      String
-  task          String
+  title         String
   completed     Boolean     @default(false)
   sort_order    Int?
   created_at    DateTime    @default(now())

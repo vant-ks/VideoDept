@@ -226,6 +226,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           try {
             await apiClient.createChecklistItem(productionData.id, {
               id: item.id,
+              production_id: productionData.id,
               title: item.title,
               completed: item.completed || false
             });
