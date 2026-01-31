@@ -237,6 +237,7 @@ model productions {
   synced_at        DateTime?
   last_modified_by String?
   version          Int               @default(1)
+  field_versions   Json?
   is_deleted       Boolean           @default(false)
   cameras          cameras[]
   ccus             ccus[]
