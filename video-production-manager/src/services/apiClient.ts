@@ -56,6 +56,13 @@ export class ApiClient {
   getBaseURL(): string {
     return this.baseURL;
   }
+  
+  /**
+   * Get WebSocket URL (strips /api suffix for WebSocket connections)
+   */
+  getWebSocketURL(): string {
+    return this.baseURL.replace(/\/api\/?$/, '');
+  }
 
   public updateBaseUrl(url: string) {
     this.baseURL = url;

@@ -25,8 +25,9 @@ export function usePresence(productionId: string | undefined) {
     }
     
     // Connect to Socket.io
-    const apiUrl = apiClient.getBaseURL();
-    socket = io(apiUrl, {
+    const wsUrl = apiClient.getWebSocketURL();
+    console.log('🔌 Connecting to presence WebSocket...', wsUrl);
+    socket = io(wsUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
