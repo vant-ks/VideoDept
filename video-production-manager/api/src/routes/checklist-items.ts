@@ -36,7 +36,7 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      production_id: checklistItem.productionId,
+      production_id: checklistItem.production_id,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.CREATE,
       entityId: checklistItem.id,
@@ -47,7 +47,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${checklistItem.productionId}`).emit('entity:created', {
+    io.to(`production:${checklistItem.production_id}`).emit('entity:created', {
       entityType: 'checklistItem',
       entity: checklistItem,
       userId,
