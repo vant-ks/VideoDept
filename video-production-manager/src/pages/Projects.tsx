@@ -56,17 +56,68 @@ export const Projects: React.FC = () => {
   useProductionListEvents({
     onProductionCreated: useCallback((production: any) => {
       console.log('🔔 New production:', production.name);
+      
+      // Transform production database record to VideoDepProject structure
+      const newProject: VideoDepProject = {
+        id: production.id,
+        version: '1.0.0',
+        created: Date.now(),
+        modified: Date.now(),
+        production: {
+          id: production.id,
+          showName: production.show_name || production.name,
+          client: production.client || '',
+          venue: production.venue || 'TBD',
+          room: production.room || '',
+          loadIn: production.load_in || new Date().toISOString().split('T')[0],
+          loadOut: production.load_out || new Date().toISOString().split('T')[0],
+        },
+        sources: [],
+        sends: [],
+        checklist: [],
+        ledScreens: [],
+        projectionScreens: [],
+        computers: [],
+        ccus: [],
+        cameras: [],
+        mediaServers: [],
+        mediaServerLayers: [],
+        videoSwitchers: [],
+        routers: [],
+        serverAllocations: [],
+        ipAddresses: [],
+        cableSnakes: [],
+        presets: [],
+        usedEquipmentIds: [],
+      };
+      
       setShows(prev => {
         // Avoid duplicates
         if (prev.some(s => s.id === production.id)) return prev;
-        return [production, ...prev];
+        return [newProject, ...prev];
       });
     }, []),
     onProductionUpdated: useCallback((production: any) => {
       console.log('🔔 Production updated:', production.name);
-      setShows(prev => prev.map(s => 
-        s.id === production.id ? production : s
-      ));
+      
+      setShows(prev => prev.map(s => {
+        if (s.id !== production.id) return s;
+        
+        // Update production fields, preserve other data
+        return {
+          ...s,
+          modified: Date.now(),
+          production: {
+            ...s.production,
+            showName: production.show_name || production.name,
+            client: production.client || s.production.client,
+            venue: production.venue || s.production.venue,
+            room: production.room || s.production.room,
+            loadIn: production.load_in || s.production.loadIn,
+            loadOut: production.load_out || s.production.loadOut,
+          }
+        };
+      }));
     }, []),
     onProductionDeleted: useCallback((productionId: string) => {
       console.log('🔔 Production deleted:', productionId);
