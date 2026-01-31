@@ -213,6 +213,7 @@ import healthRouter from './routes/health';
 import ipAddressRouter from './routes/ip-addresses';
 import checklistItemRouter from './routes/checklist-items';
 import connectionRouter from './routes/connections';
+import adminRouter from './routes/admin';
 
 app.use('/api/productions', productionsRouter);
 app.use('/api/equipment', equipmentRouter);
@@ -221,6 +222,7 @@ app.use('/api/sends', sendsRouter);
 app.use('/api/cameras', camerasRouter);
 app.use('/api/ccus', ccusRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/admin', adminRouter);
 // TODO: Uncomment when database tables are created
 // app.use('/api/media-servers', mediaServerRouter);
 // app.use('/api/routers', routerRouter);
