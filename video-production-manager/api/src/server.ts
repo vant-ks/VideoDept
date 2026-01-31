@@ -127,8 +127,17 @@ let discoveryService: ServerDiscoveryService | null = null;
 // ROUTES
 // ============================================================================
 
-// Health check
+// Health check (both root and /api for compatibility)
 app.get('/health', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    server: 'Video Production API',
+    version: '1.0.0'
+  });
+});
+
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
