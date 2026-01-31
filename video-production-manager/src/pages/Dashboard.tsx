@@ -13,6 +13,7 @@ import { useProductionStore, useChecklistProgress } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { cn, formatResolution } from '@/utils/helpers';
+import { DevResetButton } from '@/components/DevResetButton';
 
 export const Dashboard: React.FC = () => {
   // Use new stores
@@ -371,6 +372,7 @@ export const Dashboard: React.FC = () => {
           </Card>
         </div>
       </div>
+      <DevResetButton />
     </div>
   );
 };

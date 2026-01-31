@@ -11,7 +11,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const led-screens = await prisma.ledScreen.findMany({
+    const ledScreens = await prisma.ledScreen.findMany({
       where: {
         productionId,
         isDeleted: false
@@ -19,7 +19,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(led-screens);
+    res.json(ledScreens);
   } catch (error) {
     console.error('Error fetching led-screens:', error);
     res.status(500).json({ error: 'Failed to fetch led-screens' });

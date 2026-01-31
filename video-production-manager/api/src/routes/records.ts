@@ -11,7 +11,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const records = await prisma.record.findMany({
+    const records = await prisma.records.findMany({
       where: {
         productionId,
         isDeleted: false
@@ -31,7 +31,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, ...record_data } = req.body;
     
-    const record = await prisma.record.create({
+    const record = await prisma.records.create({
       data: record_data
     });
     
@@ -69,7 +69,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
-    const current = await prisma.record.findUnique({
+    const current = await prisma.records.findUnique({
       where: { id }
     });
     
@@ -88,7 +88,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const record = await prisma.record.update({
+    const record = await prisma.records.update({
       where: { id },
       data: {
         ...updates,
@@ -133,14 +133,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.record.findUnique({ where: { id } });
+    const current = await prisma.records.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'Record not found' });
     }
     
     // Soft delete
-    await prisma.record.update({
+    await prisma.records.update({
       where: { id },
       data: { isDeleted: true }
     });

@@ -127,8 +127,17 @@ let discoveryService: ServerDiscoveryService | null = null;
 // ROUTES
 // ============================================================================
 
-// Health check
+// Health check (both root and /api for compatibility)
 app.get('/health', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    server: 'Video Production API',
+    version: '1.0.0'
+  });
+});
+
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
@@ -195,15 +204,16 @@ import camerasRouter from './routes/cameras';
 import ccusRouter from './routes/ccus';
 import settingsRouter from './routes/settings';
 import eventsRouter from './routes/events';
-import mediaServerRouter from './routes/media-servers';
-import routerRouter from './routes/routers';
-import cableSnakeRouter from './routes/cable-snakes';
-import recordRouter from './routes/records';
-import streamRouter from './routes/streams';
-import visionSwitcherRouter from './routes/vision-switchers';
-import camSwitcherRouter from './routes/cam-switchers';
-import ledScreenRouter from './routes/led-screens';
-import projectionScreenRouter from './routes/projection-screens';
+// TODO: Create database tables for these entities
+// import mediaServerRouter from './routes/media-servers';
+// import routerRouter from './routes/routers';
+// import cableSnakeRouter from './routes/cable-snakes';
+// import recordRouter from './routes/records';
+// import streamRouter from './routes/streams';
+// import visionSwitcherRouter from './routes/vision-switchers';
+// import camSwitcherRouter from './routes/cam-switchers';
+// import ledScreenRouter from './routes/led-screens';
+// import projectionScreenRouter from './routes/projection-screens';
 import ipAddressRouter from './routes/ip-addresses';
 import checklistItemRouter from './routes/checklist-items';
 import connectionRouter from './routes/connections';
@@ -215,15 +225,16 @@ app.use('/api/sends', sendsRouter);
 app.use('/api/cameras', camerasRouter);
 app.use('/api/ccus', ccusRouter);
 app.use('/api/settings', settingsRouter);
-app.use('/api/media-servers', mediaServerRouter);
-app.use('/api/routers', routerRouter);
-app.use('/api/cable-snakes', cableSnakeRouter);
-app.use('/api/records', recordRouter);
-app.use('/api/streams', streamRouter);
-app.use('/api/vision-switchers', visionSwitcherRouter);
-app.use('/api/cam-switchers', camSwitcherRouter);
-app.use('/api/led-screens', ledScreenRouter);
-app.use('/api/projection-screens', projectionScreenRouter);
+// TODO: Uncomment when database tables are created
+// app.use('/api/media-servers', mediaServerRouter);
+// app.use('/api/routers', routerRouter);
+// app.use('/api/cable-snakes', cableSnakeRouter);
+// app.use('/api/records', recordRouter);
+// app.use('/api/streams', streamRouter);
+// app.use('/api/vision-switchers', visionSwitcherRouter);
+// app.use('/api/cam-switchers', camSwitcherRouter);
+// app.use('/api/led-screens', ledScreenRouter);
+// app.use('/api/projection-screens', projectionScreenRouter);
 app.use('/api/ip-addresses', ipAddressRouter);
 app.use('/api/checklist-items', checklistItemRouter);
 app.use('/api/connections', connectionRouter);

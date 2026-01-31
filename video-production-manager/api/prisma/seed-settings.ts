@@ -16,12 +16,12 @@ async function seedSettings() {
   ];
   
   for (let i = 0; i < connectorTypes.length; i++) {
-    await prisma.connectorType.upsert({
+    await prisma.connector_types.upsert({
       where: { name: connectorTypes[i] },
       create: {
         name: connectorTypes[i],
-        sortOrder: i,
-        isActive: true
+        sort_order: i,
+        is_active: true
       },
       update: {}
     });
@@ -32,12 +32,12 @@ async function seedSettings() {
   const sourceTypes = ['LAPTOP', 'CAM', 'SERVER', 'PLAYBACK', 'GRAPHICS', 'PTZ', 'ROBO', 'OTHER'];
   
   for (let i = 0; i < sourceTypes.length; i++) {
-    await prisma.sourceType.upsert({
+    await prisma.source_types.upsert({
       where: { name: sourceTypes[i] },
       create: {
         name: sourceTypes[i],
-        sortOrder: i,
-        isActive: true
+        sort_order: i,
+        is_active: true
       },
       update: {}
     });
@@ -48,7 +48,7 @@ async function seedSettings() {
   const frameRates = ['60', '59.94', '50', '30', '29.97', '25', '24', '23.98'];
   
   for (let i = 0; i < frameRates.length; i++) {
-    await prisma.frameRate.upsert({
+    await prisma.frame_rates.upsert({
       where: { rate: frameRates[i] },
       create: {
         rate: frameRates[i],

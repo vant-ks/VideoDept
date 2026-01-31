@@ -419,9 +419,10 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
   // Sync with API - pull down remote productions (API database is source of truth)
   syncWithAPI: async () => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+    const isLocal = apiUrl.includes('localhost');
+    
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
-      const isLocal = apiUrl.includes('localhost');
       console.log(`🔄 Syncing with ${isLocal ? 'local' : 'Railway'} database...`);
       const remoteProductions = await apiClient.getProductions();
       const localProjects = await projectDB.getAllProjects();

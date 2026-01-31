@@ -20,3 +20,20 @@ build/
 # Logs
 *.log
 npm-debug.log*
+
+# Development documentation (not for production deployment)
+# PROJECT_RULES.md is tracked for team reference
+# AI_AGENT_PROTOCOL.md is a symlink to _Utilities (don't track the symlink itself)
+video-production-manager/docs/AI_AGENT_PROTOCOL.md
+docs/CRASH_AUDIT_*.md
+docs/DB_DEVELOPMENT_LESSONS.md
+
+# User reference files
+*.ods
+*.xlsx
+Video Production Info*.ods
+Video Production Info*.xlsx
+
+# Backup files
+*.backup.*
+**/routes.backup.*

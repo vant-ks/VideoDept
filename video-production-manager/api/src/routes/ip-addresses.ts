@@ -11,7 +11,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const ip-addresses = await prisma.ipAddress.findMany({
+    const ipAddresses = await prisma.ip_addresses.findMany({
       where: {
         productionId,
         isDeleted: false
@@ -19,7 +19,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(ip-addresses);
+    res.json(ipAddresses);
   } catch (error) {
     console.error('Error fetching ip-addresses:', error);
     res.status(500).json({ error: 'Failed to fetch ip-addresses' });
@@ -31,7 +31,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, ...ipAddress_data } = req.body;
     
-    const ipAddress = await prisma.ipAddress.create({
+    const ipAddress = await prisma.ip_addresses.create({
       data: ipAddress_data
     });
     
@@ -69,7 +69,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
-    const current = await prisma.ipAddress.findUnique({
+    const current = await prisma.ip_addresses.findUnique({
       where: { id }
     });
     
@@ -88,7 +88,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const ipAddress = await prisma.ipAddress.update({
+    const ipAddress = await prisma.ip_addresses.update({
       where: { id },
       data: {
         ...updates,
@@ -133,14 +133,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.ipAddress.findUnique({ where: { id } });
+    const current = await prisma.ip_addresses.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'IPAddress not found' });
     }
     
     // Soft delete
-    await prisma.ipAddress.update({
+    await prisma.ip_addresses.update({
       where: { id },
       data: { isDeleted: true }
     });

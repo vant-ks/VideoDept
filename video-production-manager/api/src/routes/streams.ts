@@ -11,7 +11,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const streams = await prisma.stream.findMany({
+    const streams = await prisma.streams.findMany({
       where: {
         productionId,
         isDeleted: false
@@ -31,7 +31,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, ...stream_data } = req.body;
     
-    const stream = await prisma.stream.create({
+    const stream = await prisma.streams.create({
       data: stream_data
     });
     
@@ -69,7 +69,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
-    const current = await prisma.stream.findUnique({
+    const current = await prisma.streams.findUnique({
       where: { id }
     });
     
@@ -88,7 +88,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const stream = await prisma.stream.update({
+    const stream = await prisma.streams.update({
       where: { id },
       data: {
         ...updates,
@@ -133,14 +133,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.stream.findUnique({ where: { id } });
+    const current = await prisma.streams.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'Stream not found' });
     }
     
     // Soft delete
-    await prisma.stream.update({
+    await prisma.streams.update({
       where: { id },
       data: { isDeleted: true }
     });

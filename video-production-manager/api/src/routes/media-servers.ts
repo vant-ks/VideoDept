@@ -11,7 +11,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const media-servers = await prisma.mediaServer.findMany({
+    const mediaServers = await prisma.mediaServer.findMany({
       where: {
         productionId,
         isDeleted: false
@@ -19,7 +19,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(media-servers);
+    res.json(mediaServers);
   } catch (error) {
     console.error('Error fetching media-servers:', error);
     res.status(500).json({ error: 'Failed to fetch media-servers' });

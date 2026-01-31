@@ -9,12 +9,12 @@ const router = Router();
 // GET all sends for a production
 router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
-    const sends = await prisma.send.findMany({
+    const sends = await prisma.sends.findMany({
       where: {
-        productionId: req.params.productionId,
-        isDeleted: false
+        production_id: req.params.productionId,
+        is_deleted: false
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     res.json(sends);
   } catch (error: any) {
@@ -25,7 +25,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // GET single send
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const send = await prisma.send.findUnique({
+    const send = await prisma.sends.findUnique({
       where: { id: req.params.id }
     });
 
@@ -44,7 +44,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { productionId, userId, userName, ...sendData } = req.body;
     
-    const send = await prisma.send.create({
+    const send = await prisma.sends.create({
       data: {
         ...sendData,
         productionId,
@@ -86,7 +86,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { userId, userName, version: clientVersion, ...updateData } = req.body;
     
     // Fetch current send state
-    const currentSend = await prisma.send.findUnique({
+    const currentSend = await prisma.sends.findUnique({
       where: { id: req.params.id }
     });
 
@@ -108,7 +108,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(currentSend, updateData);
 
     // Update send
-    const send = await prisma.send.update({
+    const send = await prisma.sends.update({
       where: { id: req.params.id },
       data: {
         ...updateData,
@@ -118,7 +118,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Record UPDATE event
     await recordEvent({
-      productionId: currentSend.productionId,
+      production_id: currentSend.productionId,
       eventType: EventType.SEND,
       operation: EventOperation.UPDATE,
       entityId: send.id,
@@ -151,7 +151,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { userId, userName } = req.body;
 
     // Fetch current send
-    const currentSend = await prisma.send.findUnique({
+    const currentSend = await prisma.sends.findUnique({
       where: { id: req.params.id }
     });
 
@@ -160,14 +160,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 
     // Soft delete send
-    await prisma.send.update({
+    await prisma.sends.update({
       where: { id: req.params.id },
-      data: { isDeleted: true, version: { increment: 1 } }
+      data: { is_deleted: true, version: { increment: 1 } }
     });
 
     // Record DELETE event
     await recordEvent({
-      productionId: currentSend.productionId,
+      production_id: currentSend.productionId,
       eventType: EventType.SEND,
       operation: EventOperation.DELETE,
       entityId: req.params.id,

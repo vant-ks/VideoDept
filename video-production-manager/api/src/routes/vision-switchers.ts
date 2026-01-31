@@ -11,7 +11,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const vision-switchers = await prisma.visionSwitcher.findMany({
+    const visionSwitchers = await prisma.visionSwitcher.findMany({
       where: {
         productionId,
         isDeleted: false
@@ -19,7 +19,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(vision-switchers);
+    res.json(visionSwitchers);
   } catch (error) {
     console.error('Error fetching vision-switchers:', error);
     res.status(500).json({ error: 'Failed to fetch vision-switchers' });

@@ -6,13 +6,13 @@ const router = Router();
 // GET all equipment specs
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const equipment = await prisma.equipmentSpec.findMany({
-      where: { isDeleted: false },
+    const equipment = await prisma.equipment_specs.findMany({
+      where: { is_deleted: false },
       include: {
-        ioPorts: true,
-        cards: {
+        equipment_io_ports: true,
+        equipment_cards: {
           include: {
-            ioPorts: true
+            equipment_card_io: true
           }
         }
       },
@@ -33,19 +33,19 @@ router.get('/', async (req: Request, res: Response) => {
 // GET single equipment spec
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const equipment = await prisma.equipmentSpec.findUnique({
+    const equipment = await prisma.equipment_specs.findUnique({
       where: { id: req.params.id },
       include: {
-        ioPorts: true,
-        cards: {
+        equipment_io_ports: true,
+        equipment_cards: {
           include: {
-            ioPorts: true
+            equipment_io_ports: true
           }
         }
       }
     });
 
-    if (!equipment || equipment.isDeleted) {
+    if (!equipment || equipment.is_deleted) {
       return res.status(404).json({ error: 'Equipment not found' });
     }
 
@@ -71,7 +71,7 @@ router.post('/', async (req: Request, res: Response) => {
       specs
     } = req.body;
 
-    const equipment = await prisma.equipmentSpec.create({
+    const equipment = await prisma.equipment_specs.create({
       data: {
         category,
         manufacturer,
@@ -84,8 +84,8 @@ router.post('/', async (req: Request, res: Response) => {
         specs
       },
       include: {
-        ioPorts: true,
-        cards: true
+        equipment_io_ports: true,
+        equipment_cards: true
       }
     });
 
@@ -111,7 +111,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       specs
     } = req.body;
 
-    const equipment = await prisma.equipmentSpec.update({
+    const equipment = await prisma.equipment_specs.update({
       where: { id: req.params.id },
       data: {
         category,
@@ -126,10 +126,10 @@ router.put('/:id', async (req: Request, res: Response) => {
         version: { increment: 1 }
       },
       include: {
-        ioPorts: true,
-        cards: {
+        equipment_io_ports: true,
+        equipment_cards: {
           include: {
-            ioPorts: true
+            equipment_io_ports: true
           }
         }
       }
@@ -145,10 +145,10 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE equipment (soft delete)
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    await prisma.equipmentSpec.update({
+    await prisma.equipment_specs.update({
       where: { id: req.params.id },
       data: {
-        isDeleted: true,
+        is_deleted: true,
         version: { increment: 1 }
       }
     });

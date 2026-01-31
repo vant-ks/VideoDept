@@ -20,6 +20,7 @@ import Equipment from '@/pages/Equipment';
 import Settings from '@/pages/Settings';
 import Logs from '@/pages/Logs';
 import { Projects } from '@/pages/Projects';
+import { DevResetButton } from '@/components/DevResetButton';
 import { useProductionStore, initializeStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
@@ -192,6 +193,9 @@ const App: React.FC = () => {
       <Layout>
         {renderPage()}
       </Layout>
+      
+      {/* Dev-only reset button */}
+      <DevResetButton />
     </>
   );
 };

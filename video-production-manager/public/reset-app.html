@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoDept Reset Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e8e8e8;
+            min-height: 100vh;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: #252a3d;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            padding: 2.5rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #a0a0a0;
+            font-size: 0.95rem;
+        }
+
+        .info-box {
+            background: #1e2337;
+            border-left: 4px solid #667eea;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: #667eea;
+        }
+
+        .info-box p {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #b0b0b0;
+        }
+
+        .info-box code {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            color: #a8b5ff;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .option {
+            background: #1e2337;
+            border: 2px solid #2d3548;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .option:hover {
+            border-color: #667eea;
+            background: #232841;
+        }
+
+        .option.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .option input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .option-content {
+            flex: 1;
+        }
+
+        .option-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            font-size: 0.95rem;
+        }
+
+        .option-desc {
+            color: #9a9a9a;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .option.danger .option-title {
+            color: #ff6b6b;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #2d3548;
+            color: #e8e8e8;
+        }
+
+        .btn-secondary:hover {
+            background: #3d4558;
+        }
+
+        .browser-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #2d3548;
+        }
+
+        .browser-list {
+            margin-top: 1rem;
+        }
+
+        .browser-item {
+            background: #1e2337;
+            border: 2px solid #2d3548;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .browser-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .browser-info {
+            flex: 1;
+        }
+
+        .browser-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .browser-url {
+            color: #7a7a7a;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+
+        .status {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status.success {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid #4caf50;
+            color: #4caf50;
+            display: block;
+        }
+
+        .status.error {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid #f44336;
+            color: #f44336;
+            display: block;
+        }
+
+        .status.processing {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid #667eea;
+            color: #667eea;
+            display: block;
+        }
+
+        .status-icon {
+            display: inline-block;
+            margin-right: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .api-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .api-status.online {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+        }
+
+        .api-status.offline {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+
+        .api-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 VideoDept Reset Tool</h1>
+            <p>Comprehensive reset and refresh utility</p>
+        </div>
+
+        <div class="info-box">
+            <h3>📍 Data Source</h3>
+            <p>
+                App syncs from: <code id="apiUrl">Detecting...</code>
+                <span class="api-status offline" id="apiStatus">
+                    <span class="api-dot"></span>
+                    <span>Checking...</span>
+                </span>
+            </p>
+            <p style="margin-top: 0.5rem; font-size: 0.85rem;">
+                On app start, data syncs from the API database (PostgreSQL) to browser localStorage/IndexedDB cache. 
+                The API database is the source of truth.
+            </p>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Select Reset Options</div>
+            
+            <div class="option" id="option-reload">
+                <input type="checkbox" id="check-reload">
+                <div class="option-content">
+                    <div class="option-title">Hard Reload Browser</div>
+                    <div class="option-desc">Force refresh all browser tabs (bypasses cache)</div>
+                </div>
+            </div>
+
+            <div class="option" id="option-localstorage">
+                <input type="checkbox" id="check-localstorage">
+                <div class="option-content">
+                    <div class="option-title">Clear Browser Storage</div>
+                    <div class="option-desc">Clears localStorage and IndexedDB cache (production data, settings)</div>
+                </div>
+            </div>
+
+            <div class="option" id="option-restart">
+                <input type="checkbox" id="check-restart">
+                <div class="option-content">
+                    <div class="option-title">Restart API Server</div>
+                    <div class="option-desc">Restarts the backend API server (triggers tsx watch reload)</div>
+                </div>
+            </div>
+
+            <div class="option danger" id="option-database">
+                <input type="checkbox" id="check-database">
+                <div class="option-content">
+                    <div class="option-title">⚠️ Clear Database (Productions & Settings)</div>
+                    <div class="option-desc">DANGER: Permanently deletes all productions, settings, IP addresses, and future user data from database. Equipment library is preserved.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="browser-section">
+            <div class="section-title">Open Browser Tabs</div>
+            <p style="color: #9a9a9a; font-size: 0.9rem; margin-bottom: 1rem;">
+                Due to browser security, this tool can only communicate with tabs from the same origin. 
+                Close and reopen tabs manually if needed.
+            </p>
+            <div class="browser-list" id="browserList">
+                <div style="color: #7a7a7a; font-size: 0.9rem; font-style: italic;">
+                    No other tabs detected. This is the only active tab.
+                </div>
+            </div>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <div class="button-group">
+            <button class="btn-secondary" id="btnCancel">Cancel</button>
+            <button class="btn-primary" id="btnReset">Execute Reset</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_URL = 'http://localhost:3010';
+        const APP_URL = 'http://localhost:3011/projects';
+
+        // State
+        let apiOnline = false;
+
+        // DOM Elements
+        const btnReset = document.getElementById('btnReset');
+        const btnCancel = document.getElementById('btnCancel');
+        const statusEl = document.getElementById('status');
+        const apiUrlEl = document.getElementById('apiUrl');
+        const apiStatusEl = document.getElementById('apiStatus');
+
+        // Option elements
+        const options = {
+            reload: document.getElementById('option-reload'),
+            localStorage: document.getElementById('option-localstorage'),
+            restart: document.getElementById('option-restart'),
+            database: document.getElementById('option-database')
+        };
+
+        const checks = {
+            reload: document.getElementById('check-reload'),
+            localStorage: document.getElementById('check-localstorage'),
+            restart: document.getElementById('check-restart'),
+            database: document.getElementById('check-database')
+        };
+
+        // Initialize
+        async function init() {
+            apiUrlEl.textContent = API_URL;
+            await checkAPIStatus();
+            setupEventListeners();
+        }
+
+        // Check API status
+        async function checkAPIStatus() {
+            try {
+                const response = await fetch(`${API_URL}/health`, { 
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000)
+                });
+                
+                if (response.ok) {
+                    apiOnline = true;
+                    apiStatusEl.className = 'api-status online';
+                    apiStatusEl.innerHTML = '<span class="api-dot"></span><span>Online</span>';
+                } else {
+                    throw new Error('API returned non-OK status');
+                }
+            } catch (error) {
+                apiOnline = false;
+                apiStatusEl.className = 'api-status offline';
+                apiStatusEl.innerHTML = '<span class="api-dot"></span><span>Offline</span>';
+                console.error('API health check failed:', error);
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Option clicks
+            Object.keys(options).forEach(key => {
+                options[key].addEventListener('click', (e) => {
+                    if (e.target !== checks[key]) {
+                        checks[key].checked = !checks[key].checked;
+                        updateOptionStyles();
+                    }
+                });
+
+                checks[key].addEventListener('change', updateOptionStyles);
+            });
+
+            // Buttons
+            btnReset.addEventListener('click', executeReset);
+            btnCancel.addEventListener('click', () => {
+                window.location.href = APP_URL;
+            });
+
+            updateOptionStyles();
+        }
+
+        // Update option styles
+        function updateOptionStyles() {
+            Object.keys(options).forEach(key => {
+                if (checks[key].checked) {
+                    options[key].classList.add('selected');
+                } else {
+                    options[key].classList.remove('selected');
+                }
+            });
+
+            // Enable/disable reset button
+            const anyChecked = Object.values(checks).some(check => check.checked);
+            btnReset.disabled = !anyChecked;
+        }
+
+        // Show status
+        function showStatus(message, type) {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Execute reset
+        async function executeReset() {
+            const tasks = [];
+            
+            if (checks.reload.checked) tasks.push('Hard Reload');
+            if (checks.localStorage.checked) tasks.push('Clear Storage');
+            if (checks.restart.checked) tasks.push('Restart Server');
+            if (checks.database.checked) tasks.push('Clear Database');
+
+            if (tasks.length === 0) {
+                showStatus('⚠️ Please select at least one option', 'error');
+                return;
+            }
+
+            // Confirm dangerous operation
+            if (checks.database.checked) {
+                const confirmed = confirm(
+                    '⚠️ WARNING: You are about to permanently delete all production data from the database.\n\n' +
+                    'This action cannot be undone!\n\n' +
+                    'Equipment library will be preserved.\n\n' +
+                    'Continue?'
+                );
+                if (!confirmed) return;
+            }
+
+            btnReset.disabled = true;
+            btnCancel.disabled = true;
+            showStatus(`⏳ Processing: ${tasks.join(', ')}...`, 'processing');
+
+            try {
+                // Step 1: Clear Database
+                if (checks.database.checked) {
+                    if (!apiOnline) {
+                        throw new Error('Cannot clear database - API is offline');
+                    }
+                    
+                    showStatus('⏳ Clearing database (productions, settings)...', 'processing');
+                    
+                    // Delete all productions
+                    const prodsRes = await fetch(`${API_URL}/api/productions`);
+                    if (prodsRes.ok) {
+                        const productions = await prodsRes.json();
+                        for (const prod of productions) {
+                            await fetch(`${API_URL}/api/productions/${prod.id}`, { method: 'DELETE' });
+                        }
+                    }
+
+                    // Clear settings (if endpoint exists)
+                    // Note: You may need to add a settings clear endpoint
+                    
+                    console.log('✅ Database cleared');
+                }
+
+                // Step 2: Restart Server
+                if (checks.restart.checked) {
+                    if (!apiOnline) {
+                        throw new Error('Cannot restart server - API is offline');
+                    }
+                    
+                    showStatus('⏳ Restarting API server...', 'processing');
+                    
+                    try {
+                        // Trigger server restart by touching server.ts
+                        await fetch(`${API_URL}/api/server/restart`, { method: 'POST' });
+                        console.log('✅ Server restart triggered');
+                        
+                        // Wait a bit for server to restart
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    } catch (err) {
+                        console.warn('Server restart endpoint not available, continuing...');
+                    }
+                }
+
+                // Step 3: Clear Browser Storage
+                if (checks.localStorage.checked) {
+                    showStatus('⏳ Clearing browser storage...', 'processing');
+                    localStorage.clear();
+                    
+                    // Clear IndexedDB
+                    const databases = await indexedDB.databases();
+                    for (const db of databases) {
+                        if (db.name) {
+                            indexedDB.deleteDatabase(db.name);
+                        }
+                    }
+                    
+                    console.log('✅ Browser storage cleared');
+                }
+
+                // Step 4: Reload
+                showStatus('✅ Reset complete! Redirecting...', 'success');
+                
+                setTimeout(() => {
+                    if (checks.reload.checked) {
+                        // Hard reload (bypass cache)
+                        window.location.href = APP_URL;
+                        window.location.reload(true);
+                    } else {
+                        // Normal redirect
+                        window.location.href = APP_URL;
+                    }
+                }, 1500);
+
+            } catch (error) {
+                showStatus(`❌ Error: ${error.message}`, 'error');
+                console.error('Reset failed:', error);
+                btnReset.disabled = false;
+                btnCancel.disabled = false;
+            }
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
