@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, X, Moon, Sun, ChevronDown, ChevronRight, GripVertical, Save } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
@@ -62,8 +62,8 @@ export default function Settings() {
   
   const [serverStatusElement, setServerStatusElement] = useState<JSX.Element | null>(null);
   
-  // Helper to convert ISO date to yyyy-MM-dd format
-  const formatDateForInput = (date: string | undefined): string => {
+  // Helper to convert ISO date to yyyy-MM-dd format (memoized to prevent re-creation)
+  const formatDateForInput = useCallback((date: string | undefined): string => {
     if (!date) return '';
     try {
       const d = new Date(date);
@@ -71,11 +71,13 @@ export default function Settings() {
     } catch {
       return '';
     }
-  };
+  }, []);
 
   // Production editing state
   const production = activeProject?.production || oldStore.production;
-  const [editedProduction, setEditedProduction] = useState({
+  
+  // Memoize initial production form values to prevent unnecessary re-renders
+  const initialFormValues = useMemo(() => ({
     showName: production?.showName || '',
     client: production?.client || '',
     venue: production?.venue || '',
@@ -83,7 +85,11 @@ export default function Settings() {
     loadIn: formatDateForInput(production?.loadinDate || production?.loadIn),
     loadOut: formatDateForInput(production?.loadoutDate || production?.loadOut),
     showInfoUrl: production?.showInfoUrl || ''
-  });
+  }), [production?.showName, production?.client, production?.venue, production?.room, 
+      production?.loadinDate, production?.loadIn, production?.loadoutDate, 
+      production?.loadOut, production?.showInfoUrl, formatDateForInput]);
+  
+  const [editedProduction, setEditedProduction] = useState(initialFormValues);
   const [isSavingProduction, setIsSavingProduction] = useState(false);
   
   // Load expanded sections from localStorage or default to all sections expanded
@@ -106,6 +112,7 @@ export default function Settings() {
   useEffect(() => {
     const shouldExpand = sessionStorage.getItem('expandProductionInfo');
     if (shouldExpand === 'true') {
+      console.log('📝 Expanding General Settings section');
       setExpandedSections(prev => {
         if (!prev.includes('general')) {
           const newSections = [...prev, 'general'];
@@ -118,9 +125,11 @@ export default function Settings() {
     }
   }, []);
 
-  // Update production form when production changes
+  // Update production form when production ID changes (not on every field change)
+  const productionId = production?.id;
   useEffect(() => {
-    if (production) {
+    if (production && productionId) {
+      console.log('🔄 Syncing production form with store');
       setEditedProduction({
         showName: production.showName || '',
         client: production.client || '',
@@ -131,7 +140,7 @@ export default function Settings() {
         showInfoUrl: production.showInfoUrl || ''
       });
     }
-  }, [production]);
+  }, [productionId, formatDateForInput]);
 
   const handleAddDevice = (e: React.FormEvent) => {
     e.preventDefault();
