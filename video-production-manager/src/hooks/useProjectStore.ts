@@ -189,8 +189,67 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           set({ isLoading: false });
         }
       } else {
-        // No cached version, must fetch from API
-        throw new Error('Project not found locally. Please sync with Railway.');
+        // No cached version - fetch from API and create local cache
+        console.log('📥 Production not cached locally, fetching from API...');
+        try {
+          const production = await apiClient.getProduction(id);
+          if (!production) {
+            throw new Error('Production not found on server');
+          }
+          
+          // Create a minimal project structure from API data
+          const newProject: VideoDepProject = {
+            id,
+            version: production.version,
+            created: Date.now(),
+            modified: Date.now(),
+            production: {
+              id: production.id,
+              client: production.client,
+              showName: production.show_name || production.name,
+              venue: production.venue || '',
+              room: production.room || '',
+              loadIn: production.load_in || new Date().toISOString().split('T')[0],
+              loadOut: production.load_out || new Date().toISOString().split('T')[0],
+              showInfoUrl: production.show_info_url,
+              status: production.status,
+              fieldVersions: production.field_versions // Load field versions
+            },
+            sources: [],
+            sends: [],
+            checklist: [],
+            ledScreens: [],
+            projectionScreens: [],
+            computers: [],
+            ccus: [],
+            cameras: [],
+            mediaServers: [],
+            mediaServerLayers: [],
+            videoSwitchers: [],
+            routers: [],
+            serverAllocations: [],
+            ipAddresses: [],
+            cableSnakes: [],
+            presets: [],
+            usedEquipmentIds: []
+          };
+          
+          // Save to local cache
+          await projectDB.createProject(newProject as any);
+          
+          set({ 
+            activeProjectId: id,
+            activeProject: newProject as any,
+            isLoading: false,
+            lastSyncTime: Date.now()
+          });
+          
+          console.log('✅ Production fetched from API and cached locally');
+          console.log('📦 Field versions loaded:', production.field_versions);
+        } catch (apiError) {
+          console.error('❌ Failed to fetch production from API:', apiError);
+          throw new Error('Production not found. Please ensure it exists on the server.');
+        }
       }
     } catch (error) {
       console.error('Failed to load project:', error);
