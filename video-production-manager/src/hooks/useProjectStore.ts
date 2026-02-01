@@ -319,7 +319,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           show_info_url: activeProject.production.showInfoUrl,
           status: activeProject.production.status || 'PLANNING',
           version: activeProject.version || 1, // Send current version for record-level fallback
-          field_versions: activeProject.production.fieldVersions // Send field versions for field-level conflict detection
+          field_versions: activeProject.production.fieldVersions || {} // Send ALL field versions (or empty if not yet set)
         });
         
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
