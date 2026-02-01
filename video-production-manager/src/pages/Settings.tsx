@@ -62,6 +62,17 @@ export default function Settings() {
   
   const [serverStatusElement, setServerStatusElement] = useState<JSX.Element | null>(null);
   
+  // Helper to convert ISO date to yyyy-MM-dd format
+  const formatDateForInput = (date: string | undefined): string => {
+    if (!date) return '';
+    try {
+      const d = new Date(date);
+      return d.toISOString().split('T')[0];
+    } catch {
+      return '';
+    }
+  };
+
   // Production editing state
   const production = activeProject?.production || oldStore.production;
   const [editedProduction, setEditedProduction] = useState({
@@ -69,8 +80,8 @@ export default function Settings() {
     client: production?.client || '',
     venue: production?.venue || '',
     room: production?.room || '',
-    loadIn: production?.loadinDate || production?.loadIn || '',
-    loadOut: production?.loadoutDate || production?.loadOut || '',
+    loadIn: formatDateForInput(production?.loadinDate || production?.loadIn),
+    loadOut: formatDateForInput(production?.loadoutDate || production?.loadOut),
     showInfoUrl: production?.showInfoUrl || ''
   });
   const [isSavingProduction, setIsSavingProduction] = useState(false);
@@ -95,9 +106,14 @@ export default function Settings() {
   useEffect(() => {
     const shouldExpand = sessionStorage.getItem('expandProductionInfo');
     if (shouldExpand === 'true') {
-      if (!expandedSections.includes('general')) {
-        toggleSection('general');
-      }
+      setExpandedSections(prev => {
+        if (!prev.includes('general')) {
+          const newSections = [...prev, 'general'];
+          localStorage.setItem('settings-expanded-sections', JSON.stringify(newSections));
+          return newSections;
+        }
+        return prev;
+      });
       sessionStorage.removeItem('expandProductionInfo');
     }
   }, []);
@@ -110,8 +126,8 @@ export default function Settings() {
         client: production.client || '',
         venue: production.venue || '',
         room: production.room || '',
-        loadIn: production.loadinDate || production.loadIn || '',
-        loadOut: production.loadoutDate || production.loadOut || '',
+        loadIn: formatDateForInput(production.loadinDate || production.loadIn),
+        loadOut: formatDateForInput(production.loadoutDate || production.loadOut),
         showInfoUrl: production.showInfoUrl || ''
       });
     }
