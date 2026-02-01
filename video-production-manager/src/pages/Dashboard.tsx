@@ -6,7 +6,8 @@ import {
   CheckCircle2, 
   Clock, 
   AlertTriangle,
-  Activity
+  Activity,
+  Pencil
 } from 'lucide-react';
 import { Card, StatCard, ProgressBar, Badge, ConnectorBadge } from '@/components/ui';
 import { useProductionStore, useChecklistProgress } from '@/hooks/useStore';
@@ -69,6 +70,13 @@ export const Dashboard: React.FC = () => {
     setActiveTab('checklist');
   };
 
+  const handleEditProduction = () => {
+    // Switch to settings tab and expand General Settings
+    setActiveTab('settings');
+    // Store flag to expand production section
+    sessionStorage.setItem('expandProductionInfo', 'true');
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Production Header */}
@@ -77,9 +85,18 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-center gap-6">
             {/* Show Info - 40% */}
             <div className="flex-[4]">
-              <h2 className="text-2xl font-bold text-av-text mb-1">
-                {production.showName}
-              </h2>
+              <div className="flex items-center gap-3 mb-1">
+                <h2 className="text-2xl font-bold text-av-text">
+                  {production.showName}
+                </h2>
+                <button
+                  onClick={handleEditProduction}
+                  className="btn-icon text-av-text-muted hover:text-av-accent transition-colors"
+                  title="Edit production information"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
               <p className="text-av-text-muted">
                 {production.client} • {production.venue} • {production.room}
               </p>

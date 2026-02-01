@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { Plus, X, Moon, Sun, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, X, Moon, Sun, ChevronDown, ChevronRight, GripVertical, Save } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
 import { ServerConnection } from '@/components/ServerConnection';
 
 export default function Settings() {
   // Use new stores
   const equipmentLibrary = useEquipmentLibrary();
   const preferences = usePreferencesStore();
+  const { activeProject, updateActiveProject, saveProject } = useProjectStore();
   
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();
@@ -60,6 +62,19 @@ export default function Settings() {
   
   const [serverStatusElement, setServerStatusElement] = useState<JSX.Element | null>(null);
   
+  // Production editing state
+  const production = activeProject?.production || oldStore.production;
+  const [editedProduction, setEditedProduction] = useState({
+    showName: production?.showName || '',
+    client: production?.client || '',
+    venue: production?.venue || '',
+    room: production?.room || '',
+    loadIn: production?.loadinDate || production?.loadIn || '',
+    loadOut: production?.loadoutDate || production?.loadOut || '',
+    showInfoUrl: production?.showInfoUrl || ''
+  });
+  const [isSavingProduction, setIsSavingProduction] = useState(false);
+  
   // Load expanded sections from localStorage or default to all sections expanded
   const [expandedSections, setExpandedSections] = useState<string[]>(() => {
     const saved = localStorage.getItem('settings-expanded-sections');
@@ -75,6 +90,32 @@ export default function Settings() {
       return newSections;
     });
   };
+
+  // Check if we should expand general settings on mount
+  useEffect(() => {
+    const shouldExpand = sessionStorage.getItem('expandProductionInfo');
+    if (shouldExpand === 'true') {
+      if (!expandedSections.includes('general')) {
+        toggleSection('general');
+      }
+      sessionStorage.removeItem('expandProductionInfo');
+    }
+  }, []);
+
+  // Update production form when production changes
+  useEffect(() => {
+    if (production) {
+      setEditedProduction({
+        showName: production.showName || '',
+        client: production.client || '',
+        venue: production.venue || '',
+        room: production.room || '',
+        loadIn: production.loadinDate || production.loadIn || '',
+        loadOut: production.loadoutDate || production.loadOut || '',
+        showInfoUrl: production.showInfoUrl || ''
+      });
+    }
+  }, [production]);
 
   const handleAddDevice = (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,6 +253,43 @@ export default function Settings() {
 
   const handleResolutionDragEnd = () => {
     setDraggedResolutionIndex(null);
+  };
+
+  // Production save handler
+  const handleSaveProduction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!activeProject) {
+      alert('No active project');
+      return;
+    }
+    
+    setIsSavingProduction(true);
+    try {
+      // Update local state first
+      updateActiveProject({
+        production: {
+          ...activeProject.production,
+          showName: editedProduction.showName,
+          client: editedProduction.client,
+          venue: editedProduction.venue,
+          room: editedProduction.room,
+          loadinDate: editedProduction.loadIn,
+          loadoutDate: editedProduction.loadOut,
+          showInfoUrl: editedProduction.showInfoUrl
+        }
+      });
+      
+      // Save to server (triggers field-level versioning)
+      await saveProject();
+      
+      alert('Production information saved successfully!');
+    } catch (error) {
+      console.error('Failed to save production:', error);
+      alert('Failed to save production information. Please try again.');
+    } finally {
+      setIsSavingProduction(false);
+    }
   };
 
   // Add/remove handlers
@@ -518,6 +596,116 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="border-t border-av-border" />
+
+            {/* Production Information Subsection */}
+            <div>
+              <h3 className="text-lg font-semibold text-av-text mb-4">Production Information</h3>
+              <form onSubmit={handleSaveProduction} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Show Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editedProduction.showName}
+                      onChange={(e) => setEditedProduction({ ...editedProduction, showName: e.target.value })}
+                      className="input-field w-full"
+                      placeholder="Enter show name"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Client
+                    </label>
+                    <input
+                      type="text"
+                      value={editedProduction.client}
+                      onChange={(e) => setEditedProduction({ ...editedProduction, client: e.target.value })}
+                      className="input-field w-full"
+                      placeholder="Enter client name"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Venue
+                    </label>
+                    <input
+                      type="text"
+                      value={editedProduction.venue}
+                      onChange={(e) => setEditedProduction({ ...editedProduction, venue: e.target.value })}
+                      className="input-field w-full"
+                      placeholder="Enter venue name"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Room
+                    </label>
+                    <input
+                      type="text"
+                      value={editedProduction.room}
+                      onChange={(e) => setEditedProduction({ ...editedProduction, room: e.target.value })}
+                      className="input-field w-full"
+                      placeholder="Enter room name"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Load In Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editedProduction.loadIn}
+                      onChange={(e) => setEditedProduction({ ...editedProduction, loadIn: e.target.value })}
+                      className="input-field w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Load Out Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editedProduction.loadOut}
+                      onChange={(e) => setEditedProduction({ ...editedProduction, loadOut: e.target.value })}
+                      className="input-field w-full"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Show Info URL
+                  </label>
+                  <input
+                    type="url"
+                    value={editedProduction.showInfoUrl}
+                    onChange={(e) => setEditedProduction({ ...editedProduction, showInfoUrl: e.target.value })}
+                    className="input-field w-full"
+                    placeholder="https://example.com/show-info"
+                  />
+                </div>
+                
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isSavingProduction}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSavingProduction ? 'Saving...' : 'Save Production Info'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
