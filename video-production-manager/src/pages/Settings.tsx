@@ -106,6 +106,11 @@ export default function Settings() {
     return saved ? JSON.parse(saved) : ['types', 'connectors', 'framerates', 'resolutions'];
   });
   
+  // Memoize renderStatus callback to prevent infinite loop with ServerConnection
+  const handleRenderStatus = useCallback((element: JSX.Element) => {
+    setServerStatusElement(element);
+  }, []);
+  
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {
       const newSections = prev.includes(sectionId) 
@@ -450,7 +455,7 @@ export default function Settings() {
                   const store = useProductionStore.getState();
                   store.syncWithServer();
                 }}
-                renderStatus={(element) => setServerStatusElement(element)}
+                renderStatus={handleRenderStatus}
               />
             </div>
 

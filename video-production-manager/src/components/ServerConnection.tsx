@@ -75,7 +75,7 @@ export function ServerConnection({ onConnect, renderStatus }: ServerConnectionPr
       );
       renderStatus(statusElement);
     }
-  }, [serverStatus, connectionType, isPromotedToServer, activeConnections, renderStatus]);
+  }, [serverStatus, connectionType, isPromotedToServer, activeConnections]);
 
   const checkServerConnection = async () => {
     if (!currentServer) {
