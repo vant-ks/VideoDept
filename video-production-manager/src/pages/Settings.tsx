@@ -76,18 +76,26 @@ export default function Settings() {
   // Production editing state
   const production = activeProject?.production || oldStore.production;
   
+  // Debug: Track production object changes
+  const productionId = production?.id;
+  console.log('⚙️ Settings render - production ID:', productionId);
+  
   // Memoize initial production form values to prevent unnecessary re-renders
-  const initialFormValues = useMemo(() => ({
-    showName: production?.showName || '',
-    client: production?.client || '',
-    venue: production?.venue || '',
-    room: production?.room || '',
-    loadIn: formatDateForInput(production?.loadinDate || production?.loadIn),
-    loadOut: formatDateForInput(production?.loadoutDate || production?.loadOut),
-    showInfoUrl: production?.showInfoUrl || ''
-  }), [production?.showName, production?.client, production?.venue, production?.room, 
+  // NOTE: formatDateForInput is NOT in deps because it's memoized with useCallback
+  const initialFormValues = useMemo(() => {
+    console.log('🎯 Recalculating initialFormValues');
+    return {
+      showName: production?.showName || '',
+      client: production?.client || '',
+      venue: production?.venue || '',
+      room: production?.room || '',
+      loadIn: formatDateForInput(production?.loadinDate || production?.loadIn),
+      loadOut: formatDateForInput(production?.loadoutDate || production?.loadOut),
+      showInfoUrl: production?.showInfoUrl || ''
+    };
+  }, [production?.showName, production?.client, production?.venue, production?.room, 
       production?.loadinDate, production?.loadIn, production?.loadoutDate, 
-      production?.loadOut, production?.showInfoUrl, formatDateForInput]);
+      production?.loadOut, production?.showInfoUrl]);
   
   const [editedProduction, setEditedProduction] = useState(initialFormValues);
   const [isSavingProduction, setIsSavingProduction] = useState(false);
@@ -126,10 +134,9 @@ export default function Settings() {
   }, []);
 
   // Update production form when production ID changes (not on every field change)
-  const productionId = production?.id;
   useEffect(() => {
     if (production && productionId) {
-      console.log('🔄 Syncing production form with store');
+      console.log('🔄 Syncing production form with store for ID:', productionId);
       setEditedProduction({
         showName: production.showName || '',
         client: production.client || '',
@@ -140,7 +147,7 @@ export default function Settings() {
         showInfoUrl: production.showInfoUrl || ''
       });
     }
-  }, [productionId, formatDateForInput]);
+  }, [productionId]);
 
   const handleAddDevice = (e: React.FormEvent) => {
     e.preventDefault();
