@@ -75,15 +75,11 @@ export default function Settings() {
 
   // Production editing state
   const production = activeProject?.production || oldStore.production;
-  
-  // Debug: Track production object changes
   const productionId = production?.id;
-  console.log('⚙️ Settings render - production ID:', productionId);
   
   // Memoize initial production form values to prevent unnecessary re-renders
   // NOTE: formatDateForInput is NOT in deps because it's memoized with useCallback
   const initialFormValues = useMemo(() => {
-    console.log('🎯 Recalculating initialFormValues');
     return {
       showName: production?.showName || '',
       client: production?.client || '',
@@ -125,7 +121,6 @@ export default function Settings() {
   useEffect(() => {
     const shouldExpand = sessionStorage.getItem('expandProductionInfo');
     if (shouldExpand === 'true') {
-      console.log('📝 Expanding General Settings section');
       setExpandedSections(prev => {
         if (!prev.includes('general')) {
           const newSections = [...prev, 'general'];
@@ -141,7 +136,6 @@ export default function Settings() {
   // Update production form when production ID changes (not on every field change)
   useEffect(() => {
     if (production && productionId) {
-      console.log('🔄 Syncing production form with store for ID:', productionId);
       setEditedProduction({
         showName: production.showName || '',
         client: production.client || '',
