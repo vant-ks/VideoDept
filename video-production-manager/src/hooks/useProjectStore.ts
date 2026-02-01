@@ -150,13 +150,32 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         // Then refresh from Railway in background to get latest changes
         try {
           const production = await apiClient.getProduction(cachedProject.production.id);
-          if (production?.metadata) {
-            const freshProject = production.metadata as VideoDepProject;
+          if (production) {
+            // Update cached project with fresh data including field_versions
+            const freshProject = {
+              ...cachedProject,
+              version: production.version,
+              production: {
+                ...cachedProject.production,
+                id: production.id,
+                client: production.client,
+                showName: production.show_name || production.name,
+                venue: production.venue,
+                room: production.room,
+                loadIn: production.load_in,
+                loadOut: production.load_out,
+                showInfoUrl: production.show_info_url,
+                status: production.status,
+                fieldVersions: production.field_versions // Preserve field versions from server
+              }
+            };
+            
             await projectDB.updateProject(id, freshProject);
-            set({ activeProject: { ...freshProject, id } as any });
+            set({ activeProject: freshProject as any });
             const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
             const isLocal = apiUrl.includes('localhost');
             console.log(`✅ Loaded latest version from ${isLocal ? 'local' : 'Railway'} database`);
+            console.log('📦 Field versions loaded:', production.field_versions);
           }
         } catch (refreshError) {
           console.warn('⚠️ Using cached version, could not refresh from database:', refreshError);
@@ -293,23 +312,35 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         const response = await apiClient.updateProduction(activeProject.production.id, {
           name: activeProject.production.showName || activeProject.production.name,
           client: activeProject.production.client,
+          venue: activeProject.production.venue,
+          room: activeProject.production.room,
+          load_in: activeProject.production.loadIn,
+          load_out: activeProject.production.loadOut,
+          show_info_url: activeProject.production.showInfoUrl,
           status: activeProject.production.status || 'PLANNING',
-          version: activeProject.version || 1 // Send current version for conflict check
+          version: activeProject.version || 1, // Send current version for record-level fallback
+          field_versions: activeProject.production.fieldVersions // Send field versions for field-level conflict detection
         });
         
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
         const isLocal = apiUrl.includes('localhost');
         console.log(`✅ Production updated in ${isLocal ? 'local' : 'Railway'} database`);
         
-        // Update local state with new version from server
+        // Update local state with new version and field_versions from server
         set({ 
           activeProject: {
             ...updatedProject,
-            version: response.version // Use server's version
+            version: response.version, // Use server's record version
+            production: {
+              ...updatedProject.production,
+              fieldVersions: response.field_versions // Update field versions from server
+            }
           },
           isSaving: false,
           lastSyncTime: Date.now()
         });
+        
+        console.log('✅ Field versions updated:', response.field_versions);
         
       } catch (apiError: any) {
         // Handle conflict (409)
@@ -317,7 +348,68 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           const conflictData = apiError.response.data;
           console.warn('⚠️ Conflict detected:', conflictData);
           
-          // Show conflict dialog
+          // Check if it's field-level or record-level conflict
+          const hasFieldConflicts = conflictData.conflicts && Array.isArray(conflictData.conflicts);
+          
+          if (hasFieldConflicts) {
+            // Field-level conflicts detected
+            const conflictFields = conflictData.conflicts.map((c: any) => c.fieldName).join(', ');
+            const conflictDetails = conflictData.conflicts.map((c: any) => 
+              `  • ${c.fieldName}: Your value "${c.clientValue}" conflicts with "${c.serverValue}"`
+            ).join('\n');
+            
+            console.log('📋 Field-level conflicts:', conflictData.conflicts);
+            
+            const userChoice = confirm(
+              `⚠️ FIELD CONFLICTS DETECTED\n\n` +
+              `Someone else modified these fields while you were editing:\n\n` +
+              `${conflictDetails}\n\n` +
+              `Conflicting fields: ${conflictFields}\n` +
+              `Non-conflicting changes were saved successfully.\n\n` +
+              `Click OK to reload and see their values (you will LOSE your changes to these fields)\n` +
+              `Click Cancel to force save (you will OVERWRITE their changes)`
+            );
+            
+            if (userChoice) {
+              // User chose to reload - get fresh data from server
+              await get().loadProject(activeProjectId);
+              set({ isSaving: false });
+              alert('✅ Reloaded latest version from database');
+              return;
+            } else {
+              // User chose to force save - send again without field_versions to bypass conflict check
+              const forceResponse = await apiClient.updateProduction(activeProject.production.id, {
+                name: activeProject.production.showName || activeProject.production.name,
+                client: activeProject.production.client,
+                venue: activeProject.production.venue,
+                room: activeProject.production.room,
+                load_in: activeProject.production.loadIn,
+                load_out: activeProject.production.loadOut,
+                show_info_url: activeProject.production.showInfoUrl,
+                status: activeProject.production.status || 'PLANNING',
+                version: conflictData.currentVersion, // Use server's version
+                lastModifiedBy: getCurrentUserId()
+                // Don't send field_versions - forces record-level update
+              });
+              
+              set({ 
+                activeProject: {
+                  ...updatedProject,
+                  version: forceResponse.version,
+                  production: {
+                    ...updatedProject.production,
+                    fieldVersions: forceResponse.field_versions
+                  }
+                },
+                isSaving: false,
+                lastSyncTime: Date.now()
+              });
+              console.log('✅ Force saved (overwrote conflicting fields)');
+              return;
+            }
+          }
+          
+          // Record-level conflict (legacy fallback)
           const lastModified = conflictData.serverData?.updated_at 
             ? new Date(conflictData.serverData.updated_at).toLocaleString()
             : 'Unknown';

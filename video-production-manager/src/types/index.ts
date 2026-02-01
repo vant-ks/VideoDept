@@ -18,6 +18,13 @@ export interface Location {
   zipCode: string;
 }
 
+export interface FieldVersion {
+  version: number;
+  updated_at: string;
+}
+
+export type FieldVersions = Record<string, FieldVersion>;
+
 export interface Production {
   id: string;
   client: string;
@@ -33,6 +40,8 @@ export interface Production {
   showEndDate?: string;
   loadoutDate?: string;
   location?: Location;
+  // Field-level versioning
+  fieldVersions?: FieldVersions;
 }
 
 export interface SourceOutput {
