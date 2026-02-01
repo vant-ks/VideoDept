@@ -139,15 +139,15 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       const cachedProject = await projectDB.getProject(id);
       
       if (cachedProject) {
-        // Load from cache immediately for fast UX
+        // Load from cache immediately for fast UX (but mark as loading to prevent saves)
         set({ 
           activeProjectId: id, 
           activeProject: cachedProject,
           lastSyncTime: Date.now(),
-          isLoading: false 
+          isLoading: true // Keep loading true until we get field_versions from API
         });
         
-        // Then refresh from Railway in background to get latest changes
+        // CRITICAL: Fetch fresh data from API to get field_versions
         try {
           const production = await apiClient.getProduction(cachedProject.production.id);
           if (production) {
@@ -166,21 +166,30 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                 loadOut: production.load_out,
                 showInfoUrl: production.show_info_url,
                 status: production.status,
-                fieldVersions: production.field_versions // Preserve field versions from server
+                fieldVersions: production.field_versions // CRITICAL: Load field versions from server
               }
             };
             
             await projectDB.updateProject(id, freshProject);
-            set({ activeProject: freshProject as any });
+            set({ 
+              activeProject: freshProject as any,
+              isLoading: false // Now we're ready
+            });
             const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
             const isLocal = apiUrl.includes('localhost');
             console.log(`✅ Loaded latest version from ${isLocal ? 'local' : 'Railway'} database`);
             console.log('📦 Field versions loaded:', production.field_versions);
+          } else {
+            // No production found on server, use cached version
+            set({ isLoading: false });
+            console.warn('⚠️ Using cached version, production not found on server');
           }
         } catch (refreshError) {
           console.warn('⚠️ Using cached version, could not refresh from database:', refreshError);
+          set({ isLoading: false });
         }
       } else {
+        // No cached version, must fetch from API
         throw new Error('Project not found locally. Please sync with Railway.');
       }
     } catch (error) {
@@ -300,12 +309,32 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const { activeProjectId, activeProject } = get();
     if (!activeProjectId || !activeProject) return;
 
+    // Wait if still loading (prevents saving with stale field_versions)
+    if (get().isLoading) {
+      console.warn('⏳ Still loading production data, waiting before save...');
+      // Wait up to 3 seconds for load to complete
+      let waitCount = 0;
+      while (get().isLoading && waitCount < 30) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        waitCount++;
+      }
+      if (get().isLoading) {
+        console.error('❌ Timed out waiting for production to load');
+        return;
+      }
+    }
+
     set({ isSaving: true });
     try {
       const updatedProject = {
         ...activeProject,
         modified: Date.now()
       };
+      
+      // Warn if field_versions are missing (should be loaded by now)
+      if (!activeProject.production.fieldVersions || Object.keys(activeProject.production.fieldVersions).length === 0) {
+        console.warn('⚠️ field_versions not loaded yet - this may cause conflicts');
+      }
       
       // PRIMARY: Update in API database first with conflict detection
       try {
