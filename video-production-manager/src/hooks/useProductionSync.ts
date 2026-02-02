@@ -43,19 +43,30 @@ export function useProductionSync() {
       }
 
       console.log('📥 Received production update from another user:', {
-        from: updatedProduction.lastModifiedBy,
+        from: updatedProduction.lastModifiedBy || updatedProduction.last_modified_by,
         version: updatedProduction.version,
-        fieldVersions: updatedProduction.field_versions
+        fieldVersions: updatedProduction.field_versions,
+        productionId: updatedProduction.id
       });
 
       const store = useProjectStore.getState();
       const currentProject = store.activeProject;
 
-      if (!currentProject) return;
+      if (!currentProject) {
+        console.log('🔄 No active project, ignoring update');
+        return;
+      }
 
       // Check if incoming version is newer
       const currentVersion = currentProject.version || 1;
       const incomingVersion = updatedProduction.version;
+
+      console.log('📊 Version check:', {
+        current: currentVersion,
+        incoming: incomingVersion,
+        currentProductionId: currentProject.production.id,
+        incomingProductionId: updatedProduction.id
+      });
 
       if (incomingVersion <= currentVersion) {
         console.log('🔄 Ignoring older or same version update');

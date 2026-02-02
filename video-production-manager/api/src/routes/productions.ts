@@ -265,11 +265,19 @@ router.put('/:id', async (req: Request, res: Response) => {
         requestId,
         productionId,
         fieldsUpdated: Object.keys(clientData),
-        newVersion: production.version
+        newVersion: production.version,
+        lastModifiedBy: production.last_modified_by
       });
       
-      // Broadcast update via WebSocket
-      io.emit('production:updated', { ...production, name: production.show_name });
+      // Broadcast update via WebSocket to production room
+      console.log(`📡 Broadcasting production:updated to room production:${productionId}`, {
+        version: production.version,
+        lastModifiedBy: production.last_modified_by
+      });
+      io.to(`production:${productionId}`).emit('production:updated', { 
+        ...production, 
+        name: production.show_name 
+      });
       
       res.json({ ...production, name: production.show_name });
       
