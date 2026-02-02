@@ -87,19 +87,8 @@ export function usePresence(productionId: string | undefined) {
       }
     });
     
-    // Listen for production updates to sync version
-    socket.on('production:updated', (updatedProduction: any) => {
-      if (updatedProduction.id === productionId) {
-        console.log('📡 Received production update, syncing version:', updatedProduction.version);
-        // Notify other hooks to update their version state
-        window.dispatchEvent(new CustomEvent('production:version-updated', { 
-          detail: { 
-            productionId, 
-            version: updatedProduction.version 
-          } 
-        }));
-      }
-    });
+    // Note: useProductionSync handles production:updated events for auto-merge
+    // Removed duplicate listener here to prevent version conflicts
     
     // Cleanup on unmount
     return () => {
