@@ -26,6 +26,8 @@ model cameras {
   note               String?
   created_at         DateTime    @default(now())
   updated_at         DateTime
+  synced_at          DateTime?
+  last_modified_by   String?
   version            Int         @default(1)
   is_deleted         Boolean     @default(false)
   ccus               ccus?       @relation(fields: [ccu_id], references: [id])
@@ -48,6 +50,8 @@ model ccus {
   note            String?
   created_at      DateTime    @default(now())
   updated_at      DateTime
+  synced_at       DateTime?
+  last_modified_by String?
   version         Int         @default(1)
   is_deleted      Boolean     @default(false)
   cameras         cameras[]
@@ -64,6 +68,7 @@ model checklist_items {
   sort_order    Int?
   created_at    DateTime    @default(now())
   updated_at    DateTime
+  last_modified_by String?
   version       Int         @default(1)
   productions   productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
@@ -85,6 +90,8 @@ model connections {
   note                String?
   created_at          DateTime    @default(now())
   updated_at          DateTime
+  synced_at           DateTime?
+  last_modified_by    String?
   version             Int         @default(1)
   is_deleted          Boolean     @default(false)
   productions         productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
@@ -215,6 +222,7 @@ model ip_addresses {
   note          String?
   created_at    DateTime    @default(now())
   updated_at    DateTime
+  last_modified_by String?
   version       Int         @default(1)
   productions   productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 

@@ -4,6 +4,7 @@ import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
 
 const router = Router();
 
@@ -45,12 +46,13 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST create camera
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { productionId, userId, userName, ...cameraData } = req.body;
+    const { productionId, userId, userName, lastModifiedBy, ...cameraData } = req.body;
     
     const camera = await prisma.cameras.create({
       data: {
         ...cameraData,
         production_id: productionId,
+        last_modified_by: lastModifiedBy || userId || null,
         version: 1
       }
     });
@@ -68,15 +70,16 @@ router.post('/', async (req: Request, res: Response) => {
       version: camera.version
     });
 
-    // Broadcast event to production room
-    io.to(`production:${productionId}`).emit('entity:created', {
+    // Broadcast creation via WebSocket
+    broadcastEntityCreated({
+      io,
+      productionId,
       entityType: 'camera',
-      entity: camera,
-      userId,
-      userName
+      entityId: camera.id,
+      data: toCamelCase(camera)
     });
 
-    res.status(201).json(camera);
+    res.status(201).json(toCamelCase(camera));
   } catch (error: any) {
     console.error('Failed to create camera:', error);
     res.status(500).json({ error: 'Failed to create camera' });
@@ -86,7 +89,7 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT update camera
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, version: clientVersion, ...updateData } = req.body;
+    const { userId, userName, version: clientVersion, lastModifiedBy, ...updateData } = req.body;
     
     // Fetch current camera state
     const currentCamera = await prisma.cameras.findUnique({
@@ -110,12 +113,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Calculate changes
     const changes = calculateDiff(currentCamera, updateData);
 
-    // Update camera
+    // Update camera with version increment and metadata
     const camera = await prisma.cameras.update({
       where: { id: req.params.id },
       data: {
         ...updateData,
-        version: { increment: 1 }
+        ...prepareVersionedUpdate(lastModifiedBy || userId)
       }
     });
 
@@ -132,7 +135,16 @@ router.put('/:id', async (req: Request, res: Response) => {
       version: camera.version
     });
 
-    res.json(camera);
+    // Broadcast update via WebSocket
+    broadcastEntityUpdate({
+      io,
+      productionId: currentCamera.production_id,
+      entityType: 'camera',
+      entityId: camera.id,
+      data: toCamelCase(camera)
+    });
+
+    res.json(toCamelCase(camera));
   } catch (error: any) {
     console.error('Failed to update camera:', error);
     res.status(500).json({ error: 'Failed to update camera' });

@@ -4,6 +4,7 @@ import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { broadcastEntityUpdate, broadcastEntityCreated, broadcastEntityDeleted, prepareVersionedUpdate } from '../utils/sync-helpers';
 
 const router = Router();
 
@@ -29,7 +30,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create checklistItem
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...checklistItemData } = req.body;
+    const { userId, userName, lastModifiedBy, ...checklistItemData } = req.body;
     
     // Convert camelCase to snake_case and prepare data for Prisma
     const snakeCaseData = toSnakeCase(checklistItemData);
@@ -37,6 +38,7 @@ router.post('/', async (req: Request, res: Response) => {
     // Ensure updated_at is a valid DateTime
     const createData = {
       ...snakeCaseData,
+      last_modified_by: lastModifiedBy || userId || null,
       updated_at: new Date()
     };
     
@@ -56,12 +58,13 @@ router.post('/', async (req: Request, res: Response) => {
       version: checklistItem.version
     });
     
-    // Broadcast to production room
-    io.to(`production:${checklistItem.production_id}`).emit('entity:created', {
-      entityType: 'checklistItem',
-      entity: toCamelCase(checklistItem),
-      userId,
-      userName
+    // Broadcast creation via WebSocket
+    broadcastEntityCreated({
+      io,
+      productionId: checklistItem.production_id,
+      entityType: 'checklist-item',
+      entityId: checklistItem.id,
+      data: toCamelCase(checklistItem)
     });
     
     res.status(201).json(toCamelCase(checklistItem));
@@ -76,7 +79,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { version: clientVersion, userId, userName, ...updates } = req.body;
+    const { version: clientVersion, userId, userName, lastModifiedBy, ...updates } = req.body;
     
     // Convert camelCase to snake_case
     const snakeCaseUpdates = toSnakeCase(updates);
@@ -100,13 +103,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       });
     }
     
-    // Update with incremented version and ensure updated_at is set
+    // Update with incremented version and metadata
     const checklistItem = await prisma.checklist_items.update({
       where: { id },
       data: {
         ...snakeCaseUpdates,
         updated_at: new Date(),
-        version: current.version + 1
+        ...prepareVersionedUpdate(lastModifiedBy || userId)
       }
     });
     
@@ -126,12 +129,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       version: checklistItem.version
     });
     
-    // Broadcast to production room
-    io.to(`production:${checklistItem.production_id}`).emit('entity:updated', {
-      entityType: 'checklistItem',
-      entity: toCamelCase(checklistItem),
-      userId,
-      userName
+    // Broadcast update via WebSocket
+    broadcastEntityUpdate({
+      io,
+      productionId: checklistItem.production_id,
+      entityType: 'checklist-item',
+      entityId: checklistItem.id,
+      data: toCamelCase(checklistItem)
     });
     
     res.json(toCamelCase(checklistItem));
@@ -170,12 +174,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
       where: { id }
     });
     
-    // Broadcast to production room
-    io.to(`production:${current.production_id}`).emit('entity:deleted', {
-      entityType: 'checklistItem',
-      entityId: id,
-      userId,
-      userName
+    // Broadcast deletion via WebSocket
+    broadcastEntityDeleted({
+      io,
+      productionId: current.production_id,
+      entityType: 'checklist-item',
+      entityId: id
     });
     
     res.json({ success: true });
