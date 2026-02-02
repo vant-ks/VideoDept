@@ -212,8 +212,14 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
       connect();
     }
 
+    // Note: We don't call disconnect() in cleanup to avoid issues with React Strict Mode
+    // The socket will stay connected as long as at least one component is using it
+    // In production, the socket will disconnect when the app unmounts completely
     return () => {
-      disconnect();
+      // Only decrement counter, don't actually disconnect
+      // This prevents React Strict Mode from breaking the connection
+      connectionCount = Math.max(0, connectionCount - 1);
+      console.log(`🔌 Component unmounted, active connections: ${connectionCount}`);
     };
   }, []); // Empty deps - connect/disconnect are stable
 
