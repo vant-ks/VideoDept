@@ -253,9 +253,23 @@ router.put('/:id', async (req: Request, res: Response) => {
       
       if (userId) dbData.last_modified_by = userId;
       
+      console.log('💾 Updating production (field-level) with data:', {
+        productionId,
+        currentVersion: current.version,
+        newVersion: current.version + 1,
+        lastModifiedBy: userId,
+        fieldsUpdating: Object.keys(mergeResult.mergedData)
+      });
+      
       const production = await prisma.productions.update({
         where: { id: productionId },
         data: dbData
+      });
+      
+      console.log('💾 Production updated, actual new version:', {
+        id: production.id,
+        version: production.version,
+        lastModifiedBy: production.last_modified_by
       });
       
       const duration = Date.now() - startTime;
