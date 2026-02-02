@@ -101,12 +101,13 @@ export function useProductionSync() {
 
       console.log('🔀 Merged project data:', mergedProject.production);
 
-      // Update local state
-      store.updateActiveProject(mergedProject as any);
+      // Update local state - use setActiveProject directly to ensure proper update
+      const { setActiveProject } = useProjectStore.getState();
+      setActiveProject(mergedProject as any);
       
       console.log('🔀 After update, store state:', {
-        version: store.activeProject?.version,
-        client: store.activeProject?.production?.client
+        version: useProjectStore.getState().activeProject?.version,
+        client: useProjectStore.getState().activeProject?.production?.client
       });
 
       // Update IndexedDB cache
