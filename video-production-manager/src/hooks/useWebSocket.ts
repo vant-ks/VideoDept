@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 // Singleton socket instance
 let socket: Socket | null = null;
 let connectionCount = 0;
+let isInitialized = false;
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'reconnecting';
 
@@ -24,6 +25,90 @@ interface UseWebSocketReturn {
   disconnect: () => void;
 }
 
+// Shared state that persists across hook instances
+const connectionState = {
+  isConnected: false,
+  status: 'disconnected' as ConnectionStatus,
+  subscribers: new Set<(state: { isConnected: boolean; status: ConnectionStatus }) => void>(),
+};
+
+function notifySubscribers() {
+  connectionState.subscribers.forEach(cb => cb({
+    isConnected: connectionState.isConnected,
+    status: connectionState.status
+  }));
+}
+
+/**
+ * Initialize socket connection (called once globally)
+ */
+function initializeSocket() {
+  if (isInitialized) return;
+  isInitialized = true;
+
+  const apiUrl = localStorage.getItem('api_server_url') || 
+                 import.meta.env.VITE_API_URL || 
+                 'http://localhost:3010';
+  const wsUrl = apiUrl.replace(/\/api\/?$/, '');
+
+  console.log('🔌 Initializing WebSocket connection:', wsUrl);
+  connectionState.status = 'connecting';
+  notifySubscribers();
+
+  socket = io(wsUrl, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: Infinity,
+    timeout: 20000,
+    autoConnect: true,
+  });
+
+  socket.on('connect', () => {
+    console.log('✅ WebSocket connected');
+    connectionState.isConnected = true;
+    connectionState.status = 'connected';
+    notifySubscribers();
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('🔌 WebSocket disconnected:', reason);
+    connectionState.isConnected = false;
+    connectionState.status = 'disconnected';
+    notifySubscribers();
+  });
+
+  socket.on('reconnect', (attemptNumber) => {
+    console.log(`🔄 WebSocket reconnected after ${attemptNumber} attempts`);
+    connectionState.isConnected = true;
+    connectionState.status = 'connected';
+    notifySubscribers();
+  });
+
+  socket.on('reconnect_attempt', (attemptNumber) => {
+    console.log(`🔄 WebSocket reconnection attempt ${attemptNumber}`);
+    connectionState.status = 'reconnecting';
+    notifySubscribers();
+  });
+
+  socket.on('reconnect_error', (error) => {
+    console.error('❌ WebSocket reconnection error:', error);
+  });
+
+  socket.on('reconnect_failed', () => {
+    console.error('❌ WebSocket reconnection failed');
+    connectionState.status = 'disconnected';
+    notifySubscribers();
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('❌ WebSocket connection error:', error);
+    connectionState.status = 'disconnected';
+    notifySubscribers();
+  });
+}
+
 /**
  * Centralized WebSocket hook with connection management
  * Provides a single shared socket connection across the app
@@ -31,88 +116,43 @@ interface UseWebSocketReturn {
 export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn {
   const { autoConnect = true, onConnect, onDisconnect, onReconnect } = options;
   
-  const [isConnected, setIsConnected] = useState(false);
-  const [status, setStatus] = useState<ConnectionStatus>('disconnected');
+  const [isConnected, setIsConnected] = useState(connectionState.isConnected);
+  const [status, setStatus] = useState<ConnectionStatus>(connectionState.status);
   const eventHandlersRef = useRef<Map<string, Function>>(new Map());
+  const connectCallbacksRef = useRef({ onConnect, onDisconnect, onReconnect });
 
-  const getWebSocketUrl = useCallback(() => {
-    const apiUrl = localStorage.getItem('api_server_url') || 
-                   import.meta.env.VITE_API_URL || 
-                   'http://localhost:3010';
-    // Remove /api suffix if present for WebSocket connection
-    return apiUrl.replace(/\/api\/?$/, '');
+  // Update callback refs when they change
+  useEffect(() => {
+    connectCallbacksRef.current = { onConnect, onDisconnect, onReconnect };
+  }, [onConnect, onDisconnect, onReconnect]);
+
+  // Subscribe to connection state changes
+  useEffect(() => {
+    const updateState = (state: { isConnected: boolean; status: ConnectionStatus }) => {
+      setIsConnected(state.isConnected);
+      setStatus(state.status);
+      
+      // Call appropriate callback
+      if (state.isConnected && connectCallbacksRef.current.onConnect) {
+        connectCallbacksRef.current.onConnect();
+      } else if (!state.isConnected && connectCallbacksRef.current.onDisconnect) {
+        connectCallbacksRef.current.onDisconnect();
+      }
+    };
+
+    connectionState.subscribers.add(updateState);
+    
+    return () => {
+      connectionState.subscribers.delete(updateState);
+    };
   }, []);
 
   const connect = useCallback(() => {
-    if (socket?.connected) {
-      console.log('🔌 WebSocket already connected');
-      return;
+    if (!isInitialized) {
+      initializeSocket();
     }
-
-    const wsUrl = getWebSocketUrl();
-    console.log('🔌 Connecting to WebSocket:', wsUrl);
-    setStatus('connecting');
-
-    if (!socket) {
-      socket = io(wsUrl, {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        reconnectionAttempts: Infinity,
-        timeout: 20000,
-      });
-
-      // Connection event handlers
-      socket.on('connect', () => {
-        console.log('✅ WebSocket connected');
-        setIsConnected(true);
-        setStatus('connected');
-        onConnect?.();
-        
-        // Re-subscribe to all events after reconnection
-        eventHandlersRef.current.forEach((handler, event) => {
-          socket?.on(event, handler as any);
-        });
-      });
-
-      socket.on('disconnect', (reason) => {
-        console.log('🔌 WebSocket disconnected:', reason);
-        setIsConnected(false);
-        setStatus('disconnected');
-        onDisconnect?.();
-      });
-
-      socket.on('reconnect', (attemptNumber) => {
-        console.log(`🔄 WebSocket reconnected after ${attemptNumber} attempts`);
-        setStatus('connected');
-        onReconnect?.();
-      });
-
-      socket.on('reconnect_attempt', (attemptNumber) => {
-        console.log(`🔄 WebSocket reconnection attempt ${attemptNumber}`);
-        setStatus('reconnecting');
-      });
-
-      socket.on('reconnect_error', (error) => {
-        console.error('❌ WebSocket reconnection error:', error);
-      });
-
-      socket.on('reconnect_failed', () => {
-        console.error('❌ WebSocket reconnection failed');
-        setStatus('disconnected');
-      });
-
-      socket.on('connect_error', (error) => {
-        console.error('❌ WebSocket connection error:', error);
-        setStatus('disconnected');
-      });
-    } else {
-      socket.connect();
-    }
-
     connectionCount++;
-  }, [getWebSocketUrl, onConnect, onDisconnect, onReconnect]);
+  }, []);
 
   const disconnect = useCallback(() => {
     connectionCount--;
@@ -121,6 +161,7 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
     if (connectionCount <= 0) {
       console.log('🔌 Disconnecting WebSocket');
       socket?.disconnect();
+      isInitialized = false;
       connectionCount = 0;
     }
   }, []);
@@ -137,8 +178,9 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
 
     console.log(`📡 Subscribing to event: ${event}`);
     
-    // Store handler reference for reconnection
-    eventHandlersRef.current.set(event, handler);
+    // Store handler reference
+    const key = `${event}-${Date.now()}`;
+    eventHandlersRef.current.set(key, handler);
     
     // Add listener
     socket.on(event, handler);
@@ -147,7 +189,7 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
     return () => {
       console.log(`📡 Unsubscribing from event: ${event}`);
       socket?.off(event, handler);
-      eventHandlersRef.current.delete(event);
+      eventHandlersRef.current.delete(key);
     };
   }, []);
 
@@ -173,7 +215,7 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
     return () => {
       disconnect();
     };
-  }, [autoConnect, connect, disconnect]);
+  }, []); // Empty deps - connect/disconnect are stable
 
   return {
     socket,
@@ -192,9 +234,15 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
 export function useProductionRoom(productionId: string | undefined) {
   const { isConnected, emit } = useWebSocket();
   const hasJoinedRef = useRef(false);
+  const lastProductionIdRef = useRef<string>();
 
   useEffect(() => {
-    if (!productionId || !isConnected || hasJoinedRef.current) return;
+    if (!productionId || !isConnected) return;
+
+    // Don't rejoin if already in this room
+    if (hasJoinedRef.current && lastProductionIdRef.current === productionId) {
+      return;
+    }
 
     const userId = localStorage.getItem('user_id') || 'anonymous';
     const userName = localStorage.getItem('user_name') || 'Anonymous';
@@ -202,11 +250,13 @@ export function useProductionRoom(productionId: string | undefined) {
     console.log(`🚪 Joining production room: ${productionId}`);
     emit('production:join', { productionId, userId, userName });
     hasJoinedRef.current = true;
+    lastProductionIdRef.current = productionId;
 
     return () => {
       console.log(`🚪 Leaving production room: ${productionId}`);
       emit('production:leave', { productionId, userId });
       hasJoinedRef.current = false;
+      lastProductionIdRef.current = undefined;
     };
   }, [productionId, isConnected, emit]);
 }
