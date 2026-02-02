@@ -8,10 +8,14 @@ import { useProjectStore } from '@/hooks/useProjectStore';
 import { ServerConnection } from '@/components/ServerConnection';
 
 export default function Settings() {
-  // Use new stores
+  // Use new stores with proper zustand subscriptions
   const equipmentLibrary = useEquipmentLibrary();
   const preferences = usePreferencesStore();
-  const { activeProject, updateActiveProject, saveProject } = useProjectStore();
+  
+  // Subscribe to activeProject changes properly
+  const activeProject = useProjectStore(state => state.activeProject);
+  const updateActiveProject = useProjectStore(state => state.updateActiveProject);
+  const saveProject = useProjectStore(state => state.saveProject);
   
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();
