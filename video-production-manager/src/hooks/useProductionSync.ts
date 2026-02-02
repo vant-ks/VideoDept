@@ -101,9 +101,10 @@ export function useProductionSync() {
 
       console.log('🔀 Merged project data:', mergedProject.production);
 
-      // Update local state - use setActiveProject directly to ensure proper update
-      const { setActiveProject } = useProjectStore.getState();
-      setActiveProject(mergedProject as any);
+      // Update local state - use setState directly to force re-render
+      useProjectStore.setState({ 
+        activeProject: mergedProject as any 
+      });
       
       console.log('🔀 After update, store state:', {
         version: useProjectStore.getState().activeProject?.version,
