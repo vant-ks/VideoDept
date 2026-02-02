@@ -448,51 +448,78 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             
             console.log('📋 Field-level conflicts:', conflictData.conflicts);
             
-            const userChoice = confirm(
+            // Present 3 options: Retry (reload fresh), Keep Yours (force), or Keep Theirs (discard)
+            const userChoice = prompt(
               `⚠️ FIELD CONFLICTS DETECTED\n\n` +
               `Someone else modified these fields while you were editing:\n\n` +
               `${conflictDetails}\n\n` +
               `Conflicting fields: ${conflictFields}\n` +
               `Non-conflicting changes were saved successfully.\n\n` +
-              `Click OK to reload and see their values (you will LOSE your changes to these fields)\n` +
-              `Click Cancel to force save (you will OVERWRITE their changes)`
+              `Choose an option:\n` +
+              `  1 = Retry (reload fresh data and try again)\n` +
+              `  2 = Keep Yours (force save, OVERWRITE their changes)\n` +
+              `  3 = Keep Theirs (discard your changes to these fields)\n\n` +
+              `Enter 1, 2, or 3:`,
+              '1'
             );
             
-            if (userChoice) {
-              // User chose to reload - get fresh data from server
+            if (userChoice === '1') {
+              // User chose to retry - reload fresh data
               await get().loadProject(activeProjectId);
               set({ isSaving: false });
-              alert('✅ Reloaded latest version from database');
+              alert('✅ Reloaded latest version. Please review and save again.');
               return;
-            } else {
-              // User chose to force save - send again without field_versions to bypass conflict check
-              const forceResponse = await apiClient.updateProduction(activeProject.production.id, {
-                name: activeProject.production.showName || activeProject.production.name,
-                client: activeProject.production.client,
-                venue: activeProject.production.venue,
-                room: activeProject.production.room,
-                load_in: activeProject.production.loadIn,
-                load_out: activeProject.production.loadOut,
-                show_info_url: activeProject.production.showInfoUrl,
-                status: activeProject.production.status || 'PLANNING',
-                version: conflictData.currentVersion, // Use server's version
-                lastModifiedBy: getCurrentUserId()
-                // Don't send field_versions - forces record-level update
-              });
-              
-              set({ 
-                activeProject: {
-                  ...updatedProject,
+            } else if (userChoice === '2') {
+              // User chose to keep theirs - force save with record-level update
+              try {
+                const forceResponse = await apiClient.updateProduction(activeProject.production.id, {
+                  name: activeProject.production.showName || activeProject.production.name,
+                  client: activeProject.production.client,
+                  venue: activeProject.production.venue,
+                  room: activeProject.production.room,
+                  load_in: activeProject.production.loadIn,
+                  load_out: activeProject.production.loadOut,
+                  show_info_url: activeProject.production.showInfoUrl,
+                  status: activeProject.production.status || 'PLANNING',
+                  version: conflictData.currentVersion, // Use server's version
+                  lastModifiedBy: getCurrentUserId()
+                  // Don't send field_versions - forces record-level update
+                });
+                
+                // Update local state with new version and field_versions
+                const freshUpdatedProject = {
+                  ...activeProject,
                   version: forceResponse.version,
                   production: {
-                    ...updatedProject.production,
+                    ...activeProject.production,
                     fieldVersions: forceResponse.field_versions
-                  }
-                },
-                isSaving: false,
-                lastSyncTime: Date.now()
-              });
-              console.log('✅ Force saved (overwrote conflicting fields)');
+                  },
+                  modified: Date.now()
+                };
+                
+                set({ 
+                  activeProject: freshUpdatedProject,
+                  isSaving: false,
+                  lastSyncTime: Date.now()
+                });
+                
+                // Also update IndexedDB
+                await projectDB.projects.put(freshUpdatedProject);
+                
+                console.log('✅ Force saved (overwrote conflicting fields)');
+                alert('✅ Your changes were saved (overwrote conflicting fields)');
+                return;
+              } catch (forceError) {
+                console.error('❌ Failed to force save:', forceError);
+                set({ isSaving: false });
+                alert('❌ Failed to force save. Please try again.');
+                return;
+              }
+            } else {
+              // User chose option 3 or cancelled - reload their values
+              await get().loadProject(activeProjectId);
+              set({ isSaving: false });
+              alert('✅ Reloaded latest version (your changes to conflicting fields were discarded)');
               return;
             }
           }
@@ -502,41 +529,68 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             ? new Date(conflictData.serverData.updated_at).toLocaleString()
             : 'Unknown';
           
-          const userChoice = confirm(
+          const userChoice = prompt(
             `⚠️ CONFLICT DETECTED\n\n` +
             `Someone else modified this show while you were editing.\n\n` +
             `Server version: ${conflictData.currentVersion}\n` +
             `Your version: ${activeProject.version || 1}\n` +
             `Last modified: ${lastModified}\n\n` +
-            `Click OK to reload their changes (you will LOSE your unsaved work)\n` +
-            `Click Cancel to force save (you will OVERWRITE their changes)`
+            `Choose an option:\n` +
+            `  1 = Retry (reload fresh data and try again)\n` +
+            `  2 = Keep Yours (force save, OVERWRITE their changes)\n` +
+            `  3 = Keep Theirs (discard all your changes)\n\n` +
+            `Enter 1, 2, or 3:`,
+            '1'
           );
           
-          if (userChoice) {
-            // User chose to reload - get fresh data from server
+          if (userChoice === '1') {
+            // User chose to retry - reload fresh data
             await get().loadProject(activeProjectId);
             set({ isSaving: false });
-            alert('✅ Reloaded latest version from database');
+            alert('✅ Reloaded latest version. Please review and save again.');
+            return;
+          } else if (userChoice === '2') {
+            // User chose to keep theirs - force save with server's version
+            try {
+              const forceResponse = await apiClient.updateProduction(activeProject.production.id, {
+                name: activeProject.production.showName || activeProject.production.name,
+                client: activeProject.production.client,
+                status: activeProject.production.status || 'PLANNING',
+                metadata: activeProject, // Store full project for sync
+                version: conflictData.currentVersion, // Use server's version
+                lastModifiedBy: getCurrentUserId()
+              });
+              
+              const freshUpdatedProject = {
+                ...activeProject,
+                version: forceResponse.version,
+                modified: Date.now()
+              };
+              
+              set({ 
+                activeProject: freshUpdatedProject,
+                isSaving: false,
+                lastSyncTime: Date.now()
+              });
+              
+              // Also update IndexedDB
+              await projectDB.projects.put(freshUpdatedProject);
+              
+              console.log('✅ Force saved (overwrote other changes)');
+              alert('✅ Your changes were saved (overwrote their changes)');
+              return;
+            } catch (forceError) {
+              console.error('❌ Failed to force save:', forceError);
+              set({ isSaving: false });
+              alert('❌ Failed to force save. Please try again.');
+              return;
+            }
           } else {
-            // User chose to force save - use server's version number
-            const forceResponse = await apiClient.updateProduction(activeProject.production.id, {
-              name: activeProject.production.showName || activeProject.production.name,
-              client: activeProject.production.client,
-              status: activeProject.production.status || 'PLANNING',
-              metadata: updatedProject, // Store full project for sync
-              version: conflictData.currentVersion, // Use server's version
-              lastModifiedBy: getCurrentUserId()
-            });
-            
-            set({ 
-              activeProject: {
-                ...updatedProject,
-                version: forceResponse.version
-              },
-              isSaving: false,
-              lastSyncTime: Date.now()
-            });
-            console.log('✅ Force saved (overwrote other changes)');
+            // User chose option 3 or cancelled - reload their values
+            await get().loadProject(activeProjectId);
+            set({ isSaving: false });
+            alert('✅ Reloaded latest version (all your changes were discarded)');
+            return;
           }
           return;
         }
