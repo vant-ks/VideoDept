@@ -137,7 +137,7 @@ export default function Settings() {
     }
   }, []);
 
-  // Update production form when production ID changes (not on every field change)
+  // Update production form when production changes (including from WebSocket sync)
   useEffect(() => {
     if (production && productionId) {
       setEditedProduction({
@@ -150,7 +150,7 @@ export default function Settings() {
         showInfoUrl: production.showInfoUrl || ''
       });
     }
-  }, [productionId]);
+  }, [production, productionId]);
 
   const handleAddDevice = (e: React.FormEvent) => {
     e.preventDefault();
