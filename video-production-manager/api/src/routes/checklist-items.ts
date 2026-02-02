@@ -108,8 +108,8 @@ router.put('/:id', async (req: Request, res: Response) => {
       where: { id },
       data: {
         ...snakeCaseUpdates,
-        updated_at: new Date(),
-        ...prepareVersionedUpdate(lastModifiedBy || userId)
+        ...prepareVersionedUpdate(lastModifiedBy || userId),
+        updated_at: new Date()
       }
     });
     

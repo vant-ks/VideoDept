@@ -80,8 +80,8 @@ export function broadcastEntityDeleted(options: Omit<BroadcastOptions, 'data'> &
 export function prepareVersionedUpdate(lastModifiedBy?: string): any {
   return {
     version: { increment: 1 },
-    lastModifiedBy: lastModifiedBy || null,
-    syncedAt: new Date()
+    last_modified_by: lastModifiedBy || null,
+    synced_at: new Date()
   };
 }
 
