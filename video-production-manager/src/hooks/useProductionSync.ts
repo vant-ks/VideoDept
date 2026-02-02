@@ -74,6 +74,13 @@ export function useProductionSync() {
       }
 
       // Auto-merge: Update production fields with incoming data
+      console.log('🔀 Merging incoming data:', {
+        currentClient: currentProject.production?.client,
+        incomingClient: updatedProduction.client,
+        currentVersion,
+        incomingVersion
+      });
+
       const mergedProject = {
         ...currentProject,
         version: incomingVersion,
@@ -92,8 +99,15 @@ export function useProductionSync() {
         modified: Date.now()
       };
 
+      console.log('🔀 Merged project data:', mergedProject.production);
+
       // Update local state
       store.updateActiveProject(mergedProject as any);
+      
+      console.log('🔀 After update, store state:', {
+        version: store.activeProject?.version,
+        client: store.activeProject?.production?.client
+      });
 
       // Update IndexedDB cache
       if (activeProjectId) {
