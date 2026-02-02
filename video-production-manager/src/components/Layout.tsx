@@ -32,6 +32,7 @@ import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { cn } from '@/utils/helpers';
 import { Logo } from './Logo';
 import { PresenceIndicator } from './PresenceIndicator';
+import { ConnectionStatusIndicator, OfflineWarning } from './ConnectionStatusIndicator';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -193,6 +194,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 productionId={activeProject?.production?.id}
                 className="w-full"
               />
+              
+              {/* Connection Status */}
+              <ConnectionStatusIndicator 
+                showLabel={true}
+                className="w-full justify-center"
+              />
             </div>
           )}
         </div>
@@ -245,6 +252,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         'flex-1 overflow-y-auto transition-all duration-300',
         sidebarOpen ? 'ml-64' : 'ml-16'
       )}>
+        {/* Offline Warning Banner */}
+        <OfflineWarning />
+        
         {/* Page Content */}
         <div className="p-6">
           {children}
