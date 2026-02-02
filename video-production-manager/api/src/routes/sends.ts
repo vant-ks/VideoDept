@@ -4,6 +4,7 @@ import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
 
 const router = Router();
 
@@ -43,12 +44,13 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST create send
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { productionId, userId, userName, ...sendData } = req.body;
+    const { productionId, userId, userName, lastModifiedBy, ...sendData } = req.body;
     
     const send = await prisma.sends.create({
       data: {
         ...sendData,
         productionId,
+        last_modified_by: lastModifiedBy || userId || null,
         version: 1
       }
     });
@@ -66,15 +68,16 @@ router.post('/', async (req: Request, res: Response) => {
       version: send.version
     });
 
-    // Broadcast event to production room
-    io.to(`production:${productionId}`).emit('entity:created', {
+    // Broadcast creation via WebSocket
+    broadcastEntityCreated({
+      io,
+      productionId,
       entityType: 'send',
-      entity: send,
-      userId,
-      userName
+      entityId: send.id,
+      data: toCamelCase(send)
     });
 
-    res.status(201).json(send);
+    res.status(201).json(toCamelCase(send));
   } catch (error: any) {
     console.error('Failed to create send:', error);
     res.status(500).json({ error: 'Failed to create send' });
@@ -84,7 +87,7 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT update send
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, version: clientVersion, ...updateData } = req.body;
+    const { userId, userName, version: clientVersion, lastModifiedBy, ...updateData } = req.body;
     
     // Fetch current send state
     const currentSend = await prisma.sends.findUnique({
@@ -108,12 +111,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Calculate changes
     const changes = calculateDiff(currentSend, updateData);
 
-    // Update send
+    // Update send with version increment and metadata
     const send = await prisma.sends.update({
       where: { id: req.params.id },
       data: {
         ...updateData,
-        version: { increment: 1 }
+        ...prepareVersionedUpdate(lastModifiedBy || userId)
       }
     });
 
@@ -130,7 +133,16 @@ router.put('/:id', async (req: Request, res: Response) => {
       version: send.version
     });
 
-    // Broadcast event to production room
+    // Broadcast update via WebSocket
+    broadcastEntityUpdate({
+      io,
+      productionId: currentSend.productionId,
+      entityType: 'send',
+      entityId: send.id,
+      data: toCamelCase(send)
+    });
+
+    res.json(toCamelCase(send));    // Broadcast event to production room
     io.to(`production:${currentSend.productionId}`).emit('entity:updated', {
       entityType: 'send',
       entity: send,

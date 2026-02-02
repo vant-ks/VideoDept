@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
 
 const router = Router();
 
@@ -29,10 +30,13 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create connection
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...connection_data } = req.body;
+    const { userId, userName, lastModifiedBy, ...connection_data } = req.body;
     
     const connection = await prisma.connections.create({
-      data: connection_data
+      data: {
+        ...connection_data,
+        last_modified_by: lastModifiedBy || userId || null
+      }
     });
     
     // Record event
@@ -47,12 +51,13 @@ router.post('/', async (req: Request, res: Response) => {
       version: connection.version
     });
     
-    // Broadcast to production room
-    io.to(`production:${connection.productionId}`).emit('entity:created', {
+    // Broadcast creation via WebSocket
+    broadcastEntityCreated({
+      io,
+      productionId: connection.productionId,
       entityType: 'connection',
-      entity: connection,
-      userId,
-      userName
+      entityId: connection.id,
+      data: connection
     });
     
     res.status(201).json(connection);
@@ -66,7 +71,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { version: clientVersion, userId, userName, ...updates } = req.body;
+    const { version: clientVersion, userId, userName, lastModifiedBy, ...updates } = req.body;
     
     // Get current version for conflict detection
     const current = await prisma.connections.findUnique({
@@ -87,12 +92,12 @@ router.put('/:id', async (req: Request, res: Response) => {
       });
     }
     
-    // Update with incremented version
+    // Update with incremented version and metadata
     const connection = await prisma.connections.update({
       where: { id },
       data: {
         ...updates,
-        version: current.version + 1
+        ...prepareVersionedUpdate(lastModifiedBy || userId)
       }
     });
     
@@ -112,12 +117,14 @@ router.put('/:id', async (req: Request, res: Response) => {
       version: connection.version
     });
     
-    // Broadcast to production room
-    io.to(`production:${connection.productionId}`).emit('entity:updated', {
+    // Broadcast update via WebSocket
+    broadcastEntityUpdate({
+      io,
+      productionId: connection.productionId,
       entityType: 'connection',
-      entity: connection,
-      userId,
-      userName
+      entityId: connection.id,
+      data: connection
+    });
     });
     
     res.json(connection);

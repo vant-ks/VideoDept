@@ -4,6 +4,7 @@ import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
 
 const router = Router();
 
@@ -45,12 +46,13 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST create CCU
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { productionId, userId, userName, ...ccuData } = req.body;
+    const { productionId, userId, userName, lastModifiedBy, ...ccuData } = req.body;
     
     const ccu = await prisma.ccus.create({
       data: {
         ...ccuData,
         production_id: productionId,
+        last_modified_by: lastModifiedBy || userId || null,
         version: 1
       }
     });
@@ -68,15 +70,16 @@ router.post('/', async (req: Request, res: Response) => {
       version: ccu.version
     });
 
-    // Broadcast event to production room
-    io.to(`production:${productionId}`).emit('entity:created', {
+    // Broadcast creation via WebSocket
+    broadcastEntityCreated({
+      io,
+      productionId,
       entityType: 'ccu',
-      entity: ccu,
-      userId,
-      userName
+      entityId: ccu.id,
+      data: toCamelCase(ccu)
     });
 
-    res.status(201).json(ccu);
+    res.status(201).json(toCamelCase(ccu));
   } catch (error: any) {
     console.error('Failed to create CCU:', error);
     res.status(500).json({ error: 'Failed to create CCU' });
@@ -86,7 +89,7 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT update CCU
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, version: clientVersion, ...updateData } = req.body;
+    const { userId, userName, version: clientVersion, lastModifiedBy, ...updateData } = req.body;
     
     // Fetch current CCU state
     const currentCCU = await prisma.ccus.findUnique({
@@ -110,12 +113,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Calculate changes
     const changes = calculateDiff(currentCCU, updateData);
 
-    // Update CCU
+    // Update CCU with version increment and metadata
     const ccu = await prisma.ccus.update({
       where: { id: req.params.id },
       data: {
         ...updateData,
-        version: { increment: 1 }
+        ...prepareVersionedUpdate(lastModifiedBy || userId)
       }
     });
 
@@ -132,7 +135,16 @@ router.put('/:id', async (req: Request, res: Response) => {
       version: ccu.version
     });
 
-    res.json(ccu);
+    // Broadcast update via WebSocket
+    broadcastEntityUpdate({
+      io,
+      productionId: currentCCU.production_id,
+      entityType: 'ccu',
+      entityId: ccu.id,
+      data: toCamelCase(ccu)
+    });
+
+    res.json(toCamelCase(ccu));
   } catch (error: any) {
     console.error('Failed to update CCU:', error);
     res.status(500).json({ error: 'Failed to update CCU' });
