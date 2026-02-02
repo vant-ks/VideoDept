@@ -5,9 +5,13 @@ import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
+import { useProductionSync } from '@/hooks/useProductionSync';
 import { ServerConnection } from '@/components/ServerConnection';
 
 export default function Settings() {
+  // Enable real-time production sync
+  useProductionSync();
+  
   // Use new stores
   const equipmentLibrary = useEquipmentLibrary();
   const preferences = usePreferencesStore();

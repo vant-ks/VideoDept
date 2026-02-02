@@ -25,9 +25,13 @@ import { useProductionStore, initializeStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
+import { useProductionSync } from '@/hooks/useProductionSync';
 import LogService from '@/services/logService';
 
 const App: React.FC = () => {
+  // Enable real-time production sync globally
+  useProductionSync();
+  
   const { activeTab: oldActiveTab, accentColor: oldAccentColor, theme: oldTheme } = useProductionStore();
   const { activeProjectId, loadProject, syncWithAPI } = useProjectStore();
   const { theme, accentColor, activeTab, lastOpenedProjectId } = usePreferencesStore();

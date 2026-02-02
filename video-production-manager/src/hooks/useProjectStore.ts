@@ -33,6 +33,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import { logger, LogContext } from '@/utils/logger';
+import { useWebSocket, useProductionRoom } from './useWebSocket';
 
 interface ProjectStoreState {
   // Active Project
