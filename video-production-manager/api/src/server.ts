@@ -177,6 +177,30 @@ app.post('/api/server/stop-advertising', (req: Request, res: Response) => {
   }
 });
 
+// Restart server (graceful shutdown, tsx watch will restart)
+app.post('/api/server/restart', (req: Request, res: Response) => {
+  try {
+    console.log('🔄 Server restart requested');
+    res.json({ 
+      success: true, 
+      message: 'Server restarting...',
+      note: 'tsx watch will automatically restart the server'
+    });
+    
+    // Close database connections and shut down gracefully
+    setTimeout(async () => {
+      console.log('🛑 Shutting down for restart...');
+      await prisma.$disconnect();
+      if (discoveryService) {
+        discoveryService.stopAdvertising();
+      }
+      process.exit(0); // tsx watch will restart the process
+    }, 500);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Discover servers on LAN
 app.get('/api/server/discover', async (req: Request, res: Response) => {
   try {
