@@ -34,7 +34,7 @@ const App: React.FC = () => {
   
   const { activeTab: oldActiveTab, accentColor: oldAccentColor, theme: oldTheme } = useProductionStore();
   const { activeProjectId, loadProject, syncWithAPI } = useProjectStore();
-  const { theme, accentColor, activeTab, lastOpenedProjectId } = usePreferencesStore();
+  const { theme, accentColor, activeTab, lastOpenedProjectId, setLastOpenedProjectId } = usePreferencesStore();
   const { fetchFromAPI: fetchEquipment } = useEquipmentLibrary();
   const [isInitializing, setIsInitializing] = React.useState(true);
 
