@@ -1051,7 +1051,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   },
   
   // ===== CHECKLIST CRUD =====
-  addChecklistItem: (item) => {
+  addChecklistItem: async (item) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
@@ -1061,11 +1061,39 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       completed: false
     };
     
+    // Optimistic update
     get().updateActiveProject({
       checklist: [...activeProject.checklist, newItem]
     });
+    
+    // Save to API
+    try {
+      await apiClient.createChecklistItem(activeProject.production.id, {
+        id: newItem.id,
+        production_id: activeProject.production.id,
+        title: newItem.title || newItem.item,
+        category: newItem.category,
+        completed: newItem.completed,
+        more_info: newItem.moreInfo,
+        completion_note: newItem.completionNote,
+        assigned_to: newItem.assignedTo,
+        due_date: newItem.dueDate,
+        completion_date: newItem.completionDate,
+        completed_at: newItem.completedAt,
+        reference: newItem.reference,
+        days_before_show: newItem.daysBeforeShow,
+        updated_at: new Date().toISOString()
+      });
+      console.log('✅ Checklist item saved to database:', newItem.id);
+    } catch (error) {
+      console.error('Failed to save checklist item:', error);
+      // Revert optimistic update on error
+      get().updateActiveProject({
+        checklist: activeProject.checklist
+      });
+    }
+    
     get().recordChange('create', 'checklist', newItem.id, newItem);
-    console.log('Checklist item added:', newItem.id);
   },
   
   updateChecklistItem: (id, updates) => {
@@ -1117,19 +1145,43 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().recordChange('delete', 'checklist', id, {});
   },
   
-  toggleChecklistItem: (id) => {
+  toggleChecklistItem: async (id) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
+    const item = activeProject.checklist.find(i => i.id === id);
+    if (!item) return;
+    
+    const newCompleted = !item.completed;
+    const updates = {
+      completed: newCompleted,
+      completedAt: newCompleted ? Date.now() : item.completedAt
+    };
+    
+    // Optimistic update
     get().updateActiveProject({
-      checklist: activeProject.checklist.map(item =>
-        item.id === id
-          ? { ...item, completed: !item.completed, completedAt: !item.completed ? Date.now() : item.completedAt }
-          : item
+      checklist: activeProject.checklist.map(i =>
+        i.id === id ? { ...i, ...updates } : i
       )
     });
-    get().recordChange('update', 'checklist', id, { completed: 'toggled' });
-    console.log('Checklist item toggled:', id);
+    
+    // Save to API
+    try {
+      await apiClient.updateChecklistItem(id, {
+        completed: newCompleted,
+        completed_at: updates.completedAt,
+        updated_at: new Date().toISOString()
+      });
+      console.log('✅ Checklist item toggled in database:', id);
+    } catch (error) {
+      console.error('Failed to toggle checklist item:', error);
+      // Revert optimistic update on error
+      get().updateActiveProject({
+        checklist: activeProject.checklist
+      });
+    }
+    
+    get().recordChange('update', 'checklist', id, updates);
   },
   
   // ===== COMPUTER CRUD =====
