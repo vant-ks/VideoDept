@@ -158,7 +158,7 @@ export interface Input {
 /**
  * Computer source (subcategory: "Computers")
  * Extends BaseEntity with outputs (up to 4)
- * I/O Mode: direct (built-in outputs)
+ * I/O Mode: direct only
  */
 export interface Computer extends BaseEntity {
   category: 'Computers';
@@ -171,24 +171,20 @@ export interface Computer extends BaseEntity {
 /**
  * Media Server source (subcategory: "Media Servers")
  * Extends BaseEntity with outputs (up to 8)
- * I/O Mode: direct, card-based, or direct+card
+ * I/O Mode: direct only
  */
 export interface MediaServer extends BaseEntity {
   category: 'Media Servers';
   categoryMember: 'source';
   software: string; // From Settings group (like Computer Type)
-  ioMode: IOMode; // 'direct', 'card-based', or 'direct+card'
-  // Direct I/O
-  outputs?: Output[]; // Direct outputs (if ioMode is 'direct' or 'direct+card')
-  // Card-based I/O
-  slots?: Slot[]; // Available slots (if ioMode is 'card-based' or 'direct+card')
-  cards?: Card[]; // Installed cards (up to 8)
+  ioMode: 'direct'; // Media servers use direct I/O
+  outputs: Output[]; // Max 8 direct outputs
 }
 
 /**
  * CCU - Camera Control Unit (subcategory: "CCUs")
  * Extends BaseEntity with camera connection and SMPTE fiber
- * I/O Mode: direct, card-based, or direct+card
+ * I/O Mode: direct only
  */
 export interface CCU extends BaseEntity {
   category: 'CCUs';
@@ -196,12 +192,8 @@ export interface CCU extends BaseEntity {
   manufacturer: string; // From Equipment
   makeModel: string; // From Equipment
   connectedCamera?: string; // Camera ID
-  ioMode: IOMode; // 'direct', 'card-based', or 'direct+card'
-  // Direct I/O
-  outputs?: Output[]; // Direct outputs (if ioMode is 'direct' or 'direct+card')
-  // Card-based I/O
-  slots?: Slot[]; // Available slots (if ioMode is 'card-based' or 'direct+card')
-  cards?: Card[]; // Installed cards (up to 8)
+  ioMode: 'direct'; // CCUs use direct I/O
+  outputs: Output[]; // Max 8 direct outputs
   smpteCableLength?: number; // In feet
 }
 
@@ -521,13 +513,20 @@ export type IPCategory =
 //   - CamSwitcher extends BaseEntity (category: "Cam Switcher") with inputs and outputs
 //   - Router extends BaseEntity (category: "Routers") with inputs and outputs
 // Signal flow devices sit in the middle and manage traffic from sources to sends.
+// I/O Mode: Vision Switchers, Cam Switchers, and Routers support all IOMode options:
+//   - 'direct' for fixed I/O devices
+//   - 'card-based' for fully modular devices
+//   - 'direct+card' for devices with built-in I/O plus expansion slots
 // ============================================================================
 
 export interface Router {
   id: string;
   name: string;
+  ioMode?: IOMode; // TODO: Add when refactoring to BaseEntity
   inputs: RouterIO[];
   outputs: RouterIO[];
+  slots?: Slot[]; // TODO: Add when refactoring to BaseEntity
+  cards?: Card[]; // TODO: Add when refactoring to BaseEntity
 }
 
 export interface RouterIO {
