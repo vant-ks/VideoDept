@@ -132,16 +132,16 @@ export function useProductionSync() {
         id: data.id,
         item: data.title,
         title: data.title,
-        category: data.category,
+        category: data.category || 'NOTES',
         completed: data.completed || false,
+        completedAt: data.completed_at,
         moreInfo: data.more_info,
         completionNote: data.completion_note,
-        assignedTo: data.assigned_to,
+        daysBeforeShow: data.days_before_show,
         dueDate: data.due_date,
         completionDate: data.completion_date,
-        completedAt: data.completed_at,
-        reference: data.reference,
-        daysBeforeShow: data.days_before_show
+        assignedTo: data.assigned_to,
+        reference: data.reference
       };
       
       // Check if item already exists (prevent duplicates)
@@ -176,16 +176,16 @@ export function useProductionSync() {
         id: data.id,
         item: data.title,
         title: data.title,
-        category: data.category,
+        category: data.category || 'NOTES',
         completed: data.completed,
+        completedAt: data.completed_at,
         moreInfo: data.more_info,
         completionNote: data.completion_note,
-        assignedTo: data.assigned_to,
+        daysBeforeShow: data.days_before_show,
         dueDate: data.due_date,
         completionDate: data.completion_date,
-        completedAt: data.completed_at,
-        reference: data.reference,
-        daysBeforeShow: data.days_before_show
+        assignedTo: data.assigned_to,
+        reference: data.reference
       };
       
       const updatedProject = {

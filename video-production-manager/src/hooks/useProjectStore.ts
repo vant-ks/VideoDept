@@ -209,9 +209,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                 item: item.title, // Display text
                 title: item.title, // Database field
                 completed: item.completed || false,
+                completedAt: item.completed_at,
                 moreInfo: item.more_info,
+                completionNote: item.completion_note,
                 daysBeforeShow: item.days_before_show,
-                assignedTo: item.assigned_to
+                dueDate: item.due_date,
+                completionDate: item.completion_date,
+                assignedTo: item.assigned_to,
+                reference: item.reference
               })),
               cameras: cameras || [],
               ccus: ccus || []
@@ -302,9 +307,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               item: item.title, // Display text
               title: item.title, // Database field
               completed: item.completed || false,
+              completedAt: item.completed_at,
               moreInfo: item.more_info,
+              completionNote: item.completion_note,
               daysBeforeShow: item.days_before_show,
-              assignedTo: item.assigned_to
+              dueDate: item.due_date,
+              completionDate: item.completion_date,
+              assignedTo: item.assigned_to,
+              reference: item.reference
             })),
             cameras: cameras || [],
             ccus: ccus || [],
