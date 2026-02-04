@@ -65,12 +65,12 @@ export const Projects: React.FC = () => {
         modified: Date.now(),
         production: {
           id: production.id,
-          showName: production.show_name || production.name,
+          showName: production.showName || production.name,
           client: production.client || '',
           venue: production.venue || 'TBD',
           room: production.room || '',
-          loadIn: production.load_in || new Date().toISOString().split('T')[0],
-          loadOut: production.load_out || new Date().toISOString().split('T')[0],
+          loadIn: production.loadIn || new Date().toISOString().split('T')[0],
+          loadOut: production.loadOut || new Date().toISOString().split('T')[0],
         },
         sources: [],
         sends: [],
@@ -109,12 +109,12 @@ export const Projects: React.FC = () => {
           modified: Date.now(),
           production: {
             ...s.production,
-            showName: production.show_name || production.name,
+            showName: production.showName || production.name,
             client: production.client || s.production.client,
             venue: production.venue || s.production.venue,
             room: production.room || s.production.room,
-            loadIn: production.load_in || s.production.loadIn,
-            loadOut: production.load_out || s.production.loadOut,
+            loadIn: production.loadIn || s.production.loadIn,
+            loadOut: production.loadOut || s.production.loadOut,
           }
         };
       }));
@@ -178,6 +178,24 @@ export const Projects: React.FC = () => {
         id: `chk-${Date.now()}-${index}`,
         completed: false,
       }));
+      
+      // DEBUG: Check form values before creating production
+      console.log('🔍 Form values:', {
+        newShowLoadIn,
+        newShowLoadOut,
+        newShowLoadInType: typeof newShowLoadIn,
+        newShowLoadOutType: typeof newShowLoadOut,
+        newShowLoadInTruthy: !!newShowLoadIn,
+        newShowLoadOutTruthy: !!newShowLoadOut
+      });
+      
+      // DEBUG: Check what we're about to send
+      console.log('🔍 Creating production with checklist:', {
+        checklistCount: initialChecklist.length,
+        firstItemKeys: Object.keys(initialChecklist[0] || {}),
+        firstItemSample: initialChecklist[0],
+        hasDaysBeforeShow: initialChecklist.filter(i => i.daysBeforeShow).length
+      });
 
       const id = await createProject({
         production: {

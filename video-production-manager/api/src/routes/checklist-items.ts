@@ -32,8 +32,22 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, lastModifiedBy, ...checklistItemData } = req.body;
     
+    // DEBUG: Log what we received BEFORE any transformation
+    console.log('📥 RAW request body:', {
+      rawBody: JSON.stringify(req.body, null, 2).substring(0, 500),
+      daysBeforeShow: checklistItemData.daysBeforeShow,
+      days_before_show: checklistItemData.days_before_show,
+      allKeys: Object.keys(checklistItemData)
+    });
+    
     // Convert camelCase to snake_case and prepare data for Prisma
     const snakeCaseData = toSnakeCase(checklistItemData);
+    
+    // DEBUG: Log what we received and what we're sending to database
+    console.log('📥 After transform:', {
+      days_before_show: snakeCaseData.days_before_show,
+      allSnakeKeys: Object.keys(snakeCaseData).filter(k => k.includes('_'))
+    });
     
     // Ensure updated_at is a valid DateTime
     const createData = {
@@ -44,6 +58,19 @@ router.post('/', async (req: Request, res: Response) => {
     
     const checklistItem = await prisma.checklist_items.create({
       data: createData
+    });
+    
+    // DEBUG: Log what came back from database
+    console.log('📤 FROM DATABASE:', {
+      days_before_show: checklistItem.days_before_show,
+      allDbKeys: Object.keys(checklistItem)
+    });
+    
+    // DEBUG: Log what we'll broadcast
+    const camelCaseItem = toCamelCase(checklistItem);
+    console.log('📡 WILL BROADCAST:', {
+      daysBeforeShow: camelCaseItem.daysBeforeShow,
+      allCamelKeys: Object.keys(camelCaseItem)
     });
     
     // Record event
@@ -109,14 +136,23 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version and metadata
+    // If completing, set completed_at timestamp; if uncompleting, clear it
+    const updateData: any = {
+      ...snakeCaseUpdates,
+      version: { increment: 1 },
+      last_modified_by: lastModifiedBy || userId || null,
+      updated_at: new Date()
+    };
+    
+    // Server-side timestamp management for completion
+    // completed_at is BigInt (Unix timestamp in milliseconds), not DateTime
+    if ('completed' in snakeCaseUpdates) {
+      updateData.completed_at = snakeCaseUpdates.completed ? BigInt(Date.now()) : null;
+    }
+    
     const checklistItem = await prisma.checklist_items.update({
       where: { id },
-      data: {
-        ...snakeCaseUpdates,
-        version: { increment: 1 },
-        last_modified_by: lastModifiedBy || userId || null,
-        updated_at: new Date()
-      }
+      data: updateData
     });
     
     // Calculate diff and record event

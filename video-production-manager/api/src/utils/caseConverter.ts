@@ -19,12 +19,18 @@ export function toCamelCase(obj: any, entityType?: string): any {
     return obj;
   }
   
+  // Handle BigInt - convert to number for JSON serialization
+  if (typeof obj === 'bigint') {
+    return Number(obj);
+  }
+  
   if (Array.isArray(obj)) {
     return obj.map(item => toCamelCase(item, entityType));
   }
   
+  // Handle Date - convert to ISO string for frontend
   if (obj instanceof Date) {
-    return obj;
+    return obj.toISOString();
   }
   
   if (typeof obj === 'object') {
@@ -49,12 +55,23 @@ export function toSnakeCase(obj: any, entityType?: string): any {
     return obj;
   }
   
+  // Handle BigInt - convert to number
+  if (typeof obj === 'bigint') {
+    return Number(obj);
+  }
+  
   if (Array.isArray(obj)) {
     return obj.map(item => toSnakeCase(item, entityType));
   }
   
+  // Handle Date - keep as Date for Prisma
   if (obj instanceof Date) {
     return obj;
+  }
+  
+  // Handle ISO date strings from frontend - convert to Date for Prisma
+  if (typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(obj)) {
+    return new Date(obj);
   }
   
   if (typeof obj === 'object') {

@@ -43,9 +43,9 @@ export function useProductionSync() {
       }
 
       console.log('📥 Received production update from another user:', {
-        from: updatedProduction.lastModifiedBy || updatedProduction.last_modified_by,
+        from: updatedProduction.lastModifiedBy,
         version: updatedProduction.version,
-        fieldVersions: updatedProduction.field_versions,
+        fieldVersions: updatedProduction.fieldVersions,
         productionId: updatedProduction.id
       });
 
@@ -87,14 +87,14 @@ export function useProductionSync() {
         production: {
           ...currentProject.production,
           client: updatedProduction.client,
-          showName: updatedProduction.show_name || updatedProduction.name,
+          showName: updatedProduction.showName || updatedProduction.name,
           venue: updatedProduction.venue,
           room: updatedProduction.room,
-          loadIn: updatedProduction.load_in,
-          loadOut: updatedProduction.load_out,
-          showInfoUrl: updatedProduction.show_info_url,
+          loadIn: updatedProduction.loadIn,
+          loadOut: updatedProduction.loadOut,
+          showInfoUrl: updatedProduction.showInfoUrl,
           status: updatedProduction.status,
-          fieldVersions: updatedProduction.field_versions
+          fieldVersions: updatedProduction.fieldVersions
         },
         modified: Date.now()
       };
@@ -121,26 +121,27 @@ export function useProductionSync() {
 
     // Subscribe to entity creation events
     const unsubscribeEntityCreated = subscribe('checklist-item:created', async (data: any) => {
-      console.log('📥 Received checklist-item:created', data);
+      console.log('📥 Received checklist-item:created', data.id);
       const store = useProjectStore.getState();
       const currentProject = store.activeProject;
       
       if (!currentProject || currentProject.production.id !== productionId) return;
       
       // Add the new item to checklist
+      // CRITICAL: API already sends camelCase via toCamelCase(), don't map from snake_case
       const newItem = {
         id: data.id,
         item: data.title,
         title: data.title,
         category: data.category || 'NOTES',
         completed: data.completed || false,
-        completedAt: data.completed_at,
-        moreInfo: data.more_info,
-        completionNote: data.completion_note,
-        daysBeforeShow: data.days_before_show,
-        dueDate: data.due_date,
-        completionDate: data.completion_date,
-        assignedTo: data.assigned_to,
+        completedAt: data.completedAt,
+        moreInfo: data.moreInfo,
+        completionNote: data.completionNote,
+        daysBeforeShow: data.daysBeforeShow,
+        dueDate: data.dueDate,
+        completionDate: data.completionDate,
+        assignedTo: data.assignedTo,
         reference: data.reference
       };
       
@@ -172,19 +173,20 @@ export function useProductionSync() {
       
       if (!currentProject || currentProject.production.id !== productionId) return;
       
+      // CRITICAL: API already sends camelCase via toCamelCase(), don't map from snake_case
       const updatedItem = {
         id: data.id,
         item: data.title,
         title: data.title,
         category: data.category || 'NOTES',
         completed: data.completed,
-        completedAt: data.completed_at,
-        moreInfo: data.more_info,
-        completionNote: data.completion_note,
-        daysBeforeShow: data.days_before_show,
-        dueDate: data.due_date,
-        completionDate: data.completion_date,
-        assignedTo: data.assigned_to,
+        completedAt: data.completedAt,
+        moreInfo: data.moreInfo,
+        completionNote: data.completionNote,
+        daysBeforeShow: data.daysBeforeShow,
+        dueDate: data.dueDate,
+        completionDate: data.completionDate,
+        assignedTo: data.assignedTo,
         reference: data.reference
       };
       

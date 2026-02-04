@@ -73,10 +73,21 @@ export const Checklist: React.FC = () => {
   
   // DEBUG: Log checklist data
   React.useEffect(() => {
+    const itemsWithDays = checklist?.filter(item => item.daysBeforeShow);
+    const itemsWithoutDays = checklist?.filter(item => !item.daysBeforeShow);
     console.log('🔍 Checklist page render:', {
       hasActiveProject: !!activeProject,
       checklistLength: checklist?.length,
-      checklistSample: checklist?.[0]
+      checklistSample: checklist?.[0],
+      itemsWithDays: itemsWithDays?.length || 0,
+      itemsWithoutDays: itemsWithoutDays?.length || 0,
+      firstItemWithDays: itemsWithDays?.[0],
+      firstItemSample: checklist?.[0] ? {
+        id: checklist[0].id,
+        title: checklist[0].item,
+        daysBeforeShow: checklist[0].daysBeforeShow,
+        category: checklist[0].category
+      } : null
     });
   }, [checklist, activeProject]);
   
@@ -186,11 +197,14 @@ export const Checklist: React.FC = () => {
     } else if (selectedDefaultItem) {
       const defaultItem = defaultChecklistItems[parseInt(selectedDefaultItem)];
       if (defaultItem) {
+        // CRITICAL: Build clean object, don't spread (may have snake_case)
         addChecklistItem({ 
-          ...defaultItem, 
           category: addCategory,
+          item: defaultItem.item || defaultItem.title,
+          title: defaultItem.title || defaultItem.item,
           moreInfo: newItemMoreInfo.trim() || defaultItem.moreInfo,
-          daysBeforeShow: newItemDays !== undefined ? newItemDays : defaultItem.daysBeforeShow
+          daysBeforeShow: newItemDays !== undefined ? newItemDays : defaultItem.daysBeforeShow,
+          reference: defaultItem.reference
         });
       } else {
         return;
@@ -215,9 +229,10 @@ export const Checklist: React.FC = () => {
       setCompletionNote('');
       setShowCompletionModal(true);
     } else {
-      // If unchecking, just toggle
+      // If unchecking, just toggle (no category collapse)
       toggleChecklistItem(itemId);
     }
+    // Note: Removed category collapse behavior that was triggered by completion
   };
 
   const handleSaveCompletion = () => {

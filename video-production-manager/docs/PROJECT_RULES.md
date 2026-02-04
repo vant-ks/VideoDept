@@ -1,10 +1,124 @@
 # Video Production Manager - Project Rules
 
 **Project:** VideoDept Video Production Manager  
-**Last Updated:** January 30, 2026  
+**Last Updated:** February 4, 2026  
 **Maintained By:** Kevin @ GJS Media
 
 This document contains **project-specific** rules and conventions for this codebase. For universal AI agent protocols, see the symlinked `AI_AGENT_PROTOCOL.md` or `~/Dropbox (Personal)/Development/_Utilities/AI_AGENT_PROTOCOL.md`.
+
+---
+
+## 🎯 MISSION STATEMENT - READ BEFORE CODING
+
+**Every bug we've encountered traces back to violating one of these core principles:**
+
+### The Five Pillars of Data Integrity
+
+1. **TRANSFORMS ARE TRUTH** → Never manually convert types. Use `toCamelCase()`/`toSnakeCase()` everywhere.
+   - See: [Data Flow Architecture](#data-flow-architecture---critical-patterns)
+   - Covers: BigInt serialization, DateTime handling, snake_case ↔ camelCase
+   - **SERVER-SIDE TRANSFORMATION CONTRACT**: API always sends camelCase (via toCamelCase), frontend always receives camelCase
+
+2. **CACHE IS NOT TRUTH** → Always verify cached data with API. Database is source of truth.
+   - See: [IndexedDB Cache Management](#indexeddb-cache-management---critical-patterns)
+   - Covers: Browser B empty state, dual-path loading, cache invalidation
+
+3. **SERVER OWNS TIME** → Client never sends timestamps. Server sets `updated_at`, `completed_at`, etc.
+   - See: [Multi-User Conflict Handling](#multi-user-conflict-handling---critical-patterns)
+   - Covers: Clock skew, Prisma validation errors, race conditions
+
+4. **SCHEMA DRIVES SEED** → Never add seed data before Prisma migration. Schema → Migration → Seed → Types → Routes.
+   - See: [Seed Data Integrity](#seed-data-integrity---critical-patterns)
+   - Covers: Missing fields, silent Prisma drops, undefined values
+
+5. **FETCH ALL ENTITIES** → Loading production must fetch ALL related data (checklist, sources, sends, cameras, CCUs) in BOTH cached and fresh paths.
+   - See: [Production Loading - Dual Path Pattern](#production-loading---dual-path-pattern)
+   - Covers: Empty checklists, missing entities, field mapping consistency
+
+### Quick Diagnostic Checklist
+
+**When you see an error:**
+- 🔥 "Do not know how to serialize BigInt" → Check transform functions (#1)
+- 🔥 "Browser B shows no items" → Check entity fetching in loadProject (#5)
+- 🔥 "Field is undefined" → Check schema → seed order (#4) OR check WebSocket mapping (#1)
+- 🔥 "Version conflict" or "Prisma validation error" → Check timestamp management (#3)
+- 🔥 "Stale data after deletion" → Check cache invalidation (#2)
+- 🔥 "WebSocket not syncing" → Check room joining and broadcast pattern
+- 🔥 "Field missing in one browser" → Check ALL THREE mapping locations (#5)
+- 🔥 "Item deleted but comes back after refresh" → Check if CRUD calls API + updates cache + broadcasts
+- 🔥 "Field undefined after WebSocket update" → Check if listener maps from snake_case when API sends camelCase
+
+**Before writing ANY code that touches data:**
+1. Is this a new entity? → Follow schema → migration → seed → types → routes order
+2. Does this read/write database? → Use transforms, never manual conversions
+3. Does this cache data? → Add invalidation logic
+4. Does this set timestamps? → Only on server, never client
+5. Does this load production? → Fetch ALL entities in parallel
+6. Does this delete/update entity? → API call + cache update + WebSocket broadcast
+
+### Self-Audit Commands
+
+**Before committing, run these checks:**
+
+```bash
+# Find snake_case in frontend API calls (VIOLATION: Frontend sending snake_case)
+cd video-production-manager
+grep -rn "apiClient\.\(create\|update\)" src/hooks src/services src/pages | grep -E "(_id|_in|_out|_info|_note|_to|_date|_at|_by|_show)"
+
+# Expected: No matches (all API calls should send camelCase)
+# If matches found: Fix by converting to camelCase, let API transform
+
+# Find manual BigInt conversions (VIOLATION: Should use toCamelCase)
+grep -rn "Number(.*BigInt\|BigInt(.*Number" api/src/routes
+
+# Expected: No matches (transforms handle this)
+
+# Find manual snake_case → camelCase mapping (OK in specific places)
+grep -rn "item\.\(production_id\|days_before_show\)" src/hooks/useProjectStore.ts
+
+# Expected: Only in loadProject mapping sections (lines ~210, ~310)
+# If found in API calls: VIOLATION
+
+# Find WebSocket broadcasts without toCamelCase
+grep -rn "broadcast.*Entity" api/src/routes | grep -v "toCamelCase"
+
+# Expected: All broadcast calls should use toCamelCase(data)
+```
+
+**Grep Pattern Quick Reference:**
+```bash
+# Snake case patterns to avoid in frontend:
+production_id|load_in|load_out|show_name|more_info|completion_note|
+assigned_to|due_date|completed_at|days_before_show|updated_at|created_at
+
+# Where they're ALLOWED:
+# - api/src/routes/*.ts receiving from req.body (will be transformed)
+# - src/hooks/useProjectStore.ts loadProject() mapping API responses (API returns snake_case before transform)
+# - api/prisma/schema.prisma (database field names)
+
+# Where they're FORBIDDEN:
+# - src/hooks/useProjectStore.ts API calls (create/update operations)
+# - src/services/apiClient.ts method parameters
+# - src/pages/*.tsx API interactions
+# - src/hooks/useProductionSync.ts WebSocket listeners (API broadcasts camelCase via toCamelCase)
+```
+
+**Common Mistake - WebSocket Mapping:**
+```typescript
+// ❌ WRONG - API already sends camelCase, don't map from snake_case
+subscribe('checklist-item:created', (data) => {
+  const item = {
+    daysBeforeShow: data.days_before_show  // undefined!
+  };
+});
+
+// ✅ CORRECT - API broadcasts toCamelCase(item), use camelCase
+subscribe('checklist-item:created', (data) => {
+  const item = {
+    daysBeforeShow: data.daysBeforeShow  // works!
+  };
+});
+```
 
 ---
 
@@ -199,6 +313,1143 @@ Video Production Info*.xlsx
 ---
 
 ## 🛠️ Code Standards
+
+### Data Flow Architecture - CRITICAL PATTERNS
+
+**Learned from Checklist Item Debugging (Feb 2026):**
+
+#### Architectural Decision: Server-Side Transformation
+
+**Why transform on server (not client)?**
+1. ✅ **Single source of truth** - One place to fix bugs
+2. ✅ **WebSocket efficiency** - Broadcast once (transformed), works for all clients
+3. ✅ **Lower client CPU** - Important for mobile/low-powered devices
+4. ✅ **Consistent format** - All clients receive identical camelCase data
+5. ✅ **Industry standard** - REST APIs return client-friendly formats
+
+**Why NOT client-side transform?**
+- ❌ Every WebSocket listener must transform (N routes × M clients × P listeners)
+- ❌ More bug surface area (inconsistent implementations)
+- ❌ More client CPU usage
+- ❌ Harder to debug (which client transformed wrong?)
+
+**The Contract:**
+```
+Client → Server: Always send camelCase
+Server → Client: Always receive camelCase (transformed by server)
+Database: Always stores snake_case
+```
+
+#### The Four-Layer Data Flow
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Layer 1: PostgreSQL Database (Source of Truth)         │
+│   - snake_case fields                                   │
+│   - BigInt for timestamps (Unix milliseconds)           │
+│   - DateTime for calendar dates                         │
+│   - Prisma types (NOT JSON-serializable)                │
+└──────────────────┬──────────────────────────────────────┘
+                   ↓ Prisma Query
+┌──────────────────┴──────────────────────────────────────┐
+│ Layer 2: Express API Routes (TRANSFORMATION LAYER)      │
+│   - Receives Prisma objects with special types          │
+│   - Incoming: req.body (camelCase) → toSnakeCase()      │
+│   - Outgoing: Prisma → toCamelCase() → res.json()       │
+│   - WebSocket: Prisma → toCamelCase() → io.emit()       │
+│   - Converts: BigInt→number, DateTime→ISO string        │
+└──────────────────┬──────────────────────────────────────┘
+                   ↓ HTTP/WebSocket (JSON - camelCase)
+┌──────────────────┴──────────────────────────────────────┐
+│ Layer 3: Frontend TypeScript (READY TO USE)             │
+│   - camelCase fields (no transform needed!)             │
+│   - number for timestamps                               │
+│   - string (ISO) for dates                              │
+│   - API calls: Send camelCase → Receive camelCase       │
+│   - WebSocket: Receive camelCase (already transformed!) │
+└──────────────────┬──────────────────────────────────────┘
+                   ↓ State Management
+┌──────────────────┴──────────────────────────────────────┐
+│ Layer 4: IndexedDB/LocalStorage (Cache)                 │
+│   - Same format as Layer 3 (camelCase)                  │
+│   - Invalidated on production changes                   │
+│   - NOT source of truth                                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Transform Function Design Rules
+
+**CRITICAL:** All Prisma responses MUST pass through transform functions before:
+- Returning from API routes
+- Broadcasting via WebSocket
+- Logging to events table
+- Storing in any JSON format
+
+**The caseConverter.ts MUST:**
+
+```typescript
+// 1. Handle Prisma-specific types
+export function toCamelCase(obj: any): any {
+  // BigInt (from Prisma) → number (for JSON)
+  if (typeof obj === 'bigint') return Number(obj);
+  
+  // DateTime (from Prisma) → ISO string (for JSON)
+  if (obj instanceof Date) return obj.toISOString();
+  
+  // Recursively transform nested objects/arrays
+  // Convert snake_case keys to camelCase
+}
+
+export function toSnakeCase(obj: any): any {
+  // number → number (BigInt conversion happens in Prisma)
+  if (typeof obj === 'bigint') return Number(obj);
+  
+  // Date → Date (keep for Prisma)
+  if (obj instanceof Date) return obj;
+  
+  // ISO string → Date (for Prisma DateTime fields)
+  if (typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(obj)) {
+    return new Date(obj);
+  }
+  
+  // Recursively transform nested objects/arrays
+  // Convert camelCase keys to snake_case
+}
+```
+
+#### API Route Pattern - ALWAYS Follow This
+
+```typescript
+// ✅ CORRECT Pattern
+router.get('/production/:id', async (req, res) => {
+  const items = await prisma.table.findMany({ where: {...} });
+  res.json(toCamelCase(items)); // ALWAYS transform before sending
+});
+
+router.post('/', async (req, res) => {
+  const data = toSnakeCase(req.body); // ALWAYS transform incoming data
+  const item = await prisma.table.create({ data });
+  res.json(toCamelCase(item)); // ALWAYS transform before sending
+});
+
+router.put('/:id', async (req, res) => {
+  const data = toSnakeCase(req.body);
+  const item = await prisma.table.update({ where: {id}, data });
+  
+  // Broadcast to WebSocket
+  broadcastEntityUpdate({
+    data: toCamelCase(item) // ALWAYS transform before broadcast
+  });
+  
+  res.json(toCamelCase(item)); // ALWAYS transform before sending
+});
+
+// ❌ WRONG Pattern
+router.get('/production/:id', async (req, res) => {
+  const items = await prisma.table.findMany({ where: {...} });
+  res.json(items); // ERROR: BigInt/DateTime not JSON-serializable
+});
+```
+
+#### Common Type Pitfalls
+
+**BigInt Fields:**
+- Database: `BigInt` (Prisma type)
+- API Response: `number` (via toCamelCase)
+- Frontend: `number` (TypeScript)
+- **Never manually convert** - let transform functions handle it
+
+**DateTime Fields:**
+- Database: `DateTime` (Prisma type)
+- API Response: `string` (ISO format via toCamelCase)
+- Frontend: `string` (TypeScript)
+- **Never manually convert** - let transform functions handle it
+
+**Timestamps vs Dates:**
+- Use `BigInt` for event timestamps (e.g., `completed_at`)
+- Use `DateTime` for calendar dates (e.g., `due_date`)
+- Frontend treats both as primitives (number/string)
+
+#### WebSocket Broadcast Rules
+
+**ALWAYS use transform functions:**
+
+```typescript
+// ✅ CORRECT
+const item = await prisma.checklist_items.create({ data });
+io.to(room).emit('item:created', toCamelCase(item));
+
+// ❌ WRONG - BigInt causes serialization error
+const item = await prisma.checklist_items.create({ data });
+io.to(room).emit('item:created', item); // ERROR
+```
+
+#### Field Mapping Consistency
+
+**For every entity, maintain:**
+
+1. **Database Schema** (snake_case):
+```prisma
+model checklist_items {
+  completed_at BigInt?
+  due_date DateTime?
+}
+```
+
+2. **Frontend Type** (camelCase):
+```typescript
+interface ChecklistItem {
+  completedAt?: number;
+  dueDate?: string;
+}
+```
+
+3. **Transform Verification:**
+```typescript
+// Database field → Frontend field
+completed_at → completedAt (BigInt → number)
+due_date → dueDate (DateTime → string)
+```
+
+**Never mix naming conventions within a layer.**
+
+#### Server-Side Timestamp Management
+
+**Pattern for completion/modification times:**
+
+```typescript
+// ✅ CORRECT: Server sets all timestamps
+router.put('/:id', async (req, res) => {
+  const { completed, ...otherFields } = toSnakeCase(req.body);
+  
+  const updateData: any = { ...otherFields };
+  
+  // Server manages timestamps based on state
+  if (completed !== undefined) {
+    updateData.completed = completed;
+    updateData.completed_at = completed ? BigInt(Date.now()) : null;
+  }
+  
+  updateData.updated_at = new Date(); // Server always sets this
+  
+  const item = await prisma.table.update({ where: {id}, data: updateData });
+  res.json(toCamelCase(item));
+});
+
+// ❌ WRONG: Client sends timestamps
+// Client sends: { completed: true, completedAt: 1234567890 }
+// Problems: clock skew, client manipulation, duplicate timestamps
+```
+
+**Why:**
+- Single source of truth (server clock)
+- No client clock skew issues
+- Atomic timestamp with state change
+- Server validation of state transitions
+
+#### Testing Pattern for Data Flow
+
+**Before committing any entity CRUD:**
+
+```bash
+# 1. Test GET endpoint returns valid JSON
+curl http://localhost:3010/api/entities/production/ID | jq .
+# Verify: no "Do not know how to serialize BigInt" errors
+
+# 2. Test POST creates and broadcasts without errors
+# Check API logs for broadcast success
+
+# 3. Test PUT updates and broadcasts without errors
+# Check API logs for broadcast success
+
+# 4. Open two browsers, verify real-time sync works
+# Check browser consoles for WebSocket message receipt
+```
+
+#### Debugging Checklist
+
+**When you see "Do not know how to serialize BigInt":**
+
+1. ✅ Check if route uses `toCamelCase()` before `res.json()`
+2. ✅ Check if WebSocket broadcast uses `toCamelCase()`
+3. ✅ Check if event logging converts data before `JSON.stringify()`
+4. ✅ Verify `caseConverter.ts` handles BigInt in recursive calls
+5. ✅ Look for manual BigInt conversions (remove them - redundant)
+
+**When fields don't sync between browsers:**
+
+1. ✅ Verify field exists in Prisma schema
+2. ✅ Verify field mapping in `toCamelCase()` / `toSnakeCase()`
+3. ✅ Check WebSocket listener maps the field
+4. ✅ Check API route includes field in response
+5. ✅ Verify frontend type includes the field
+
+#### Future Entity Development
+
+**For ANY new entity with Prisma:**
+
+1. **Define Schema** with correct types:
+   - Timestamps → `BigInt?`
+   - Dates → `DateTime?`
+   - Foreign keys → `String` with `@relation`
+
+2. **Generate Route** ensuring:
+   - GET uses `toCamelCase(result)`
+   - POST/PUT use `toSnakeCase(input)` and `toCamelCase(result)`
+   - Broadcasts use `toCamelCase(data)`
+
+3. **Define Frontend Type** matching:
+   - BigInt → `number?`
+   - DateTime → `string?`
+   - All snake_case → camelCase
+
+4. **Test Data Flow:**
+   - Create → appears in other browsers
+   - Update → syncs immediately
+   - Delete → removes from all browsers
+   - No console errors
+
+5. **Verify Transform Coverage:**
+   - API responses are valid JSON
+   - WebSocket messages are valid JSON
+   - No manual type conversions in routes
+
+---
+
+### IndexedDB Cache Management - CRITICAL PATTERNS
+
+**Learned from "Browser B can't see checklist items" bug (Feb 2026):**
+
+#### The Cache Problem
+
+```
+Timeline of the Bug:
+1. Browser A creates production → saves to DB → caches in IndexedDB
+2. Browser B opens same production → loads from its OWN IndexedDB cache
+3. Browser B's cache is EMPTY (never saw the production before)
+4. Result: Browser B shows production but NO entities (checklist, sources, etc.)
+```
+
+**Root Cause:** Production metadata cached separately from entity data.
+
+#### Cache Architecture Rules
+
+**CRITICAL: Cache is NOT the source of truth**
+
+```typescript
+// ❌ WRONG: Load from cache without verification
+const loadProduction = (id) => {
+  const cached = await projectDB.getProduction(id);
+  if (cached) {
+    setState(cached); // BUG: May be stale or incomplete
+    return;
+  }
+  // Fetch from API only if cache miss
+}
+
+// ✅ CORRECT: Cache + API validation pattern
+const loadProduction = async (id) => {
+  // Try cache first for speed
+  const cached = await projectDB.getProduction(id);
+  
+  if (cached) {
+    // Show cached data immediately (optimistic)
+    setState(cached);
+    
+    // But ALWAYS verify with API
+    const fresh = await apiClient.getProduction(id);
+    
+    if (fresh.version > cached.version) {
+      // Cache stale - update it
+      await projectDB.saveProduction(fresh);
+      setState(fresh);
+    }
+  } else {
+    // No cache - fetch everything from API
+    const production = await apiClient.getProduction(id);
+    
+    // Fetch ALL entity data in parallel
+    const [checklist, sources, sends, cameras, ccus] = await Promise.all([
+      apiClient.getChecklistItems(id),
+      apiClient.getSources(id),
+      apiClient.getSends(id),
+      apiClient.getCameras(id),
+      apiClient.getCCUs(id)
+    ]);
+    
+    const fullData = { production, checklist, sources, sends, cameras, ccus };
+    
+    // Save to cache
+    await projectDB.saveProduction(fullData);
+    setState(fullData);
+  }
+}
+```
+
+#### Cache Invalidation Rules
+
+**When to clear cache:**
+
+1. **Production deleted** → Clear from cache immediately
+2. **User logs out** → Clear all caches
+3. **Global reset** → Clear all caches via WebSocket broadcast
+4. **Entity created/updated/deleted** → Update cache incrementally
+5. **Version conflict** → Clear and reload from API
+
+**Implementation:**
+
+```typescript
+// ✅ CORRECT: Delete clears cache
+const deleteProduction = async (id) => {
+  await apiClient.deleteProduction(id);
+  await projectDB.deleteProduction(id); // Clear from cache
+  
+  // If this was the last opened production, clear that too
+  if (lastOpenedProjectId === id) {
+    setLastOpenedProjectId(null);
+  }
+}
+
+// ✅ CORRECT: Global reset clears all caches
+socket.on('app:global-reset', async () => {
+  localStorage.clear();
+  await projectDB.clearAll();
+  window.location.href = '/projects';
+});
+```
+
+#### Production Loading - Dual Path Pattern
+
+**The Problem We Had:**
+
+```typescript
+// Original loadProject had TWO paths with DIFFERENT logic:
+
+// Path 1: Cached production
+if (cachedProject) {
+  setState(cachedProject);
+  // BUG: Didn't fetch entity data!
+  return;
+}
+
+// Path 2: Fresh production
+const production = await api.getProduction(id);
+const checklist = await api.getChecklistItems(id); // Only in Path 2!
+setState({ production, checklist });
+```
+
+**Result:** Browser A (created production) had full data. Browser B (loaded from cache) had no entities.
+
+**The Fix:**
+
+```typescript
+// ✅ CORRECT: BOTH paths fetch entity data
+const loadProject = async (id) => {
+  let production;
+  
+  // Get production metadata
+  const cached = await projectDB.getProduction(id);
+  if (cached) {
+    production = cached.production;
+  } else {
+    production = await apiClient.getProduction(id);
+  }
+  
+  // ALWAYS fetch entity data (regardless of cache)
+  const [checklist, sources, sends, cameras, ccus] = await Promise.all([
+    apiClient.getChecklistItems(production.id), // Use production.id, not IndexedDB id
+    apiClient.getSources(production.id),
+    apiClient.getSends(production.id),
+    apiClient.getCameras(production.id),
+    apiClient.getCCUs(production.id)
+  ]);
+  
+  // Map ALL fields correctly
+  const fullData = {
+    production,
+    checklist: checklist.map(item => ({
+      id: item.id,
+      title: item.title,
+      item: item.title, // Map title to item
+      category: item.category,
+      completed: item.completed,
+      completedAt: item.completedAt,
+      daysBeforeShow: item.daysBeforeShow, // MUST map this field
+      dueDate: item.dueDate,
+      // ... all other fields
+    })),
+    sources,
+    sends,
+    cameras,
+    ccus
+  };
+  
+  setState(fullData);
+  await projectDB.saveProduction(fullData);
+}
+```
+
+**Critical Rules:**
+
+1. **BOTH paths** (cached and fresh) must fetch entity data
+2. **Use production.id** (from database), never IndexedDB UUID
+3. **Map ALL fields** in BOTH paths identically
+4. **Fetch in parallel** (Promise.all) for performance
+
+#### Field Mapping Verification Process
+
+**Before committing any entity with multiple load paths:**
+
+```bash
+# 1. Search for all places that map the entity
+grep -n "checklistItem.map\|checklist.map" src/hooks/useProjectStore.ts
+
+# 2. Verify IDENTICAL field lists:
+# - Cached path mapping
+# - Fresh path mapping  
+# - WebSocket sync mapping
+
+# 3. Check for missing fields by comparing to:
+# - Prisma schema
+# - Frontend TypeScript type
+# - API response structure
+```
+
+**Example verification:**
+
+```typescript
+// Prisma schema has:
+model checklist_items {
+  days_before_show Int?
+  due_date DateTime?
+  completed_at BigInt?
+}
+
+// Frontend type has:
+interface ChecklistItem {
+  daysBeforeShow?: number;
+  dueDate?: string;
+  completedAt?: number;
+}
+
+// Verify ALL THREE mappings include:
+// ✅ Cached path: daysBeforeShow: item.daysBeforeShow
+// ✅ Fresh path: daysBeforeShow: item.daysBeforeShow
+// ✅ WebSocket: daysBeforeShow: data.days_before_show
+
+// If ANY path is missing a field, sync will break!
+```
+
+---
+
+### Seed Data Integrity - CRITICAL PATTERNS
+
+**Learned from "daysBeforeShow undefined" bug (Feb 2026):**
+
+#### The Seed Data Problem
+
+```
+Timeline:
+1. Seed data in sampleData.ts includes daysBeforeShow
+2. createProject() spreads ...item to include all fields
+3. API receives the data correctly
+4. BUT: Database had NO days_before_show column yet
+5. Prisma silently drops the field
+6. Result: Production created with checklist but no due dates
+```
+
+**Root Cause:** Seed data added before migration applied.
+
+#### Seed Data Development Order
+
+**ALWAYS follow this sequence:**
+
+```bash
+# 1. Update Prisma schema FIRST
+model checklist_items {
+  days_before_show Int?  # Add new field
+}
+
+# 2. Generate and apply migration
+npx prisma migrate dev --name add_days_before_show
+
+# 3. Update seed data
+export const sampleChecklist = [
+  { item: 'Task 1', daysBeforeShow: 30 }  # Add field to seed
+];
+
+# 4. Update frontend types
+interface ChecklistItem {
+  daysBeforeShow?: number;  # Add to type
+}
+
+# 5. Update API routes to handle field
+# 6. Update all mapping locations
+# 7. Test with fresh database
+npm run db:reset
+```
+
+**NEVER:**
+- ❌ Add seed data before schema has the field
+- ❌ Update types before database supports the field
+- ❌ Assume Prisma will error on unknown fields (it silently drops them)
+
+#### Seed Data Validation Pattern
+
+**Add validation to seed scripts:**
+
+```typescript
+// ✅ CORRECT: Validate seed data matches schema
+import { Prisma } from '@prisma/client';
+
+const validateChecklistItem = (item: any): Prisma.checklist_itemsCreateInput => {
+  // Type-check against Prisma's generated input type
+  const valid: Prisma.checklist_itemsCreateInput = {
+    id: item.id,
+    production_id: item.production_id,
+    title: item.title,
+    category: item.category,
+    completed: item.completed || false,
+    days_before_show: item.daysBeforeShow, // Must match schema field name
+    updated_at: new Date()
+  };
+  
+  return valid;
+};
+
+// When seeding:
+for (const item of seedData) {
+  const validData = validateChecklistItem(item);
+  await prisma.checklist_items.create({ data: validData });
+}
+```
+
+**This ensures:**
+- TypeScript catches missing required fields
+- Wrong field names cause compile errors
+- Type mismatches are caught early
+
+#### Default Data Template Integrity
+
+**For default checklists/templates:**
+
+```typescript
+// sampleData.ts
+export const defaultChecklistItems = sampleChecklist.map(({ id, completed, ...rest }) => rest);
+
+// ✅ Verify template matches Prisma schema
+type ChecklistTemplate = Omit<Prisma.checklist_itemsCreateInput, 'id' | 'production_id' | 'completed'>;
+
+export const defaultChecklistItems: ChecklistTemplate[] = [
+  {
+    title: 'Task 1',
+    category: 'PRE_PRODUCTION',
+    days_before_show: 30,  // Type-checked!
+    updated_at: new Date()
+  }
+];
+```
+
+**This ensures:**
+- Template data is valid for Prisma
+- Adding required fields to schema breaks the build (good!)
+- Removing fields from schema breaks the build (good!)
+
+#### Testing Seed Data After Schema Changes
+
+```bash
+# After any schema change:
+
+# 1. Reset database completely
+npm run db:reset
+
+# 2. Create test production using seed data
+# (via UI or API)
+
+# 3. Load in different browser (tests cache + API)
+
+# 4. Verify ALL fields appear:
+# - Check browser console log
+# - Inspect actual data values
+# - Test WebSocket sync with changes
+```
+
+#### Common Seed Data Mistakes
+
+**❌ WRONG:**
+```typescript
+// Seed data uses frontend naming
+const seedData = [
+  { daysBeforeShow: 30 }  // camelCase
+];
+
+await prisma.checklist_items.create({ 
+  data: seedData[0]  // ERROR: Prisma expects days_before_show
+});
+```
+
+**✅ CORRECT:**
+```typescript
+// Seed data uses database naming
+const seedData = [
+  { days_before_show: 30 }  // snake_case
+];
+
+await prisma.checklist_items.create({ 
+  data: seedData[0]  // Works!
+});
+```
+
+**OR use transform:**
+```typescript
+// Seed data uses frontend naming
+const seedData = [
+  { daysBeforeShow: 30 }  // camelCase
+];
+
+await prisma.checklist_items.create({ 
+  data: toSnakeCase(seedData[0])  // Converts to snake_case
+});
+```
+
+---
+
+### Multi-User Conflict Handling - CRITICAL PATTERNS
+
+**Learned from "completed_at causing Prisma validation errors" bug (Feb 2026):**
+
+#### The Conflict Problem
+
+```
+Scenario: Two users editing the same checklist item simultaneously
+
+Timeline:
+1. Browser A loads item { id: '123', title: 'Task', completed: false, version: 1 }
+2. Browser B loads same item { id: '123', title: 'Task', completed: false, version: 1 }
+3. User A toggles completion → sends { id: '123', completed: true, completedAt: 1738627200000 }
+4. User B toggles completion → sends { id: '123', completed: true, completedAt: 1738627201000 }
+5. Server processes both: Which timestamp wins?
+```
+
+**Without conflict handling:** Last write wins silently, data loss occurs.
+
+#### Version-Based Optimistic Concurrency Control
+
+**Database schema includes version field:**
+
+```prisma
+model checklist_items {
+  id String @id @default(uuid())
+  version BigInt @default(0)
+  updated_at BigInt @default(0)
+  // ... other fields
+}
+```
+
+**CORRECT update pattern:**
+
+```typescript
+// ✅ Client sends current version
+const updateItem = async (id: string, changes: Partial<ChecklistItem>) => {
+  const currentItem = store.getChecklistItem(id);
+  
+  await apiClient.updateChecklistItem(id, {
+    ...changes,
+    version: currentItem.version  // Include current version
+  });
+}
+
+// ✅ Server validates version before updating
+router.put('/checklist-items/:id', async (req, res) => {
+  const { version, ...updates } = toSnakeCase(req.body);
+  
+  // Read current version from database
+  const current = await prisma.checklist_items.findUnique({
+    where: { id: req.params.id }
+  });
+  
+  if (!current) {
+    return res.status(404).json({ error: 'Item not found' });
+  }
+  
+  // Check for version conflict
+  if (version && current.version !== BigInt(version)) {
+    return res.status(409).json({ 
+      error: 'Version conflict - item was modified by another user',
+      currentVersion: Number(current.version),
+      attemptedVersion: version
+    });
+  }
+  
+  // Update with incremented version
+  const updated = await prisma.checklist_items.update({
+    where: { id: req.params.id },
+    data: {
+      ...updates,
+      version: { increment: 1 },  // Atomic increment
+      updated_at: BigInt(Date.now())
+    }
+  });
+  
+  // Broadcast to all other clients
+  broadcastEntityUpdate('production', updated.production_id, 'checklist-item', toCamelCase(updated));
+  
+  res.json(toCamelCase(updated));
+});
+```
+
+**Frontend conflict handling:**
+
+```typescript
+// ✅ Handle 409 version conflict
+const updateItem = async (id: string, changes: Partial<ChecklistItem>) => {
+  try {
+    const currentItem = store.getChecklistItem(id);
+    const updated = await apiClient.updateChecklistItem(id, {
+      ...changes,
+      version: currentItem.version
+    });
+    
+    store.updateChecklistItem(updated);
+    
+  } catch (error) {
+    if (error.status === 409) {
+      // Version conflict - reload fresh data
+      const fresh = await apiClient.getChecklistItem(id);
+      store.updateChecklistItem(fresh);
+      
+      // Show user the conflict
+      toast.error('This item was modified by another user. Your changes were not saved. Please try again.');
+    } else {
+      throw error;
+    }
+  }
+}
+```
+
+#### Server-Side Timestamp Management
+
+**The Problem We Had:**
+
+```typescript
+// ❌ WRONG: Client sets timestamp
+const toggleCompletion = async (id: string) => {
+  const completedAt = Date.now(); // Client's clock
+  
+  await apiClient.update(id, { 
+    completed: true, 
+    completedAt 
+  });
+}
+
+// Issues:
+// 1. Client clocks can be wrong (timezone, clock skew)
+// 2. Client can manipulate timestamps
+// 3. Race conditions if two clients send different timestamps
+// 4. Prisma validation errors when types don't match
+```
+
+**The Fix:**
+
+```typescript
+// ✅ CORRECT: Client sends intent, server sets timestamp
+const toggleCompletion = async (id: string, completed: boolean) => {
+  // Client only sends the boolean state
+  await apiClient.update(id, { completed });
+}
+
+// Server determines timestamp
+router.put('/checklist-items/:id', async (req, res) => {
+  const updates = toSnakeCase(req.body);
+  
+  // If toggling completion, server sets timestamp
+  if ('completed' in updates) {
+    if (updates.completed) {
+      updates.completed_at = BigInt(Date.now()); // Server's clock
+    } else {
+      updates.completed_at = null; // Clear when uncompleting
+    }
+  }
+  
+  // Server ALWAYS sets updated_at
+  updates.updated_at = BigInt(Date.now());
+  
+  const updated = await prisma.checklist_items.update({
+    where: { id: req.params.id },
+    data: updates
+  });
+  
+  res.json(toCamelCase(updated));
+});
+```
+
+**Benefits:**
+- ✅ Single source of truth for timestamps
+- ✅ No clock skew issues
+- ✅ Can't be manipulated by client
+- ✅ Consistent across all users
+- ✅ No type conversion errors
+
+#### WebSocket Sync Coordination
+
+**Real-time updates pattern:**
+
+```typescript
+// Server: After any database update, broadcast to room
+const updated = await prisma.checklist_items.update({ ... });
+
+broadcastEntityUpdate(
+  'production',
+  updated.production_id,
+  'checklist-item',
+  toCamelCase(updated)  // Send transformed data
+);
+
+// Client: Listen for updates from OTHER users
+socket.on('checklist-item:updated', (data) => {
+  const currentItem = store.getChecklistItem(data.id);
+  
+  // Only update if version is newer (prevents loops)
+  if (!currentItem || data.version > currentItem.version) {
+    store.updateChecklistItem(data);
+    
+    // Update IndexedDB cache
+    await projectDB.updateChecklistItem(data);
+  }
+});
+```
+
+**CRITICAL: Prevent update loops**
+
+```typescript
+// ❌ WRONG: Update triggers another API call
+socket.on('checklist-item:updated', async (data) => {
+  // This will trigger WebSocket broadcast again!
+  await apiClient.updateChecklistItem(data.id, data);
+});
+
+// ✅ CORRECT: Update local state only
+socket.on('checklist-item:updated', (data) => {
+  // Direct state update, no API call
+  store.updateChecklistItem(data);
+  projectDB.updateChecklistItem(data);
+});
+```
+
+#### Field-Level vs Entity-Level Locking
+
+**Our architecture uses entity-level optimistic locking:**
+
+```typescript
+// Entity-level: Version applies to entire item
+{
+  id: '123',
+  title: 'Task',
+  completed: false,
+  category: 'PRE_PRODUCTION',
+  version: 5  // Entire item version
+}
+
+// Any field change increments version
+// Pros: Simple, no lost updates
+// Cons: Can't edit different fields simultaneously
+```
+
+**Alternative: Field-level locking (more complex, not implemented):**
+
+```typescript
+// Field-level: Track version per field
+{
+  id: '123',
+  title: { value: 'Task', version: 3 },
+  completed: { value: false, version: 5 },
+  category: { value: 'PRE_PRODUCTION', version: 2 }
+}
+
+// Pros: Can edit different fields simultaneously
+// Cons: Complex to implement, larger payload
+```
+
+**When to upgrade to field-level:**
+- Users frequently edit different fields of same item simultaneously
+- Conflicts cause frequent user frustration
+- Performance requirements allow larger payloads
+
+**Current entity-level is sufficient because:**
+- Most edits are single-field (toggle completion, change title)
+- WebSocket sync is fast enough that conflicts are rare
+- Conflict UI can guide users to retry
+
+#### Race Condition Prevention Patterns
+
+**1. Atomic database operations:**
+
+```typescript
+// ✅ CORRECT: Use Prisma's atomic increment
+await prisma.checklist_items.update({
+  where: { id },
+  data: {
+    version: { increment: 1 },  // Atomic - no race condition
+    updated_at: BigInt(Date.now())
+  }
+});
+
+// ❌ WRONG: Read-modify-write has race condition
+const current = await prisma.checklist_items.findUnique({ where: { id } });
+await prisma.checklist_items.update({
+  where: { id },
+  data: {
+    version: current.version + 1  // Race condition if another request runs between findUnique and update
+  }
+});
+```
+
+**2. Database transactions for multi-entity updates:**
+
+```typescript
+// ✅ CORRECT: Use transaction for related updates
+await prisma.$transaction(async (tx) => {
+  // Update production
+  await tx.productions.update({
+    where: { id: productionId },
+    data: { updated_at: BigInt(Date.now()) }
+  });
+  
+  // Update all related checklist items
+  await tx.checklist_items.updateMany({
+    where: { production_id: productionId },
+    data: { production_id: newProductionId }
+  });
+});
+
+// Both succeed or both fail - no partial updates
+```
+
+**3. Idempotent operations:**
+
+```typescript
+// ✅ CORRECT: Toggle completion is idempotent
+router.put('/checklist-items/:id/toggle', async (req, res) => {
+  const current = await prisma.checklist_items.findUnique({ 
+    where: { id: req.params.id } 
+  });
+  
+  // Set to opposite of current state
+  const updated = await prisma.checklist_items.update({
+    where: { id: req.params.id },
+    data: {
+      completed: !current.completed,
+      completed_at: !current.completed ? BigInt(Date.now()) : null
+    }
+  });
+  
+  res.json(toCamelCase(updated));
+});
+
+// Calling twice = toggle twice = back to original state
+// No duplicate completion states
+```
+
+#### Conflict Resolution UI Patterns
+
+**Show user when conflicts occur:**
+
+```typescript
+// In frontend component
+const handleSave = async () => {
+  try {
+    await updateChecklistItem(item.id, changes);
+    toast.success('Saved');
+    
+  } catch (error) {
+    if (error.status === 409) {
+      // Version conflict
+      const action = await confirm(
+        'This item was modified by another user while you were editing. ' +
+        'Would you like to reload the latest version? Your changes will be lost.'
+      );
+      
+      if (action === 'reload') {
+        const fresh = await apiClient.getChecklistItem(item.id);
+        setItem(fresh);
+      } else {
+        // Let user keep editing (they can try saving again)
+      }
+      
+    } else if (error.status === 404) {
+      // Item was deleted by another user
+      toast.error('This item was deleted by another user.');
+      router.push('/productions');
+      
+    } else {
+      toast.error('Save failed: ' + error.message);
+    }
+  }
+}
+```
+
+#### Testing Multi-User Scenarios
+
+**Test checklist for conflict handling:**
+
+```bash
+# Setup: Open same production in Browser A and Browser B
+
+# Test 1: Simultaneous completion toggle
+# - Browser A: Click completion checkbox
+# - Browser B: Immediately click completion checkbox
+# - Expected: One succeeds, one gets 409 conflict
+# - Expected: Both browsers show same final state after sync
+
+# Test 2: Edit while other user deletes
+# - Browser A: Start editing item title
+# - Browser B: Delete the item
+# - Browser A: Try to save
+# - Expected: 404 error with appropriate message
+
+# Test 3: Version conflict recovery
+# - Browser A: Toggle completion (offline mode)
+# - Browser B: Toggle completion (while A offline)
+# - Browser A: Come back online, try to sync
+# - Expected: Conflict detected, user prompted to reload
+
+# Test 4: WebSocket sync speed
+# - Browser A: Toggle completion
+# - Browser B: Should see change within 100ms
+# - Browser C: Should also see change within 100ms
+
+# Test 5: Cache consistency
+# - Browser A: Toggle completion
+# - Browser B: Reload page
+# - Expected: Browser B loads fresh data from API, sees completion
+```
+
+#### Future: Collaborative Editing Features
+
+**If implementing real-time collaborative editing:**
+
+1. **Operational Transform (OT)** for text fields:
+   - Track character-level changes
+   - Merge simultaneous edits
+   - Show cursors of other users
+
+2. **Conflict-free Replicated Data Types (CRDTs)**:
+   - Mathematically guaranteed convergence
+   - No version conflicts possible
+   - More complex to implement
+
+3. **Presence indicators**:
+   - Show which users are viewing/editing
+   - Lock fields while being edited
+   - "User X is typing..." indicators
+
+**Current version-based optimistic locking is sufficient for:**
+- Infrequent simultaneous edits
+- Field-level changes (not text collaboration)
+- Clear conflict resolution UI
+- Small team sizes (< 10 concurrent users per production)
+
+---
 
 ### Data Validation at API Boundaries
 

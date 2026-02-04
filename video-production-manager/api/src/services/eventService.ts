@@ -107,8 +107,15 @@ export function calculateDiff(oldEntity: any, newEntity: any): any {
   const changes: any = {};
   const allKeys = new Set([...Object.keys(oldEntity), ...Object.keys(newEntity)]);
   
+  // Custom JSON replacer to handle BigInt
+  const jsonReplacer = (_key: string, value: any) => 
+    typeof value === 'bigint' ? value.toString() : value;
+  
   for (const key of allKeys) {
-    if (JSON.stringify(oldEntity[key]) !== JSON.stringify(newEntity[key])) {
+    const oldValue = JSON.stringify(oldEntity[key], jsonReplacer);
+    const newValue = JSON.stringify(newEntity[key], jsonReplacer);
+    
+    if (oldValue !== newValue) {
       changes[key] = {
         from: oldEntity[key],
         to: newEntity[key]

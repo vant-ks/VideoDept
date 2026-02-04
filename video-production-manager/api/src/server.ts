@@ -210,6 +210,29 @@ app.post('/api/server/restart', async (req: Request, res: Response) => {
   }
 });
 
+// Global app reset - broadcast to all clients
+app.post('/api/server/global-reset', async (req: Request, res: Response) => {
+  try {
+    console.log('🔄 Global app reset requested - broadcasting to all clients');
+    
+    // Broadcast global reset event to ALL connected clients
+    io.emit('app:global-reset', {
+      timestamp: Date.now(),
+      message: 'Database has been reset. Clearing local data...'
+    });
+    
+    console.log('📡 Broadcasted app:global-reset to all clients');
+    
+    res.json({ 
+      success: true, 
+      message: 'Global reset event broadcasted to all clients'
+    });
+  } catch (error: any) {
+    console.error('Global reset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Discover servers on LAN
 app.get('/api/server/discover', async (req: Request, res: Response) => {
   try {

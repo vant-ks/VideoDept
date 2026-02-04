@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useProjectStore } from './useProjectStore';
 import type { 
   Production, 
   Source,
@@ -820,12 +821,17 @@ export const useIPsByCategory = (category: string) =>
     state.ipAddresses.filter(ip => ip.category === category)
   );
 
-export const useChecklistProgress = () =>
-  useProductionStore((state) => {
-    const total = state.checklist.length;
-    const completed = state.checklist.filter(item => item.completed).length;
-    return { total, completed, percentage: total > 0 ? (completed / total) * 100 : 0 };
-  });
+export const useChecklistProgress = () => {
+  // Try new store first (activeProject), fallback to old store
+  const activeProject = useProjectStore((state) => state.activeProject);
+  const oldChecklist = useProductionStore((state) => state.checklist);
+  
+  const checklist = activeProject?.checklist || oldChecklist;
+  const total = checklist.length;
+  const completed = checklist.filter(item => item.completed).length;
+  
+  return { total, completed, percentage: total > 0 ? (completed / total) * 100 : 0 };
+};
 
 // Initialize connection on app startup
 export const initializeStore = async () => {

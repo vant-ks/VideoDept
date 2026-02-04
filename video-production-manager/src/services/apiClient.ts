@@ -147,7 +147,9 @@ export class ApiClient {
   }
 
   async createChecklistItem(productionId: string, data: any) {
-    return this.post('/checklist-items', { ...data, production_id: productionId });
+    // CRITICAL: Only send the data provided, don't add productionId as snake_case
+    // API will transform camelCase to snake_case
+    return this.post('/checklist-items', { ...data, productionId });
   }
 
   async updateChecklistItem(id: string, data: any) {

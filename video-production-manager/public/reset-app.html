@@ -557,7 +557,27 @@
                     console.log('✅ Database cleared');
                 }
 
-                // Step 2: Restart Server
+                // Step 2: Broadcast Global Reset (clears all connected browsers)
+                if (checks.database.checked) {
+                    if (!apiOnline) {
+                        throw new Error('Cannot broadcast reset - API is offline');
+                    }
+                    
+                    showStatus('⏳ Broadcasting reset to all connected browsers...', 'processing');
+                    
+                    try {
+                        // Tell all connected browsers to clear their local data
+                        await fetch(`${API_URL}/api/server/global-reset`, { method: 'POST' });
+                        console.log('✅ Global reset event broadcasted');
+                        
+                        // Wait for browsers to process the event
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    } catch (err) {
+                        console.warn('Global reset endpoint not available, continuing...');
+                    }
+                }
+
+                // Step 3: Restart Server
                 if (checks.restart.checked) {
                     if (!apiOnline) {
                         throw new Error('Cannot restart server - API is offline');
@@ -577,7 +597,7 @@
                     }
                 }
 
-                // Step 3: Clear Browser Storage
+                // Step 4: Clear Browser Storage
                 if (checks.localStorage.checked) {
                     showStatus('⏳ Clearing browser storage...', 'processing');
                     localStorage.clear();

@@ -192,14 +192,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                 ...cachedProject.production,
                 id: production.id,
                 client: production.client,
-                showName: production.show_name || production.name,
+                showName: production.showName || production.name,
                 venue: production.venue,
                 room: production.room,
-                loadIn: production.load_in,
-                loadOut: production.load_out,
-                showInfoUrl: production.show_info_url,
+                loadIn: production.loadIn,
+                loadOut: production.loadOut,
+                showInfoUrl: production.showInfoUrl,
                 status: production.status,
-                fieldVersions: production.field_versions // CRITICAL: Load field versions from server
+                fieldVersions: production.fieldVersions // CRITICAL: Load field versions from server
               },
               sources: sources || [],
               sends: sends || [],
@@ -209,13 +209,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                 item: item.title, // Display text
                 title: item.title, // Database field
                 completed: item.completed || false,
-                completedAt: item.completed_at,
-                moreInfo: item.more_info,
-                completionNote: item.completion_note,
-                daysBeforeShow: item.days_before_show,
-                dueDate: item.due_date,
-                completionDate: item.completion_date,
-                assignedTo: item.assigned_to,
+                completedAt: item.completedAt, // API already sends camelCase
+                moreInfo: item.moreInfo,
+                completionNote: item.completionNote,
+                daysBeforeShow: item.daysBeforeShow, // CRITICAL: API sends camelCase
+                dueDate: item.dueDate,
+                completionDate: item.completionDate,
+                assignedTo: item.assignedTo,
                 reference: item.reference
               })),
               cameras: cameras || [],
@@ -290,14 +290,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             production: {
               id: production.id,
               client: production.client,
-              showName: production.show_name || production.name,
+              showName: production.showName || production.name,
               venue: production.venue || '',
               room: production.room || '',
-              loadIn: production.load_in || new Date().toISOString().split('T')[0],
-              loadOut: production.load_out || new Date().toISOString().split('T')[0],
-              showInfoUrl: production.show_info_url,
+              loadIn: production.loadIn || new Date().toISOString().split('T')[0],
+              loadOut: production.loadOut || new Date().toISOString().split('T')[0],
+              showInfoUrl: production.showInfoUrl,
               status: production.status,
-              fieldVersions: production.field_versions // Load field versions
+              fieldVersions: production.fieldVersions // Load field versions
             },
             sources: sources || [],
             sends: sends || [],
@@ -307,13 +307,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               item: item.title, // Display text
               title: item.title, // Database field
               completed: item.completed || false,
-              completedAt: item.completed_at,
-              moreInfo: item.more_info,
-              completionNote: item.completion_note,
-              daysBeforeShow: item.days_before_show,
-              dueDate: item.due_date,
-              completionDate: item.completion_date,
-              assignedTo: item.assigned_to,
+              completedAt: item.completedAt, // API already sends camelCase
+              moreInfo: item.moreInfo,
+              completionNote: item.completionNote,
+              daysBeforeShow: item.daysBeforeShow, // CRITICAL: API sends camelCase
+              dueDate: item.dueDate,
+              completionDate: item.completionDate,
+              assignedTo: item.assignedTo,
               reference: item.reference
             })),
             cameras: cameras || [],
@@ -383,16 +383,16 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     try {
       // PRIMARY: Save to API database first
+      // Send camelCase - API will transform to snake_case
       const productionData = {
         id: project.production.id,
         name: project.production.showName || project.production.name,
         client: project.production.client,
         venue: project.production.venue,
         room: project.production.room,
-        load_in: project.production.loadIn,
-        load_out: project.production.loadOut,
+        loadIn: project.production.loadIn,
+        loadOut: project.production.loadOut,
         status: project.production.status || 'PLANNING',
-        // Note: metadata field removed - it doesn't exist in database
       };
       
       logger.debug(LogContext.API, 'Sending production to API', {
@@ -412,21 +412,21 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         
         for (const item of project.checklist) {
           try {
+            // CRITICAL: Build object from scratch - don't spread item (may have snake_case props)
             await apiClient.createChecklistItem(productionData.id, {
               id: item.id,
-              production_id: productionData.id,
-              title: item.title || item.item, // Use title if present, otherwise item
+              productionId: productionData.id,
+              title: item.title || item.item,
               category: item.category,
               completed: item.completed || false,
-              more_info: item.moreInfo,
-              completion_note: item.completionNote,
-              assigned_to: item.assignedTo,
-              due_date: item.dueDate,
-              completion_date: item.completionDate,
-              completed_at: item.completedAt,
+              moreInfo: item.moreInfo,
+              completionNote: item.completionNote,
+              assignedTo: item.assignedTo,
+              dueDate: item.dueDate,
+              completionDate: item.completionDate,
+              completedAt: item.completedAt,
               reference: item.reference,
-              days_before_show: item.daysBeforeShow,
-              updated_at: new Date().toISOString()
+              daysBeforeShow: item.daysBeforeShow
             });
           } catch (error) {
             logger.error(LogContext.API, 'Failed to save checklist item', error as Error, {
@@ -506,18 +506,19 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       }
       
       // PRIMARY: Update in API database first with conflict detection
+      // Send camelCase - API will transform to snake_case
       try {
         const response = await apiClient.updateProduction(activeProject.production.id, {
           name: activeProject.production.showName || activeProject.production.name,
           client: activeProject.production.client,
           venue: activeProject.production.venue,
           room: activeProject.production.room,
-          load_in: activeProject.production.loadIn,
-          load_out: activeProject.production.loadOut,
-          show_info_url: activeProject.production.showInfoUrl,
+          loadIn: activeProject.production.loadIn,
+          loadOut: activeProject.production.loadOut,
+          showInfoUrl: activeProject.production.showInfoUrl,
           status: activeProject.production.status || 'PLANNING',
           version: activeProject.version || 1, // Send current version for record-level fallback
-          field_versions: activeProject.production.fieldVersions || {} // Send ALL field versions (or empty if not yet set)
+          fieldVersions: activeProject.production.fieldVersions || {} // Send ALL field versions (or empty if not yet set)
         });
         
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3010';
@@ -531,14 +532,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             version: response.version, // Use server's record version
             production: {
               ...updatedProject.production,
-              fieldVersions: response.field_versions // Update field versions from server
+              fieldVersions: response.fieldVersions // Update field versions from server
             }
           },
           isSaving: false,
           lastSyncTime: Date.now()
         });
         
-        console.log('✅ Field versions updated:', response.field_versions);
+        console.log('✅ Field versions updated:', response.fieldVersions);
         
       } catch (apiError: any) {
         // Handle conflict (409)
@@ -587,13 +588,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                   client: activeProject.production.client,
                   venue: activeProject.production.venue,
                   room: activeProject.production.room,
-                  load_in: activeProject.production.loadIn,
-                  load_out: activeProject.production.loadOut,
-                  show_info_url: activeProject.production.showInfoUrl,
+                  loadIn: activeProject.production.loadIn,
+                  loadOut: activeProject.production.loadOut,
+                  showInfoUrl: activeProject.production.showInfoUrl,
                   status: activeProject.production.status || 'PLANNING',
                   version: conflictData.currentVersion, // Use server's version
                   lastModifiedBy: getCurrentUserId()
-                  // Don't send field_versions - forces record-level update
+                  // Don't send fieldVersions - forces record-level update
                 });
                 
                 // Update local state with new version and field_versions
@@ -602,7 +603,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                   version: forceResponse.version,
                   production: {
                     ...activeProject.production,
-                    fieldVersions: forceResponse.field_versions
+                    fieldVersions: forceResponse.fieldVersions
                   },
                   modified: Date.now()
                 };
@@ -635,8 +636,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           }
           
           // Record-level conflict (legacy fallback)
-          const lastModified = conflictData.serverData?.updated_at 
-            ? new Date(conflictData.serverData.updated_at).toLocaleString()
+          const lastModified = conflictData.serverData?.updatedAt 
+            ? new Date(conflictData.serverData.updatedAt).toLocaleString()
             : 'Unknown';
           
           const userChoice = prompt(
@@ -842,15 +843,15 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               id: `proj-${production.id}`,
               version: '1.0.0',
               created: new Date(production.created_at).getTime(),
-              modified: new Date(production.updated_at).getTime(),
+              modified: new Date(production.updatedAt).getTime(),
               production: {
                 id: production.id,
-                showName: production.show_name,
+                showName: production.showName,
                 client: production.client,
                 venue: production.venue || 'TBD',
                 room: production.room || '',
-                loadIn: production.load_in ? new Date(production.load_in).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                loadOut: production.load_out ? new Date(production.load_out).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                loadIn: production.loadIn ? new Date(production.loadIn).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                loadOut: production.loadOut ? new Date(production.loadOut).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                 status: production.status
               },
               checklist: checklistItems.map(item => ({
@@ -877,24 +878,24 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             };
             
             await projectDB.createProject(fullProject as any);
-            console.log(`✅ Downloaded production: ${production.show_name}`);
+            console.log(`✅ Downloaded production: ${production.showName}`);
           } catch (error) {
-            console.error(`Failed to download production ${production.show_name}:`, error);
+            console.error(`Failed to download production ${production.showName}:`, error);
           }
         } else {
           // Existing production - check if update needed
           const localProject = localProjects.find(p => p.production.id === production.id);
-          if (localProject && new Date(production.updated_at).getTime() > localProject.modified) {
+          if (localProject && new Date(production.updatedAt).getTime() > localProject.modified) {
             // Update production info
-            localProject.production.showName = production.show_name;
+            localProject.production.showName = production.showName;
             localProject.production.client = production.client;
             localProject.production.venue = production.venue || 'TBD';
             localProject.production.room = production.room || '';
             localProject.production.status = production.status;
-            localProject.modified = new Date(production.updated_at).getTime();
+            localProject.modified = new Date(production.updatedAt).getTime();
             
             await projectDB.updateProject(localProject.id!, localProject);
-            console.log(`✅ Updated production: ${production.show_name}`);
+            console.log(`✅ Updated production: ${production.showName}`);
           }
         }
       }
@@ -1065,10 +1066,21 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const { activeProject } = get();
     if (!activeProject) return;
     
+    // CRITICAL: Build clean object, don't spread (may have snake_case)
     const newItem: ChecklistItem = {
-      ...item,
       id: `chk-${Date.now()}`,
-      completed: false
+      category: item.category,
+      item: item.item || item.title || '',
+      title: item.title || item.item || '',
+      completed: false,
+      moreInfo: item.moreInfo,
+      completionNote: item.completionNote,
+      assignedTo: item.assignedTo,
+      dueDate: item.dueDate,
+      completionDate: item.completionDate,
+      completedAt: item.completedAt,
+      reference: item.reference,
+      daysBeforeShow: item.daysBeforeShow
     };
     
     // Optimistic update
@@ -1076,23 +1088,22 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       checklist: [...activeProject.checklist, newItem]
     });
     
-    // Save to API
+    // Save to API - CRITICAL: Build clean object, don't spread (may have snake_case)
     try {
       await apiClient.createChecklistItem(activeProject.production.id, {
         id: newItem.id,
-        production_id: activeProject.production.id,
+        productionId: activeProject.production.id,
         title: newItem.title || newItem.item,
         category: newItem.category,
         completed: newItem.completed,
-        more_info: newItem.moreInfo,
-        completion_note: newItem.completionNote,
-        assigned_to: newItem.assignedTo,
-        due_date: newItem.dueDate,
-        completion_date: newItem.completionDate,
-        completed_at: newItem.completedAt,
+        moreInfo: newItem.moreInfo,
+        completionNote: newItem.completionNote,
+        assignedTo: newItem.assignedTo,
+        dueDate: newItem.dueDate,
+        completionDate: newItem.completionDate,
+        completedAt: newItem.completedAt,
         reference: newItem.reference,
-        days_before_show: newItem.daysBeforeShow,
-        updated_at: new Date().toISOString()
+        daysBeforeShow: newItem.daysBeforeShow
       });
       console.log('✅ Checklist item saved to database:', newItem.id);
     } catch (error) {
@@ -1145,14 +1156,41 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     console.log('Checklist item updated:', id);
   },
   
-  deleteChecklistItem: (id) => {
-    const { activeProject } = get();
+  deleteChecklistItem: async (id) => {
+    const { activeProject, activeProjectId } = get();
     if (!activeProject) return;
     
+    // Optimistic update - remove from state immediately
     get().updateActiveProject({
       checklist: activeProject.checklist.filter(item => item.id !== id)
     });
-    get().recordChange('delete', 'checklist', id, {});
+    
+    try {
+      // Delete from database via API
+      await apiClient.deleteChecklistItem(id);
+      
+      // Update IndexedDB cache
+      if (activeProjectId) {
+        const updatedProject = {
+          ...activeProject,
+          checklist: activeProject.checklist.filter(item => item.id !== id)
+        };
+        await projectDB.updateProject(activeProjectId, updatedProject);
+      }
+      
+      get().recordChange('delete', 'checklist', id, {});
+      console.log('✅ Checklist item deleted:', id);
+    } catch (error) {
+      console.error('❌ Failed to delete checklist item:', error);
+      // Revert optimistic update on error
+      const item = activeProject.checklist.find(i => i.id === id);
+      if (item) {
+        get().updateActiveProject({
+          checklist: [...activeProject.checklist, item]
+        });
+      }
+      throw error;
+    }
   },
   
   toggleChecklistItem: async (id) => {
@@ -1163,35 +1201,28 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     if (!item) return;
     
     const newCompleted = !item.completed;
-    const updates = {
-      completed: newCompleted,
-      completedAt: newCompleted ? Date.now() : item.completedAt
-    };
     
-    // Optimistic update
+    // Optimistic update - server will set completedAt timestamp
     get().updateActiveProject({
       checklist: activeProject.checklist.map(i =>
-        i.id === id ? { ...i, ...updates } : i
+        i.id === id ? { ...i, completed: newCompleted, completedAt: newCompleted ? Date.now() : null } : i
       )
     });
     
-    // Save to API
+    // Save to API - send ONLY completed boolean, server sets timestamp
     try {
-      await apiClient.updateChecklistItem(id, {
-        completed: newCompleted,
-        completed_at: updates.completedAt,
-        updated_at: new Date().toISOString()
-      });
+      console.log('🔧 Toggle checklist item:', id, 'completed:', newCompleted);
+      await apiClient.updateChecklistItem(id, { completed: newCompleted });
       console.log('✅ Checklist item toggled in database:', id);
     } catch (error) {
-      console.error('Failed to toggle checklist item:', error);
+      console.error('❌ Failed to toggle checklist item:', error);
       // Revert optimistic update on error
       get().updateActiveProject({
         checklist: activeProject.checklist
       });
     }
     
-    get().recordChange('update', 'checklist', id, updates);
+    get().recordChange('update', 'checklist', id, { completed: newCompleted });
   },
   
   // ===== COMPUTER CRUD =====

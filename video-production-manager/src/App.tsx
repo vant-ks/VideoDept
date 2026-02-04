@@ -26,17 +26,40 @@ import { useProjectStore } from '@/hooks/useProjectStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useProductionSync } from '@/hooks/useProductionSync';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { projectDB } from '@/utils/indexedDB';
 import LogService from '@/services/logService';
 
 const App: React.FC = () => {
   // Enable real-time production sync globally
   useProductionSync();
   
+  // Listen for global reset events
+  const { subscribe } = useWebSocket();
+  
   const { activeTab: oldActiveTab, accentColor: oldAccentColor, theme: oldTheme } = useProductionStore();
   const { activeProjectId, loadProject, syncWithAPI } = useProjectStore();
   const { theme, accentColor, activeTab, lastOpenedProjectId, setLastOpenedProjectId } = usePreferencesStore();
   const { fetchFromAPI: fetchEquipment } = useEquipmentLibrary();
   const [isInitializing, setIsInitializing] = React.useState(true);
+
+  // Global reset listener
+  React.useEffect(() => {
+    const unsubscribe = subscribe('app:global-reset', async (data: any) => {
+      console.log('🔄 Received global reset event:', data);
+      
+      // Clear ALL local storage
+      localStorage.clear();
+      
+      // Clear ALL IndexedDB
+      await projectDB.clearAll();
+      
+      // Force reload the page
+      window.location.href = '/projects';
+    });
+    
+    return unsubscribe;
+  }, [subscribe]);
 
   // Initialize app
   React.useEffect(() => {
