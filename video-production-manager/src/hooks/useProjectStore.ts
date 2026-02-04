@@ -246,8 +246,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             checklist: (checklistItems || []).map((item: any) => ({
               id: item.id,
               category: item.category || 'NOTES',
-              item: item.title || item.item,
-              title: item.title,
+              item: item.title, // Display text
+              title: item.title, // Database field
               completed: item.completed || false,
               moreInfo: item.more_info,
               daysBeforeShow: item.days_before_show,
