@@ -77,12 +77,13 @@ router.post('/', async (req: Request, res: Response) => {
 
 // Update checklistItem
 router.put('/:id', async (req: Request, res: Response) => {
+  let snakeCaseUpdates: any;
   try {
     const { id } = req.params;
     const { version: clientVersion, userId, userName, lastModifiedBy, ...updates } = req.body;
     
     // Convert camelCase to snake_case
-    const snakeCaseUpdates = toSnakeCase(updates);
+    snakeCaseUpdates = toSnakeCase(updates);
     
     // Get current version for conflict detection
     const current = await prisma.checklist_items.findUnique({

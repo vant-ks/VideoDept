@@ -119,8 +119,118 @@ export function useProductionSync() {
       console.log('✅ Auto-merged production update from another user');
     });
 
+    // Subscribe to entity creation events
+    const unsubscribeEntityCreated = subscribe('checklist-item:created', async (data: any) => {
+      console.log('📥 Received checklist-item:created', data);
+      const store = useProjectStore.getState();
+      const currentProject = store.activeProject;
+      
+      if (!currentProject || currentProject.production.id !== productionId) return;
+      
+      // Add the new item to checklist
+      const newItem = {
+        id: data.id,
+        item: data.title,
+        title: data.title,
+        category: data.category,
+        completed: data.completed || false,
+        moreInfo: data.more_info,
+        completionNote: data.completion_note,
+        assignedTo: data.assigned_to,
+        dueDate: data.due_date,
+        completionDate: data.completion_date,
+        completedAt: data.completed_at,
+        reference: data.reference,
+        daysBeforeShow: data.days_before_show
+      };
+      
+      // Check if item already exists (prevent duplicates)
+      if (currentProject.checklist.some(item => item.id === newItem.id)) {
+        console.log('🔄 Item already exists, skipping');
+        return;
+      }
+      
+      const updatedProject = {
+        ...currentProject,
+        checklist: [...currentProject.checklist, newItem]
+      };
+      
+      useProjectStore.setState({ activeProject: updatedProject as any });
+      
+      if (activeProjectId) {
+        await projectDB.updateProject(activeProjectId, updatedProject);
+      }
+      
+      console.log('✅ Added new checklist item from sync');
+    });
+
+    // Subscribe to entity update events
+    const unsubscribeEntityUpdated = subscribe('checklist-item:updated', async (data: any) => {
+      console.log('📥 Received checklist-item:updated', data);
+      const store = useProjectStore.getState();
+      const currentProject = store.activeProject;
+      
+      if (!currentProject || currentProject.production.id !== productionId) return;
+      
+      const updatedItem = {
+        id: data.id,
+        item: data.title,
+        title: data.title,
+        category: data.category,
+        completed: data.completed,
+        moreInfo: data.more_info,
+        completionNote: data.completion_note,
+        assignedTo: data.assigned_to,
+        dueDate: data.due_date,
+        completionDate: data.completion_date,
+        completedAt: data.completed_at,
+        reference: data.reference,
+        daysBeforeShow: data.days_before_show
+      };
+      
+      const updatedProject = {
+        ...currentProject,
+        checklist: currentProject.checklist.map(item =>
+          item.id === data.id ? { ...item, ...updatedItem } : item
+        )
+      };
+      
+      useProjectStore.setState({ activeProject: updatedProject as any });
+      
+      if (activeProjectId) {
+        await projectDB.updateProject(activeProjectId, updatedProject);
+      }
+      
+      console.log('✅ Updated checklist item from sync');
+    });
+
+    // Subscribe to entity deletion events
+    const unsubscribeEntityDeleted = subscribe('checklist-item:deleted', async (data: any) => {
+      console.log('📥 Received checklist-item:deleted', data);
+      const store = useProjectStore.getState();
+      const currentProject = store.activeProject;
+      
+      if (!currentProject || currentProject.production.id !== productionId) return;
+      
+      const updatedProject = {
+        ...currentProject,
+        checklist: currentProject.checklist.filter(item => item.id !== data.id)
+      };
+      
+      useProjectStore.setState({ activeProject: updatedProject as any });
+      
+      if (activeProjectId) {
+        await projectDB.updateProject(activeProjectId, updatedProject);
+      }
+      
+      console.log('✅ Deleted checklist item from sync');
+    });
+
     return () => {
       unsubscribe();
+      unsubscribeEntityCreated();
+      unsubscribeEntityUpdated();
+      unsubscribeEntityDeleted();
     };
   }, [activeProject?.production?.id, isConnected, subscribe, isSaving, activeProjectId]);
 }
