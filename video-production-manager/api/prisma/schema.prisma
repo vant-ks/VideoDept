@@ -61,16 +61,25 @@ model ccus {
 }
 
 model checklist_items {
-  id            String      @id
-  production_id String
-  title         String
-  completed     Boolean     @default(false)
-  sort_order    Int?
-  created_at    DateTime    @default(now())
-  updated_at    DateTime
-  last_modified_by String?
-  version       Int         @default(1)
-  productions   productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  id                String      @id
+  production_id     String
+  title             String
+  category          String?     // PRE_PRODUCTION, SCREENS, SWITCH, etc.
+  completed         Boolean     @default(false)
+  more_info         String?     // Notes/additional info
+  completion_note   String?     // Note when marking complete
+  assigned_to       String?     // For future integration
+  due_date          DateTime?
+  completion_date   DateTime?
+  completed_at      BigInt?     // Timestamp
+  reference         String?
+  days_before_show  Int?        // Days before show date
+  sort_order        Int?
+  created_at        DateTime    @default(now())
+  updated_at        DateTime
+  last_modified_by  String?
+  version           Int         @default(1)
+  productions       productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@index([production_id])
 }
