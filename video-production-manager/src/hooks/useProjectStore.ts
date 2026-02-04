@@ -151,6 +151,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         // CRITICAL: Fetch fresh data from API to get field_versions AND entity data
         try {
           const production = await apiClient.getProduction(cachedProject.production.id);
+          if (!production) {
+            // Production no longer exists on server
+            console.warn('⚠️ Production no longer exists on server, clearing stale cache');
+            await projectDB.deleteProject(id);
+            set({ isLoading: false, activeProject: null, activeProjectId: null });
+            throw new Error('PRODUCTION_DELETED');
+          }
           if (production) {
             console.log('📥 Fetching all entity data for cached production:', cachedProject.production.id);
             
@@ -226,7 +233,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           }
         } catch (refreshError: any) {
           // If production was deleted (404), clear the stale cache
-          if (refreshError?.response?.status === 404) {
+          if (refreshError?.response?.status === 404 || refreshError?.message?.includes('404')) {
             console.warn('⚠️ Production no longer exists on server, clearing stale cache');
             await projectDB.deleteProject(id);
             set({ isLoading: false, activeProject: null, activeProjectId: null });
