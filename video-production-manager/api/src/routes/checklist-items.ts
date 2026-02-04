@@ -82,8 +82,11 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { version: clientVersion, userId, userName, lastModifiedBy, ...updates } = req.body;
     
-    // Convert camelCase to snake_case
-    snakeCaseUpdates = toSnakeCase(updates);
+    // Convert camelCase to snake_case and remove updated_at if present (we'll set it ourselves)
+    const { updated_at, ...updateFields } = toSnakeCase(updates);
+    snakeCaseUpdates = updateFields;
+    
+    console.log('🔧 Updating checklist item:', id, 'with fields:', Object.keys(snakeCaseUpdates));
     
     // Get current version for conflict detection
     const current = await prisma.checklist_items.findUnique({
@@ -91,6 +94,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     if (!current) {
+      console.error('❌ ChecklistItem not found:', id);
       return res.status(404).json({ error: 'ChecklistItem not found' });
     }
     
@@ -142,12 +146,17 @@ router.put('/:id', async (req: Request, res: Response) => {
     
     res.json(toCamelCase(checklistItem));
   } catch (error) {
-    console.error('Error updating checklistItem:', error);
-    console.error('Request body was:', JSON.stringify(req.body, null, 2));
+    console.error('❌ Error updating checklistItem:', error);
+    console.error('📋 Request ID:', req.params.id);
+    console.error('📋 Request body:', JSON.stringify(req.body, null, 2));
     if (snakeCaseUpdates) {
-      console.error('Snake case updates:', JSON.stringify(snakeCaseUpdates, null, 2));
+      console.error('📋 Snake case updates:', JSON.stringify(snakeCaseUpdates, null, 2));
     }
-    res.status(500).json({ error: 'Failed to update checklistItem', details: (error as Error).message });
+    res.status(500).json({ 
+      error: 'Failed to update checklistItem', 
+      details: (error as Error).message,
+      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+    });
   }
 });
 
