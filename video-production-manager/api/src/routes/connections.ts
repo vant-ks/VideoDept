@@ -125,7 +125,6 @@ router.put('/:id', async (req: Request, res: Response) => {
       entityId: connection.id,
       data: connection
     });
-    });
     
     res.json(connection);
   } catch (error) {

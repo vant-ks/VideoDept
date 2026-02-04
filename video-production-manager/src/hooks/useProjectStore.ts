@@ -198,6 +198,31 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             throw new Error('Production not found on server');
           }
           
+          console.log('📥 Fetching all entity data for production:', id);
+          
+          // Fetch all entity data from database in parallel
+          const [
+            checklistItems,
+            sources,
+            sends,
+            cameras,
+            ccus
+          ] = await Promise.all([
+            apiClient.getChecklistItems(id).catch(err => { console.warn('Failed to load checklist items:', err); return []; }),
+            apiClient.getSources(id).catch(err => { console.warn('Failed to load sources:', err); return []; }),
+            apiClient.getSends(id).catch(err => { console.warn('Failed to load sends:', err); return []; }),
+            apiClient.get(`/cameras/production/${id}`).catch(err => { console.warn('Failed to load cameras:', err); return []; }),
+            apiClient.get(`/ccus/production/${id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; })
+          ]);
+          
+          console.log('📦 Loaded entity data:', {
+            checklistItems: checklistItems.length,
+            sources: sources.length,
+            sends: sends.length,
+            cameras: cameras.length,
+            ccus: ccus.length
+          });
+          
           // Create a minimal project structure from API data
           const newProject: VideoDepProject = {
             id,
@@ -216,14 +241,23 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               status: production.status,
               fieldVersions: production.field_versions // Load field versions
             },
-            sources: [],
-            sends: [],
-            checklist: [],
+            sources: sources || [],
+            sends: sends || [],
+            checklist: (checklistItems || []).map((item: any) => ({
+              id: item.id,
+              category: item.category || 'NOTES',
+              item: item.title || item.item,
+              title: item.title,
+              completed: item.completed || false,
+              moreInfo: item.more_info,
+              daysBeforeShow: item.days_before_show,
+              assignedTo: item.assigned_to
+            })),
+            cameras: cameras || [],
+            ccus: ccus || [],
             ledScreens: [],
             projectionScreens: [],
             computers: [],
-            ccus: [],
-            cameras: [],
             mediaServers: [],
             mediaServerLayers: [],
             videoSwitchers: [],
