@@ -67,16 +67,17 @@ export interface BaseEntity {
 }
 
 // ============================================================================
-// SOURCES CATEGORY
+// INPUTS & OUTPUTS (Universal for all entities)
 // ============================================================================
 
 export type ReducedBlanking = 'none' | 'RBv1' | 'RBv2' | 'RBv3';
+export type ConnectorType = 'HDMI' | 'SDI' | 'DP' | 'FIBER' | 'NDI' | 'USB-C';
 
 /**
- * Output interface for sources (Computers, Media Servers, CCUs)
- * Supports up to 8 outputs with format specifications
+ * Output interface - Sources have outputs
+ * Supports format specifications for video signals
  */
-export interface SourceOutput {
+export interface Output {
   id: string;
   connector: ConnectorType;
   // Format fields (preset is UX helper, not stored)
@@ -88,6 +89,25 @@ export interface SourceOutput {
 }
 
 /**
+ * Input interface - Sends have inputs
+ * Signal flow devices have both inputs and outputs
+ */
+export interface Input {
+  id: string;
+  connector: ConnectorType;
+  // Format fields
+  hRes?: number;
+  vRes?: number;
+  rate?: number;
+  feed?: string; // What's connected to this input
+  notes?: string;
+}
+
+// ============================================================================
+// SOURCES CATEGORY
+// ============================================================================
+
+/**
  * Computer source (subcategory: "Computers")
  * Extends BaseEntity with outputs (up to 4)
  */
@@ -95,7 +115,7 @@ export interface Computer extends BaseEntity {
   category: 'Computers';
   categoryMember: 'source';
   computerType: string; // From Settings (renamed from "Source Type")
-  outputs: SourceOutput[]; // Max 4
+  outputs: Output[]; // Max 4
 }
 
 /**
@@ -106,7 +126,7 @@ export interface MediaServer extends BaseEntity {
   category: 'Media Servers';
   categoryMember: 'source';
   software: string; // From Settings group (like Computer Type)
-  outputs: SourceOutput[]; // Max 8
+  outputs: Output[]; // Max 8
 }
 
 /**
@@ -119,7 +139,7 @@ export interface CCU extends BaseEntity {
   manufacturer: string; // From Equipment
   makeModel: string; // From Equipment
   connectedCamera?: string; // Camera ID
-  outputs: SourceOutput[]; // Max 8
+  outputs: Output[]; // Max 8
   smpteCableLength?: number; // In feet
 }
 
@@ -154,6 +174,15 @@ export interface Camera extends BaseEntity {
 
 // Legacy Source interface for backward compatibility
 // TODO: Remove once migration is complete
+export interface SourceOutput {
+  id: string;
+  connector: ConnectorType;
+  hRes?: number;
+  vRes?: number;
+  rate?: number;
+  standard?: string;
+}
+
 export interface Source {
   id: string;
   type: SourceType;
@@ -282,9 +311,9 @@ export interface Computer {
 // ============================================================================
 // SENDS CATEGORY
 // TODO: Refactor Sends to extend BaseEntity with proper subcategories:
-//   - LED extends BaseEntity (category: "LED")
-//   - Projection extends BaseEntity (category: "Projection")
-//   - Monitors extends BaseEntity (category: "Monitors")
+//   - LED extends BaseEntity (category: "LED") with inputs
+//   - Projection extends BaseEntity (category: "Projection") with inputs
+//   - Monitors extends BaseEntity (category: "Monitors") with inputs
 // ============================================================================
 
 export interface Send {
@@ -426,9 +455,10 @@ export type IPCategory =
 // ============================================================================
 // SIGNAL FLOW CATEGORY
 // TODO: Refactor Signal Flow entities to extend BaseEntity with proper subcategories:
-//   - VisionSwitcher extends BaseEntity (category: "Vision Switcher")
-//   - CamSwitcher extends BaseEntity (category: "Cam Switcher")
-//   - Router extends BaseEntity (category: "Routers")
+//   - VisionSwitcher extends BaseEntity (category: "Vision Switcher") with inputs and outputs
+//   - CamSwitcher extends BaseEntity (category: "Cam Switcher") with inputs and outputs
+//   - Router extends BaseEntity (category: "Routers") with inputs and outputs
+// Signal flow devices sit in the middle and manage traffic from sources to sends.
 // ============================================================================
 
 export interface Router {
