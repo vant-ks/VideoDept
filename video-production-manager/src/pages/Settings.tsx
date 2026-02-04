@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, X, Moon, Sun, ChevronDown, ChevronRight, GripVertical, Save } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, X, Moon, Sun, ChevronDown, ChevronRight, GripVertical, RotateCcw } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { ServerConnection } from '@/components/ServerConnection';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 export default function Settings() {
   // Use new stores with proper zustand subscriptions
@@ -25,10 +26,12 @@ export default function Settings() {
   const removeConnectorType = equipmentLibrary.removeConnectorType || oldStore.removeConnectorType;
   const reorderConnectorTypes = equipmentLibrary.reorderConnectorTypes || oldStore.reorderConnectorTypes;
   
-  const sourceTypes = (Array.isArray(equipmentLibrary.sourceTypes) && equipmentLibrary.sourceTypes.length > 0) ? equipmentLibrary.sourceTypes : (oldStore.sourceTypes || []);
-  const addSourceType = equipmentLibrary.addSourceType || oldStore.addSourceType;
-  const removeSourceType = equipmentLibrary.removeSourceType || oldStore.removeSourceType;
-  const reorderSourceTypes = equipmentLibrary.reorderSourceTypes || oldStore.reorderSourceTypes;
+  // Source types are global app settings, not production-specific
+  const sourceTypes = oldStore.sourceTypes || [];
+  const addSourceType = oldStore.addSourceType;
+  const removeSourceType = oldStore.removeSourceType;
+  const reorderSourceTypes = oldStore.reorderSourceTypes;
+  const restoreDefaultSourceTypes = oldStore.restoreDefaultSourceTypes;
   
   const frameRates = (Array.isArray(equipmentLibrary.frameRates) && equipmentLibrary.frameRates.length > 0) ? equipmentLibrary.frameRates : (oldStore.frameRates || []);
   const addFrameRate = equipmentLibrary.addFrameRate || oldStore.addFrameRate;
@@ -66,6 +69,9 @@ export default function Settings() {
   
   const [serverStatusElement, setServerStatusElement] = useState<JSX.Element | null>(null);
   
+  // WebSocket connection for real-time sync
+  const { socket, isConnected } = useWebSocket();
+  
   // Helper to convert ISO date to yyyy-MM-dd format (memoized to prevent re-creation)
   const formatDateForInput = useCallback((date: string | undefined): string => {
     if (!date) return '';
@@ -77,28 +83,116 @@ export default function Settings() {
     }
   }, []);
 
-  // Production editing state
+  // Production data (used for display/context only - editing moved to Dashboard)
   const production = activeProject?.production || oldStore.production;
   const productionId = production?.id;
   
-  // Memoize initial production form values to prevent unnecessary re-renders
-  // NOTE: formatDateForInput is NOT in deps because it's memoized with useCallback
-  const initialFormValues = useMemo(() => {
-    return {
-      showName: production?.showName || '',
-      client: production?.client || '',
-      venue: production?.venue || '',
-      room: production?.room || '',
-      loadIn: formatDateForInput(production?.loadinDate || production?.loadIn),
-      loadOut: formatDateForInput(production?.loadoutDate || production?.loadOut),
-      showInfoUrl: production?.showInfoUrl || ''
-    };
-  }, [production?.showName, production?.client, production?.venue, production?.room, 
-      production?.loadinDate, production?.loadIn, production?.loadoutDate, 
-      production?.loadOut, production?.showInfoUrl]);
+  // Get API URL (includes /api suffix)
+  const getApiUrl = () => {
+    const url = localStorage.getItem('api_server_url') || import.meta.env.VITE_API_URL || 'http://localhost:3010/api';
+    // Ensure it ends with /api
+    return url.endsWith('/api') ? url : `${url}/api`;
+  };
   
-  const [editedProduction, setEditedProduction] = useState(initialFormValues);
-  const [isSavingProduction, setIsSavingProduction] = useState(false);
+  // Fetch all settings from API on mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const apiUrl = getApiUrl();
+        
+        // Fetch source types
+        const sourceTypesRes = await fetch(`${apiUrl}/settings/source-types`);
+        if (sourceTypesRes.ok) {
+          const types = await sourceTypesRes.json();
+          // Update Zustand store for offline cache
+          oldStore.setSourceTypes?.(types);
+        }
+        
+        // Fetch connector types
+        const connectorTypesRes = await fetch(`${apiUrl}/settings/connector-types`);
+        if (connectorTypesRes.ok) {
+          const types = await connectorTypesRes.json();
+          equipmentLibrary.setConnectorTypes?.(types);
+        }
+        
+        // Fetch frame rates
+        const frameRatesRes = await fetch(`${apiUrl}/settings/frame-rates`);
+        if (frameRatesRes.ok) {
+          const rates = await frameRatesRes.json();
+          equipmentLibrary.setFrameRates?.(rates);
+        }
+        
+        // Fetch resolutions
+        const resolutionsRes = await fetch(`${apiUrl}/settings/resolutions`);
+        if (resolutionsRes.ok) {
+          const resolutions = await resolutionsRes.json();
+          equipmentLibrary.setResolutions?.(resolutions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch settings from API:', error);
+      }
+    };
+    
+    fetchSettings();
+  }, []);
+  
+  // WebSocket listeners for real-time settings updates
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+    
+    // Source types updates
+    const handleSourceTypesUpdated = (data: any) => {
+      console.log('Settings: Received source-types update via WebSocket:', data);
+      // Refetch from API to get latest data
+      const apiUrl = getApiUrl();
+      fetch(`${apiUrl}/settings/source-types`)
+        .then(res => res.json())
+        .then(types => oldStore.setSourceTypes?.(types))
+        .catch(err => console.error('Failed to refetch source types:', err));
+    };
+    
+    // Connector types updates
+    const handleConnectorTypesUpdated = (data: any) => {
+      console.log('Settings: Received connector-types update via WebSocket:', data);
+      const apiUrl = getApiUrl();
+      fetch(`${apiUrl}/settings/connector-types`)
+        .then(res => res.json())
+        .then(types => equipmentLibrary.setConnectorTypes?.(types))
+        .catch(err => console.error('Failed to refetch connector types:', err));
+    };
+    
+    // Frame rates updates
+    const handleFrameRatesUpdated = (data: any) => {
+      console.log('Settings: Received frame-rates update via WebSocket:', data);
+      const apiUrl = getApiUrl();
+      fetch(`${apiUrl}/settings/frame-rates`)
+        .then(res => res.json())
+        .then(rates => equipmentLibrary.setFrameRates?.(rates))
+        .catch(err => console.error('Failed to refetch frame rates:', err));
+    };
+    
+    // Resolution presets updates
+    const handleResolutionsUpdated = (data: any) => {
+      console.log('Settings: Received resolution-presets update via WebSocket:', data);
+      const apiUrl = getApiUrl();
+      fetch(`${apiUrl}/settings/resolutions`)
+        .then(res => res.json())
+        .then(resolutions => equipmentLibrary.setResolutions?.(resolutions))
+        .catch(err => console.error('Failed to refetch resolutions:', err));
+    };
+    
+    socket.on('settings:source-types-updated', handleSourceTypesUpdated);
+    socket.on('settings:connector-types-updated', handleConnectorTypesUpdated);
+    socket.on('settings:frame-rates-updated', handleFrameRatesUpdated);
+    socket.on('settings:resolution-presets-updated', handleResolutionsUpdated);
+    
+    return () => {
+      socket.off('settings:source-types-updated', handleSourceTypesUpdated);
+      socket.off('settings:connector-types-updated', handleConnectorTypesUpdated);
+      socket.off('settings:frame-rates-updated', handleFrameRatesUpdated);
+      socket.off('settings:resolution-presets-updated', handleResolutionsUpdated);
+    };
+  }, [socket, isConnected]);
   
   // Load expanded sections from localStorage or default to all sections expanded
   const [expandedSections, setExpandedSections] = useState<string[]>(() => {
@@ -137,22 +231,9 @@ export default function Settings() {
     }
   }, []);
 
-  // Update production form when production changes (including from WebSocket sync)
-  useEffect(() => {
-    if (production && productionId) {
-      setEditedProduction({
-        showName: production.showName || '',
-        client: production.client || '',
-        venue: production.venue || '',
-        room: production.room || '',
-        loadIn: formatDateForInput(production.loadinDate || production.loadIn),
-        loadOut: formatDateForInput(production.loadoutDate || production.loadOut),
-        showInfoUrl: production.showInfoUrl || ''
-      });
-    }
-  }, [production, productionId]);
+  // NOTE: Production editing functionality has been moved to Dashboard Edit Modal
 
-  const handleAddDevice = (e: React.FormEvent) => {
+  const handleAddDevice = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newConnector.trim()) {
@@ -165,18 +246,66 @@ export default function Settings() {
       return;
     }
     
-    addConnectorType(newConnector.trim());
-    setNewConnector('');
-    setConnectorError('');
-  };
-
-  const handleRemoveDevice = (type: string) => {
-    if (confirm(`Remove "${type}"? This will permanently delete it.`)) {
-      removeConnectorType(type);
+    try {
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/settings/connector-types`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newConnector.trim() })
+      });
+      
+      if (!response.ok) throw new Error('Failed to add connector type');
+      
+      // Optimistic update - will be confirmed by WebSocket
+      addConnectorType(newConnector.trim());
+      setNewConnector('');
+      setConnectorError('');
+    } catch (error) {
+      console.error('Failed to add connector type:', error);
+      setConnectorError('Failed to add connector type');
     }
   };
 
-  const handleAddSourceType = (e: React.FormEvent) => {
+  const handleRemoveDevice = async (type: string) => {
+    if (confirm(`Remove "${type}"? This will permanently delete it.`)) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/connector-types/${encodeURIComponent(type)}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to remove connector type');
+        
+        // Optimistic update - will be confirmed by WebSocket
+        removeConnectorType(type);
+      } catch (error) {
+        console.error('Failed to remove connector type:', error);
+        alert('Failed to remove connector type');
+      }
+    }
+  };
+
+  const handleRestoreDefaultConnectorTypes = async () => {
+    if (confirm('Restore default connector types? This will replace all current types with the original defaults.')) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/connector-types/restore-defaults`, {
+          method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to restore defaults');
+        
+        const types = await response.json();
+        // Update Zustand store - will also be confirmed by WebSocket
+        equipmentLibrary.setConnectorTypes?.(types);
+      } catch (error) {
+        console.error('Failed to restore default connector types:', error);
+        alert('Failed to restore defaults');
+      }
+    }
+  };
+
+  const handleAddSourceType = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newSourceType.trim()) {
@@ -191,14 +320,62 @@ export default function Settings() {
       return;
     }
     
-    addSourceType(trimmedType);
-    setNewSourceType('');
-    setTypeError('');
+    try {
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/settings/source-types`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmedType })
+      });
+      
+      if (!response.ok) throw new Error('Failed to add source type');
+      
+      // Optimistic update - will be confirmed by WebSocket
+      addSourceType(trimmedType);
+      setNewSourceType('');
+      setTypeError('');
+    } catch (error) {
+      console.error('Failed to add source type:', error);
+      setTypeError('Failed to add source type');
+    }
   };
 
-  const handleRemoveSourceType = (type: string) => {
+  const handleRemoveSourceType = async (type: string) => {
     if (confirm(`Remove "${type}"? This will permanently delete it.`)) {
-      removeSourceType(type);
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/source-types/${encodeURIComponent(type)}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to remove source type');
+        
+        // Optimistic update - will be confirmed by WebSocket
+        removeSourceType(type);
+      } catch (error) {
+        console.error('Failed to remove source type:', error);
+        alert('Failed to remove source type');
+      }
+    }
+  };
+
+  const handleRestoreDefaultSourceTypes = async () => {
+    if (confirm('Restore default source types? This will replace all current types with the original 11 defaults.')) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/source-types/restore-defaults`, {
+          method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to restore defaults');
+        
+        const types = await response.json();
+        // Update Zustand store - will also be confirmed by WebSocket
+        oldStore.setSourceTypes?.(types);
+      } catch (error) {
+        console.error('Failed to restore default source types:', error);
+        alert('Failed to restore defaults');
+      }
     }
   };
 
@@ -220,7 +397,21 @@ export default function Settings() {
     setDraggedConnectorIndex(index);
   };
 
-  const handleConnectorDragEnd = () => {
+  const handleConnectorDragEnd = async () => {
+    if (draggedConnectorIndex !== null) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/connector-types/reorder`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ types: connectorTypes })
+        });
+        
+        if (!response.ok) throw new Error('Failed to reorder connector types');
+      } catch (error) {
+        console.error('Failed to reorder connector types:', error);
+      }
+    }
     setDraggedConnectorIndex(null);
   };
 
@@ -242,7 +433,21 @@ export default function Settings() {
     setDraggedTypeIndex(index);
   };
 
-  const handleTypeDragEnd = () => {
+  const handleTypeDragEnd = async () => {
+    if (draggedTypeIndex !== null) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/source-types/reorder`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ types: sourceTypes })
+        });
+        
+        if (!response.ok) throw new Error('Failed to reorder source types');
+      } catch (error) {
+        console.error('Failed to reorder source types:', error);
+      }
+    }
     setDraggedTypeIndex(null);
   };
 
@@ -264,7 +469,21 @@ export default function Settings() {
     setDraggedFrameRateIndex(index);
   };
 
-  const handleFrameRateDragEnd = () => {
+  const handleFrameRateDragEnd = async () => {
+    if (draggedFrameRateIndex !== null) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/frame-rates/reorder`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rates: frameRates })
+        });
+        
+        if (!response.ok) throw new Error('Failed to reorder frame rates');
+      } catch (error) {
+        console.error('Failed to reorder frame rates:', error);
+      }
+    }
     setDraggedFrameRateIndex(null);
   };
 
@@ -286,49 +505,28 @@ export default function Settings() {
     setDraggedResolutionIndex(index);
   };
 
-  const handleResolutionDragEnd = () => {
+  const handleResolutionDragEnd = async () => {
+    if (draggedResolutionIndex !== null) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/resolutions/reorder`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resolutions })
+        });
+        
+        if (!response.ok) throw new Error('Failed to reorder resolutions');
+      } catch (error) {
+        console.error('Failed to reorder resolutions:', error);
+      }
+    }
     setDraggedResolutionIndex(null);
   };
 
-  // Production save handler
-  const handleSaveProduction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!activeProject) {
-      alert('No active project');
-      return;
-    }
-    
-    setIsSavingProduction(true);
-    try {
-      // Update local state first
-      updateActiveProject({
-        production: {
-          ...activeProject.production,
-          showName: editedProduction.showName,
-          client: editedProduction.client,
-          venue: editedProduction.venue,
-          room: editedProduction.room,
-          loadinDate: editedProduction.loadIn,
-          loadoutDate: editedProduction.loadOut,
-          showInfoUrl: editedProduction.showInfoUrl
-        }
-      });
-      
-      // Save to server (triggers field-level versioning)
-      await saveProject();
-      
-      alert('Production information saved successfully!');
-    } catch (error) {
-      console.error('Failed to save production:', error);
-      alert('Failed to save production information. Please try again.');
-    } finally {
-      setIsSavingProduction(false);
-    }
-  };
+  // NOTE: handleSaveProduction removed - production editing moved to Dashboard Edit Modal
 
   // Add/remove handlers
-  const handleAddFrameRate = (e: React.FormEvent) => {
+  const handleAddFrameRate = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newFrameRate.trim()) {
@@ -341,18 +539,66 @@ export default function Settings() {
       return;
     }
     
-    addFrameRate(newFrameRate.trim());
-    setNewFrameRate('');
-    setFrameRateError('');
-  };
-
-  const handleRemoveFrameRate = (rate: string) => {
-    if (confirm(`Remove "${rate}"? This will permanently delete it.`)) {
-      removeFrameRate(rate);
+    try {
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/settings/frame-rates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rate: newFrameRate.trim() })
+      });
+      
+      if (!response.ok) throw new Error('Failed to add frame rate');
+      
+      // Optimistic update - will be confirmed by WebSocket
+      addFrameRate(newFrameRate.trim());
+      setNewFrameRate('');
+      setFrameRateError('');
+    } catch (error) {
+      console.error('Failed to add frame rate:', error);
+      setFrameRateError('Failed to add frame rate');
     }
   };
 
-  const handleAddResolution = (e: React.FormEvent) => {
+  const handleRemoveFrameRate = async (rate: string) => {
+    if (confirm(`Remove "${rate}"? This will permanently delete it.`)) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/frame-rates/${encodeURIComponent(rate)}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to remove frame rate');
+        
+        // Optimistic update - will be confirmed by WebSocket
+        removeFrameRate(rate);
+      } catch (error) {
+        console.error('Failed to remove frame rate:', error);
+        alert('Failed to remove frame rate');
+      }
+    }
+  };
+
+  const handleRestoreDefaultFrameRates = async () => {
+    if (confirm('Restore default frame rates? This will replace all current rates with the original defaults.')) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/frame-rates/restore-defaults`, {
+          method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to restore defaults');
+        
+        const rates = await response.json();
+        // Update Zustand store - will also be confirmed by WebSocket
+        equipmentLibrary.setFrameRates?.(rates);
+      } catch (error) {
+        console.error('Failed to restore default frame rates:', error);
+        alert('Failed to restore defaults');
+      }
+    }
+  };
+
+  const handleAddResolution = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newResolution.trim()) {
@@ -365,14 +611,62 @@ export default function Settings() {
       return;
     }
     
-    addResolution(newResolution.trim());
-    setNewResolution('');
-    setResolutionError('');
+    try {
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/settings/resolutions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newResolution.trim() })
+      });
+      
+      if (!response.ok) throw new Error('Failed to add resolution');
+      
+      // Optimistic update - will be confirmed by WebSocket
+      addResolution(newResolution.trim());
+      setNewResolution('');
+      setResolutionError('');
+    } catch (error) {
+      console.error('Failed to add resolution:', error);
+      setResolutionError('Failed to add resolution');
+    }
   };
 
-  const handleRemoveResolution = (resolution: string) => {
+  const handleRemoveResolution = async (resolution: string) => {
     if (confirm(`Remove "${resolution}"? This will permanently delete it.`)) {
-      removeResolution(resolution);
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/resolutions/${encodeURIComponent(resolution)}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to remove resolution');
+        
+        // Optimistic update - will be confirmed by WebSocket
+        removeResolution(resolution);
+      } catch (error) {
+        console.error('Failed to remove resolution:', error);
+        alert('Failed to remove resolution');
+      }
+    }
+  };
+
+  const handleRestoreDefaultResolutions = async () => {
+    if (confirm('Restore default resolutions? This will replace all current resolutions with the original defaults.')) {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/settings/resolutions/restore-defaults`, {
+          method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to restore defaults');
+        
+        const resolutions = await response.json();
+        // Update Zustand store - will also be confirmed by WebSocket
+        equipmentLibrary.setResolutions?.(resolutions);
+      } catch (error) {
+        console.error('Failed to restore default resolutions:', error);
+        alert('Failed to restore defaults');
+      }
     }
   };
 
@@ -391,8 +685,11 @@ export default function Settings() {
   const [customHex, setCustomHex] = useState(accentColor);
   const [customRgb, setCustomRgb] = useState({ r: 59, g: 130, b: 246 });
 
-  // Permission helper - only admin and manager can edit equipment settings
-  const canEditEquipmentSettings = userRole === 'admin' || userRole === 'manager';
+  // Permission helpers
+  // Equipment settings (source types, connector types, frame rates, resolutions) are open to all roles including operators
+  const canEditEquipmentSettings = true;
+  // Production info editing remains restricted to admin/manager only
+  const canEditProductionInfo = userRole === 'admin' || userRole === 'manager';
 
   return (
     <div className="space-y-6">
@@ -441,23 +738,27 @@ export default function Settings() {
         </button>
         {expandedSections.includes('general') && (
           <div className="mt-6 space-y-8">
-            {/* Server Connection Subsection */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-av-text">Server Connection</h3>
-                {serverStatusElement}
-              </div>
-              <ServerConnection 
-                onConnect={() => {
-                  // Trigger sync after connection
-                  const store = useProductionStore.getState();
-                  store.syncWithServer();
-                }}
-                renderStatus={handleRenderStatus}
-              />
-            </div>
+            {/* Server Connection Subsection - Admin/Manager only */}
+            {(userRole === 'admin' || userRole === 'manager') && (
+              <>
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-av-text">Server Connection</h3>
+                    {serverStatusElement}
+                  </div>
+                  <ServerConnection 
+                    onConnect={() => {
+                      // Trigger sync after connection
+                      const store = useProductionStore.getState();
+                      store.syncWithServer();
+                    }}
+                    renderStatus={handleRenderStatus}
+                  />
+                </div>
 
-            <div className="border-t border-av-border" />
+                <div className="border-t border-av-border" />
+              </>
+            )}
 
             {/* Display Preferences Subsection */}
             <div>
@@ -632,116 +933,6 @@ export default function Settings() {
                 </div>
               </div>
             </div>
-
-            <div className="border-t border-av-border" />
-
-            {/* Production Information Subsection */}
-            <div>
-              <h3 className="text-lg font-semibold text-av-text mb-4">Production Information</h3>
-              <form onSubmit={handleSaveProduction} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      Show Name
-                    </label>
-                    <input
-                      type="text"
-                      value={editedProduction.showName}
-                      onChange={(e) => setEditedProduction({ ...editedProduction, showName: e.target.value })}
-                      className="input-field w-full"
-                      placeholder="Enter show name"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      Client
-                    </label>
-                    <input
-                      type="text"
-                      value={editedProduction.client}
-                      onChange={(e) => setEditedProduction({ ...editedProduction, client: e.target.value })}
-                      className="input-field w-full"
-                      placeholder="Enter client name"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      Venue
-                    </label>
-                    <input
-                      type="text"
-                      value={editedProduction.venue}
-                      onChange={(e) => setEditedProduction({ ...editedProduction, venue: e.target.value })}
-                      className="input-field w-full"
-                      placeholder="Enter venue name"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      Room
-                    </label>
-                    <input
-                      type="text"
-                      value={editedProduction.room}
-                      onChange={(e) => setEditedProduction({ ...editedProduction, room: e.target.value })}
-                      className="input-field w-full"
-                      placeholder="Enter room name"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      Load In Date
-                    </label>
-                    <input
-                      type="date"
-                      value={editedProduction.loadIn}
-                      onChange={(e) => setEditedProduction({ ...editedProduction, loadIn: e.target.value })}
-                      className="input-field w-full"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      Load Out Date
-                    </label>
-                    <input
-                      type="date"
-                      value={editedProduction.loadOut}
-                      onChange={(e) => setEditedProduction({ ...editedProduction, loadOut: e.target.value })}
-                      className="input-field w-full"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-2">
-                    Show Info URL
-                  </label>
-                  <input
-                    type="url"
-                    value={editedProduction.showInfoUrl}
-                    onChange={(e) => setEditedProduction({ ...editedProduction, showInfoUrl: e.target.value })}
-                    className="input-field w-full"
-                    placeholder="https://example.com/show-info"
-                  />
-                </div>
-                
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={isSavingProduction}
-                    className="btn-primary flex items-center gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    {isSavingProduction ? 'Saving...' : 'Save Production Info'}
-                  </button>
-                </div>
-              </form>
-            </div>
           </div>
         )}
       </Card>
@@ -792,6 +983,19 @@ export default function Settings() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* Restore Defaults Button */}
+            {canEditEquipmentSettings && (
+              <div className="mb-4">
+                <button 
+                  onClick={handleRestoreDefaultSourceTypes}
+                  className="btn-secondary text-sm flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Restore Defaults
+                </button>
+              </div>
             )}
 
             {/* Source Type List */}
@@ -882,6 +1086,19 @@ export default function Settings() {
             </form>
             )}
 
+            {/* Restore Defaults Button */}
+            {canEditEquipmentSettings && (
+              <div className="mb-4">
+                <button 
+                  onClick={handleRestoreDefaultConnectorTypes}
+                  className="btn-secondary text-sm flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Restore Defaults
+                </button>
+              </div>
+            )}
+
             {/* Connector List */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-av-text-muted mb-3">
@@ -970,6 +1187,19 @@ export default function Settings() {
               </form>
             )}
 
+            {/* Restore Defaults Button */}
+            {canEditEquipmentSettings && (
+              <div className="mb-4">
+                <button 
+                  onClick={handleRestoreDefaultFrameRates}
+                  className="btn-secondary text-sm flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Restore Defaults
+                </button>
+              </div>
+            )}
+
             {/* Frame Rate List */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-av-text-muted mb-3">
@@ -1056,6 +1286,19 @@ export default function Settings() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* Restore Defaults Button */}
+            {canEditEquipmentSettings && (
+              <div className="mb-4">
+                <button 
+                  onClick={handleRestoreDefaultResolutions}
+                  className="btn-secondary text-sm flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Restore Defaults
+                </button>
+              </div>
             )}
 
             {/* Resolution List */}

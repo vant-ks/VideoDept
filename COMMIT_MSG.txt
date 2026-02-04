@@ -1,0 +1,86 @@
+fix: enforce camelCase contract throughout frontend, fix dates display
+
+CRITICAL: Frontend must NEVER access snake_case fields - API sends camelCase
+
+Root Cause Analysis:
+- Frontend was mapping from snake_case after API already sent camelCase
+- Spread operators leaked snake_case properties into clean objects
+- WebSocket listeners assumed snake_case when API broadcast camelCase
+- Result: daysBeforeShow became undefined, dates never displayed
+
+Violations Fixed:
+1. useProjectStore.ts (7 locations):
+   - Lines 213-227: Fixed GET endpoint checklist mapping
+   - Lines 313-327: Fixed alternate GET endpoint mapping
+   - Lines 204-211: Fixed production field mapping (loadIn, loadOut, showInfoUrl)
+   - Lines 302-309: Fixed alternate production mapping
+   - Lines 530-542: Fixed saveProject fieldVersions response
+   - Lines 600-607: Fixed force save fieldVersions
+   - Lines 639-640: Fixed conflict detection updatedAt
+   - Lines 855-863: Fixed syncWithAPI production mapping
+   - Lines 890-907: Fixed syncWithAPI log statements
+
+2. useProductionSync.ts (3 locations):
+   - Line 46: Fixed lastModifiedBy fallback
+   - Lines 90-97: Fixed production field mapping in merge
+   - Lines 124-127: Removed debug log checking snake_case
+
+3. Projects.tsx (2 locations):
+   - Lines 68-73: Fixed production list creation
+   - Lines 112-117: Fixed production update handler
+
+4. apiClient.ts (1 location):
+   - Lines 150-158: Removed debug log checking snake_case
+
+5. Checklist.tsx (2 fixes):
+   - Lines 176-210: Fixed spread operator in addChecklistItem
+   - Lines 211-223: Removed category collapse on task toggle
+
+6. useProjectStore.ts addChecklistItem (1 location):
+   - Lines 1065-1084: Built clean object instead of spreading item
+
+Bug Fixes:
+- Checklist dates now display with colored badges
+- Task completion no longer collapses categories
+- Overall Progress card updates on task toggle
+- Item deletion persists across refresh
+- Load in/out dates save correctly in production creation
+
+Store Architecture Fix:
+- useChecklistProgress now reads from activeProject (useProjectStore)
+- Previously read from old store causing stale progress stats
+- Added import of useProjectStore to useStore.ts
+
+Documentation:
+- PROJECT_RULES.md: Added architectural justification for server-side transforms
+- Updated mission statement with SERVER-SIDE TRANSFORMATION CONTRACT
+- Documented why server-side (not client-side) transform is correct:
+  * Single source of truth
+  * WebSocket efficiency (broadcast once, works for all)
+  * Lower client CPU usage
+  * Less error-prone (N routes vs N×M×P listeners)
+  * Industry standard
+
+Debug Logging Added:
+- API: Database return values and broadcast payloads
+- Frontend: GET endpoint responses, form values, WebSocket receipts
+- Traced full data flow from DB → API → WebSocket → Frontend
+
+Architectural Decision:
+Server-side transformation is the correct approach:
+  Client → Server: Always send camelCase
+  Server → Client: Always receive camelCase (via toCamelCase)
+  Database: Always stores snake_case
+
+Self-Audit Commands (PROJECT_RULES.md):
+  grep -rn 'apiClient.(create|update)' src/ | grep '_'
+  grep -rn 'subscribe.*data.' src/hooks/useProductionSync.ts | grep '_'
+
+Testing Verified:
+- Created new production with dates
+- Dates display correctly with color coding (red ≤7d, yellow ≤14d)
+- Progress card updates immediately on toggle
+- Delete persists across refresh
+- Multi-browser sync works (dates visible in both browsers)
+
+See PROJECT_RULES.md 'Five Pillars of Data Integrity' for prevention patterns.

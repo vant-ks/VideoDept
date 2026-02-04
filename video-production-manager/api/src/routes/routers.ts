@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { created_at: 'asc' }
     });
     
-    res.json(routers);
+    res.json(toCamelCase(routers));
   } catch (error) {
     console.error('Error fetching routers:', error);
     res.status(500).json({ error: 'Failed to fetch routers' });
@@ -29,33 +30,38 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create router
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...router_data } = req.body;
+    const { userId, userName, productionId, ...routerData } = req.body;
+    const snakeCaseData = toSnakeCase(routerData);
     
-    const router = await prisma.routers.create({
-      data: router_data
+    const routerEntity = await prisma.routers.create({
+      data: {
+        ...snakeCaseData,
+        production_id: productionId,
+        version: 1
+      }
     });
     
     // Record event
     await recordEvent({
-      productionId: router.production_id,
+      productionId: routerEntity.production_id,
       eventType: EventType.ROUTER,
       operation: EventOperation.CREATE,
-      entityId: router.id,
-      entityData: router,
+      entityId: routerEntity.id,
+      entityData: routerEntity,
       userId: userId || 'system',
       userName: userName || 'System',
-      version: router.version
+      version: routerEntity.version
     });
     
     // Broadcast to production room
-    io.to(`production:${router.production_id}`).emit('entity:created', {
+    io.to(`production:${routerEntity.production_id}`).emit('entity:created', {
       entityType: 'router',
-      entity: router,
+      entity: toCamelCase(routerEntity),
       userId,
       userName
     });
     
-    res.status(201).json(router);
+    res.status(201).json(toCamelCase(routerEntity));
   } catch (error) {
     console.error('Error creating router:', error);
     res.status(500).json({ error: 'Failed to create router' });

@@ -4,6 +4,7 @@ import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { validateProductionExists } from '../utils/validation-helpers';
 
 const router = Router();
 
@@ -31,7 +32,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const source = await prisma.sources.findUnique({
       where: { id: req.params.id },
-      include: { outputs: true }
+      include: { source_outputs: true }
     });
 
     if (!source || source.is_deleted) {
@@ -47,24 +48,52 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST create source
 router.post('/', async (req: Request, res: Response) => {
   try {
+    // Debug logging - log FULL req.body first
+    console.log('🔍 FULL req.body:', JSON.stringify(req.body, null, 2));
+    
     const { outputs, productionId, userId, userName, ...sourceData } = req.body;
+    
+    // VALIDATION: Verify production exists in database
+    try {
+      await validateProductionExists(productionId);
+    } catch (validationError: any) {
+      console.error('❌ Production validation failed:', validationError.message);
+      return res.status(400).json({ 
+        error: validationError.message,
+        code: 'PRODUCTION_NOT_FOUND',
+        productionId 
+      });
+    }
+    
+    // Debug logging
+    console.log('Creating source with productionId:', productionId);
+    console.log('Source data before conversion:', sourceData);
+    
+    const snakeCaseData = toSnakeCase(sourceData);
+    
+    console.log('Source data after conversion:', snakeCaseData);
 
     const source = await prisma.sources.create({
       data: {
-        ...sourceData,
-        productionId,
-        outputs: outputs ? {
-          create: outputs.map((output: any) => ({
-            connector: output.connector,
-            outputIndex: output.outputIndex || 1,
-            hRes: output.hRes,
-            vRes: output.vRes,
-            rate: output.rate,
-            standard: output.standard
-          }))
+        ...snakeCaseData,
+        production_id: productionId,
+        updated_at: new Date(),
+        source_outputs: outputs ? {
+          create: outputs.map((output: any) => {
+            const snakeCaseOutput = toSnakeCase(output);
+            return {
+              id: snakeCaseOutput.id || `${snakeCaseData.id}-out-${snakeCaseOutput.output_index || 1}`,
+              connector: snakeCaseOutput.connector,
+              output_index: snakeCaseOutput.output_index || 1,
+              h_res: snakeCaseOutput.h_res,
+              v_res: snakeCaseOutput.v_res,
+              rate: snakeCaseOutput.rate,
+              standard: snakeCaseOutput.standard
+            };
+          })
         } : undefined
       },
-      include: { outputs: true }
+      include: { source_outputs: true }
     });
 
     // Record CREATE event
@@ -82,14 +111,24 @@ router.post('/', async (req: Request, res: Response) => {
     // Broadcast event to production room
     io.to(`production:${productionId}`).emit('entity:created', {
       entityType: 'source',
-      entity: source,
+      entity: toCamelCase(source),
       userId,
       userName
     });
 
-    res.status(201).json(source);
+    res.status(201).json(toCamelCase(source));
   } catch (error: any) {
     console.error('Create source error:', error);
+    
+    // Check for unique constraint violation
+    if (error.code === 'P2002' && error.meta?.target?.includes('id')) {
+      return res.status(409).json({ 
+        error: 'Source ID already exists',
+        message: `A source with ID "${req.body.id}" already exists. Please use a different ID.`,
+        code: 'DUPLICATE_ID'
+      });
+    }
+    
     res.status(500).json({ error: 'Failed to create source', details: error.message });
   }
 });
@@ -102,7 +141,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Get current source for diff and conflict detection
     const currentSource = await prisma.sources.findUnique({
       where: { id: req.params.id },
-      include: { outputs: true }
+      include: { source_outputs: true }
     });
     
     if (!currentSource || currentSource.is_deleted) {
@@ -115,18 +154,20 @@ router.put('/:id', async (req: Request, res: Response) => {
         error: 'Conflict',
         message: 'Source was modified by another user',
         currentVersion: currentSource.version,
-        serverData: currentSource
+        serverData: toCamelCase(currentSource)
       });
     }
     
+    const snakeCaseData = toSnakeCase(updateData);
     const updatedSource = await prisma.sources.update({
       where: { id: req.params.id },
       data: {
-        ...updateData,
+        ...snakeCaseData,
         version: { increment: 1 },
-        lastModifiedBy: userId || 'system'
+        last_modified_by: userId || 'system',
+        updated_at: new Date()
       },
-      include: { outputs: true }
+      include: { source_outputs: true }
     });
     
     // Calculate diff and record event
@@ -144,15 +185,15 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
 
     // Broadcast event to production room
-    io.to(`production:${currentSource.productionId}`).emit('entity:updated', {
+    io.to(`production:${currentSource.production_id}`).emit('entity:updated', {
       entityType: 'source',
-      entity: updatedSource,
+      entity: toCamelCase(updatedSource),
       changes,
       userId,
       userName
     });
 
-    res.json(updatedSource);
+    res.json(toCamelCase(updatedSource));
   } catch (error: any) {
     console.error('Update source error:', error);
     res.status(500).json({ error: 'Failed to update source', details: error.message });
@@ -166,7 +207,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     const source = await prisma.sources.findUnique({
       where: { id: req.params.id },
-      include: { outputs: true }
+      include: { source_outputs: true }
     });
     
     if (!source || source.is_deleted) {
@@ -178,14 +219,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
       data: {
         is_deleted: true,
         version: { increment: 1 },
-        lastModifiedBy: userId || 'system'
+        last_modified_by: userId || 'system'
       },
-      include: { outputs: true }
+      include: { source_outputs: true }
     });
     
     // Record DELETE event
     await recordEvent({
-      productionId: source.productionId,
+      productionId: source.production_id,
       eventType: EventType.SOURCE,
       operation: EventOperation.DELETE,
       entityId: deletedSource.id,
@@ -196,7 +237,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
 
     // Broadcast event to production room
-    io.to(`production:${source.productionId}`).emit('entity:deleted', {
+    io.to(`production:${source.production_id}`).emit('entity:deleted', {
       entityType: 'source',
       entityId: deletedSource.id,
       userId,

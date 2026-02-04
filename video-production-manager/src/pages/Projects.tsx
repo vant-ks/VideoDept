@@ -1,6 +1,6 @@
 /**
- * Shows Dashboard
- * Landing page for managing multiple shows
+ * Main Dashboard
+ * Landing page for managing all shows
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -56,6 +56,12 @@ export const Projects: React.FC = () => {
   useProductionListEvents({
     onProductionCreated: useCallback((production: any) => {
       console.log('🔔 New production:', production.name);
+      console.log('📅 Production dates received:', {
+        loadIn: production.loadIn,
+        loadOut: production.loadOut,
+        loadInType: typeof production.loadIn,
+        loadOutType: typeof production.loadOut
+      });
       
       // Transform production database record to VideoDepProject structure
       const newProject: VideoDepProject = {
@@ -69,8 +75,8 @@ export const Projects: React.FC = () => {
           client: production.client || '',
           venue: production.venue || 'TBD',
           room: production.room || '',
-          loadIn: production.loadIn || new Date().toISOString().split('T')[0],
-          loadOut: production.loadOut || new Date().toISOString().split('T')[0],
+          loadIn: production.loadIn || '',
+          loadOut: production.loadOut || '',
         },
         sources: [],
         sends: [],
@@ -465,7 +471,7 @@ export const Projects: React.FC = () => {
             <Logo size={48} showText={false} />
             <div>
               <h1 className="text-3xl font-bold text-av-text">Video Department</h1>
-              <p className="text-av-text-muted">Production Management</p>
+              <p className="text-av-text-muted">Main Dashboard</p>
             </div>
           </div>
 

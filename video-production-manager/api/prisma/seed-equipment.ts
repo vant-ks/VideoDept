@@ -115,12 +115,14 @@ async function seedEquipment() {
           for (const [index, input] of inputs.entries()) {
             await prisma.equipment_io_ports.create({
               data: {
+                id: `${equipment.id}-in-${index}`,
                 equipment_id: equipment.id,
                 port_type: 'INPUT',
                 io_type: input.type,
                 label: input.label || `Input ${index + 1}`,
                 format: input.format || null,
-                port_index: index
+                port_index: index,
+                updated_at: new Date()
               }
             });
           }
@@ -130,12 +132,14 @@ async function seedEquipment() {
           for (const [index, output] of outputs.entries()) {
             await prisma.equipment_io_ports.create({
               data: {
+                id: `${equipment.id}-out-${index}`,
                 equipment_id: equipment.id,
                 port_type: 'OUTPUT',
                 io_type: output.type,
                 label: output.label || `Output ${index + 1}`,
                 format: output.format || null,
-                port_index: index
+                port_index: index,
+                updated_at: new Date()
               }
             });
           }
@@ -147,22 +151,26 @@ async function seedEquipment() {
         for (const card of cards) {
           const dbCard = await prisma.equipment_cards.create({
             data: {
+              id: `${equipment.id}-card-${card.slotNumber}`,
               equipment_id: equipment.id,
-              slot_number: card.slotNumber
+              slot_number: card.slotNumber,
+              updated_at: new Date()
             }
           });
           
           // Create IO ports for the card
           if (card.inputs) {
             for (const [index, input] of card.inputs.entries()) {
-              await prisma.equipment_cardsIo.create({
+              await prisma.equipment_card_io.create({
                 data: {
+                  id: `${dbCard.id}-in-${index}`,
                   card_id: dbCard.id,
                   port_type: 'INPUT',
                   io_type: input.type,
                   label: input.label || `Input ${index + 1}`,
                   format: input.format || null,
-                  port_index: index
+                  port_index: index,
+                  updated_at: new Date()
                 }
               });
             }
@@ -170,14 +178,16 @@ async function seedEquipment() {
           
           if (card.outputs) {
             for (const [index, output] of card.outputs.entries()) {
-              await prisma.equipment_cardsIo.create({
+              await prisma.equipment_card_io.create({
                 data: {
+                  id: `${dbCard.id}-out-${index}`,
                   card_id: dbCard.id,
                   port_type: 'OUTPUT',
                   io_type: output.type,
                   label: output.label || `Output ${index + 1}`,
                   format: output.format || null,
-                  port_index: index
+                  port_index: index,
+                  updated_at: new Date()
                 }
               });
             }

@@ -9,7 +9,6 @@ import type { TimestampedEntry } from '@/types';
 import { cn } from '@/utils/helpers';
 
 const categoryLabels: Record<string, string> = {
-  'PRE_PRODUCTION': 'Pre-Production',
   'SCREENS': 'Screens',
   'SWITCH': 'Switch',
   'IMAG': 'IMAG',
@@ -35,12 +34,15 @@ export const Checklist: React.FC = () => {
     if (activeProject && !activeProject.uiPreferences?.collapsedChecklistCategories) {
       // First time opening checklist for this project - collapse all categories by default
       const allCategories = Object.keys(categoryLabels);
-      activeProject.uiPreferences = {
-        ...activeProject.uiPreferences,
-        collapsedChecklistCategories: allCategories
-      };
-      // Don't call saveProject() here - just update local state
-      // UI preferences don't need to trigger a database save
+      
+      // Update the activeProject reference directly (Zustand handles reactivity)
+      if (!activeProject.uiPreferences) {
+        activeProject.uiPreferences = {};
+      }
+      activeProject.uiPreferences.collapsedChecklistCategories = allCategories;
+      
+      // Save to persist the default collapsed state
+      saveProject();
     }
   }, [activeProject?.production?.id]);
   

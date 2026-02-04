@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${VisionSwitcher}API() {
-  const fetch${VisionSwitcher}s = useCallback(async (productionId: string): Promise<VisionSwitcher[]> => {
+export function useVisionSwitcherAPI() {
+  const fetchVisionSwitchers = useCallback(async (productionId: string): Promise<VisionSwitcher[]> => {
     try {
       return await apiClient.get<VisionSwitcher[]>(`/vision-switchers/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${VisionSwitcher}API() {
     }
   }, []);
 
-  const create${VisionSwitcher} = useCallback(async (input: VisionSwitcherInput): Promise<VisionSwitcher> => {
+  const createVisionSwitcher = useCallback(async (input: VisionSwitcherInput): Promise<VisionSwitcher> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<VisionSwitcher>('/vision-switchers', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<VisionSwitcher>('/vision-switchers', requestData);
     } catch (error) {
       console.error('Error creating visionSwitcher:', error);
       throw error;
     }
   }, []);
 
-  const update${VisionSwitcher} = useCallback(async (
+  const updateVisionSwitcher = useCallback(async (
     id: string,
     updates: Partial<VisionSwitcherInput>
   ): Promise<VisionSwitcher | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<VisionSwitcher>(`/vision-switchers/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<VisionSwitcher>(`/vision-switchers/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${VisionSwitcher}API() {
     }
   }, []);
 
-  const delete${VisionSwitcher} = useCallback(async (id: string): Promise<void> => {
+  const deleteVisionSwitcher = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/vision-switchers/${id}`, {
@@ -90,9 +96,9 @@ export function use${VisionSwitcher}API() {
   }, []);
 
   return {
-    fetch${VisionSwitcher}s,
-    create${VisionSwitcher},
-    update${VisionSwitcher},
-    delete${VisionSwitcher}
+    fetchVisionSwitchers,
+    createVisionSwitcher,
+    updateVisionSwitcher,
+    deleteVisionSwitcher
   };
 }

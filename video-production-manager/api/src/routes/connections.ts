@@ -4,6 +4,7 @@ import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
+import { toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -31,10 +32,11 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, lastModifiedBy, ...connection_data } = req.body;
+    const snakeCaseData = toSnakeCase(connection_data);
     
     const connection = await prisma.connections.create({
       data: {
-        ...connection_data,
+        ...snakeCaseData,
         last_modified_by: lastModifiedBy || userId || null
       }
     });
@@ -93,10 +95,11 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version and metadata
+    const snakeCaseUpdates = toSnakeCase(updates);
     const connection = await prisma.connections.update({
       where: { id },
       data: {
-        ...updates,
+        ...snakeCaseUpdates,
         ...prepareVersionedUpdate(lastModifiedBy || userId)
       }
     });

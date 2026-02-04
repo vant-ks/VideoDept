@@ -4,6 +4,7 @@ import { Card, Badge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useSendsAPI } from '@/hooks/useSendsAPI';
+import { useLEDScreenAPI } from '@/hooks/useLEDScreenAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { ProjectionScreenFormModal } from '@/components/ProjectionScreenFormModal';
 import { cn, formatResolution } from '@/utils/helpers';
@@ -19,13 +20,14 @@ export const Sends: React.FC = () => {
   
   // API hook for event-enabled operations
   const sendsAPI = useSendsAPI();
+  const ledAPI = useLEDScreenAPI();
   
   // Local state
   const [sends, setSends] = useState<Send[]>(activeProject?.sends || oldStore.sends);
   const projectionScreens = activeProject?.projectionScreens || oldStore.projectionScreens;
   
   // Get production ID
-  const productionId = activeProject?.id || oldStore.production?.id;
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
   
   // Load sends from API on mount
   useEffect(() => {
@@ -76,7 +78,13 @@ export const Sends: React.FC = () => {
   const [editingProjectionScreen, setEditingProjectionScreen] = useState<ProjectionScreen | null>(null);
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [isLEDModalOpen, setIsLEDModalOpen] = useState(false);
-  const [sendFormData, setSendFormData] = useState({ id: '', name: '' });
+  const [sendFormData, setSendFormData] = useState({ 
+    name: '', 
+    type: 'SCREEN',
+    hRes: 1920,
+    vRes: 1080,
+    rate: 60
+  });
   const [ledFormData, setLedFormData] = useState({ id: '', name: '' });
   const [conflictData, setConflictData] = useState<{
     send: Send;
@@ -100,12 +108,16 @@ export const Sends: React.FC = () => {
   }, [sends, searchQuery, selectedType]);
 
   const handleAddNew = () => {
+    console.log('🔘 Add button clicked, activeTab:', activeTab);
     if (activeTab === 'projection') {
+      console.log('🔘 Opening projection screen modal');
       setEditingProjectionScreen(null);
       setIsProjectionModalOpen(true);
     } else if (activeTab === 'led') {
+      console.log('🔘 Opening LED modal');
       setIsLEDModalOpen(true);
     } else {
+      console.log('🔘 Opening send modal');
       setIsSendModalOpen(true);
     }
   };
@@ -153,18 +165,43 @@ export const Sends: React.FC = () => {
     }
   };
 
-  const handleSubmitSend = () => {
-    if (!sendFormData.id || !sendFormData.name) return;
-    // TODO: Add to store
-    setIsSendModalOpen(false);
-    setSendFormData({ id: '', name: '' });
+  const handleSubmitSend = async () => {
+    if (!sendFormData.name || !productionId) return;
+    
+    try {
+      const newSend = await sendsAPI.createSend({
+        productionId,
+        name: sendFormData.name,
+        type: sendFormData.type,
+        hRes: sendFormData.hRes,
+        vRes: sendFormData.vRes,
+        rate: sendFormData.rate
+      });
+      
+      // Optimistic update - WebSocket will confirm
+      setSends(prev => [...prev, newSend]);
+      setIsSendModalOpen(false);
+      setSendFormData({ name: '', type: 'SCREEN', hRes: 1920, vRes: 1080, rate: 60 });
+    } catch (error) {
+      console.error('Failed to create send:', error);
+      alert('Failed to create send. Please try again.');
+    }
   };
 
-  const handleSubmitLED = () => {
-    if (!ledFormData.id || !ledFormData.name) return;
-    // TODO: Add to store
-    setIsLEDModalOpen(false);
-    setLedFormData({ id: '', name: '' });
+  const handleSubmitLED = async () => {
+    if (!ledFormData.name || !productionId) return;
+    
+    try {
+      await ledAPI.createLEDScreen({
+        productionId,
+        name: ledFormData.name
+      });
+      setIsLEDModalOpen(false);
+      setLedFormData({ id: '', name: '' });
+    } catch (error) {
+      console.error('Failed to create LED screen:', error);
+      alert('Failed to create LED screen. Please try again.');
+    }
   };
 
   const stats = {
@@ -578,16 +615,6 @@ export const Sends: React.FC = () => {
             <h2 className="text-xl font-bold text-av-text mb-4">Add Send</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-av-text mb-2">ID</label>
-                <input
-                  type="text"
-                  value={sendFormData.id}
-                  onChange={(e) => setSendFormData({...sendFormData, id: e.target.value})}
-                  className="input-field w-full"
-                  placeholder="e.g., SEND-01"
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-av-text mb-2">Name</label>
                 <input
                   type="text"
@@ -597,10 +624,55 @@ export const Sends: React.FC = () => {
                   placeholder="e.g., Main Screen"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">Type</label>
+                <select
+                  value={sendFormData.type}
+                  onChange={(e) => setSendFormData({...sendFormData, type: e.target.value})}
+                  className="input-field w-full"
+                >
+                  <option value="SCREEN">Screen</option>
+                  <option value="MONITOR">Monitor</option>
+                  <option value="ROUTER">Router</option>
+                  <option value="VIDEO SWITCH">Video Switch</option>
+                  <option value="RECORD">Record</option>
+                  <option value="STREAM">Stream</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">H Res</label>
+                  <input
+                    type="number"
+                    value={sendFormData.hRes}
+                    onChange={(e) => setSendFormData({...sendFormData, hRes: parseInt(e.target.value)})}
+                    className="input-field w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">V Res</label>
+                  <input
+                    type="number"
+                    value={sendFormData.vRes}
+                    onChange={(e) => setSendFormData({...sendFormData, vRes: parseInt(e.target.value)})}
+                    className="input-field w-full"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">Frame Rate</label>
+                <input
+                  type="number"
+                  value={sendFormData.rate}
+                  onChange={(e) => setSendFormData({...sendFormData, rate: parseFloat(e.target.value)})}
+                  className="input-field w-full"
+                  step="0.01"
+                />
+              </div>
             </div>
             <div className="flex gap-2 justify-end mt-6">
               <button onClick={() => setIsSendModalOpen(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handleSubmitSend} disabled={!sendFormData.id || !sendFormData.name} className="btn-primary">Submit</button>
+              <button onClick={handleSubmitSend} disabled={!sendFormData.name} className="btn-primary">Submit</button>
             </div>
           </div>
         </div>
@@ -612,16 +684,6 @@ export const Sends: React.FC = () => {
           <div className="bg-av-cardBg rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-av-text mb-4">Add LED Screen</h2>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-av-text mb-2">ID</label>
-                <input
-                  type="text"
-                  value={ledFormData.id}
-                  onChange={(e) => setLedFormData({...ledFormData, id: e.target.value})}
-                  className="input-field w-full"
-                  placeholder="e.g., LED-01"
-                />
-              </div>
               <div>
                 <label className="block text-sm font-medium text-av-text mb-2">Name</label>
                 <input
@@ -635,7 +697,7 @@ export const Sends: React.FC = () => {
             </div>
             <div className="flex gap-2 justify-end mt-6">
               <button onClick={() => setIsLEDModalOpen(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handleSubmitLED} disabled={!ledFormData.id || !ledFormData.name} className="btn-primary">Submit</button>
+              <button onClick={handleSubmitLED} disabled={!ledFormData.name} className="btn-primary">Submit</button>
             </div>
           </div>
         </div>

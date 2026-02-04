@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(projectionScreens);
+    res.json(toCamelCase(projectionScreens));
   } catch (error) {
     console.error('Error fetching projection-screens:', error);
     res.status(500).json({ error: 'Failed to fetch projection-screens' });
@@ -29,10 +30,15 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create projectionScreen
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...projectionScreen_data } = req.body;
+    const { userId, userName, productionId, ...projectionScreenData } = req.body;
+    const snakeCaseData = toSnakeCase(projectionScreenData);
     
     const projectionScreen = await prisma.projectionScreen.create({
-      data: projectionScreen_data
+      data: {
+        ...snakeCaseData,
+        productionId,
+        version: 1
+      }
     });
     
     // Record event
@@ -50,12 +56,12 @@ router.post('/', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${projectionScreen.productionId}`).emit('entity:created', {
       entityType: 'projectionScreen',
-      entity: projectionScreen,
+      entity: toCamelCase(projectionScreen),
       userId,
       userName
     });
     
-    res.status(201).json(projectionScreen);
+    res.status(201).json(toCamelCase(projectionScreen));
   } catch (error) {
     console.error('Error creating projectionScreen:', error);
     res.status(500).json({ error: 'Failed to create projectionScreen' });

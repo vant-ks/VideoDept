@@ -13,16 +13,26 @@ import { Card, StatCard, ProgressBar, Badge, ConnectorBadge } from '@/components
 import { useProductionStore, useChecklistProgress } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
-import { cn, formatResolution } from '@/utils/helpers';
+import { cn, formatResolution, formatDateOnly } from '@/utils/helpers';
 import { DevResetButton } from '@/components/DevResetButton';
 
 export const Dashboard: React.FC = () => {
   // Use new stores
-  const { activeProject } = useProjectStore();
-  const { setActiveTab } = usePreferencesStore();
+  const { activeProject, updateProject } = useProjectStore();
+  const { setActiveTab, userRole } = usePreferencesStore();
   
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();
+  
+  // Edit Show Modal State
+  const [showEditModal, setShowEditModal] = React.useState(false);
+  const [editShowName, setEditShowName] = React.useState('');
+  const [editClient, setEditClient] = React.useState('');
+  const [editVenue, setEditVenue] = React.useState('');
+  const [editRoom, setEditRoom] = React.useState('');
+  const [editLoadIn, setEditLoadIn] = React.useState('');
+  const [editLoadOut, setEditLoadOut] = React.useState('');
+  const [isSaving, setIsSaving] = React.useState(false);
   
   const production = activeProject?.production || oldStore.production;
   const sources = activeProject?.sources || oldStore.sources;
@@ -71,10 +81,48 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleEditProduction = () => {
-    // Switch to settings tab and expand General Settings
-    setActiveTab('settings');
-    // Store flag to expand production section
-    sessionStorage.setItem('expandProductionInfo', 'true');
+    if (!production) return;
+    
+    // Populate modal with current values
+    setEditShowName(production.showName || '');
+    setEditClient(production.client || '');
+    setEditVenue(production.venue || '');
+    setEditRoom(production.room || '');
+    setEditLoadIn(formatDateOnly(production.loadIn) || '');
+    setEditLoadOut(formatDateOnly(production.loadOut) || '');
+    setShowEditModal(true);
+  };
+  
+  const handleSaveShowDetails = async () => {
+    if (!activeProject || !editShowName.trim() || !editClient.trim()) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    
+    try {
+      setIsSaving(true);
+      
+      const updatedProject = {
+        ...activeProject,
+        production: {
+          ...activeProject.production,
+          showName: editShowName.trim(),
+          client: editClient.trim(),
+          venue: editVenue.trim(),
+          room: editRoom.trim(),
+          loadIn: editLoadIn,
+          loadOut: editLoadOut,
+        }
+      };
+      
+      await updateProject(updatedProject);
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Failed to update show:', error);
+      alert('Failed to update show details');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -89,13 +137,15 @@ export const Dashboard: React.FC = () => {
                 <h2 className="text-2xl font-bold text-av-text">
                   {production.showName}
                 </h2>
-                <button
-                  onClick={handleEditProduction}
-                  className="btn-icon text-av-text-muted hover:text-av-accent transition-colors"
-                  title="Edit production information"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
+                {(userRole === 'admin' || userRole === 'manager') && (
+                  <button
+                    onClick={handleEditProduction}
+                    className="btn-icon text-av-text-muted hover:text-av-accent transition-colors"
+                    title="Edit show details"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               <p className="text-av-text-muted">
                 {production.client} • {production.venue} • {production.room}
@@ -106,12 +156,12 @@ export const Dashboard: React.FC = () => {
             <div className="flex-[2] flex items-center gap-4 text-sm">
               <div className="text-center">
                 <p className="text-av-text-muted mb-1">Load In</p>
-                <p className="text-av-accent">{production.loadinDate || production.loadIn}</p>
+                <p className="text-av-accent">{formatDateOnly(production.loadinDate || production.loadIn)}</p>
               </div>
               <div className="w-px h-8 bg-av-border" />
               <div className="text-center">
                 <p className="text-av-text-muted mb-1">Load Out</p>
-                <p className="text-av-accent">{production.loadoutDate || production.loadOut}</p>
+                <p className="text-av-accent">{formatDateOnly(production.loadoutDate || production.loadOut)}</p>
               </div>
             </div>
             
@@ -390,6 +440,115 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
       <DevResetButton />
+      
+      {/* Edit Show Details Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowEditModal(false)}>
+          <Card className="w-full max-w-lg p-6 m-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold text-av-text mb-6">Edit Show Details</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">
+                  Show Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editShowName}
+                  onChange={(e) => setEditShowName(e.target.value)}
+                  className="w-full px-3 py-2 bg-av-surface border border-av-border rounded-lg text-av-text focus:outline-none focus:border-av-accent"
+                  placeholder="e.g., Annual Conference 2026"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">
+                  Client <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editClient}
+                  onChange={(e) => setEditClient(e.target.value)}
+                  className="w-full px-3 py-2 bg-av-surface border border-av-border rounded-lg text-av-text focus:outline-none focus:border-av-accent"
+                  placeholder="e.g., Acme Corp"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Venue
+                  </label>
+                  <input
+                    type="text"
+                    value={editVenue}
+                    onChange={(e) => setEditVenue(e.target.value)}
+                    className="w-full px-3 py-2 bg-av-surface border border-av-border rounded-lg text-av-text focus:outline-none focus:border-av-accent"
+                    placeholder="e.g., Convention Center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Room
+                  </label>
+                  <input
+                    type="text"
+                    value={editRoom}
+                    onChange={(e) => setEditRoom(e.target.value)}
+                    className="w-full px-3 py-2 bg-av-surface border border-av-border rounded-lg text-av-text focus:outline-none focus:border-av-accent"
+                    placeholder="e.g., Main Ballroom"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Load-In Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editLoadIn}
+                    onChange={(e) => setEditLoadIn(e.target.value)}
+                    className="w-full px-3 py-2 bg-av-surface border border-av-border rounded-lg text-av-text focus:outline-none focus:border-av-accent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Load-Out Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editLoadOut}
+                    onChange={(e) => setEditLoadOut(e.target.value)}
+                    className="w-full px-3 py-2 bg-av-surface border border-av-border rounded-lg text-av-text focus:outline-none focus:border-av-accent"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 text-av-text hover:bg-av-surface-light rounded-lg transition-colors"
+                disabled={isSaving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveShowDetails}
+                className="px-4 py-2 bg-av-accent hover:bg-av-accent-dark text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

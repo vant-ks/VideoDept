@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(mediaServers);
+    res.json(toCamelCase(mediaServers));
   } catch (error) {
     console.error('Error fetching media-servers:', error);
     res.status(500).json({ error: 'Failed to fetch media-servers' });
@@ -29,10 +30,15 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create mediaServer
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...mediaServer_data } = req.body;
+    const { userId, userName, productionId, ...mediaServerData } = req.body;
+    const snakeCaseData = toSnakeCase(mediaServerData);
     
     const mediaServer = await prisma.mediaServer.create({
-      data: mediaServer_data
+      data: {
+        ...snakeCaseData,
+        productionId,
+        version: 1
+      }
     });
     
     // Record event
@@ -50,12 +56,12 @@ router.post('/', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${mediaServer.productionId}`).emit('entity:created', {
       entityType: 'mediaServer',
-      entity: mediaServer,
+      entity: toCamelCase(mediaServer),
       userId,
       userName
     });
     
-    res.status(201).json(mediaServer);
+    res.status(201).json(toCamelCase(mediaServer));
   } catch (error) {
     console.error('Error creating mediaServer:', error);
     res.status(500).json({ error: 'Failed to create mediaServer' });

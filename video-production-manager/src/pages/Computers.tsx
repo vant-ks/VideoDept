@@ -25,8 +25,8 @@ export const Computers: React.FC = () => {
     serverData: Source;
   } | null>(null);
   
-  // Get production ID
-  const productionId = activeProject?.id || oldStore.production?.id;
+  // Get production ID from production object, NOT the IndexedDB project ID
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
   
   // Load sources from API on mount and filter for computers
   useEffect(() => {
@@ -104,14 +104,41 @@ export const Computers: React.FC = () => {
         }
         setSources(prev => prev.map(s => s.id === editingSource.id ? source : s));
       } else {
-        const created = await sourcesAPI.createSource(productionId!, source);
+        // Pass single object with all fields including productionId
+        const created = await sourcesAPI.createSource({
+          ...source,
+          productionId: productionId!
+        });
         setSources(prev => [...prev, created]);
       }
       setIsModalOpen(false);
       setEditingSource(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save computer:', error);
-      alert('Failed to save computer');
+      
+      // Check for duplicate ID error
+      if (error?.response?.data?.code === 'DUPLICATE_ID') {
+        alert(
+          'Duplicate Source ID\n\n' +
+          error.response.data.message + '\n\n' +
+          'Please use a unique ID like "SRC 2" or "SRC 3".'
+        );
+        return; // Don't close modal so user can fix it
+      }
+      
+      // Check for production validation error
+      if (error?.response?.data?.code === 'PRODUCTION_NOT_FOUND') {
+        alert(
+          'Production Not Synced to Database\n\n' +
+          error.response.data.error + '\n\n' +
+          'Please try:\n' +
+          '1. Refresh the page\n' +
+          '2. Create a new production\n' +
+          '3. Or wait a moment and try again'
+        );
+      } else {
+        alert(`Failed to save computer: ${error.message || 'Unknown error'}`);
+      }
     }
   };
 

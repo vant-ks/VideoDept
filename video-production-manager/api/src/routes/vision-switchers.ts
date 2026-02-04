@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(visionSwitchers);
+    res.json(toCamelCase(visionSwitchers));
   } catch (error) {
     console.error('Error fetching vision-switchers:', error);
     res.status(500).json({ error: 'Failed to fetch vision-switchers' });
@@ -29,10 +30,15 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create visionSwitcher
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...visionSwitcher_data } = req.body;
+    const { userId, userName, productionId, ...visionSwitcherData } = req.body;
+    const snakeCaseData = toSnakeCase(visionSwitcherData);
     
     const visionSwitcher = await prisma.visionSwitcher.create({
-      data: visionSwitcher_data
+      data: {
+        ...snakeCaseData,
+        productionId,
+        version: 1
+      }
     });
     
     // Record event
@@ -50,12 +56,12 @@ router.post('/', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${visionSwitcher.productionId}`).emit('entity:created', {
       entityType: 'visionSwitcher',
-      entity: visionSwitcher,
+      entity: toCamelCase(visionSwitcher),
       userId,
       userName
     });
     
-    res.status(201).json(visionSwitcher);
+    res.status(201).json(toCamelCase(visionSwitcher));
   } catch (error) {
     console.error('Error creating visionSwitcher:', error);
     res.status(500).json({ error: 'Failed to create visionSwitcher' });

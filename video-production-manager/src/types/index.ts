@@ -151,10 +151,10 @@ export interface EquipmentSpec {
 export interface Camera {
   id: string;
   name: string;
+  manufacturer?: string; // Camera manufacturer
   model?: string; // Camera model from list
   formatMode?: string; // Inherited from CCU if connected, or set manually
-  lensType?: 'zoom' | 'prime';
-  maxZoom?: number; // Maximum zoom magnification
+  maxZoom?: number; // Maximum zoom magnification (always zoom lens)
   shootingDistance?: number; // Distance in feet/meters
   calculatedZoom?: number; // Calculated from shooting distance
   // Support equipment
@@ -392,7 +392,6 @@ export interface ChecklistItem {
 }
 
 export type ChecklistCategory = 
-  | 'PRE_PRODUCTION'
   | 'SCREENS'
   | 'SWITCH'
   | 'IMAG'

@@ -33,7 +33,7 @@ export const Sources: React.FC = () => {
   } | null>(null);
 
   // Get production ID
-  const productionId = activeProject?.id || oldStore.production?.id;
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
   
   // Load sources from API on mount
   useEffect(() => {
@@ -122,9 +122,16 @@ export const Sources: React.FC = () => {
         // Success - update local state
         setSources(prev => prev.map(s => s.id === result.id ? result : s));
       } else {
-        // Create new source
+        // Create new source - explicitly pass fields to prevent string iteration
         const newSource = await sourcesAPI.createSource({
-          ...source,
+          id: source.id,
+          type: source.type,
+          name: source.name,
+          hRes: source.hRes,
+          vRes: source.vRes,
+          rate: source.rate,
+          outputs: source.outputs,
+          note: source.note,
           productionId,
         });
         setSources(prev => [...prev, newSource]);

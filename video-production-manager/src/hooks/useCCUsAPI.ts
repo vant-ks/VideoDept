@@ -51,11 +51,14 @@ export function useCCUsAPI() {
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      const data = await apiClient.post<CCU>('/ccus', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        note: input.note,
         userId,
         userName,
-      });
+      };
+      const data = await apiClient.post<CCU>('/ccus', requestData);
       return data;
     } catch (err: any) {
       const message = err.response?.data?.error || 'Failed to create CCU';
@@ -74,11 +77,15 @@ export function useCCUsAPI() {
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      const data = await apiClient.put<CCU>(`/ccus/${id}`, {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        note: input.note,
+        version: input.version,
         userId,
         userName,
-      });
+      };
+      const data = await apiClient.put<CCU>(`/ccus/${id}`, requestData);
       return data;
     } catch (err: any) {
       if (err.response?.status === 409) {

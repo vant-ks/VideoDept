@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(streams);
+    res.json(toCamelCase(streams));
   } catch (error) {
     console.error('Error fetching streams:', error);
     res.status(500).json({ error: 'Failed to fetch streams' });
@@ -29,10 +30,15 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create stream
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...stream_data } = req.body;
+    const { userId, userName, productionId, ...streamData } = req.body;
+    const snakeCaseData = toSnakeCase(streamData);
     
     const stream = await prisma.streams.create({
-      data: stream_data
+      data: {
+        ...snakeCaseData,
+        productionId,
+        version: 1
+      }
     });
     
     // Record event
@@ -50,12 +56,12 @@ router.post('/', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${stream.productionId}`).emit('entity:created', {
       entityType: 'stream',
-      entity: stream,
+      entity: toCamelCase(stream),
       userId,
       userName
     });
     
-    res.status(201).json(stream);
+    res.status(201).json(toCamelCase(stream));
   } catch (error) {
     console.error('Error creating stream:', error);
     res.status(500).json({ error: 'Failed to create stream' });

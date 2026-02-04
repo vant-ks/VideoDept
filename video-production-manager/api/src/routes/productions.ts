@@ -8,6 +8,7 @@ import {
   isValidFieldVersions,
   FieldVersions 
 } from '../utils/fieldVersioning';
+import { toSnakeCase, toCamelCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -27,8 +28,11 @@ router.get('/', async (req: Request, res: Response) => {
     const duration = Date.now() - startTime;
     logger.logDbOperation('SELECT', 'productions', duration, productions.length, { requestId });
     
-    // Map show_name to name for frontend compatibility
-    const mapped = productions.map(p => ({ ...p, name: p.show_name }));
+    // Transform all productions to camelCase for frontend
+    const camelCaseProductions = productions.map(p => {
+      const camelP = toCamelCase(p);
+      return { ...camelP, name: camelP.showName };
+    });
     
     logger.manager(LogCategory.API, 'Productions fetched', { 
       requestId, 
@@ -36,7 +40,7 @@ router.get('/', async (req: Request, res: Response) => {
       duration 
     });
     
-    res.json(mapped);
+    res.json(camelCaseProductions);
   } catch (error: any) {
     const duration = Date.now() - startTime;
     logger.error(LogCategory.API, 'Failed to fetch productions', error, { requestId, duration });
@@ -71,8 +75,9 @@ router.get('/:id', async (req: Request, res: Response) => {
       duration 
     });
     
-    // Map show_name to name for frontend compatibility
-    res.json({ ...production, name: production.show_name });
+    // Transform to camelCase for frontend
+    const camelCaseProduction = toCamelCase(production);
+    res.json({ ...camelCaseProduction, name: camelCaseProduction.showName });
   } catch (error: any) {
     const duration = Date.now() - startTime;
     logger.error(LogCategory.API, 'Failed to fetch production', error, { requestId, productionId, duration });
@@ -99,28 +104,57 @@ router.post('/', async (req: Request, res: Response) => {
       userName
     });
     
+    // Transform camelCase to snake_case
+    const snakeCaseData = toSnakeCase(restData);
+    
+    console.log('=== CREATE PRODUCTION DEBUG ===');
+    console.log('1. Original restData:', JSON.stringify(restData, null, 2));
+    console.log('2. After toSnakeCase:', JSON.stringify(snakeCaseData, null, 2));
+    
     // Only include fields that exist in the database schema
     const dbData: any = {
-      show_name: name || restData.show_name, // Map 'name' to 'show_name'
+      show_name: name || snakeCaseData.show_name, // Map 'name' to 'show_name'
+      client: snakeCaseData.client || '', // Required field, default to empty string
       updated_at: new Date(),
       field_versions: initFieldVersions() // Initialize field-level versions
     };
     
     // Include optional ID if provided, otherwise auto-generate
-    if (restData.id) {
-      dbData.id = restData.id;
+    if (snakeCaseData.id) {
+      dbData.id = snakeCaseData.id;
     } else {
       dbData.id = `prod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
     
-    // Add other allowed fields
-    if (restData.client) dbData.client = restData.client;
-    if (restData.status) dbData.status = restData.status;
-    if (restData.venue) dbData.venue = restData.venue;
-    if (restData.room) dbData.room = restData.room;
-    if (restData.load_in) dbData.load_in = new Date(restData.load_in);
-    if (restData.load_out) dbData.load_out = new Date(restData.load_out);
-    if (restData.show_info_url) dbData.show_info_url = restData.show_info_url;
+    // Add default source types if not provided
+    if (snakeCaseData.source_types) {
+      dbData.source_types = snakeCaseData.source_types;
+    } else {
+      dbData.source_types = [
+        'Laptop - PC MISC',
+        'Laptop - PC GFX',
+        'Laptop - PC WIDE',
+        'Laptop - MAC MISC',
+        'Laptop - MAC GFX',
+        'Desktop - PC MISC',
+        'Desktop - PC GFX',
+        'Desktop - PC SERVER',
+        'Desktop - MAC MISC',
+        'Desktop - MAC GFX',
+        'Desktop - MAC SERVER'
+      ];
+    }
+    
+    // Add other allowed fields (now in snake_case)
+    if (snakeCaseData.status) dbData.status = snakeCaseData.status;
+    if (snakeCaseData.venue) dbData.venue = snakeCaseData.venue;
+    if (snakeCaseData.room) dbData.room = snakeCaseData.room;
+    if (snakeCaseData.load_in) dbData.load_in = snakeCaseData.load_in; // Already a Date object
+    if (snakeCaseData.load_out) dbData.load_out = snakeCaseData.load_out; // Already a Date object
+    if (snakeCaseData.show_info_url) dbData.show_info_url = snakeCaseData.show_info_url;
+    
+    console.log('3. Final dbData to Prisma:', JSON.stringify(dbData, null, 2));
+    console.log('===========================');
     
     const production = await prisma.productions.create({ data: dbData });
     
@@ -141,15 +175,19 @@ router.post('/', async (req: Request, res: Response) => {
       userName 
     });
     
+    const camelCaseProduction = toCamelCase(production);
     io.to('production-list').emit('production:created', {
-      production: { ...production, name: production.show_name },
+      production: camelCaseProduction,
       userId: userId || 'system',
       userName: userName || 'System'
     });
     
-    res.status(201).json({ ...production, name: production.show_name });
+    res.status(201).json(camelCaseProduction);
   } catch (error: any) {
     const duration = Date.now() - startTime;
+    console.error('CREATE PRODUCTION ERROR:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     logger.error(LogCategory.API, 'Failed to create production', error, { requestId, duration });
     res.status(500).json({ error: 'Failed to create production', details: error.message });
   }
@@ -201,22 +239,26 @@ router.put('/:id', async (req: Request, res: Response) => {
         fieldsUpdated: Object.keys(updateData)
       });
       
+      // Transform camelCase to snake_case before processing
+      const snakeCaseUpdateData = toSnakeCase(updateData);
+      
       // Prepare client data with mapped fields
       const clientData: Record<string, any> = {};
       if (name !== undefined) clientData.show_name = name;
-      if (updateData.client !== undefined) clientData.client = updateData.client;
-      if (updateData.status !== undefined) clientData.status = updateData.status;
-      if (updateData.venue !== undefined) clientData.venue = updateData.venue;
-      if (updateData.room !== undefined) clientData.room = updateData.room;
-      if (updateData.load_in !== undefined) clientData.load_in = updateData.load_in;
-      if (updateData.load_out !== undefined) clientData.load_out = updateData.load_out;
-      if (updateData.show_info_url !== undefined) clientData.show_info_url = updateData.show_info_url;
-      if (updateData.production_type !== undefined) clientData.production_type = updateData.production_type;
-      if (updateData.contact_name !== undefined) clientData.contact_name = updateData.contact_name;
-      if (updateData.contact_email !== undefined) clientData.contact_email = updateData.contact_email;
-      if (updateData.contact_phone !== undefined) clientData.contact_phone = updateData.contact_phone;
-      if (updateData.show_date !== undefined) clientData.show_date = updateData.show_date;
-      if (updateData.show_time !== undefined) clientData.show_time = updateData.show_time;
+      if (snakeCaseUpdateData.client !== undefined) clientData.client = snakeCaseUpdateData.client;
+      if (snakeCaseUpdateData.status !== undefined) clientData.status = snakeCaseUpdateData.status;
+      if (snakeCaseUpdateData.venue !== undefined) clientData.venue = snakeCaseUpdateData.venue;
+      if (snakeCaseUpdateData.room !== undefined) clientData.room = snakeCaseUpdateData.room;
+      if (snakeCaseUpdateData.load_in !== undefined) clientData.load_in = snakeCaseUpdateData.load_in;
+      if (snakeCaseUpdateData.load_out !== undefined) clientData.load_out = snakeCaseUpdateData.load_out;
+      if (snakeCaseUpdateData.show_info_url !== undefined) clientData.show_info_url = snakeCaseUpdateData.show_info_url;
+      if (snakeCaseUpdateData.source_types !== undefined) clientData.source_types = snakeCaseUpdateData.source_types;
+      if (snakeCaseUpdateData.production_type !== undefined) clientData.production_type = snakeCaseUpdateData.production_type;
+      if (snakeCaseUpdateData.contact_name !== undefined) clientData.contact_name = snakeCaseUpdateData.contact_name;
+      if (snakeCaseUpdateData.contact_email !== undefined) clientData.contact_email = snakeCaseUpdateData.contact_email;
+      if (snakeCaseUpdateData.contact_phone !== undefined) clientData.contact_phone = snakeCaseUpdateData.contact_phone;
+      if (snakeCaseUpdateData.show_date !== undefined) clientData.show_date = snakeCaseUpdateData.show_date;
+      if (snakeCaseUpdateData.show_time !== undefined) clientData.show_time = snakeCaseUpdateData.show_time;
       
       // Merge non-conflicting fields
       const mergeResult = mergeNonConflictingFields(
@@ -334,15 +376,18 @@ router.put('/:id', async (req: Request, res: Response) => {
         updated_at: new Date()
       };
       
+      // Transform camelCase to snake_case
+      const snakeCaseUpdateData = toSnakeCase(updateData);
+      
       // Map and validate each field explicitly
       if (name !== undefined) dbData.show_name = name;
-      if (updateData.client !== undefined) dbData.client = updateData.client;
-      if (updateData.status !== undefined) dbData.status = updateData.status;
-      if (updateData.venue !== undefined) dbData.venue = updateData.venue;
-      if (updateData.room !== undefined) dbData.room = updateData.room;
-      if (updateData.load_in !== undefined) dbData.load_in = new Date(updateData.load_in);
-      if (updateData.load_out !== undefined) dbData.load_out = new Date(updateData.load_out);
-      if (updateData.show_info_url !== undefined) dbData.show_info_url = updateData.show_info_url;
+      if (snakeCaseUpdateData.client !== undefined) dbData.client = snakeCaseUpdateData.client;
+      if (snakeCaseUpdateData.status !== undefined) dbData.status = snakeCaseUpdateData.status;
+      if (snakeCaseUpdateData.venue !== undefined) dbData.venue = snakeCaseUpdateData.venue;
+      if (snakeCaseUpdateData.room !== undefined) dbData.room = snakeCaseUpdateData.room;
+      if (snakeCaseUpdateData.load_in !== undefined) dbData.load_in = snakeCaseUpdateData.load_in; // Already a Date object
+      if (snakeCaseUpdateData.load_out !== undefined) dbData.load_out = snakeCaseUpdateData.load_out; // Already a Date object
+      if (snakeCaseUpdateData.show_info_url !== undefined) dbData.show_info_url = snakeCaseUpdateData.show_info_url;
       if (userId) dbData.last_modified_by = userId;
       
       // Update with validated data

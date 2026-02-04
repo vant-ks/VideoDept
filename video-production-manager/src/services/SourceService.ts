@@ -244,7 +244,9 @@ export class SourceService {
     }, {} as Record<string, number>);
 
     const byConnector = sources.reduce((acc, source) => {
-      source.outputs.forEach(output => {
+      // Defensive: ensure outputs exists and is an array
+      const outputs = source.outputs || [];
+      outputs.forEach(output => {
         acc[output.connector] = (acc[output.connector] || 0) + 1;
       });
       return acc;

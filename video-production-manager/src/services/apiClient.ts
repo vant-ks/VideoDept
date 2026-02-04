@@ -21,6 +21,11 @@ export class ApiClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        // Debug logging for POST requests
+        if (config.method === 'post' && config.url?.includes('/sources')) {
+          console.log('📤 ApiClient POST interceptor - URL:', config.url);
+          console.log('📤 ApiClient POST interceptor - Data:', JSON.stringify(config.data, null, 2));
+        }
         return config;
       },
       (error) => Promise.reject(error)

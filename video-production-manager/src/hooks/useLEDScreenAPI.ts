@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${LEDScreen}API() {
-  const fetch${LEDScreen}s = useCallback(async (productionId: string): Promise<LEDScreen[]> => {
+export function useLEDScreenAPI() {
+  const fetchLEDScreens = useCallback(async (productionId: string): Promise<LEDScreen[]> => {
     try {
       return await apiClient.get<LEDScreen[]>(`/led-screens/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${LEDScreen}API() {
     }
   }, []);
 
-  const create${LEDScreen} = useCallback(async (input: LEDScreenInput): Promise<LEDScreen> => {
+  const createLEDScreen = useCallback(async (input: LEDScreenInput): Promise<LEDScreen> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<LEDScreen>('/led-screens', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<LEDScreen>('/led-screens', requestData);
     } catch (error) {
       console.error('Error creating ledScreen:', error);
       throw error;
     }
   }, []);
 
-  const update${LEDScreen} = useCallback(async (
+  const updateLEDScreen = useCallback(async (
     id: string,
     updates: Partial<LEDScreenInput>
   ): Promise<LEDScreen | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<LEDScreen>(`/led-screens/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<LEDScreen>(`/led-screens/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${LEDScreen}API() {
     }
   }, []);
 
-  const delete${LEDScreen} = useCallback(async (id: string): Promise<void> => {
+  const deleteLEDScreen = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/led-screens/${id}`, {
@@ -90,9 +96,9 @@ export function use${LEDScreen}API() {
   }, []);
 
   return {
-    fetch${LEDScreen}s,
-    create${LEDScreen},
-    update${LEDScreen},
-    delete${LEDScreen}
+    fetchLEDScreens,
+    createLEDScreen,
+    updateLEDScreen,
+    deleteLEDScreen
   };
 }

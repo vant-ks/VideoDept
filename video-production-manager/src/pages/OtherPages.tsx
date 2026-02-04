@@ -3,6 +3,7 @@ import { Card, Badge, ConnectorBadge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { Projector, Tv2, Cable, Plus, Edit2, Trash2, RefreshCw } from 'lucide-react';
+import { formatDateOnly } from '@/utils/helpers';
 
 // Screens Page
 export const Screens: React.FC = () => {
@@ -302,11 +303,11 @@ export const Settings: React.FC = () => {
             </div>
             <div>
               <label className="text-sm text-av-text-muted">Load In</label>
-              <input type="date" className="input-field w-full mt-1" defaultValue={production.loadIn} />
+              <input type="date" className="input-field w-full mt-1" defaultValue={formatDateOnly(production.loadIn)} />
             </div>
             <div>
               <label className="text-sm text-av-text-muted">Load Out</label>
-              <input type="date" className="input-field w-full mt-1" defaultValue={production.loadOut} />
+              <input type="date" className="input-field w-full mt-1" defaultValue={formatDateOnly(production.loadOut)} />
             </div>
           </div>
         )}

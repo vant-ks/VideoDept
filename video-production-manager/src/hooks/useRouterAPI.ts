@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${Router}API() {
-  const fetch${Router}s = useCallback(async (productionId: string): Promise<Router[]> => {
+export function useRouterAPI() {
+  const fetchRouters = useCallback(async (productionId: string): Promise<Router[]> => {
     try {
       return await apiClient.get<Router[]>(`/routers/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${Router}API() {
     }
   }, []);
 
-  const create${Router} = useCallback(async (input: RouterInput): Promise<Router> => {
+  const createRouter = useCallback(async (input: RouterInput): Promise<Router> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<Router>('/routers', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<Router>('/routers', requestData);
     } catch (error) {
       console.error('Error creating router:', error);
       throw error;
     }
   }, []);
 
-  const update${Router} = useCallback(async (
+  const updateRouter = useCallback(async (
     id: string,
     updates: Partial<RouterInput>
   ): Promise<Router | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<Router>(`/routers/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<Router>(`/routers/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${Router}API() {
     }
   }, []);
 
-  const delete${Router} = useCallback(async (id: string): Promise<void> => {
+  const deleteRouter = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/routers/${id}`, {
@@ -90,9 +96,9 @@ export function use${Router}API() {
   }, []);
 
   return {
-    fetch${Router}s,
-    create${Router},
-    update${Router},
-    delete${Router}
+    fetchRouters,
+    createRouter,
+    updateRouter,
+    deleteRouter
   };
 }

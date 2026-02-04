@@ -238,10 +238,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 'text-av-text-muted hover:text-av-text hover:bg-av-surface-light',
                 !sidebarOpen && 'justify-center'
               )}
-              title="Close Project"
+              title="Close Show"
             >
               <LogOut className="w-5 h-5 flex-shrink-0" />
-              {sidebarOpen && <span className="text-sm font-medium">Close Project</span>}
+              {sidebarOpen && <span className="text-sm font-medium">Close Show</span>}
             </button>
           )}
         </div>

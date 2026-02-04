@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${CamSwitcher}API() {
-  const fetch${CamSwitcher}s = useCallback(async (productionId: string): Promise<CamSwitcher[]> => {
+export function useCamSwitcherAPI() {
+  const fetchCamSwitchers = useCallback(async (productionId: string): Promise<CamSwitcher[]> => {
     try {
       return await apiClient.get<CamSwitcher[]>(`/cam-switchers/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${CamSwitcher}API() {
     }
   }, []);
 
-  const create${CamSwitcher} = useCallback(async (input: CamSwitcherInput): Promise<CamSwitcher> => {
+  const createCamSwitcher = useCallback(async (input: CamSwitcherInput): Promise<CamSwitcher> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<CamSwitcher>('/cam-switchers', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<CamSwitcher>('/cam-switchers', requestData);
     } catch (error) {
       console.error('Error creating camSwitcher:', error);
       throw error;
     }
   }, []);
 
-  const update${CamSwitcher} = useCallback(async (
+  const updateCamSwitcher = useCallback(async (
     id: string,
     updates: Partial<CamSwitcherInput>
   ): Promise<CamSwitcher | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<CamSwitcher>(`/cam-switchers/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<CamSwitcher>(`/cam-switchers/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${CamSwitcher}API() {
     }
   }, []);
 
-  const delete${CamSwitcher} = useCallback(async (id: string): Promise<void> => {
+  const deleteCamSwitcher = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/cam-switchers/${id}`, {
@@ -90,9 +96,9 @@ export function use${CamSwitcher}API() {
   }, []);
 
   return {
-    fetch${CamSwitcher}s,
-    create${CamSwitcher},
-    update${CamSwitcher},
-    delete${CamSwitcher}
+    fetchCamSwitchers,
+    createCamSwitcher,
+    updateCamSwitcher,
+    deleteCamSwitcher
   };
 }

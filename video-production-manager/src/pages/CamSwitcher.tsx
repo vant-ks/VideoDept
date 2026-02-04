@@ -1,21 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Badge, ConnectorBadge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
+import { useCamSwitcherAPI } from '@/hooks/useCamSwitcherAPI';
 import { Tv2, Plus } from 'lucide-react';
 
 export const CamSwitcher: React.FC = () => {
   const { activeProject } = useProjectStore();
   const oldStore = useProductionStore();
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
+  const camSwitcherAPI = useCamSwitcherAPI();
+  
   const videoSwitchers = activeProject?.videoSwitchers || oldStore.videoSwitchers;
   const switcher = videoSwitchers[0];
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '' });
+  const [formData, setFormData] = useState({ name: '' });
 
-  const handleSubmit = () => {
-    if (!formData.id || !formData.name) return;
-    // TODO: Add to store
-    setIsModalOpen(false);
+  const handleSubmit = async () => {
+    if (!formData.name || !productionId) return;
+    
+    try {
+      await camSwitcherAPI.createCamSwitcher({
+        productionId,
+        name: formData.name
+      });
+      setIsModalOpen(false);
+      setFormData({ name: '' });
+    } catch (error) {
+      console.error('Failed to create cam switcher:', error);
+      alert('Failed to create cam switcher. Please try again.');
+    }
   };
 
   return (
@@ -103,16 +117,6 @@ export const CamSwitcher: React.FC = () => {
             <h2 className="text-xl font-bold text-av-text mb-4">Add Cam Switcher</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-av-text mb-2">ID</label>
-                <input
-                  type="text"
-                  value={formData.id}
-                  onChange={(e) => setFormData({...formData, id: e.target.value})}
-                  className="input-field w-full"
-                  placeholder="e.g., CAM-SW-01"
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-av-text mb-2">Name</label>
                 <input
                   type="text"
@@ -125,7 +129,7 @@ export const CamSwitcher: React.FC = () => {
             </div>
             <div className="flex gap-2 justify-end mt-6">
               <button onClick={() => setIsModalOpen(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handleSubmit} disabled={!formData.id || !formData.name} className="btn-primary">Submit</button>
+              <button onClick={handleSubmit} disabled={!formData.name} className="btn-primary">Submit</button>
             </div>
           </div>
         </div>

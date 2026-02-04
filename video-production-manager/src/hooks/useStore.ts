@@ -88,9 +88,11 @@ interface ProductionStore {
   reorderConnectorTypes: (types: string[]) => void;
   
   // Source Type Actions
+  setSourceTypes: (types: string[]) => void;
   addSourceType: (type: string) => void;
   removeSourceType: (type: string) => void;
   reorderSourceTypes: (types: string[]) => void;
+  restoreDefaultSourceTypes: () => void;
   
   // Frame Rate Actions
   addFrameRate: (rate: string) => void;
@@ -192,14 +194,17 @@ export const useProductionStore = create<ProductionStore>()(
         'USB-C'
       ],
       sourceTypes: [
-        'LAPTOP',
-        'CAM',
-        'SERVER',
-        'PLAYBACK',
-        'GRAPHICS',
-        'PTZ',
-        'ROBO',
-        'OTHER'
+        'Laptop - PC MISC',
+        'Laptop - PC GFX',
+        'Laptop - PC WIDE',
+        'Laptop - MAC MISC',
+        'Laptop - MAC GFX',
+        'Desktop - PC MISC',
+        'Desktop - PC GFX',
+        'Desktop - PC SERVER',
+        'Desktop - MAC MISC',
+        'Desktop - MAC GFX',
+        'Desktop - MAC SERVER'
       ],
       frameRates: [
         '59.94',
@@ -277,6 +282,9 @@ export const useProductionStore = create<ProductionStore>()(
       },
       
       // Source Type Actions
+      setSourceTypes: (types) => {
+        set({ sourceTypes: types });
+      },
       addSourceType: (type) => {
         LogService.logSettingsChange('add', 'sourceType', `Added source type: ${type}`, type);
         set((state) => ({
@@ -292,6 +300,23 @@ export const useProductionStore = create<ProductionStore>()(
       reorderSourceTypes: (types) => {
         LogService.logSettingsChange('reorder', 'sourceType', 'Reordered source types');
         set({ sourceTypes: types });
+      },
+      restoreDefaultSourceTypes: () => {
+        const defaultTypes = [
+          'Laptop - PC MISC',
+          'Laptop - PC GFX',
+          'Laptop - PC WIDE',
+          'Laptop - MAC MISC',
+          'Laptop - MAC GFX',
+          'Desktop - PC MISC',
+          'Desktop - PC GFX',
+          'Desktop - PC SERVER',
+          'Desktop - MAC MISC',
+          'Desktop - MAC GFX',
+          'Desktop - MAC SERVER'
+        ];
+        LogService.logSettingsChange('restore', 'sourceType', 'Restored default source types');
+        set({ sourceTypes: defaultTypes });
       },
       
       // Frame Rate Actions

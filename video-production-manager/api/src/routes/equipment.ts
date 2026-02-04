@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../server';
+import { toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -59,29 +60,19 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST create new equipment
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const {
-      category,
-      manufacturer,
-      model,
-      ioArchitecture,
-      cardSlots,
-      formatByIo,
-      isSecondaryDevice,
-      deviceFormats,
-      specs
-    } = req.body;
+    const snakeCaseData = toSnakeCase(req.body);
 
     const equipment = await prisma.equipment_specs.create({
       data: {
-        category,
-        manufacturer,
-        model,
-        ioArchitecture,
-        cardSlots,
-        formatByIo,
-        isSecondaryDevice,
-        deviceFormats,
-        specs
+        category: snakeCaseData.category,
+        manufacturer: snakeCaseData.manufacturer,
+        model: snakeCaseData.model,
+        io_architecture: snakeCaseData.io_architecture,
+        card_slots: snakeCaseData.card_slots,
+        format_by_io: snakeCaseData.format_by_io,
+        is_secondary_device: snakeCaseData.is_secondary_device,
+        device_formats: snakeCaseData.device_formats,
+        specs: snakeCaseData.specs
       },
       include: {
         equipment_io_ports: true,
@@ -99,30 +90,20 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT update equipment
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const {
-      category,
-      manufacturer,
-      model,
-      ioArchitecture,
-      cardSlots,
-      formatByIo,
-      isSecondaryDevice,
-      deviceFormats,
-      specs
-    } = req.body;
+    const snakeCaseData = toSnakeCase(req.body);
 
     const equipment = await prisma.equipment_specs.update({
       where: { id: req.params.id },
       data: {
-        category,
-        manufacturer,
-        model,
-        ioArchitecture,
-        cardSlots,
-        formatByIo,
-        isSecondaryDevice,
-        deviceFormats,
-        specs,
+        category: snakeCaseData.category,
+        manufacturer: snakeCaseData.manufacturer,
+        model: snakeCaseData.model,
+        io_architecture: snakeCaseData.io_architecture,
+        card_slots: snakeCaseData.card_slots,
+        format_by_io: snakeCaseData.format_by_io,
+        is_secondary_device: snakeCaseData.is_secondary_device,
+        device_formats: snakeCaseData.device_formats,
+        specs: snakeCaseData.specs,
         version: { increment: 1 }
       },
       include: {

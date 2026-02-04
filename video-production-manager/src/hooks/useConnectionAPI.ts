@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${Connection}API() {
-  const fetch${Connection}s = useCallback(async (productionId: string): Promise<Connection[]> => {
+export function useConnectionAPI() {
+  const fetchConnections = useCallback(async (productionId: string): Promise<Connection[]> => {
     try {
       return await apiClient.get<Connection[]>(`/connections/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${Connection}API() {
     }
   }, []);
 
-  const create${Connection} = useCallback(async (input: ConnectionInput): Promise<Connection> => {
+  const createConnection = useCallback(async (input: ConnectionInput): Promise<Connection> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<Connection>('/connections', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<Connection>('/connections', requestData);
     } catch (error) {
       console.error('Error creating connection:', error);
       throw error;
     }
   }, []);
 
-  const update${Connection} = useCallback(async (
+  const updateConnection = useCallback(async (
     id: string,
     updates: Partial<ConnectionInput>
   ): Promise<Connection | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<Connection>(`/connections/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<Connection>(`/connections/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${Connection}API() {
     }
   }, []);
 
-  const delete${Connection} = useCallback(async (id: string): Promise<void> => {
+  const deleteConnection = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/connections/${id}`, {

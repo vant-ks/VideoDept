@@ -55,6 +55,12 @@ export function toSnakeCase(obj: any, entityType?: string): any {
     return obj;
   }
   
+  // Handle primitives (string, number, boolean) - return as-is
+  // This must come BEFORE any object checks since typeof string !== 'object'
+  if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
+    return obj;
+  }
+  
   // Handle BigInt - convert to number
   if (typeof obj === 'bigint') {
     return Number(obj);
@@ -69,20 +75,24 @@ export function toSnakeCase(obj: any, entityType?: string): any {
     return obj;
   }
   
-  // Handle ISO date strings from frontend - convert to Date for Prisma
-  if (typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(obj)) {
-    return new Date(obj);
-  }
-  
+  // Now we know it's a plain object, process keys
   if (typeof obj === 'object') {
     return Object.keys(obj).reduce((acc, key) => {
+      const value = obj[key];
+      
+      // Handle date strings from frontend - convert to Date for Prisma
+      // Matches both ISO datetime (2026-02-11T00:00:00.000Z) and date-only (2026-02-11)
+      const convertedValue = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)
+        ? new Date(value)
+        : toSnakeCase(value, entityType);
+      
       // Check for reverse special mappings first
       if (REVERSE_MAPPINGS[key]) {
-        acc[REVERSE_MAPPINGS[key]] = toSnakeCase(obj[key], entityType);
+        acc[REVERSE_MAPPINGS[key]] = convertedValue;
       } else {
         // Convert camelCase to snake_case
         const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        acc[snakeKey] = toSnakeCase(obj[key], entityType);
+        acc[snakeKey] = convertedValue;
       }
       return acc;
     }, {} as any);

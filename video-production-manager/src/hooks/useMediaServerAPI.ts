@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${MediaServer}API() {
-  const fetch${MediaServer}s = useCallback(async (productionId: string): Promise<MediaServer[]> => {
+export function useMediaServerAPI() {
+  const fetchMediaServers = useCallback(async (productionId: string): Promise<MediaServer[]> => {
     try {
       return await apiClient.get<MediaServer[]>(`/media-servers/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${MediaServer}API() {
     }
   }, []);
 
-  const create${MediaServer} = useCallback(async (input: MediaServerInput): Promise<MediaServer> => {
+  const createMediaServer = useCallback(async (input: MediaServerInput): Promise<MediaServer> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<MediaServer>('/media-servers', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<MediaServer>('/media-servers', requestData);
     } catch (error) {
       console.error('Error creating mediaServer:', error);
       throw error;
     }
   }, []);
 
-  const update${MediaServer} = useCallback(async (
+  const updateMediaServer = useCallback(async (
     id: string,
     updates: Partial<MediaServerInput>
   ): Promise<MediaServer | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<MediaServer>(`/media-servers/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<MediaServer>(`/media-servers/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${MediaServer}API() {
     }
   }, []);
 
-  const delete${MediaServer} = useCallback(async (id: string): Promise<void> => {
+  const deleteMediaServer = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/media-servers/${id}`, {
@@ -90,9 +96,9 @@ export function use${MediaServer}API() {
   }, []);
 
   return {
-    fetch${MediaServer}s,
-    create${MediaServer},
-    update${MediaServer},
-    delete${MediaServer}
+    fetchMediaServers,
+    createMediaServer,
+    updateMediaServer,
+    deleteMediaServer
   };
 }

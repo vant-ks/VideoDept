@@ -249,6 +249,7 @@ model productions {
   load_out         DateTime?
   show_info_url    String?
   status           ProductionStatus  @default(PLANNING)
+  source_types     Json?
   created_at       DateTime          @default(now())
   updated_at       DateTime
   synced_at        DateTime?

@@ -1,39 +1,80 @@
 import { Card, EmptyState } from '@/components/ui';
 import { Share2, Plus, Edit2, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
+import { useRouterAPI, type Router } from '@/hooks/useRouterAPI';
 
 export default function Routers() {
-  const [routers, setRouters] = useState<{id: string, name: string}[]>([]);
+  const oldStore = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
+  const routersAPI = useRouterAPI();
+  
+  const [routers, setRouters] = useState<Router[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ id: '', name: '' });
+  const [formData, setFormData] = useState({ name: '' });
+
+  useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      routersAPI.fetchRouters(productionId)
+        .then(setRouters)
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
 
   const handleAdd = () => {
     setEditingId(null);
-    setFormData({ id: '', name: '' });
+    setFormData({ name: '' });
     setIsModalOpen(true);
   };
 
-  const handleEdit = (router: {id: string, name: string}) => {
+  const handleEdit = (router: Router) => {
     setEditingId(router.id);
-    setFormData(router);
+    setFormData({ name: router.name });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this router?')) {
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this router?')) return;
+    
+    try {
+      await routersAPI.deleteRouter(id);
       setRouters(routers.filter(r => r.id !== id));
+    } catch (error) {
+      console.error('Failed to delete router:', error);
+      alert('Failed to delete router. Please try again.');
     }
   };
 
-  const handleSubmit = () => {
-    if (!formData.id || !formData.name) return;
-    if (editingId) {
-      setRouters(routers.map(r => r.id === editingId ? formData : r));
-    } else {
-      setRouters([...routers, formData]);
+  const handleSubmit = async () => {
+    if (!formData.name || !productionId) return;
+    
+    try {
+      if (editingId) {
+        const updated = await routersAPI.updateRouter(editingId, { 
+          productionId,
+          name: formData.name 
+        });
+        if ('error' in updated) {
+          alert('Version conflict. Please refresh and try again.');
+          return;
+        }
+        setRouters(routers.map(r => r.id === editingId ? updated : r));
+      } else {
+        const newRouter = await routersAPI.createRouter({
+          productionId,
+          name: formData.name
+        });
+        setRouters([...routers, newRouter]);
+      }
+      setIsModalOpen(false);
+      setFormData({ name: '' });
+    } catch (error) {
+      console.error('Failed to save router:', error);
+      alert('Failed to save router. Please try again.');
     }
-    setIsModalOpen(false);
   };
 
   return (
@@ -90,17 +131,6 @@ export default function Routers() {
             <h2 className="text-xl font-bold text-av-text mb-4">{editingId ? 'Edit' : 'Add'} Router</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-av-text mb-2">ID</label>
-                <input
-                  type="text"
-                  value={formData.id}
-                  onChange={(e) => setFormData({...formData, id: e.target.value})}
-                  disabled={!!editingId}
-                  className="input-field w-full"
-                  placeholder="e.g., RTR-01"
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-av-text mb-2">Name</label>
                 <input
                   type="text"
@@ -113,7 +143,7 @@ export default function Routers() {
             </div>
             <div className="flex gap-2 justify-end mt-6">
               <button onClick={() => setIsModalOpen(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handleSubmit} disabled={!formData.id || !formData.name} className="btn-primary">Submit</button>
+              <button onClick={handleSubmit} disabled={!formData.name} className="btn-primary">Submit</button>
             </div>
           </div>
         </div>

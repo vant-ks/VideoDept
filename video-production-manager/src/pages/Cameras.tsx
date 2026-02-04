@@ -1,17 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Video, Link as LinkIcon, Copy } from 'lucide-react';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import type { Camera } from '@/types';
 
 export default function Cameras() {
   const { activeProject } = useProjectStore();
   const projectStore = useProjectStore();
   const oldStore = useProductionStore();
+  const equipmentLib = useEquipmentLibrary();
+  
+  // Fetch equipment data on mount
+  useEffect(() => {
+    if (equipmentLib.equipmentSpecs.length === 0) {
+      equipmentLib.fetchFromAPI();
+    }
+  }, []);
   
   const cameras = activeProject?.cameras || oldStore.cameras;
   const ccus = activeProject?.ccus || oldStore.ccus;
+  const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;
+  
+  // Get camera equipment specs from store
+  const cameraSpecs = equipmentSpecs.filter(spec => spec.category === 'camera');
+  
+  // Get unique manufacturers from equipment specs
+  const CAMERA_MANUFACTURERS = Array.from(new Set(cameraSpecs.map(spec => spec.manufacturer))).sort();
+  
+  // Get models by manufacturer from equipment specs
+  const CAMERA_MODELS_BY_MANUFACTURER: Record<string, string[]> = {};
+  CAMERA_MANUFACTURERS.forEach(mfr => {
+    CAMERA_MODELS_BY_MANUFACTURER[mfr] = cameraSpecs
+      .filter(spec => spec.manufacturer === mfr)
+      .map(spec => spec.model)
+      .sort();
+  });
   
   // Use project store CRUD if activeProject exists, otherwise use old store
   const addCamera = activeProject ? projectStore.addCamera : oldStore.addCamera;
@@ -22,9 +47,9 @@ export default function Cameras() {
   const [formData, setFormData] = useState<Partial<Camera>>({
     id: '',
     name: '',
+    manufacturer: '',
     model: '',
     formatMode: '',
-    lensType: 'zoom',
     maxZoom: undefined,
     shootingDistance: undefined,
     calculatedZoom: undefined,
@@ -46,9 +71,9 @@ export default function Cameras() {
     setFormData({
       id: newId,
       name: '',
+      manufacturer: '',
       model: '',
       formatMode: '',
-      lensType: 'zoom',
       maxZoom: undefined,
       shootingDistance: undefined,
       calculatedZoom: undefined,
@@ -100,9 +125,9 @@ export default function Cameras() {
     setFormData({
       id: '',
       name: '',
+      manufacturer: '',
       model: '',
       formatMode: '',
-      lensType: 'zoom',
       hasTripod: false,
       hasShortTripod: false,
       hasDolly: false,
@@ -196,10 +221,11 @@ export default function Cameras() {
                   
                   {/* Middle 1/3: Badges */}
                   <div className="flex items-center gap-2 flex-wrap">
+                    {camera.manufacturer && <Badge>{camera.manufacturer}</Badge>}
                     {camera.model && <Badge>{camera.model}</Badge>}
-                    {camera.lensType && (
+                    {camera.maxZoom && (
                       <Badge>
-                        {camera.lensType === 'zoom' ? `${camera.maxZoom || 0}x Zoom` : 'Prime Lens'}
+                        {camera.maxZoom}x Zoom
                       </Badge>
                     )}
                     {supportBadges.map(badge => (
@@ -336,60 +362,50 @@ export default function Cameras() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-av-text mb-2">
+                      Manufacturer
+                    </label>
+                    <select
+                      value={formData.manufacturer || ''}
+                      onChange={(e) => {
+                        const manufacturer = e.target.value;
+                        setFormData({ ...formData, manufacturer, model: '' });
+                      }}
+                      className="input-field w-full"
+                    >
+                      <option value="">Select manufacturer...</option>
+                      {CAMERA_MANUFACTURERS.map(mfr => (
+                        <option key={mfr} value={mfr}>{mfr}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
                       Model
                     </label>
                     <select
                       value={formData.model || ''}
                       onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                       className="input-field w-full"
+                      disabled={!formData.manufacturer}
                     >
                       <option value="">Select model...</option>
-                      <optgroup label="Sony">
-                        <option value="Sony HDC-5500">Sony HDC-5500 (2024)</option>
-                        <option value="Sony HDC-3500">Sony HDC-3500 (2021)</option>
-                        <option value="Sony HDC-3200">Sony HDC-3200 (2023)</option>
-                        <option value="Sony HDC-2500">Sony HDC-2500 (2021)</option>
-                        <option value="Sony HDC-P50">Sony HDC-P50 (2021)</option>
-                        <option value="Sony HXC-FZ90">Sony HXC-FZ90 (2022)</option>
-                        <option value="Sony HXC-FB80">Sony HXC-FB80 (2023)</option>
-                        <option value="Sony HDC-F5500">Sony HDC-F5500 (2023)</option>
-                      </optgroup>
-                      <optgroup label="Panasonic">
-                        <option value="Panasonic AK-UC4000">Panasonic AK-UC4000 (2019)</option>
-                        <option value="Panasonic AK-UC3300">Panasonic AK-UC3300 (2023)</option>
-                        <option value="Panasonic AK-UCU600">Panasonic AK-UCU600 (2022)</option>
-                        <option value="Panasonic AW-UE160">Panasonic AW-UE160 (2023)</option>
-                        <option value="Panasonic AW-UE100">Panasonic AW-UE100 (2021)</option>
-                        <option value="Panasonic AK-HC5000">Panasonic AK-HC5000 (2020)</option>
-                      </optgroup>
-                      <optgroup label="Grass Valley">
-                        <option value="GV LDX 150">Grass Valley LDX 150 (2023)</option>
-                        <option value="GV LDX 100">Grass Valley LDX 100 (2021)</option>
-                        <option value="GV LDX 86N">Grass Valley LDX 86N (2019)</option>
-                        <option value="GV LDX C86N">Grass Valley LDX C86N (2020)</option>
-                        <option value="GV LDX C82">Grass Valley LDX C82 (2022)</option>
-                        <option value="GV LDX XtremeSpeed">Grass Valley LDX XtremeSpeed (2021)</option>
-                      </optgroup>
-                      <optgroup label="Ikegami">
-                        <option value="Ikegami UHK-X700">Ikegami UHK-X700 (2023)</option>
-                        <option value="Ikegami UHK-X600">Ikegami UHK-X600 (2022)</option>
-                        <option value="Ikegami UHL-F4000">Ikegami UHL-F4000 (2021)</option>
-                        <option value="Ikegami HDK-99">Ikegami HDK-99 (2020)</option>
-                        <option value="Ikegami HDK-97A">Ikegami HDK-97A (2019)</option>
-                      </optgroup>
-                      <optgroup label="Blackmagic Design">
-                        <option value="Blackmagic URSA Broadcast G2">Blackmagic URSA Broadcast G2 (2021)</option>
-                        <option value="Blackmagic Studio Camera 6K Pro">Blackmagic Studio Camera 6K Pro (2023)</option>
-                        <option value="Blackmagic Studio Camera 4K Plus G2">Blackmagic Studio Camera 4K Plus G2 (2022)</option>
-                        <option value="Blackmagic Studio Camera 4K Pro G2">Blackmagic Studio Camera 4K Pro G2 (2024)</option>
-                        <option value="Blackmagic URSA Mini Pro 12K">Blackmagic URSA Mini Pro 12K (2020)</option>
-                      </optgroup>
-                      <optgroup label="Other">
-                        <option value="Canon XF705">Canon XF705</option>
-                        <option value="Other">Other</option>
-                      </optgroup>
+                      {formData.manufacturer && CAMERA_MODELS_BY_MANUFACTURER[formData.manufacturer]?.map(model => (
+                        <option key={model} value={model}>{model}</option>
+                      ))}
                     </select>
+                    {!formData.manufacturer && (
+                      <p className="text-xs text-av-text-muted mt-1">
+                        Select manufacturer first
+                      </p>
+                    )}
                   </div>
+                </div>
+              </div>
+              
+              {/* CCU Connection */}
+              <div>
+                <h3 className="text-lg font-semibold text-av-text mb-3">CCU Connection</h3>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-av-text mb-2">
                       Connected CCU
@@ -423,87 +439,51 @@ export default function Cameras() {
                 </div>
               </div>
               
-              {/* Lens Configuration */}
+              {/* Zoom Lens Configuration */}
               <div>
-                <h3 className="text-lg font-semibold text-av-text mb-3">Lens Configuration</h3>
-                <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-av-text mb-3">Zoom Lens Configuration</h3>
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-av-text mb-2">
-                      Lens Type
+                      Max Zoom (x)
                     </label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="lensType"
-                          value="zoom"
-                          checked={formData.lensType === 'zoom'}
-                          onChange={(e) => setFormData({ ...formData, lensType: e.target.value as 'zoom' | 'prime' })}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-av-text">Zoom Lens</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="lensType"
-                          value="prime"
-                          checked={formData.lensType === 'prime'}
-                          onChange={(e) => setFormData({ ...formData, lensType: e.target.value as 'zoom' | 'prime' })}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-av-text">Prime Lens</span>
-                      </label>
-                    </div>
+                    <input
+                      type="number"
+                      value={formData.maxZoom || ''}
+                      onChange={(e) => setFormData({ ...formData, maxZoom: parseFloat(e.target.value) })}
+                      className="input-field w-full"
+                      placeholder="e.g., 20"
+                      step="0.1"
+                    />
                   </div>
-                  
-                  {formData.lensType === 'zoom' && (
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-av-text mb-2">
-                          Max Zoom (x)
-                        </label>
-                        <input
-                          type="number"
-                          value={formData.maxZoom || ''}
-                          onChange={(e) => setFormData({ ...formData, maxZoom: parseFloat(e.target.value) })}
-                          className="input-field w-full"
-                          placeholder="e.g., 20"
-                          step="0.1"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-av-text mb-2">
-                          Shooting Distance (ft)
-                        </label>
-                        <input
-                          type="number"
-                          value={formData.shootingDistance || ''}
-                          onChange={(e) => handleDistanceChange(parseFloat(e.target.value) || 0)}
-                          className="input-field w-full"
-                          placeholder="e.g., 100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-av-text mb-2">
-                          Calculated Zoom
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.calculatedZoom ? `${formData.calculatedZoom}x` : ''}
-                          className="input-field w-full bg-av-surface-light"
-                          disabled
-                          placeholder="Auto-calculated"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-xs text-av-text-muted">
-                    {formData.lensType === 'zoom' 
-                      ? 'Enter shooting distance to calculate required zoom, or specify max zoom directly' 
-                      : 'Prime lens configuration'}
-                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Shooting Distance (ft)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.shootingDistance || ''}
+                      onChange={(e) => handleDistanceChange(parseFloat(e.target.value) || 0)}
+                      className="input-field w-full"
+                      placeholder="e.g., 100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Calculated Zoom
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.calculatedZoom ? `${formData.calculatedZoom}x` : ''}
+                      className="input-field w-full bg-av-surface-light"
+                      disabled
+                      placeholder="Auto-calculated"
+                    />
+                  </div>
                 </div>
+                <p className="text-xs text-av-text-muted mt-2">
+                  Enter shooting distance to calculate required zoom, or specify max zoom directly
+                </p>
               </div>
               
               {/* Support Equipment */}

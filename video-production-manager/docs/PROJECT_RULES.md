@@ -35,6 +35,21 @@ This document contains **project-specific** rules and conventions for this codeb
    - See: [Production Loading - Dual Path Pattern](#production-loading---dual-path-pattern)
    - Covers: Empty checklists, missing entities, field mapping consistency
 
+6. **NO SPREAD OPERATORS ON INPUT** → Never use `...input` or `...data` when sending to API. Always explicitly pass each field.
+   - See: [Spread Operator Safety](#spread-operator-safety---critical-pattern)
+   - Covers: String iteration bugs, UUID split into numeric keys, undefined productionId
+   - Pattern: Extract fields individually, never spread entire objects
+
+7. **SCHEMA CONSISTENCY FIRST** → All entity tables must follow standard field patterns. Audit before implementing new entities.
+   - See: [Schema & Route Consistency](#schema--route-consistency---critical-patterns)
+   - Covers: Missing updated_at, inconsistent field names, Prisma relation mismatches
+   - Pattern: Standard fields (id, production_id, created_at, updated_at, version, is_deleted)
+
+8. **AUDIT FINDINGS GO TO PROJECT RULES** → When you conduct an audit and discover novel patterns, document them here immediately.
+   - See: [Meta-Rule: Documentation Updates](#meta-rule-documentation-updates)
+   - Covers: Knowledge capture, pattern evolution, preventing repeat issues
+   - Pattern: Audit → Document → Update Rules → Verify Implementation
+
 ### Quick Diagnostic Checklist
 
 **When you see an error:**
@@ -43,10 +58,16 @@ This document contains **project-specific** rules and conventions for this codeb
 - 🔥 "Field is undefined" → Check schema → seed order (#4) OR check WebSocket mapping (#1)
 - 🔥 "Version conflict" or "Prisma validation error" → Check timestamp management (#3)
 - 🔥 "Stale data after deletion" → Check cache invalidation (#2)
+- 🔥 "Argument X is missing" or numeric keys (0,1,2) in Prisma data → Check REST destructuring and toSnakeCase primitive handling
+- 🔥 "Invalid prisma.*.create() invocation" with numeric keys → UUID/string being iterated, fix toSnakeCase type guards
+- 🔥 "productionId: undefined" with UUID split into {0:'x',1:'y'...} → Check for `...input` spread in API hooks (#6)
 - 🔥 "WebSocket not syncing" → Check room joining and broadcast pattern
 - 🔥 "Field missing in one browser" → Check ALL THREE mapping locations (#5)
 - 🔥 "Item deleted but comes back after refresh" → Check if CRUD calls API + updates cache + broadcasts
 - 🔥 "Field undefined after WebSocket update" → Check if listener maps from snake_case when API sends camelCase
+- 🔥 "Foreign key constraint violated" → Production not saved to API database, check production creation sync
+- 🔥 "Argument updated_at is missing" → Check schema - field might not exist (e.g., source_outputs)
+- 🔥 "Unknown argument outputs" → Check Prisma relation name (might be source_outputs not outputs)
 
 **Before writing ANY code that touches data:**
 1. Is this a new entity? → Follow schema → migration → seed → types → routes order
@@ -72,6 +93,18 @@ grep -rn "apiClient\.\(create\|update\)" src/hooks src/services src/pages | grep
 grep -rn "Number(.*BigInt\|BigInt(.*Number" api/src/routes
 
 # Expected: No matches (transforms handle this)
+
+# Find REST destructuring without explicit metadata extraction
+grep -rn "toSnakeCase(req\.body)" api/src/routes
+
+# Expected: No matches (should destructure first: const {...meta, ...data} = req.body)
+# If found: VIOLATION - transform entire body risks iterating string fields
+
+# Find toSnakeCase without proper primitive guards
+grep -A5 "function toSnakeCase" api/src/utils/caseConverter.ts | grep "typeof obj !== 'object'"
+
+# Expected: Should use explicit primitive checks (string|number|boolean)
+# If "typeof obj !== 'object'" found: VIOLATION - insufficient guard
 
 # Find manual snake_case → camelCase mapping (OK in specific places)
 grep -rn "item\.\(production_id\|days_before_show\)" src/hooks/useProjectStore.ts
@@ -415,6 +448,183 @@ export function toSnakeCase(obj: any): any {
   // Recursively transform nested objects/arrays
   // Convert camelCase keys to snake_case
 }
+```
+
+#### REST Destructuring & String Iteration Bug - CRITICAL PATTERN
+
+**Learned from sources.ts and checklist-items.ts (Feb 2026):**
+
+**The Bug:** When using destructuring with rest parameters (`...rest`), string values (like UUIDs) can be accidentally treated as iterables, causing them to be spread into numeric keys.
+
+**Error signature:**
+```typescript
+// Prisma error shows UUID converted to character array:
+{
+  0: "5",
+  1: "b",
+  2: "0",
+  3: "8",
+  // ... rest of UUID characters as numeric keys
+  production_id: undefined
+}
+```
+
+**Root Cause Chain:**
+1. REST destructuring creates an object with remaining fields
+2. Object passed to `toSnakeCase()`
+3. If `toSnakeCase()` doesn't handle primitives correctly, it iterates over string characters
+4. Spread operator (`...`) spreads these numeric keys into Prisma data
+5. Prisma sees numeric keys instead of proper field names
+6. Database operation fails with validation error
+
+**The Fix - Type Guard Order Matters:**
+
+```typescript
+// ✅ CORRECT: Explicit primitive checks BEFORE object check
+export function toSnakeCase(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  
+  // CRITICAL: Check primitives FIRST with explicit type guards
+  if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
+    return obj; // Return immediately, never iterate
+  }
+  
+  // BigInt after primitives but before arrays
+  if (typeof obj === 'bigint') return Number(obj);
+  
+  // Arrays before plain objects (arrays are also typeof 'object')
+  if (Array.isArray(obj)) {
+    return obj.map(item => toSnakeCase(item));
+  }
+  
+  // Date instances before plain objects
+  if (obj instanceof Date) return obj;
+  
+  // NOW safe to process as plain object
+  if (typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      acc[snakeKey] = toSnakeCase(obj[key]); // Recursive
+      return acc;
+    }, {});
+  }
+  
+  return obj;
+}
+
+// ❌ WRONG: Generic "not object" check insufficient
+export function toSnakeCase(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  
+  // BUG: This doesn't catch strings reliably
+  if (typeof obj !== 'object') return obj;
+  
+  // Arrays check happens but strings already passed through
+  if (Array.isArray(obj)) return obj.map(item => toSnakeCase(item));
+  
+  // String UUIDs reach here and get iterated!
+  if (typeof obj === 'object') {
+    // Object.keys("uuid-string") returns ["0", "1", "2", ...]
+  }
+}
+```
+
+**Why the order matters:**
+- `typeof "string"` returns `"string"` (primitive)
+- `typeof []` returns `"object"` (not primitive!)
+- `typeof {}` returns `"object"` (not primitive!)
+- Must check specific primitive types BEFORE generic `typeof obj === 'object'`
+
+**API Route Pattern - Defensive Destructuring:**
+
+```typescript
+// ✅ CORRECT: Explicitly list metadata fields to exclude
+router.post('/', async (req, res) => {
+  // Extract known metadata that should NOT be transformed
+  const { outputs, productionId, userId, userName, ...sourceData } = req.body;
+  
+  // Log for debugging (especially during development)
+  console.log('Creating source with productionId:', productionId);
+  console.log('Source data before conversion:', sourceData);
+  
+  // Transform the rest (sourceData should be plain object with entity fields)
+  const snakeCaseData = toSnakeCase(sourceData);
+  
+  console.log('Source data after conversion:', snakeCaseData);
+  
+  // Explicit field assignment prevents accidental spreads
+  const source = await prisma.sources.create({
+    data: {
+      ...snakeCaseData,
+      production_id: productionId, // Explicit, not from spread
+      outputs: outputs ? {
+        create: outputs.map(toSnakeCase) // Transform nested arrays
+      } : undefined
+    }
+  });
+  
+  res.json(toCamelCase(source));
+});
+
+// ❌ WRONG: Transform entire req.body including metadata
+router.post('/', async (req, res) => {
+  // BUG: productionId (UUID string) gets spread into numeric keys
+  const snakeCaseData = toSnakeCase(req.body);
+  
+  const source = await prisma.sources.create({
+    data: {
+      ...snakeCaseData, // Contains 0:"5", 1:"b", etc.
+      // production_id is undefined or wrong!
+    }
+  });
+});
+```
+
+**Debugging Checklist for "Argument X is missing" Errors:**
+
+1. ✅ Check API logs for numeric keys (0, 1, 2) in Prisma data
+2. ✅ Verify `toSnakeCase()` has explicit primitive type guards
+3. ✅ Check destructuring extracts ALL metadata before `...rest`
+4. ✅ Verify spread operator only used on transformed plain objects
+5. ✅ Add console.log before/after `toSnakeCase()` to inspect data
+6. ✅ Ensure UUIDs and timestamps passed explicitly, not in spread
+7. ✅ Test with real UUID values (not simple strings like "test")
+
+**Apply to ALL Entity Routes:**
+
+This pattern applies to every entity creation/update route:
+- ✅ sources.ts (computers, cameras, media servers)
+- ✅ sends.ts
+- ✅ checklist-items.ts
+- ✅ ccus.ts
+- ✅ cameras.ts
+- ✅ media-servers.ts
+- ✅ Any future entity routes
+
+**Transform Function Self-Test:**
+
+```typescript
+// Add to caseConverter.test.ts (if you create one)
+test('toSnakeCase handles UUIDs correctly', () => {
+  const uuid = '5b0874e6-64f7-4ab7-8909-085cfe4de47c';
+  const result = toSnakeCase(uuid);
+  expect(result).toBe(uuid); // Should return unchanged
+  expect(typeof result).toBe('string');
+  expect(result).not.toHaveProperty('0'); // Should NOT have numeric keys
+});
+
+test('toSnakeCase handles nested objects with UUIDs', () => {
+  const data = {
+    id: '5b0874e6-64f7-4ab7-8909-085cfe4de47c',
+    productionId: 'abc-123',
+    name: 'Test Source'
+  };
+  const result = toSnakeCase(data);
+  expect(result.id).toBe(data.id); // UUID preserved
+  expect(result.production_id).toBe(data.productionId);
+  expect(result.name).toBe(data.name);
+  expect(result).not.toHaveProperty('0'); // No numeric keys
+});
 ```
 
 #### API Route Pattern - ALWAYS Follow This
@@ -842,7 +1052,216 @@ interface ChecklistItem {
 
 ---
 
-### Seed Data Integrity - CRITICAL PATTERNS
+### Spread Operator Safety - CRITICAL PATTERN
+
+**Learned from "UUID split into numeric keys" bug (Feb 2026):**
+
+#### The String Iteration Problem
+
+```
+Error Signature:
+Creating source with productionId: undefined
+Source data before conversion: {
+  '0': '6', '1': '7', '2': '7', '3': '3', ...
+  '35': '7'  // UUID "677359b5-..." split into numeric keys
+}
+Invalid prisma.sources.create() invocation
+Argument `id` is missing
+```
+
+**Root Cause:** Using spread operator (`...input`) on objects causes JavaScript to iterate string values as if they were arrays, creating numeric keys for each character.
+
+#### The Problem Pattern
+
+```typescript
+// ❌ WRONG: Spread operator iterates UUID strings
+const createSource = async (input: CreateSourceInput) => {
+  const { userId, userName } = getUserInfo();
+  const data = await apiClient.post('/sources', {
+    ...input,  // 🔥 BUG: Spreads productionId UUID as {0:'6', 1:'7',...}
+    userId,
+    userName,
+  });
+};
+
+// Backend receives:
+{
+  userId: 'user123',
+  userName: 'John',
+  '0': '6', '1': '7', ... '35': '7',  // productionId UUID split!
+  productionId: undefined  // Lost in the spread
+}
+```
+
+#### Why This Happens
+
+When JavaScript spreads an object with string fields:
+1. Object.keys() is called internally
+2. String primitives get iterated character-by-character
+3. Each character becomes a numeric key
+4. Original field name is lost
+5. Value arrives as `undefined`
+
+**This affects:**
+- UUIDs (productionId, entityId)
+- Any string field in the input object
+- Nested objects that get spread
+
+#### The Solution: Explicit Field Passing
+
+**Pattern for ALL API hooks:**
+
+```typescript
+// ✅ CORRECT: Explicitly pass each field
+const createSource = async (input: CreateSourceInput) => {
+  const { userId, userName } = getUserInfo();
+  
+  const requestData = {
+    id: input.id,
+    productionId: input.productionId,  // Explicit - not spread
+    type: input.type,
+    name: input.name,
+    hRes: input.hRes,
+    vRes: input.vRes,
+    rate: input.rate,
+    outputs: input.outputs,
+    note: input.note,
+    userId,
+    userName,
+  };
+  
+  const data = await apiClient.post('/sources', requestData);
+  return data;
+};
+
+// Backend receives:
+{
+  userId: 'user123',
+  userName: 'John',
+  productionId: '677359b5-0d25-4a7f-ad9e-f54dfbeb57d7',  // ✅ Correct!
+  type: 'LAPTOP',
+  name: 'MacBook Pro',
+  // ... all fields intact
+}
+```
+
+#### Implementation Requirements
+
+**For ALL entity API hooks (`useSourcesAPI`, `useSendsAPI`, etc.):**
+
+1. **Never use spread operators** in API calls:
+   ```typescript
+   // ❌ Forbidden patterns:
+   { ...input, userId }
+   { ...data, productionId }
+   { ...source, note }
+   ```
+
+2. **Always destructure explicitly**:
+   ```typescript
+   const requestData = {
+     field1: input.field1,
+     field2: input.field2,
+     // ... list every field
+   };
+   ```
+
+3. **Include ALL required fields** from the input type
+
+4. **Add metadata fields last** (userId, userName, etc.)
+
+#### Backend Pattern (Already Correct)
+
+**Our backend routes already follow the correct pattern:**
+
+```typescript
+// ✅ CORRECT: Destructure metadata BEFORE transform
+router.post('/', async (req: Request, res: Response) => {
+  const { productionId, userId, userName, ...entityData } = req.body;
+  // ^ Extract metadata first, leaving only entity fields
+  
+  const snakeCaseData = toSnakeCase(entityData);
+  // ^ Only transform the pure entity data
+  
+  const entity = await prisma.table.create({
+    data: {
+      ...snakeCaseData,
+      production_id: productionId,  // Add back metadata explicitly
+      version: 1
+    }
+  });
+});
+```
+
+**Why this works:**
+- Metadata extracted BEFORE any spreading
+- Only entity fields get transformed
+- No UUIDs in the spread target
+- Metadata added back explicitly to Prisma data
+
+#### Verification Checklist
+
+**Before any API hook changes:**
+
+```bash
+# Find all spread operators in API hooks (should be ZERO)
+grep -rn "^\s*\.\.\.(input\|data\|source)" src/hooks/use*API.ts
+
+# Expected: No matches
+# If found: Replace with explicit field passing
+
+# Find explicit field passing (should be ALL hooks)
+grep -rn "const requestData = {" src/hooks/use*API.ts
+
+# Expected: Every createX method has explicit requestData object
+```
+
+#### Example Fix Applied
+
+**Before (useSendsAPI.ts):**
+```typescript
+const createSend = async (input: CreateSendInput) => {
+  const { userId, userName } = getUserInfo();
+  return apiClient.post('/sends', {
+    ...input,  // 🔥 BUG
+    userId,
+    userName,
+  });
+};
+```
+
+**After (useSendsAPI.ts):**
+```typescript
+const createSend = async (input: CreateSendInput) => {
+  const { userId, userName } = getUserInfo();
+  
+  const requestData = {
+    productionId: input.productionId,
+    name: input.name,
+    type: input.type,
+    hRes: input.hRes,
+    vRes: input.vRes,
+    rate: input.rate,
+    userId,
+    userName,
+  };
+  
+  return apiClient.post('/sends', requestData);
+};
+```
+
+#### Related Bugs Fixed
+
+This pattern also fixed:
+- Checklist items (same root cause)
+- Sources (Feb 2026)
+- All signal flow entities (proactive fix)
+
+**Key Insight:** The spread operator is convenient but DANGEROUS with objects containing string primitive fields. Always use explicit field passing for API calls.
+
+---
+
+### Multi-User Conflict Handling - CRITICAL PATTERNS
 
 **Learned from "daysBeforeShow undefined" bug (Feb 2026):**
 
@@ -1739,6 +2158,204 @@ cd video-production-manager && npm run dev
 - `public/reset-settings.html` - Reset localStorage (production info, equipment)
 - `public/clear-storage.html` - Clear all localStorage
 - `public/storage-manager.html` - View/manage localStorage
+
+---
+
+## 🏗️ Schema & Route Consistency - CRITICAL PATTERNS
+
+**Reference Document:** `api/SCHEMA_AUDIT.md` - Comprehensive schema analysis
+
+### Standard Entity Field Pattern
+
+**Every entity table MUST have these fields:**
+```typescript
+{
+  id: String @id                          // PRIMARY KEY
+  production_id: String                   // FOREIGN KEY to productions
+  created_at: DateTime @default(now())    // Auto-set by Prisma
+  updated_at: DateTime                    // MANUAL - must set in routes!
+  synced_at: DateTime?                    // Optional sync timestamp
+  last_modified_by: String?               // User tracking
+  version: Int @default(1)                // Optimistic locking
+  is_deleted: Boolean @default(false)     // Soft delete flag
+}
+```
+
+### ⚠️ CRITICAL: `updated_at` Must Be Manually Set
+
+**NO TABLES USE `@updatedAt` DECORATOR**
+
+This means you MUST manually set `updated_at` in every create/update operation:
+
+```typescript
+// ✅ CORRECT - Create
+const entity = await prisma.entities.create({
+  data: {
+    ...data,
+    updated_at: new Date(),
+    version: 1
+  }
+});
+
+// ✅ CORRECT - Update
+const entity = await prisma.entities.update({
+  where: { id },
+  data: {
+    ...data,
+    updated_at: new Date(),
+    version: { increment: 1 }
+  }
+});
+
+// ❌ WRONG - Missing updated_at
+const entity = await prisma.entities.create({
+  data: { ...data }  // Prisma will error!
+});
+```
+
+### Child Table Exceptions
+
+**Tables WITHOUT `updated_at` field:**
+- `source_outputs` - Only has `created_at`
+- Check schema before assuming field exists
+
+### Prisma Relation Naming
+
+**Always use the exact relation name from schema:**
+
+```typescript
+// ❌ WRONG - Using intuitive name
+const source = await prisma.sources.create({
+  data: {
+    outputs: { create: [...] }  // Error: Unknown argument
+  }
+});
+
+// ✅ CORRECT - Using schema relation name
+const source = await prisma.sources.create({
+  data: {
+    source_outputs: { create: [...] }  // Matches schema
+  }
+});
+```
+
+### Route Implementation Checklist
+
+When implementing entity routes, verify:
+
+1. **Create Route:**
+   - [ ] Destructures `{ productionId, userId, userName, ...entityData }`
+   - [ ] Uses `toSnakeCase()` for entity data
+   - [ ] Sets `production_id: productionId`
+   - [ ] Sets `updated_at: new Date()`
+   - [ ] Sets `version: 1`
+   - [ ] Returns `toCamelCase(result)`
+
+2. **Update Route:**
+   - [ ] Checks version conflict before update
+   - [ ] Destructures metadata from updates
+   - [ ] Uses `toSnakeCase()` for entity data
+   - [ ] Sets `updated_at: new Date()`
+   - [ ] Increments version: `version: { increment: 1 }`
+   - [ ] Sets `last_modified_by`
+   - [ ] Returns `toCamelCase(result)`
+
+3. **Delete Route (Soft):**
+   - [ ] Sets `is_deleted: true`
+   - [ ] Sets `updated_at: new Date()`
+   - [ ] Increments version
+   - [ ] Broadcasts deletion event
+
+### Helper Function Pattern
+
+**⚠️ WARNING:** `prepareVersionedUpdate()` helper does NOT set `updated_at`!
+
+```typescript
+// From sync-helpers.ts
+export function prepareVersionedUpdate(lastModifiedBy?: string): any {
+  return {
+    version: { increment: 1 },
+    last_modified_by: lastModifiedBy || null,
+    synced_at: new Date()  // ⚠️ NOT updated_at!
+  };
+}
+
+// ✅ CORRECT USAGE - Add updated_at separately
+const entity = await prisma.entities.update({
+  where: { id },
+  data: {
+    ...updateData,
+    updated_at: new Date(),  // Must add explicitly!
+    ...prepareVersionedUpdate(userId)
+  }
+});
+```
+
+### Foreign Key Constraints
+
+**When you see:** `Foreign key constraint violated: sources_production_id_fkey`
+
+**Root Cause:** Production doesn't exist in database (IndexedDB/API sync issue)
+
+**Fix:**
+1. Check if production was saved to API: `GET /api/productions/:id`
+2. Verify production creation calls API endpoint
+3. Check useProjectStore.createProduction() saves to both IndexedDB AND API
+4. Never allow entity creation if production doesn't exist in DB
+
+### Self-Audit Command
+
+```bash
+# Find routes missing updated_at in create operations
+cd api/src/routes
+grep -A10 "prisma\.\w\+\.create" *.ts | grep -B10 "data:" | grep -v "updated_at"
+
+# Find routes missing updated_at in update operations
+grep -A10 "prisma\.\w\+\.update" *.ts | grep -B10 "data:" | grep -v "updated_at"
+
+# Find uses of prepareVersionedUpdate without updated_at
+grep -B5 "prepareVersionedUpdate" *.ts | grep -v "updated_at"
+```
+
+---
+
+## 📋 Meta-Rule: Documentation Updates
+
+**RULE:** When you conduct an audit and discover novel patterns or issues, immediately document them in PROJECT_RULES.md.
+
+### Audit → Documentation Workflow
+
+1. **Conduct Audit** - Systematically analyze codebase area (schemas, routes, hooks, etc.)
+2. **Identify Patterns** - Note what works, what's inconsistent, what's missing
+3. **Document Findings** - Create audit document (e.g., SCHEMA_AUDIT.md)
+4. **Extract Rules** - Pull universal patterns into PROJECT_RULES.md
+5. **Update Checklist** - Add new diagnostic checks to Quick Diagnostic Checklist
+6. **Verify Implementation** - Fix discovered issues across codebase
+
+### What Qualifies as "Novel"?
+
+Document a pattern when:
+- It caused a bug that could recur
+- It's not obvious from code inspection
+- It contradicts common assumptions (e.g., "Prisma auto-updates timestamps")
+- It requires checking multiple files to understand
+- It's project-specific (not a general programming pattern)
+
+### Documentation Structure
+
+New patterns should include:
+- **Pattern Name** - Clear, descriptive title
+- **Problem It Solves** - Why this rule exists
+- **Correct Implementation** - Code examples
+- **Common Mistakes** - Anti-patterns to avoid
+- **Diagnostic Check** - How to verify compliance
+
+### Examples of Good Audit Documentation
+
+✅ **Pillar #7 - Schema Consistency** - Documents that NO tables use @updatedAt, must manually set  
+✅ **Pillar #6 - Spread Operators** - Documents UUID string iteration bug  
+✅ **Child Table Exceptions** - Lists tables without standard fields  
+✅ **Helper Function Warning** - Notes prepareVersionedUpdate() doesn't set updated_at
 
 ---
 

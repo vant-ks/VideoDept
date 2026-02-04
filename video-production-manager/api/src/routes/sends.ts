@@ -5,6 +5,7 @@ import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
+import { validateProductionExists } from '../utils/validation-helpers';
 
 const router = Router();
 
@@ -46,11 +47,26 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { productionId, userId, userName, lastModifiedBy, ...sendData } = req.body;
     
+    // VALIDATION: Verify production exists in database
+    try {
+      await validateProductionExists(productionId);
+    } catch (validationError: any) {
+      console.error('❌ Production validation failed:', validationError.message);
+      return res.status(400).json({ 
+        error: validationError.message,
+        code: 'PRODUCTION_NOT_FOUND',
+        productionId 
+      });
+    }
+    
+    const snakeCaseData = toSnakeCase(sendData);
+    
     const send = await prisma.sends.create({
       data: {
-        ...sendData,
-        productionId,
+        ...snakeCaseData,
+        production_id: productionId,
         last_modified_by: lastModifiedBy || userId || null,
+        updated_at: new Date(),
         version: 1
       }
     });
@@ -116,6 +132,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id },
       data: {
         ...updateData,
+        updated_at: new Date(),
         ...prepareVersionedUpdate(lastModifiedBy || userId)
       }
     });

@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${ChecklistItem}API() {
-  const fetch${ChecklistItem}s = useCallback(async (productionId: string): Promise<ChecklistItem[]> => {
+export function useChecklistItemAPI() {
+  const fetchChecklistItems = useCallback(async (productionId: string): Promise<ChecklistItem[]> => {
     try {
       return await apiClient.get<ChecklistItem[]>(`/checklist-items/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${ChecklistItem}API() {
     }
   }, []);
 
-  const create${ChecklistItem} = useCallback(async (input: ChecklistItemInput): Promise<ChecklistItem> => {
+  const createChecklistItem = useCallback(async (input: ChecklistItemInput): Promise<ChecklistItem> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<ChecklistItem>('/checklist-items', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<ChecklistItem>('/checklist-items', requestData);
     } catch (error) {
       console.error('Error creating checklistItem:', error);
       throw error;
     }
   }, []);
 
-  const update${ChecklistItem} = useCallback(async (
+  const updateChecklistItem = useCallback(async (
     id: string,
     updates: Partial<ChecklistItemInput>
   ): Promise<ChecklistItem | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<ChecklistItem>(`/checklist-items/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<ChecklistItem>(`/checklist-items/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${ChecklistItem}API() {
     }
   }, []);
 
-  const delete${ChecklistItem} = useCallback(async (id: string): Promise<void> => {
+  const deleteChecklistItem = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/checklist-items/${id}`, {

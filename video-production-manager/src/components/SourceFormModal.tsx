@@ -48,8 +48,8 @@ export function SourceFormModal({
   // Filter equipment that can be used as secondary devices
   const secondaryDeviceOptions = equipmentSpecs.filter(spec => spec.isSecondaryDevice);
   
-  // Get default type from sourceTypes array (fallback to 'Laptop' if empty)
-  const defaultType = (sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop') as SourceType;
+  // Get default type from sourceTypes array (fallback to first default if empty)
+  const defaultType = (sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop - PC MISC') as SourceType;
   
   const [formData, setFormData] = useState<Partial<Source>>({
     id: '',

@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(records);
+    res.json(toCamelCase(records));
   } catch (error) {
     console.error('Error fetching records:', error);
     res.status(500).json({ error: 'Failed to fetch records' });
@@ -29,33 +30,38 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create record
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...record_data } = req.body;
+    const { userId, userName, productionId, ...recordData } = req.body;
+    const snakeCaseData = toSnakeCase(recordData);
     
-    const record = await prisma.records.create({
-      data: record_data
+    const recordEntity = await prisma.records.create({
+      data: {
+        ...snakeCaseData,
+        productionId,
+        version: 1
+      }
     });
     
     // Record event
     await recordEvent({
-      productionId: record.productionId,
+      productionId: recordEntity.productionId,
       eventType: EventType.RECORD,
       operation: EventOperation.CREATE,
-      entityId: record.id,
-      entityData: record,
+      entityId: recordEntity.id,
+      entityData: recordEntity,
       userId: userId || 'system',
       userName: userName || 'System',
-      version: record.version
+      version: recordEntity.version
     });
     
     // Broadcast to production room
-    io.to(`production:${record.productionId}`).emit('entity:created', {
+    io.to(`production:${recordEntity.productionId}`).emit('entity:created', {
       entityType: 'record',
-      entity: record,
+      entity: toCamelCase(recordEntity),
       userId,
       userName
     });
     
-    res.status(201).json(record);
+    res.status(201).json(toCamelCase(recordEntity));
   } catch (error) {
     console.error('Error creating record:', error);
     res.status(500).json({ error: 'Failed to create record' });

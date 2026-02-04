@@ -1,19 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useProductionStore } from '@/hooks/useStore';
+import { useProjectStore } from '@/hooks/useProjectStore';
+import { useStreamAPI } from '@/hooks/useStreamAPI';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { Radio, Plus } from 'lucide-react';
+import type { Send } from '@/types';
 
 export default function Streams() {
+  const oldStore = useProductionStore();
+  const { activeProject } = useProjectStore();
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
+  const streamsAPI = useStreamAPI();
+  
   const sends = useProductionStore(state => state.sends);
-  const streams = sends.filter(s => s.type === 'STREAM');
+  const [streams, setStreams] = useState<Send[]>(sends.filter(s => s.type === 'STREAM'));
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '' });
+  const [formData, setFormData] = useState({ name: '' });
 
-  const handleSubmit = () => {
-    if (!formData.id || !formData.name) return;
-    // TODO: Add to store
-    setIsModalOpen(false);
-    setFormData({ id: '', name: '' });
+  useEffect(() => {
+    setStreams(sends.filter(s => s.type === 'STREAM'));
+  }, [sends]);
+
+  const handleSubmit = async () => {
+    if (!formData.name || !productionId) return;
+    
+    try {
+      await streamsAPI.createStream({
+        productionId,
+        name: formData.name
+      });
+      setIsModalOpen(false);
+      setFormData({ name: '' });
+    } catch (error) {
+      console.error('Failed to create stream:', error);
+      alert('Failed to create stream. Please try again.');
+    }
   };
 
   return (
@@ -97,16 +118,6 @@ export default function Streams() {
             <h2 className="text-xl font-bold text-av-text mb-4">Add Stream</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-av-text mb-2">ID</label>
-                <input
-                  type="text"
-                  value={formData.id}
-                  onChange={(e) => setFormData({...formData, id: e.target.value})}
-                  className="input-field w-full"
-                  placeholder="e.g., STREAM-01"
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-av-text mb-2">Name</label>
                 <input
                   type="text"
@@ -119,7 +130,7 @@ export default function Streams() {
             </div>
             <div className="flex gap-2 justify-end mt-6">
               <button onClick={() => setIsModalOpen(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handleSubmit} disabled={!formData.id || !formData.name} className="btn-primary">Submit</button>
+              <button onClick={handleSubmit} disabled={!formData.name} className="btn-primary">Submit</button>
             </div>
           </div>
         </div>

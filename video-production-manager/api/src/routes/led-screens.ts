@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
+import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     
-    res.json(ledScreens);
+    res.json(toCamelCase(ledScreens));
   } catch (error) {
     console.error('Error fetching led-screens:', error);
     res.status(500).json({ error: 'Failed to fetch led-screens' });
@@ -29,10 +30,15 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create ledScreen
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, ...ledScreen_data } = req.body;
+    const { userId, userName, productionId, ...ledScreenData } = req.body;
+    const snakeCaseData = toSnakeCase(ledScreenData);
     
     const ledScreen = await prisma.ledScreen.create({
-      data: ledScreen_data
+      data: {
+        ...snakeCaseData,
+        productionId,
+        version: 1
+      }
     });
     
     // Record event
@@ -50,12 +56,12 @@ router.post('/', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${ledScreen.productionId}`).emit('entity:created', {
       entityType: 'ledScreen',
-      entity: ledScreen,
+      entity: toCamelCase(ledScreen),
       userId,
       userName
     });
     
-    res.status(201).json(ledScreen);
+    res.status(201).json(toCamelCase(ledScreen));
   } catch (error) {
     console.error('Error creating ledScreen:', error);
     res.status(500).json({ error: 'Failed to create ledScreen' });

@@ -13,6 +13,12 @@ export function formatFrameRate(rate: number): string {
   return `${rate}fps`;
 }
 
+export function formatDateOnly(dateString: string | undefined | null): string {
+  if (!dateString) return '';
+  // Extract just the date portion from ISO string (YYYY-MM-DD)
+  return dateString.split('T')[0];
+}
+
 export function getConnectorColor(connector: string): string {
   const colors: Record<string, string> = {
     'SDI': 'text-signal-sdi',

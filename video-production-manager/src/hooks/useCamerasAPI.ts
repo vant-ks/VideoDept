@@ -55,11 +55,18 @@ export function useCamerasAPI() {
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      const data = await apiClient.post<Camera>('/cameras', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        hRes: input.hRes,
+        vRes: input.vRes,
+        rate: input.rate,
+        ccuId: input.ccuId,
+        note: input.note,
         userId,
         userName,
-      });
+      };
+      const data = await apiClient.post<Camera>('/cameras', requestData);
       return data;
     } catch (err: any) {
       const message = err.response?.data?.error || 'Failed to create camera';
@@ -78,11 +85,19 @@ export function useCamerasAPI() {
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      const data = await apiClient.put<Camera>(`/cameras/${id}`, {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        hRes: input.hRes,
+        vRes: input.vRes,
+        rate: input.rate,
+        ccuId: input.ccuId,
+        note: input.note,
+        version: input.version,
         userId,
         userName,
-      });
+      };
+      const data = await apiClient.put<Camera>(`/cameras/${id}`, requestData);
       return data;
     } catch (err: any) {
       if (err.response?.status === 409) {

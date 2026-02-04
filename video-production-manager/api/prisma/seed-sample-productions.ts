@@ -9,6 +9,20 @@ const prisma = new PrismaClient();
 async function seedSampleProductions() {
   console.log('🎬 Seeding sample productions...');
 
+  const defaultSourceTypes = [
+    'Laptop - PC MISC',
+    'Laptop - PC GFX',
+    'Laptop - PC WIDE',
+    'Laptop - MAC MISC',
+    'Laptop - MAC GFX',
+    'Desktop - PC MISC',
+    'Desktop - PC GFX',
+    'Desktop - PC SERVER',
+    'Desktop - MAC MISC',
+    'Desktop - MAC GFX',
+    'Desktop - MAC SERVER'
+  ];
+
   const sampleProductions = [
     {
       id: 'sample-prod-1',
@@ -19,6 +33,7 @@ async function seedSampleProductions() {
       status: ProductionStatus.PLANNING,
       load_in: new Date('2026-02-15T08:00:00Z'),
       load_out: new Date('2026-02-15T20:00:00Z'),
+      source_types: defaultSourceTypes,
       created_at: new Date(),
       updated_at: new Date(),
       is_deleted: false,
@@ -33,6 +48,7 @@ async function seedSampleProductions() {
       load_in: new Date('2026-02-20T06:00:00Z'),
       load_out: new Date('2026-02-21T02:00:00Z'),
       show_info_url: 'https://example.com/concert-details',
+      source_types: defaultSourceTypes,
       created_at: new Date(),
       updated_at: new Date(),
       is_deleted: false,

@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${Record}API() {
-  const fetch${Record}s = useCallback(async (productionId: string): Promise<Record[]> => {
+export function useRecordAPI() {
+  const fetchRecords = useCallback(async (productionId: string): Promise<Record[]> => {
     try {
       return await apiClient.get<Record[]>(`/records/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${Record}API() {
     }
   }, []);
 
-  const create${Record} = useCallback(async (input: RecordInput): Promise<Record> => {
+  const createRecord = useCallback(async (input: RecordInput): Promise<Record> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<Record>('/records', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<Record>('/records', requestData);
     } catch (error) {
       console.error('Error creating record:', error);
       throw error;
     }
   }, []);
 
-  const update${Record} = useCallback(async (
+  const updateRecord = useCallback(async (
     id: string,
     updates: Partial<RecordInput>
   ): Promise<Record | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<Record>(`/records/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<Record>(`/records/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${Record}API() {
     }
   }, []);
 
-  const delete${Record} = useCallback(async (id: string): Promise<void> => {
+  const deleteRecord = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/records/${id}`, {
@@ -90,9 +96,9 @@ export function use${Record}API() {
   }, []);
 
   return {
-    fetch${Record}s,
-    create${Record},
-    update${Record},
-    delete${Record}
+    fetchRecords,
+    createRecord,
+    updateRecord,
+    deleteRecord
   };
 }

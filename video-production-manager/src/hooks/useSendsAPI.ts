@@ -55,11 +55,18 @@ export function useSendsAPI() {
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      const data = await apiClient.post<Send>('/sends', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        type: input.type,
+        hRes: input.hRes,
+        vRes: input.vRes,
+        rate: input.rate,
+        note: input.note,
         userId,
         userName,
-      });
+      };
+      const data = await apiClient.post<Send>('/sends', requestData);
       return data;
     } catch (err: any) {
       const message = err.response?.data?.error || 'Failed to create send';
@@ -78,11 +85,19 @@ export function useSendsAPI() {
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      const data = await apiClient.put<Send>(`/sends/${id}`, {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        type: input.type,
+        hRes: input.hRes,
+        vRes: input.vRes,
+        rate: input.rate,
+        note: input.note,
+        version: input.version,
         userId,
         userName,
-      });
+      };
+      const data = await apiClient.put<Send>(`/sends/${id}`, requestData);
       return data;
     } catch (err: any) {
       if (err.response?.status === 409) {

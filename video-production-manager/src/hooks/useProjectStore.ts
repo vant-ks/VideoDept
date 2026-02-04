@@ -61,6 +61,7 @@ interface ProjectStoreState {
   
   // Helper to update activeProject and auto-save
   updateActiveProject: (updates: Partial<VideoDepProject>) => void;
+  updateProject: (project: VideoDepProject) => Promise<void>;
   
   // Source CRUD
   addSource: (source: Source) => void;
@@ -939,6 +940,12 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     // setTimeout(() => {
     //   get().saveProject();
     // }, 500);
+  },
+  
+  // Helper: Update entire project and save
+  updateProject: async (project) => {
+    set({ activeProject: project });
+    await get().saveProject();
   },
   
   // ===== SOURCE CRUD =====

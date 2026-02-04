@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${CableSnake}API() {
-  const fetch${CableSnake}s = useCallback(async (productionId: string): Promise<CableSnake[]> => {
+export function useCableSnakeAPI() {
+  const fetchCableSnakes = useCallback(async (productionId: string): Promise<CableSnake[]> => {
     try {
       return await apiClient.get<CableSnake[]>(`/cable-snakes/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${CableSnake}API() {
     }
   }, []);
 
-  const create${CableSnake} = useCallback(async (input: CableSnakeInput): Promise<CableSnake> => {
+  const createCableSnake = useCallback(async (input: CableSnakeInput): Promise<CableSnake> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<CableSnake>('/cable-snakes', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<CableSnake>('/cable-snakes', requestData);
     } catch (error) {
       console.error('Error creating cableSnake:', error);
       throw error;
     }
   }, []);
 
-  const update${CableSnake} = useCallback(async (
+  const updateCableSnake = useCallback(async (
     id: string,
     updates: Partial<CableSnakeInput>
   ): Promise<CableSnake | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<CableSnake>(`/cable-snakes/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<CableSnake>(`/cable-snakes/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${CableSnake}API() {
     }
   }, []);
 
-  const delete${CableSnake} = useCallback(async (id: string): Promise<void> => {
+  const deleteCableSnake = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/cable-snakes/${id}`, {

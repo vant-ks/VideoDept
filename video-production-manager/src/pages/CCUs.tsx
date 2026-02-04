@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Copy } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
@@ -11,6 +11,13 @@ export default function CCUs() {
   const projectStore = useProjectStore();
   const equipmentLib = useEquipmentLibrary();
   const oldStore = useProductionStore();
+  
+  // Fetch equipment data on mount
+  useEffect(() => {
+    if (equipmentLib.equipmentSpecs.length === 0) {
+      equipmentLib.fetchFromAPI();
+    }
+  }, []);
   
   const ccus = activeProject?.ccus || oldStore.ccus;
   const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;

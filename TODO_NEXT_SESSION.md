@@ -1,5 +1,29 @@
 # TODO List - Next Work Session
 
+## 🚀 NEW FEATURE: Production Checklist (Post Load-In)
+
+**Goal:** Create a separate "production checklist" that activates 48 hours before load-in
+
+**Pre-Production Checklist** (Current):
+- All existing categories: SCREENS, SWITCH, IMAG, MEDIA_SERVERS, SOURCES, DESTINATIONS, DISPLAYS, OUTSIDE_VENDORS, DOCUMENTATION
+- Active from initial planning through 48hrs before load-in
+
+**Production Checklist** (New):
+- Activates at 48hrs before load-in
+- Covers on-site activities: setup, testing, rehearsal, show day, strike
+- Should reference/include pre-production checklist data
+
+**Implementation Options:**
+1. **Summary Statement:** Add a summary of pre-production checklist completion status to production checklist
+2. **View-Only Modal:** Add button to open pre-production checklist in read-only modal (like a log viewer)
+
+**Technical Notes:**
+- Need to determine trigger mechanism (manual switch vs automatic based on load-in date)
+- Consider checklist versioning/archiving
+- May need new category set for production phase activities
+
+---
+
 ## ✅ COMPLETED: Reset App Server Restart Fix
 
 **Issue:** Reset App "Restart API Server" button was failing with 404  

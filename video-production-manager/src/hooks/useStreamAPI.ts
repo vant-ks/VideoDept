@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${Stream}API() {
-  const fetch${Stream}s = useCallback(async (productionId: string): Promise<Stream[]> => {
+export function useStreamAPI() {
+  const fetchStreams = useCallback(async (productionId: string): Promise<Stream[]> => {
     try {
       return await apiClient.get<Stream[]>(`/streams/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${Stream}API() {
     }
   }, []);
 
-  const create${Stream} = useCallback(async (input: StreamInput): Promise<Stream> => {
+  const createStream = useCallback(async (input: StreamInput): Promise<Stream> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<Stream>('/streams', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<Stream>('/streams', requestData);
     } catch (error) {
       console.error('Error creating stream:', error);
       throw error;
     }
   }, []);
 
-  const update${Stream} = useCallback(async (
+  const updateStream = useCallback(async (
     id: string,
     updates: Partial<StreamInput>
   ): Promise<Stream | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<Stream>(`/streams/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<Stream>(`/streams/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${Stream}API() {
     }
   }, []);
 
-  const delete${Stream} = useCallback(async (id: string): Promise<void> => {
+  const deleteStream = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/streams/${id}`, {
@@ -90,9 +96,9 @@ export function use${Stream}API() {
   }, []);
 
   return {
-    fetch${Stream}s,
-    create${Stream},
-    update${Stream},
-    delete${Stream}
+    fetchStreams,
+    createStream,
+    updateStream,
+    deleteStream
   };
 }

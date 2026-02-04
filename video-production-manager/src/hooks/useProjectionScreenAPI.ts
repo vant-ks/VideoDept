@@ -33,8 +33,8 @@ function getUserInfo() {
   };
 }
 
-export function use${ProjectionScreen}API() {
-  const fetch${ProjectionScreen}s = useCallback(async (productionId: string): Promise<ProjectionScreen[]> => {
+export function useProjectionScreenAPI() {
+  const fetchProjectionScreens = useCallback(async (productionId: string): Promise<ProjectionScreen[]> => {
     try {
       return await apiClient.get<ProjectionScreen[]>(`/projection-screens/production/${productionId}`);
     } catch (error) {
@@ -43,31 +43,37 @@ export function use${ProjectionScreen}API() {
     }
   }, []);
 
-  const create${ProjectionScreen} = useCallback(async (input: ProjectionScreenInput): Promise<ProjectionScreen> => {
+  const createProjectionScreen = useCallback(async (input: ProjectionScreenInput): Promise<ProjectionScreen> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.post<ProjectionScreen>('/projection-screens', {
-        ...input,
+      const requestData = {
+        productionId: input.productionId,
+        name: input.name,
+        version: input.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.post<ProjectionScreen>('/projection-screens', requestData);
     } catch (error) {
       console.error('Error creating projectionScreen:', error);
       throw error;
     }
   }, []);
 
-  const update${ProjectionScreen} = useCallback(async (
+  const updateProjectionScreen = useCallback(async (
     id: string,
     updates: Partial<ProjectionScreenInput>
   ): Promise<ProjectionScreen | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      return await apiClient.put<ProjectionScreen>(`/projection-screens/${id}`, {
-        ...updates,
+      const requestData = {
+        productionId: updates.productionId,
+        name: updates.name,
+        version: updates.version,
         userId,
         userName
-      });
+      };
+      return await apiClient.put<ProjectionScreen>(`/projection-screens/${id}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -77,7 +83,7 @@ export function use${ProjectionScreen}API() {
     }
   }, []);
 
-  const delete${ProjectionScreen} = useCallback(async (id: string): Promise<void> => {
+  const deleteProjectionScreen = useCallback(async (id: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
       await apiClient.delete(`/projection-screens/${id}`, {
