@@ -144,7 +144,9 @@ router.put('/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error updating checklistItem:', error);
     console.error('Request body was:', JSON.stringify(req.body, null, 2));
-    console.error('Snake case updates:', JSON.stringify(snakeCaseUpdates, null, 2));
+    if (snakeCaseUpdates) {
+      console.error('Snake case updates:', JSON.stringify(snakeCaseUpdates, null, 2));
+    }
     res.status(500).json({ error: 'Failed to update checklistItem', details: (error as Error).message });
   }
 });
