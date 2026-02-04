@@ -119,10 +119,25 @@ export const Projects: React.FC = () => {
         };
       }));
     }, []),
-    onProductionDeleted: useCallback((productionId: string) => {
+    onProductionDeleted: useCallback(async (productionId: string) => {
       console.log('🔔 Production deleted:', productionId);
       setShows(prev => prev.filter(s => s.id !== productionId));
-    }, [])
+      
+      // Remove from IndexedDB cache
+      const allProjects = await listProjects();
+      const projectToDelete = allProjects.find(p => p.production.id === productionId);
+      if (projectToDelete?.id) {
+        await deleteProject(projectToDelete.id);
+        console.log('🗑️ Removed deleted production from cache');
+        
+        // Clear lastOpenedProjectId if it matches
+        const { lastOpenedProjectId } = usePreferencesStore.getState();
+        if (lastOpenedProjectId === projectToDelete.id) {
+          console.log('🧹 Clearing lastOpenedProjectId for deleted production');
+          setLastOpenedProjectId(null);
+        }
+      }
+    }, [setLastOpenedProjectId])
   });
 
   const loadShowsList = async () => {
