@@ -398,8 +398,17 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             await apiClient.createChecklistItem(productionData.id, {
               id: item.id,
               production_id: productionData.id,
-              title: item.title,
+              title: item.title || item.item, // Use title if present, otherwise item
+              category: item.category,
               completed: item.completed || false,
+              more_info: item.moreInfo,
+              completion_note: item.completionNote,
+              assigned_to: item.assignedTo,
+              due_date: item.dueDate,
+              completion_date: item.completionDate,
+              completed_at: item.completedAt,
+              reference: item.reference,
+              days_before_show: item.daysBeforeShow,
               updated_at: new Date().toISOString()
             });
           } catch (error) {
