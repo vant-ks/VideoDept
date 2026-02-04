@@ -428,12 +428,12 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE production
+// DELETE production (HARD DELETE - cascade deletes all related data)
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    await prisma.productions.update({
-      where: { id: req.params.id },
-      data: { is_deleted: true, version: { increment: 1 } }
+    // Hard delete - cascade will remove all sources, cameras, ccus, sends, etc.
+    await prisma.productions.delete({
+      where: { id: req.params.id }
     });
     
     // Broadcast to production list room
@@ -443,6 +443,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     res.json({ success: true });
   } catch (error: any) {
+    console.error('Failed to delete production:', error);
     res.status(500).json({ error: 'Failed to delete production' });
   }
 });

@@ -26,10 +26,10 @@ model cameras {
   note               String?
   created_at         DateTime    @default(now())
   updated_at         DateTime
-  synced_at          DateTime?
-  last_modified_by   String?
   version            Int         @default(1)
   is_deleted         Boolean     @default(false)
+  last_modified_by   String?
+  synced_at          DateTime?
   ccus               ccus?       @relation(fields: [ccu_id], references: [id])
   productions        productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
@@ -38,48 +38,48 @@ model cameras {
 }
 
 model ccus {
-  id              String      @id
-  production_id   String
-  name            String
-  manufacturer    String?
-  model           String?
-  format_mode     String?
-  fiber_input     String?
-  reference_input String?
-  outputs         Json?
-  note            String?
-  created_at      DateTime    @default(now())
-  updated_at      DateTime
-  synced_at       DateTime?
+  id               String      @id
+  production_id    String
+  name             String
+  manufacturer     String?
+  model            String?
+  format_mode      String?
+  fiber_input      String?
+  reference_input  String?
+  outputs          Json?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
   last_modified_by String?
-  version         Int         @default(1)
-  is_deleted      Boolean     @default(false)
-  cameras         cameras[]
-  productions     productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  synced_at        DateTime?
+  cameras          cameras[]
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@index([production_id])
 }
 
 model checklist_items {
-  id                String      @id
-  production_id     String
-  title             String
-  category          String?     // PRE_PRODUCTION, SCREENS, SWITCH, etc.
-  completed         Boolean     @default(false)
-  more_info         String?     // Notes/additional info
-  completion_note   String?     // Note when marking complete
-  assigned_to       String?     // For future integration
-  due_date          DateTime?
-  completion_date   DateTime?
-  completed_at      BigInt?     // Timestamp
-  reference         String?
-  days_before_show  Int?        // Days before show date
-  sort_order        Int?
-  created_at        DateTime    @default(now())
-  updated_at        DateTime
-  last_modified_by  String?
-  version           Int         @default(1)
-  productions       productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  id               String      @id
+  production_id    String
+  completed        Boolean     @default(false)
+  sort_order       Int?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  title            String
+  last_modified_by String?
+  assigned_to      String?
+  category         String?
+  completed_at     BigInt?
+  completion_date  DateTime?
+  completion_note  String?
+  days_before_show Int?
+  due_date         DateTime?
+  more_info        String?
+  reference        String?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@index([production_id])
 }
@@ -99,12 +99,12 @@ model connections {
   note                String?
   created_at          DateTime    @default(now())
   updated_at          DateTime
-  synced_at           DateTime?
-  last_modified_by    String?
   version             Int         @default(1)
   is_deleted          Boolean     @default(false)
+  last_modified_by    String?
+  synced_at           DateTime?
   productions         productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
-  sources             sources?    @relation(fields: [source_id], references: [id])
+  sources             sources?    @relation(fields: [source_id], references: [uuid])
 
   @@index([production_id])
   @@index([source_id])
@@ -221,19 +221,19 @@ model frame_rates {
 }
 
 model ip_addresses {
-  id            String      @id
-  production_id String
-  ip            String
-  device_name   String
-  category      String
-  subnet        String?
-  gateway       String?
-  note          String?
-  created_at    DateTime    @default(now())
-  updated_at    DateTime
+  id               String      @id
+  production_id    String
+  ip               String
+  device_name      String
+  category         String
+  subnet           String?
+  gateway          String?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
   last_modified_by String?
-  version       Int         @default(1)
-  productions   productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@unique([production_id, ip])
   @@index([production_id])
@@ -249,14 +249,14 @@ model productions {
   load_out         DateTime?
   show_info_url    String?
   status           ProductionStatus  @default(PLANNING)
-  source_types     Json?
   created_at       DateTime          @default(now())
   updated_at       DateTime
   synced_at        DateTime?
   last_modified_by String?
   version          Int               @default(1)
-  field_versions   Json?
   is_deleted       Boolean           @default(false)
+  field_versions   Json?
+  source_types     Json?
   cameras          cameras[]
   ccus             ccus[]
   checklist_items  checklist_items[]
@@ -331,13 +331,13 @@ model source_outputs {
   source_id    String
   connector    String
   output_index Int      @default(1)
-  created_at   DateTime @default(now())
-  version      Int      @default(1)
   h_res        Int?
+  v_res        Int?
   rate         Float?
   standard     String?
-  v_res        Int?
-  sources      sources  @relation(fields: [source_id], references: [id], onDelete: Cascade)
+  created_at   DateTime @default(now())
+  version      Int      @default(1)
+  sources      sources  @relation(fields: [source_id], references: [uuid], onDelete: Cascade)
 
   @@index([source_id])
 }
@@ -354,10 +354,12 @@ model source_types {
 }
 
 model sources {
-  id                     String           @id
+  uuid                   String           @id @default(uuid())
+  id                     String
   production_id          String
   type                   String
   name                   String
+  format_assignment_mode String?          @default("system-wide")
   h_res                  Int?
   v_res                  Int?
   rate                   Float?
@@ -371,11 +373,11 @@ model sources {
   last_modified_by       String?
   version                Int              @default(1)
   is_deleted             Boolean          @default(false)
-  format_assignment_mode String?          @default("system-wide")
   connections            connections[]
   source_outputs         source_outputs[]
   productions            productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
+  @@unique([id, production_id])
   @@index([production_id, is_deleted])
   @@index([type])
 }

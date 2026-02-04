@@ -22,19 +22,29 @@ interface UseProductionEventsOptions {
 export function useProductionEvents(options: UseProductionEventsOptions) {
   const { productionId, onEntityCreated, onEntityUpdated, onEntityDeleted } = options;
 
-  const connectSocket = useCallback(() => {
+  useEffect(() => {
     if (!productionId) return;
 
+    // Get user info for joining/leaving production room
+    const userId = localStorage.getItem('user_id') || 'anonymous';
+    const userName = localStorage.getItem('user_name') || 'Anonymous';
+
     // Get API URL from environment or localStorage
-    const apiUrl = localStorage.getItem('api_server_url') || 
-                   import.meta.env.VITE_API_URL || 
-                   'http://localhost:3010';
+    // WebSocket connects to root server URL, not /api path
+    let apiUrl = localStorage.getItem('api_server_url') || 
+                 import.meta.env.VITE_API_URL || 
+                 'http://localhost:3010';
+    
+    // Remove /api suffix if present for WebSocket connection
+    apiUrl = apiUrl.replace(/\/api\/?$/, '');
 
     // Create socket if it doesn't exist or if it's disconnected
     if (!socket || !socket.connected) {
-      // Disconnect old socket if it exists
+      // Properly cleanup old socket first
       if (socket) {
+        socket.removeAllListeners();
         socket.disconnect();
+        socket = null;
       }
       
       socket = io(apiUrl, {
@@ -46,10 +56,7 @@ export function useProductionEvents(options: UseProductionEventsOptions) {
 
       socket.on('connect', () => {
         console.log('🔌 Connected to production events');
-        
         // Join production room after connection
-        const userId = localStorage.getItem('user_id') || 'anonymous';
-        const userName = localStorage.getItem('user_name') || 'Anonymous';
         socket?.emit('production:join', { productionId, userId, userName });
       });
 
@@ -61,9 +68,7 @@ export function useProductionEvents(options: UseProductionEventsOptions) {
         console.error('Socket connection error:', error);
       });
     } else {
-      // Socket already connected, just join the room
-      const userId = localStorage.getItem('user_id') || 'anonymous';
-      const userName = localStorage.getItem('user_name') || 'Anonymous';
+      // Socket already connected, join immediately
       socket.emit('production:join', { productionId, userId, userName });
     }
 
@@ -78,6 +83,7 @@ export function useProductionEvents(options: UseProductionEventsOptions) {
       socket.on('entity:deleted', onEntityDeleted);
     }
 
+    // Cleanup function
     return () => {
       // Clean up listeners
       socket?.off('entity:created', onEntityCreated);
@@ -88,13 +94,6 @@ export function useProductionEvents(options: UseProductionEventsOptions) {
       socket?.emit('production:leave', { productionId, userId });
     };
   }, [productionId, onEntityCreated, onEntityUpdated, onEntityDeleted]);
-
-  useEffect(() => {
-    const cleanup = connectSocket();
-    return () => {
-      cleanup?.();
-    };
-  }, [connectSocket]);
 
   return { socket };
 }

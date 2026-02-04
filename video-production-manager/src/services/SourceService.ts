@@ -6,9 +6,10 @@ import type { Source as ISource, SourceType } from '@/types';
  */
 export class SourceService {
   /**
-   * Generate a unique ID for a new source
+   * Generate a unique ID for a new source within the current production
    */
   static generateId(existingSources: ISource[]): string {
+    console.log('🆔 generateId called with sources:', existingSources.map(s => s.id));
     const sourceNumbers = existingSources
       .map(s => {
         const match = s.id.match(/^SRC\s*(\d+)$/i);
@@ -17,7 +18,9 @@ export class SourceService {
       .filter(n => !isNaN(n));
 
     const maxNumber = sourceNumbers.length > 0 ? Math.max(...sourceNumbers) : 0;
-    return `SRC ${maxNumber + 1}`;
+    const newId = `SRC ${maxNumber + 1}`;
+    console.log('🆔 Generated new ID:', newId);
+    return newId;
   }
 
   /**
