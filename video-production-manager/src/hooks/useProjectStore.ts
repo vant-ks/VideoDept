@@ -148,11 +148,36 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           isLoading: true // Keep loading true until we get field_versions from API
         });
         
-        // CRITICAL: Fetch fresh data from API to get field_versions
+        // CRITICAL: Fetch fresh data from API to get field_versions AND entity data
         try {
           const production = await apiClient.getProduction(cachedProject.production.id);
           if (production) {
-            // Update cached project with fresh data including field_versions
+            console.log('📥 Fetching all entity data for cached production:', id);
+            
+            // Fetch all entity data from database in parallel
+            const [
+              checklistItems,
+              sources,
+              sends,
+              cameras,
+              ccus
+            ] = await Promise.all([
+              apiClient.getChecklistItems(id).catch(err => { console.warn('Failed to load checklist items:', err); return []; }),
+              apiClient.getSources(id).catch(err => { console.warn('Failed to load sources:', err); return []; }),
+              apiClient.getSends(id).catch(err => { console.warn('Failed to load sends:', err); return []; }),
+              apiClient.get(`/cameras/production/${id}`).catch(err => { console.warn('Failed to load cameras:', err); return []; }),
+              apiClient.get(`/ccus/production/${id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; })
+            ]);
+            
+            console.log('📦 Loaded entity data:', {
+              checklistItems: checklistItems.length,
+              sources: sources.length,
+              sends: sends.length,
+              cameras: cameras.length,
+              ccus: ccus.length
+            });
+            
+            // Update cached project with fresh data including field_versions AND entities
             const freshProject = {
               ...cachedProject,
               version: production.version,
@@ -168,7 +193,21 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                 showInfoUrl: production.show_info_url,
                 status: production.status,
                 fieldVersions: production.field_versions // CRITICAL: Load field versions from server
-              }
+              },
+              sources: sources || [],
+              sends: sends || [],
+              checklist: (checklistItems || []).map((item: any) => ({
+                id: item.id,
+                category: item.category || 'NOTES',
+                item: item.title, // Display text
+                title: item.title, // Database field
+                completed: item.completed || false,
+                moreInfo: item.more_info,
+                daysBeforeShow: item.days_before_show,
+                assignedTo: item.assigned_to
+              })),
+              cameras: cameras || [],
+              ccus: ccus || []
             };
             
             await projectDB.updateProject(id, freshProject);

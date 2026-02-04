@@ -104,7 +104,18 @@
 
 ---
 
-## 🔧 Component Integration (Outstanding Work)
+## �️ Bug Fixes & Improvements
+
+### Reset App Service - Server Restart
+- [ ] **Fix "Restart API Server" button**
+  - Currently fails when server is already down
+  - Should handle ECONNREFUSED gracefully
+  - Possibly use direct process management instead of HTTP endpoint
+  - Consider: `pkill -9 -f 'tsx watch' && npm run dev` approach
+
+---
+
+## �🔧 Component Integration (Outstanding Work)
 
 ### Integrate Entity Sync Hooks into UI Components
 
