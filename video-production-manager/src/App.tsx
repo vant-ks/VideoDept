@@ -71,8 +71,13 @@ const App: React.FC = () => {
       if (lastOpenedProjectId && mounted) {
         try {
           await loadProject(lastOpenedProjectId);
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to load last project:', error);
+          // If production was deleted, clear the stale lastOpenedProjectId
+          if (error?.message === 'PRODUCTION_DELETED') {
+            console.log('🧹 Clearing stale lastOpenedProjectId');
+            setLastOpenedProjectId(null);
+          }
         }
       }
 

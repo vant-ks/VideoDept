@@ -224,7 +224,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             set({ isLoading: false });
             console.warn('⚠️ Using cached version, production not found on server');
           }
-        } catch (refreshError) {
+        } catch (refreshError: any) {
+          // If production was deleted (404), clear the stale cache
+          if (refreshError?.response?.status === 404) {
+            console.warn('⚠️ Production no longer exists on server, clearing stale cache');
+            await projectDB.deleteProject(id);
+            set({ isLoading: false, activeProject: null, activeProjectId: null });
+            throw new Error('PRODUCTION_DELETED');
+          }
           console.warn('⚠️ Using cached version, could not refresh from database:', refreshError);
           set({ isLoading: false });
         }
@@ -320,8 +327,11 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           
           console.log('✅ Production fetched from API and cached locally');
           console.log('📦 Field versions loaded:', production.field_versions);
-        } catch (apiError) {
+        } catch (apiError: any) {
           console.error('❌ Failed to fetch production from API:', apiError);
+          if (apiError?.response?.status === 404) {
+            throw new Error('PRODUCTION_DELETED');
+          }
           throw new Error('Production not found. Please ensure it exists on the server.');
         }
       }
