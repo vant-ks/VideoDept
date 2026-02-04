@@ -1,5 +1,14 @@
 # TODO List - Next Work Session
 
+## ✅ COMPLETED: Reset App Server Restart Fix
+
+**Issue:** Reset App "Restart API Server" button was failing with 404  
+**Fix:** Added POST `/api/server/restart` endpoint to server.ts  
+**Commit:** `90832d9` - "feat: add server restart endpoint for Reset App tool"  
+**Note:** Endpoint gracefully shuts down server. When run via `npm run dev` (tsx watch), process must be manually restarted. Auto-restart only works in development terminal, not VS Code background tasks.
+
+---
+
 ## 🎯 Priority 1: Multi-Browser Sync Testing (Phase 5 Validation)
 
 ### Execute All Test Scenarios from MULTI_BROWSER_SYNC_TEST.md
