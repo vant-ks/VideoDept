@@ -30,8 +30,13 @@ export function useProductionEvents(options: UseProductionEventsOptions) {
                    import.meta.env.VITE_API_URL || 
                    'http://localhost:3010';
 
-    // Create socket if it doesn't exist
-    if (!socket) {
+    // Create socket if it doesn't exist or if it's disconnected
+    if (!socket || !socket.connected) {
+      // Disconnect old socket if it exists
+      if (socket) {
+        socket.disconnect();
+      }
+      
       socket = io(apiUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
@@ -41,6 +46,11 @@ export function useProductionEvents(options: UseProductionEventsOptions) {
 
       socket.on('connect', () => {
         console.log('🔌 Connected to production events');
+        
+        // Join production room after connection
+        const userId = localStorage.getItem('user_id') || 'anonymous';
+        const userName = localStorage.getItem('user_name') || 'Anonymous';
+        socket?.emit('production:join', { productionId, userId, userName });
       });
 
       socket.on('disconnect', () => {
@@ -50,14 +60,12 @@ export function useProductionEvents(options: UseProductionEventsOptions) {
       socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error);
       });
+    } else {
+      // Socket already connected, just join the room
+      const userId = localStorage.getItem('user_id') || 'anonymous';
+      const userName = localStorage.getItem('user_name') || 'Anonymous';
+      socket.emit('production:join', { productionId, userId, userName });
     }
-
-    // Get user info
-    const userId = localStorage.getItem('user_id') || 'anonymous';
-    const userName = localStorage.getItem('user_name') || 'Anonymous';
-
-    // Join production room
-    socket.emit('production:join', { productionId, userId, userName });
 
     // Set up event listeners
     if (onEntityCreated) {

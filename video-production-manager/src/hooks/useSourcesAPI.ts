@@ -94,9 +94,10 @@ export function useSourcesAPI() {
       
       return mappedSource;
     } catch (err: any) {
-      const message = err.response?.data?.error || 'Failed to create source';
+      const message = err.response?.data?.error || err.response?.data?.message || 'Failed to create source';
       setError(message);
-      throw new Error(message);
+      // Re-throw the original error to preserve response data for error handling
+      throw err;
     } finally {
       setIsLoading(false);
     }

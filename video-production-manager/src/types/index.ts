@@ -44,22 +44,121 @@ export interface Production {
   fieldVersions?: FieldVersions;
 }
 
+// ============================================================================
+// BASE ENTITY ARCHITECTURE
+// ============================================================================
+
+/**
+ * Base entity interface that all production entities inherit from.
+ * Provides common fields: id, name, category, and metadata.
+ */
+export interface BaseEntity {
+  id: string;
+  name: string;
+  category: string; // Subcategory name from sidebar (e.g., "Computers", "LED", "Cam Switcher")
+  categoryMember: 'source' | 'send' | 'signal-flow'; // Top-level category
+  // Metadata
+  created_at?: string;
+  updated_at?: string;
+  version?: number;
+  production_id?: string;
+  is_deleted?: boolean;
+  note?: string;
+}
+
+// ============================================================================
+// SOURCES CATEGORY
+// ============================================================================
+
+export type ReducedBlanking = 'none' | 'RBv1' | 'RBv2' | 'RBv3';
+
+/**
+ * Output interface for sources (Computers, Media Servers, CCUs)
+ * Supports up to 8 outputs with format specifications
+ */
 export interface SourceOutput {
   id: string;
   connector: ConnectorType;
-  // Per-I/O format fields (used when formatAssignmentMode is 'per-io')
-  hRes?: number;
-  vRes?: number;
-  rate?: number;
-  standard?: string;
+  // Format fields (preset is UX helper, not stored)
+  hRes: number;
+  vRes: number;
+  rate: number;
+  reducedBlanking?: ReducedBlanking;
+  secondaryDevice?: string;
 }
 
+/**
+ * Computer source (subcategory: "Computers")
+ * Extends BaseEntity with outputs (up to 4)
+ */
+export interface Computer extends BaseEntity {
+  category: 'Computers';
+  categoryMember: 'source';
+  computerType: string; // From Settings (renamed from "Source Type")
+  outputs: SourceOutput[]; // Max 4
+}
+
+/**
+ * Media Server source (subcategory: "Media Servers")
+ * Extends BaseEntity with outputs (up to 8)
+ */
+export interface MediaServer extends BaseEntity {
+  category: 'Media Servers';
+  categoryMember: 'source';
+  software: string; // From Settings group (like Computer Type)
+  outputs: SourceOutput[]; // Max 8
+}
+
+/**
+ * CCU - Camera Control Unit (subcategory: "CCUs")
+ * Extends BaseEntity with camera connection and SMPTE fiber
+ */
+export interface CCU extends BaseEntity {
+  category: 'CCUs';
+  categoryMember: 'source';
+  manufacturer: string; // From Equipment
+  makeModel: string; // From Equipment
+  connectedCamera?: string; // Camera ID
+  outputs: SourceOutput[]; // Max 8
+  smpteCableLength?: number; // In feet
+}
+
+export interface CameraLens {
+  minFactor: number; // Default 8.5
+  zoomFactor: number;
+  maxDistance: number; // In feet
+}
+
+export interface CameraAccessories {
+  tripod?: boolean;
+  dolly?: boolean;
+  jib?: boolean;
+  steadicam?: boolean;
+  wirelessTX?: boolean;
+}
+
+/**
+ * Camera (subcategory: "Cameras")
+ * Extends BaseEntity with CCU connection, lens, and accessories
+ */
+export interface Camera extends BaseEntity {
+  category: 'Cameras';
+  categoryMember: 'source';
+  manufacturer: string; // From Equipment
+  makeModel: string; // From Equipment
+  connectedCCU?: string; // CCU ID
+  lens?: CameraLens;
+  accessories?: CameraAccessories;
+  smpteCableLength?: number; // In feet
+}
+
+// Legacy Source interface for backward compatibility
+// TODO: Remove once migration is complete
 export interface Source {
   id: string;
   type: SourceType;
   name: string;
-  formatAssignmentMode?: 'system-wide' | 'per-io'; // How format is assigned
-  // System-wide format fields (used when formatAssignmentMode is 'system-wide')
+  formatAssignmentMode?: 'system-wide' | 'per-io';
   hRes?: number;
   vRes?: number;
   rate: number;
@@ -82,16 +181,17 @@ export type SourceType =
   | 'Computer'
   | 'OTHER';
 
-// CCU (Camera Control Unit) Type
-export interface CCU {
+// Legacy CCU interface for backward compatibility
+// TODO: Remove once migration to new CCU interface is complete
+export interface LegacyCCU {
   id: string;
   name: string;
   manufacturer?: string;
   model?: string;
-  formatMode?: string; // e.g., "1080i59.94", "1080p60", "4K 59.94"
-  fiberInput?: string; // SMPTE fiber input connection
-  referenceInput?: string; // Reference signal input
-  outputs?: CCUOutput[]; // Output connections based on model capabilities
+  formatMode?: string;
+  fiberInput?: string;
+  referenceInput?: string;
+  outputs?: CCUOutput[];
   note?: string;
 }
 
@@ -178,6 +278,14 @@ export interface Computer {
   connectedTo?: string;
   note?: string;
 }
+
+// ============================================================================
+// SENDS CATEGORY
+// TODO: Refactor Sends to extend BaseEntity with proper subcategories:
+//   - LED extends BaseEntity (category: "LED")
+//   - Projection extends BaseEntity (category: "Projection")
+//   - Monitors extends BaseEntity (category: "Monitors")
+// ============================================================================
 
 export interface Send {
   id: string;
@@ -314,6 +422,14 @@ export type IPCategory =
   | 'LED'
   | 'NETWORK'
   | 'OTHER';
+
+// ============================================================================
+// SIGNAL FLOW CATEGORY
+// TODO: Refactor Signal Flow entities to extend BaseEntity with proper subcategories:
+//   - VisionSwitcher extends BaseEntity (category: "Vision Switcher")
+//   - CamSwitcher extends BaseEntity (category: "Cam Switcher")
+//   - Router extends BaseEntity (category: "Routers")
+// ============================================================================
 
 export interface Router {
   id: string;

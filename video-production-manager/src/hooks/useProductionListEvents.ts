@@ -31,8 +31,13 @@ export const useProductionListEvents = (options: ProductionListEventsOptions) =>
     const userId = localStorage.getItem('user_id') || 'anonymous';
     const userName = localStorage.getItem('user_name') || 'Anonymous User';
 
-    // Create socket if it doesn't exist
-    if (!socket) {
+    // Create socket if it doesn't exist or if it's disconnected
+    if (!socket || !socket.connected) {
+      // Disconnect old socket if it exists
+      if (socket) {
+        socket.disconnect();
+      }
+      
       console.log('🔌 Connecting to WebSocket for production list...', WS_URL);
       socket = ioClient(WS_URL, {
         transports: ['websocket', 'polling'],
@@ -43,16 +48,19 @@ export const useProductionListEvents = (options: ProductionListEventsOptions) =>
 
       socket.on('connect', () => {
         console.log('🔌 Connected to WebSocket (production list)');
+        // Join room after connection
+        socket?.emit('production-list:join', { userId, userName });
+        console.log('📋 Joined production list room');
       });
 
       socket.on('disconnect', () => {
         console.log('🔌 Disconnected from WebSocket (production list)');
       });
+    } else {
+      // Socket already connected, join immediately
+      socket.emit('production-list:join', { userId, userName });
+      console.log('📋 Joined production list room');
     }
-
-    // Join global production list room
-    socket.emit('production-list:join', { userId, userName });
-    console.log('📋 Joined production list room');
 
     // Set up event listeners
     const handleProductionCreated = (event: any) => {

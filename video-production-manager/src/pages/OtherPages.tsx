@@ -4,22 +4,28 @@ import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { Projector, Tv2, Cable, Plus, Edit2, Trash2, RefreshCw } from 'lucide-react';
 import { formatDateOnly } from '@/utils/helpers';
+import { useNavigate } from 'react-router-dom';
 
 // Screens Page
 export const Screens: React.FC = () => {
+  const navigate = useNavigate();
   const { activeProject } = useProjectStore();
   const oldStore = useProductionStore();
   const ledScreens = activeProject?.ledScreens || oldStore.ledScreens;
   const screen = ledScreens[0];
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleAddScreen = () => {
+    // Navigate to Sends page where LED and Projection screens are managed
+    navigate('/sends');
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-av-text">Screens</h2>
-        <button onClick={() => setIsModalOpen(true)} className="btn-primary flex items-center gap-2">
+        <button onClick={handleAddScreen} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
-          Add Screen
+          Manage Screens
         </button>
       </div>
 
@@ -27,9 +33,9 @@ export const Screens: React.FC = () => {
         <EmptyState
           icon={Projector}
           title="No Screens Yet"
-          description="Add your first screen to start managing projection and LED displays"
-          actionLabel="Add Screen"
-          onAction={() => setIsModalOpen(true)}
+          description="Manage LED and projection screens from the Sends page"
+          actionLabel="Go to Sends"
+          onAction={handleAddScreen}
         />
       ) : (
         screen && (

@@ -304,6 +304,7 @@ export const Computers: React.FC = () => {
 
       {/* Form Modal */}
       <SourceFormModal
+        key={isModalOpen ? `modal-${editingSource?.id || 'new'}-${Date.now()}` : 'closed'}
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
@@ -327,3 +328,4 @@ export const Computers: React.FC = () => {
     </div>
   );
 };
+

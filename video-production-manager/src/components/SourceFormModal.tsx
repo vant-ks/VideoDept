@@ -77,6 +77,9 @@ export function SourceFormModal({
   const [perIoCustomResolution, setPerIoCustomResolution] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    // Reset form when modal opens/closes or when editing source changes
+    if (!isOpen) return; // Don't run when modal is closed
+    
     if (editingSource) {
       // Type mapping for backwards compatibility (uppercase to title case)
       const typeMapping: Record<string, string> = {
@@ -122,7 +125,7 @@ export function SourceFormModal({
       }
       setSelectedFrameRate(editingSource.rate?.toString() || '59.94');
     } else {
-      // Auto-generate ID for new source
+      // Auto-generate ID for new source (FRESH on each open)
       const newId = SourceService.generateId(existingSources);
       setFormData({
         id: newId,
@@ -135,7 +138,7 @@ export function SourceFormModal({
       setIsCustomResolution(false);
       setSelectedFrameRate('59.94');
     }
-  }, [editingSource, existingSources, sourceTypes, defaultType]);
+  }, [isOpen, editingSource, existingSources, sourceTypes, defaultType]);
 
   const handleResolutionPresetChange = (presetKey: string) => {
     setSelectedPreset(presetKey);
