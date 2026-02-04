@@ -71,6 +71,15 @@ export const Checklist: React.FC = () => {
   const checklist = activeProject?.checklist || oldStore.checklist;
   const defaultChecklistItems = oldStore.defaultChecklistItems;
   
+  // DEBUG: Log checklist data
+  React.useEffect(() => {
+    console.log('🔍 Checklist page render:', {
+      hasActiveProject: !!activeProject,
+      checklistLength: checklist?.length,
+      checklistSample: checklist?.[0]
+    });
+  }, [checklist, activeProject]);
+  
   // Use project store CRUD if activeProject exists, otherwise use old store
   const toggleChecklistItem = activeProject ? projectStore.toggleChecklistItem : oldStore.toggleChecklistItem;
   const addChecklistItem = activeProject ? projectStore.addChecklistItem : oldStore.addChecklistItem;
