@@ -894,7 +894,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         const existsRemotely = remoteProductions.some(p => p.id === localProject.production.id);
         if (!existsRemotely) {
           await projectDB.deleteProject(localProject.id!);
-          console.log(`🗑️ Removed deleted production: ${localProject.production.name}`);
+          console.log(`🗑️ Removed deleted production: ${localProject.production.showName || localProject.production.name}`);
+          
+          // Clear lastOpenedProjectId if it matches the deleted production
+          const { lastOpenedProjectId, setLastOpenedProjectId } = await import('./usePreferencesStore').then(m => m.usePreferencesStore.getState());
+          if (lastOpenedProjectId === localProject.id) {
+            console.log('🧹 Clearing lastOpenedProjectId for deleted production');
+            setLastOpenedProjectId(null);
+          }
         }
       }
       
