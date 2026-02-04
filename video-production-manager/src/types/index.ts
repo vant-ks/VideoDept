@@ -72,10 +72,52 @@ export interface BaseEntity {
 
 export type ReducedBlanking = 'none' | 'RBv1' | 'RBv2' | 'RBv3';
 export type ConnectorType = 'HDMI' | 'SDI' | 'DP' | 'FIBER' | 'NDI' | 'USB-C';
+export type IOMode = 'direct' | 'card-based' | 'direct+card';
+export type IODirection = 'input' | 'output';
+
+/**
+ * Slot definition for card-based devices
+ * Defines physical slots where cards can be installed
+ */
+export interface Slot {
+  id: string;
+  label: string; // e.g., "Slot 1", "Slot A"
+  type?: string; // Slot type if device has multiple slot types
+}
+
+/**
+ * Card interface - Cards populate slots in card-based devices
+ * Each card is dedicated to either inputs OR outputs (not both)
+ * Supports up to 8 I/O ports per card
+ */
+export interface Card {
+  id: string;
+  parentDevice: string; // Equipment ID this card belongs to
+  slotId: string; // References a Slot.id on the parent device
+  direction: IODirection; // 'input' or 'output' - card is dedicated to one direction
+  ports: IOPort[]; // Up to 8 ports
+}
+
+/**
+ * IOPort - Individual port on a card
+ * Contains same format specifications as direct I/O
+ */
+export interface IOPort {
+  id: string;
+  connector: ConnectorType;
+  // Format fields (preset is UX helper, not stored)
+  hRes: number;
+  vRes: number;
+  rate: number;
+  reducedBlanking?: ReducedBlanking;
+  secondaryDevice?: string;
+  feed?: string; // What's connected (for inputs)
+  notes?: string;
+}
 
 /**
  * Output interface - Sources have outputs
- * Supports format specifications for video signals
+ * Can be direct output or reference a card output
  */
 export interface Output {
   id: string;
@@ -86,11 +128,14 @@ export interface Output {
   rate: number;
   reducedBlanking?: ReducedBlanking;
   secondaryDevice?: string;
+  // Card reference (if card-based)
+  cardId?: string;
+  portId?: string;
 }
 
 /**
  * Input interface - Sends have inputs
- * Signal flow devices have both inputs and outputs
+ * Can be direct input or reference a card input
  */
 export interface Input {
   id: string;
@@ -101,6 +146,9 @@ export interface Input {
   rate?: number;
   feed?: string; // What's connected to this input
   notes?: string;
+  // Card reference (if card-based)
+  cardId?: string;
+  portId?: string;
 }
 
 // ============================================================================
@@ -110,28 +158,37 @@ export interface Input {
 /**
  * Computer source (subcategory: "Computers")
  * Extends BaseEntity with outputs (up to 4)
+ * I/O Mode: direct (built-in outputs)
  */
 export interface Computer extends BaseEntity {
   category: 'Computers';
   categoryMember: 'source';
   computerType: string; // From Settings (renamed from "Source Type")
-  outputs: Output[]; // Max 4
+  ioMode: 'direct'; // Computers always use direct I/O
+  outputs: Output[]; // Max 4 direct outputs
 }
 
 /**
  * Media Server source (subcategory: "Media Servers")
  * Extends BaseEntity with outputs (up to 8)
+ * I/O Mode: direct, card-based, or direct+card
  */
 export interface MediaServer extends BaseEntity {
   category: 'Media Servers';
   categoryMember: 'source';
   software: string; // From Settings group (like Computer Type)
-  outputs: Output[]; // Max 8
+  ioMode: IOMode; // 'direct', 'card-based', or 'direct+card'
+  // Direct I/O
+  outputs?: Output[]; // Direct outputs (if ioMode is 'direct' or 'direct+card')
+  // Card-based I/O
+  slots?: Slot[]; // Available slots (if ioMode is 'card-based' or 'direct+card')
+  cards?: Card[]; // Installed cards (up to 8)
 }
 
 /**
  * CCU - Camera Control Unit (subcategory: "CCUs")
  * Extends BaseEntity with camera connection and SMPTE fiber
+ * I/O Mode: direct, card-based, or direct+card
  */
 export interface CCU extends BaseEntity {
   category: 'CCUs';
@@ -139,7 +196,12 @@ export interface CCU extends BaseEntity {
   manufacturer: string; // From Equipment
   makeModel: string; // From Equipment
   connectedCamera?: string; // Camera ID
-  outputs: Output[]; // Max 8
+  ioMode: IOMode; // 'direct', 'card-based', or 'direct+card'
+  // Direct I/O
+  outputs?: Output[]; // Direct outputs (if ioMode is 'direct' or 'direct+card')
+  // Card-based I/O
+  slots?: Slot[]; // Available slots (if ioMode is 'card-based' or 'direct+card')
+  cards?: Card[]; // Installed cards (up to 8)
   smpteCableLength?: number; // In feet
 }
 
