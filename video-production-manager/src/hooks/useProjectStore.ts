@@ -152,7 +152,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         try {
           const production = await apiClient.getProduction(cachedProject.production.id);
           if (production) {
-            console.log('📥 Fetching all entity data for cached production:', id);
+            console.log('📥 Fetching all entity data for cached production:', cachedProject.production.id);
             
             // Fetch all entity data from database in parallel
             const [
@@ -162,11 +162,11 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               cameras,
               ccus
             ] = await Promise.all([
-              apiClient.getChecklistItems(id).catch(err => { console.warn('Failed to load checklist items:', err); return []; }),
-              apiClient.getSources(id).catch(err => { console.warn('Failed to load sources:', err); return []; }),
-              apiClient.getSends(id).catch(err => { console.warn('Failed to load sends:', err); return []; }),
-              apiClient.get(`/cameras/production/${id}`).catch(err => { console.warn('Failed to load cameras:', err); return []; }),
-              apiClient.get(`/ccus/production/${id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; })
+              apiClient.getChecklistItems(cachedProject.production.id).catch(err => { console.warn('Failed to load checklist items:', err); return []; }),
+              apiClient.getSources(cachedProject.production.id).catch(err => { console.warn('Failed to load sources:', err); return []; }),
+              apiClient.getSends(cachedProject.production.id).catch(err => { console.warn('Failed to load sends:', err); return []; }),
+              apiClient.get(`/cameras/production/${cachedProject.production.id}`).catch(err => { console.warn('Failed to load cameras:', err); return []; }),
+              apiClient.get(`/ccus/production/${cachedProject.production.id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; })
             ]);
             
             console.log('📦 Loaded entity data:', {
@@ -237,7 +237,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             throw new Error('Production not found on server');
           }
           
-          console.log('📥 Fetching all entity data for production:', id);
+          console.log('📥 Fetching all entity data for production:', production.id);
           
           // Fetch all entity data from database in parallel
           const [
@@ -247,11 +247,11 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             cameras,
             ccus
           ] = await Promise.all([
-            apiClient.getChecklistItems(id).catch(err => { console.warn('Failed to load checklist items:', err); return []; }),
-            apiClient.getSources(id).catch(err => { console.warn('Failed to load sources:', err); return []; }),
-            apiClient.getSends(id).catch(err => { console.warn('Failed to load sends:', err); return []; }),
-            apiClient.get(`/cameras/production/${id}`).catch(err => { console.warn('Failed to load cameras:', err); return []; }),
-            apiClient.get(`/ccus/production/${id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; })
+            apiClient.getChecklistItems(production.id).catch(err => { console.warn('Failed to load checklist items:', err); return []; }),
+            apiClient.getSources(production.id).catch(err => { console.warn('Failed to load sources:', err); return []; }),
+            apiClient.getSends(production.id).catch(err => { console.warn('Failed to load sends:', err); return []; }),
+            apiClient.get(`/cameras/production/${production.id}`).catch(err => { console.warn('Failed to load cameras:', err); return []; }),
+            apiClient.get(`/ccus/production/${production.id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; })
           ]);
           
           console.log('📦 Loaded entity data:', {
