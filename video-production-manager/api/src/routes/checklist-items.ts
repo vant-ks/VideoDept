@@ -108,7 +108,8 @@ router.put('/:id', async (req: Request, res: Response) => {
       where: { id },
       data: {
         ...snakeCaseUpdates,
-        ...prepareVersionedUpdate(lastModifiedBy || userId),
+        version: { increment: 1 },
+        last_modified_by: lastModifiedBy || userId || null,
         updated_at: new Date()
       }
     });
@@ -141,7 +142,9 @@ router.put('/:id', async (req: Request, res: Response) => {
     res.json(toCamelCase(checklistItem));
   } catch (error) {
     console.error('Error updating checklistItem:', error);
-    res.status(500).json({ error: 'Failed to update checklistItem' });
+    console.error('Request body was:', JSON.stringify(req.body, null, 2));
+    console.error('Snake case updates:', JSON.stringify(snakeCaseUpdates, null, 2));
+    res.status(500).json({ error: 'Failed to update checklistItem', details: (error as Error).message });
   }
 });
 
