@@ -37,20 +37,48 @@ export const Sources: React.FC = () => {
   
   // Load sources from API on mount
   useEffect(() => {
-    if (productionId && oldStore.isConnected) {
-      sourcesAPI.fetchSources(productionId).then(setSources).catch(console.error);
+    console.log('📡 Sources page mount/update');
+    console.log('   productionId:', productionId);
+    console.log('   isConnected:', oldStore.isConnected);
+    console.log('   Current sources state:', sources.length, 'sources');
+    console.log('   activeProject?.sources:', activeProject?.sources?.length || 0);
+    
+    // If we already have sources from the store, use them
+    if (activeProject?.sources && activeProject.sources.length > 0) {
+      console.log('   ✅ Using sources from activeProject store:', activeProject.sources.length);
+      setSources(activeProject.sources);
+      return;
     }
-  }, [productionId, oldStore.isConnected]);
+    
+    if (productionId && oldStore.isConnected) {
+      console.log('   Fetching sources for production:', productionId);
+      sourcesAPI.fetchSources(productionId)
+        .then(fetchedSources => {
+          console.log('   ✅ Fetched sources:', fetchedSources.length, 'sources');
+          console.log('   Sources:', fetchedSources.map(s => ({ id: s.id, uuid: s.uuid })));
+          setSources(fetchedSources);
+        })
+        .catch(err => {
+          console.error('   ❌ Failed to fetch sources:', err);
+        });
+    } else {
+      console.log('   ⚠️ Skipping fetch - productionId or isConnected is missing');
+    }
+  }, [productionId, oldStore.isConnected, activeProject?.sources]);
 
   // Real-time event subscriptions
   useProductionEvents({
     productionId,
     onEntityCreated: useCallback((event) => {
       if (event.entityType === 'source') {
-        console.log('🔔 Source created by', event.userName);
+        console.log('🔔 Source created by', event.userName, '| Source:', event.entity.id, 'uuid:', event.entity.uuid);
         setSources(prev => {
-          // Avoid duplicates
-          if (prev.some(s => s.id === event.entity.id)) return prev;
+          // Avoid duplicates using UUID (more reliable than human-readable id)
+          if (prev.some(s => s.uuid === event.entity.uuid)) {
+            console.log('⚠️ Duplicate detected - skipping add');
+            return prev;
+          }
+          console.log('✅ Adding source to state via WebSocket');
           return [...prev, event.entity];
         });
       }
@@ -59,14 +87,14 @@ export const Sources: React.FC = () => {
       if (event.entityType === 'source') {
         console.log('🔔 Source updated by', event.userName);
         setSources(prev => prev.map(s => 
-          s.id === event.entity.id ? event.entity : s
+          s.uuid === event.entity.uuid ? event.entity : s
         ));
       }
     }, []),
     onEntityDeleted: useCallback((event) => {
       if (event.entityType === 'source') {
         console.log('🔔 Source deleted by', event.userName);
-        setSources(prev => prev.filter(s => s.id !== event.entityId));
+        setSources(prev => prev.filter(s => s.uuid !== event.entityId));
       }
     }, [])
   });
@@ -80,12 +108,26 @@ export const Sources: React.FC = () => {
   }, [sources]);
 
   const filteredSources = React.useMemo(() => {
-    return SourceService.search(sources, searchQuery).filter(source => {
+    console.log('🔍 Filtering sources:');
+    console.log('   Total sources:', sources.length);
+    console.log('   Search query:', searchQuery);
+    console.log('   Selected type:', selectedType);
+    
+    const searchResults = SourceService.search(sources, searchQuery);
+    console.log('   After search:', searchResults.length);
+    
+    const filtered = searchResults.filter(source => {
       return selectedType === 'all' || source.type === selectedType;
     });
+    console.log('   After type filter:', filtered.length);
+    console.log('   Filtered sources:', filtered.map(s => ({ id: s.id, type: s.type, name: s.name })));
+    
+    return filtered;
   }, [sources, searchQuery, selectedType]);
 
   const handleAddNew = () => {
+    console.log('📝 handleAddNew called - opening modal for new source');
+    console.log('📝 Current sources state:', sources.map(s => ({ id: s.id, uuid: s.uuid })));
     setEditingSource(null);
     setIsModalOpen(true);
   };
@@ -123,6 +165,7 @@ export const Sources: React.FC = () => {
         setSources(prev => prev.map(s => s.id === result.id ? result : s));
       } else {
         // Create new source - explicitly pass fields to prevent string iteration
+        console.log('💾 Creating new source with id:', source.id);
         const newSource = await sourcesAPI.createSource({
           id: source.id,
           type: source.type,
@@ -134,6 +177,11 @@ export const Sources: React.FC = () => {
           note: source.note,
           productionId,
         });
+        console.log('✅ Source created successfully:', { id: newSource.id, uuid: newSource.uuid });
+        console.log('💡 Optimistically adding to state - WebSocket will deduplicate if needed');
+        
+        // Optimistic update - add immediately so UI is responsive
+        // WebSocket handler will detect duplicate via uuid check and skip if already present
         setSources(prev => [...prev, newSource]);
       }
       setIsModalOpen(false);

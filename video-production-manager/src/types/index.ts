@@ -239,7 +239,8 @@ export interface SourceOutput {
 
 export interface Source {
   id: string;
-  type: SourceType;
+  category: SourceCategory; // Base category: COMPUTER, SERVER, CAMERA, CCU (matches equipment)
+  type?: string; // Settings-defined type specific to category (e.g., "Laptop - PC GFX" for computers)
   name: string;
   formatAssignmentMode?: 'system-wide' | 'per-io';
   hRes?: number;
@@ -252,17 +253,14 @@ export interface Source {
   blanking?: 'none' | 'RBv1' | 'RBv2' | 'RBv3';
 }
 
-export type SourceType = 
-  | 'LAPTOP' 
-  | 'CAM' 
+export type SourceCategory = 
+  | 'COMPUTER'
   | 'SERVER' 
-  | 'PLAYBACK' 
-  | 'GRAPHICS' 
-  | 'PTZ'
-  | 'ROBO'
-  | 'MEDIA_SERVER'
-  | 'Computer'
-  | 'OTHER';
+  | 'CAMERA' 
+  | 'CCU';
+
+// Legacy alias for backward compatibility
+export type SourceType = SourceCategory;
 
 // Legacy CCU interface for backward compatibility
 // TODO: Remove once migration to new CCU interface is complete

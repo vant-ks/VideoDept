@@ -24,7 +24,7 @@ export default function Cameras() {
   const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;
   
   // Get camera equipment specs from store
-  const cameraSpecs = equipmentSpecs.filter(spec => spec.category === 'camera');
+  const cameraSpecs = equipmentSpecs.filter(spec => spec.category === 'CAMERA');
   
   // Get unique manufacturers from equipment specs
   const CAMERA_MANUFACTURERS = Array.from(new Set(cameraSpecs.map(spec => spec.manufacturer))).sort();

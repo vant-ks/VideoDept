@@ -11,6 +11,7 @@ interface SourceFormModalProps {
   onSaveAndDuplicate?: (source: Source) => void;
   existingSources: Source[];
   editingSource?: Source | null;
+  typeFieldLabel?: string; // Optional label for the Type field (e.g., "Computer Type" for Computers page)
 }
 
 // Resolution presets
@@ -38,7 +39,8 @@ export function SourceFormModal({
   onSave,
   onSaveAndDuplicate,
   existingSources,
-  editingSource 
+  editingSource,
+  typeFieldLabel = 'Type' // Default to 'Type', can be overridden (e.g., 'Computer Type')
 }: SourceFormModalProps) {
   const connectorTypes = useProductionStore(state => state.connectorTypes) || [];
   const sourceTypes = useProductionStore(state => state.sourceTypes) || [];
@@ -49,13 +51,14 @@ export function SourceFormModal({
   const secondaryDeviceOptions = equipmentSpecs.filter(spec => spec.isSecondaryDevice);
   
   // Get default type from sourceTypes array (fallback to first default if empty)
-  const defaultType = (sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop - PC MISC') as SourceType;
+  const defaultType = sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop - PC MISC';
   
   const [formData, setFormData] = useState<Partial<Source>>({
     id: '',
-    type: defaultType,
+    category: 'COMPUTER', // Base category
+    type: defaultType, // Settings-defined type (e.g., "Laptop - PC GFX")
     name: '',
-    formatAssignmentMode: 'system-wide',
+    formatAssignmentMode: 'per-io', // Always per-io for computers
     hRes: undefined,
     vRes: undefined,
     rate: 59.94,
@@ -81,31 +84,11 @@ export function SourceFormModal({
     if (!isOpen) return; // Don't run when modal is closed
     
     if (editingSource) {
-      // Type mapping for backwards compatibility (uppercase to title case)
-      const typeMapping: Record<string, string> = {
-        'LAPTOP': 'Laptop',
-        'CAM': 'Camera',
-        'SERVER': 'Server',
-        'PLAYBACK': 'Playback',
-        'GRAPHICS': 'Graphics',
-        'PTZ': 'PTZ',
-        'ROBO': 'Robo',
-        'MEDIA_SERVER': 'Media Server',
-        'OTHER': 'Other'
-      };
-      
-      // Normalize the type to match sourceTypes array
-      const normalizedType = typeMapping[editingSource.type] || editingSource.type;
-      
-      // Ensure the type exists in sourceTypes, fallback to first available or default
-      const validType = (sourceTypes.includes(normalizedType) 
-        ? normalizedType 
-        : (sourceTypes.length > 0 ? sourceTypes[0] : defaultType)) as SourceType;
-      
       // Ensure outputs array exists for backwards compatibility
       const sourceWithOutputs = {
         ...editingSource,
-        type: validType,
+        category: editingSource.category || 'COMPUTER',
+        type: editingSource.type || (sourceTypes.length > 0 ? sourceTypes[0] : defaultType),
         outputs: editingSource.outputs || [{ id: 'out-1', connector: 'HDMI' as ConnectorType }]
       };
       setFormData(sourceWithOutputs);
@@ -126,14 +109,20 @@ export function SourceFormModal({
       setSelectedFrameRate(editingSource.rate?.toString() || '59.94');
     } else {
       // Auto-generate ID for new source (FRESH on each open)
+      console.log('🔧 SourceFormModal: Auto-generating ID for new source');
+      console.log('🔧 existingSources COUNT:', existingSources.length);
+      console.log('🔧 existingSources FULL DATA:', existingSources.map(s => ({ id: s.id, category: s.category, uuid: s.uuid })));
       const newId = SourceService.generateId(existingSources);
+      console.log('🔧 Generated newId:', newId);
       setFormData({
         id: newId,
+        category: 'COMPUTER',
         type: defaultType,
         name: '',
         rate: 59.94,
         outputs: [{ id: 'out-1', connector: 'HDMI' }],
       });
+      console.log('🔧 formData.id set to:', newId);
       setSelectedPreset('');
       setIsCustomResolution(false);
       setSelectedFrameRate('59.94');
@@ -231,6 +220,10 @@ export function SourceFormModal({
       e.stopPropagation();
     }
     
+    console.log('🚀 SourceFormModal handleSubmit called');
+    console.log('🚀 Current formData.id:', formData.id);
+    console.log('🚀 existingSources:', existingSources.map(s => ({ id: s.id, uuid: s.uuid })));
+    
     // Validate
     const validation = SourceService.validate(formData);
     if (!validation.valid) {
@@ -240,10 +233,13 @@ export function SourceFormModal({
 
     // Check for ID conflicts (only if creating new or changing ID)
     if (!editingSource || editingSource.id !== formData.id) {
+      console.log('🔍 Checking for ID conflicts...');
       if (SourceService.idExists(formData.id!, existingSources, editingSource?.id, sends)) {
+        console.log('❌ ID conflict detected!');
         setErrors([`ID "${formData.id}" already exists. IDs must be unique across all Sources and Sends.`]);
         return;
       }
+      console.log('✅ No ID conflict');
     }
 
     const sourceData = formData as Source;
@@ -318,7 +314,7 @@ export function SourceFormModal({
 
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
-                Type <span className="text-av-danger">*</span>
+                {typeFieldLabel} <span className="text-av-danger">*</span>
               </label>
               <select
                 value={formData.type}
@@ -333,7 +329,7 @@ export function SourceFormModal({
             </div>
           </div>
 
-          {/* Name and Format Assignment Mode Row */}
+          {/* Name and Secondary Device Row */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
@@ -351,98 +347,29 @@ export function SourceFormModal({
             
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
-                Format Assignment
+                Secondary Device
               </label>
               <select
-                value={formData.formatAssignmentMode || 'system-wide'}
-                onChange={(e) => handleChange('formatAssignmentMode', e.target.value)}
+                value={formData.secondaryDevice || ''}
+                onChange={(e) => handleChange('secondaryDevice', e.target.value)}
                 className="input-field w-full"
               >
-                <option value="system-wide">System Wide</option>
-                <option value="per-io">Per I/O</option>
+                <option value="">None</option>
+                {secondaryDeviceOptions.map((equipment) => (
+                  <option key={equipment.id} value={`${equipment.manufacturer} ${equipment.model}`}>
+                    {equipment.manufacturer} {equipment.model} ({equipment.category})
+                  </option>
+                ))}
               </select>
+              {secondaryDeviceOptions.length === 0 && (
+                <p className="text-xs text-av-text-muted mt-1">
+                  No equipment marked as secondary device.
+                </p>
+              )}
             </div>
           </div>
 
-          {/* System-wide format fields - only show if formatAssignmentMode is 'system-wide' */}
-          {formData.formatAssignmentMode === 'system-wide' && (
-            <>
-              {/* Resolution and Frame Rate Presets */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-2">
-                    Resolution Preset
-                  </label>
-                  <select
-                    value={selectedPreset}
-                    onChange={(e) => handleResolutionPresetChange(e.target.value)}
-                    className="input-field w-full"
-                  >
-                    <option value="">Select preset...</option>
-                    {resolutionPresets.map(preset => (
-                      <option key={`${preset.hRes}x${preset.vRes}`} value={`${preset.hRes}x${preset.vRes}`}>
-                        {preset.label}
-                      </option>
-                    ))}
-                    <option value="custom">Custom...</option>
-                  </select>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-2">
-                    Frame Rate
-                  </label>
-                  <select
-                    value={selectedFrameRate}
-                    onChange={(e) => handleFrameRatePresetChange(e.target.value)}
-                    className="input-field w-full"
-                  >
-                    <option value="">Select...</option>
-                    {frameRatePresets.map(rate => (
-                      <option key={rate} value={rate}>
-                        {rate} fps
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Resolution Row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-2">
-                    Horizontal Resolution
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.hRes || ''}
-                    onChange={(e) => handleChange('hRes', e.target.value ? parseInt(e.target.value) : undefined)}
-                    className="input-field w-full"
-                    placeholder="1920"
-                    min="0"
-                    disabled={!isCustomResolution && selectedPreset !== ''}
-                    readOnly={!isCustomResolution && selectedPreset !== ''}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-2">
-                    Vertical Resolution
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.vRes || ''}
-                    onChange={(e) => handleChange('vRes', e.target.value ? parseInt(e.target.value) : undefined)}
-                    className="input-field w-full"
-                    placeholder="1080"
-                    min="0"
-                    disabled={!isCustomResolution && selectedPreset !== ''}
-                    readOnly={!isCustomResolution && selectedPreset !== ''}
-                  />
-                </div>
-              </div>
-            </>
-          )}
 
           {/* Outputs Section */}
           <div>
@@ -513,8 +440,8 @@ export function SourceFormModal({
                     )}
                   </div>
                   
-                  {/* Per-I/O format fields - only show if formatAssignmentMode is 'per-io' */}
-                  {formData.formatAssignmentMode === 'per-io' && (
+                  {/* Per-I/O format fields */}
+                  {
                     <>
                       {/* Resolution and Frame Rate Presets for this output */}
                       <div className="grid grid-cols-2 gap-2 mb-2">
@@ -599,37 +526,13 @@ export function SourceFormModal({
                         </div>
                       </div>
                     </>
-                  )}
+                  }
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Secondary Device Row */}
-          <div className="grid grid-cols-1 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                Secondary Device
-              </label>
-              <select
-                value={formData.secondaryDevice || ''}
-                onChange={(e) => handleChange('secondaryDevice', e.target.value)}
-                className="input-field w-full"
-              >
-                <option value="">None</option>
-                {secondaryDeviceOptions.map((equipment) => (
-                  <option key={equipment.id} value={`${equipment.manufacturer} ${equipment.model}`}>
-                    {equipment.manufacturer} {equipment.model} ({equipment.category})
-                  </option>
-                ))}
-              </select>
-              {secondaryDeviceOptions.length === 0 && (
-                <p className="text-xs text-av-text-muted mt-1">
-                  No equipment marked as secondary device. Add equipment in the Equipment page and check "Available as Secondary Device".
-                </p>
-              )}
-            </div>
-          </div>
+
 
           {/* Blanking */}
           <div>

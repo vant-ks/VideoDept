@@ -73,13 +73,21 @@ export class SourceService {
    * Check if a source ID already exists (checks globally against sources and sends)
    */
   static idExists(id: string, sources: ISource[], excludeId?: string, allSends?: any[]): boolean {
+    console.log('🔍 SourceService.idExists called');
+    console.log('   Checking ID:', id);
+    console.log('   Against sources:', sources.map(s => ({ id: s.id, uuid: s.uuid })));
+    console.log('   Exclude ID:', excludeId);
+    
     // Check in sources
     const existsInSources = sources.some(s => s.id === id && s.id !== excludeId);
+    console.log('   Exists in sources?', existsInSources);
+    
     if (existsInSources) return true;
     
     // Check in sends if provided
     if (allSends) {
       const existsInSends = allSends.some((s: any) => s.id === id);
+      console.log('   Exists in sends?', existsInSends);
       return existsInSends;
     }
     

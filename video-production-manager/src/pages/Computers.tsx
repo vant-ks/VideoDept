@@ -30,9 +30,23 @@ export const Computers: React.FC = () => {
   
   // Load sources from API on mount and filter for computers
   useEffect(() => {
+    console.log('💻 Computers page - fetching sources');
+    console.log('   productionId:', productionId);
+    console.log('   isConnected:', oldStore.isConnected);
+    
     if (productionId && oldStore.isConnected) {
       sourcesAPI.fetchSources(productionId)
-        .then(allSources => setSources(allSources.filter(s => s.type === 'Computer')))
+        .then(allSources => {
+          console.log('   Total sources fetched:', allSources.length);
+          console.log('   Full source data:', allSources.map(s => ({ id: s.id, category: s.category, type: s.type })));
+          
+          // Filter for COMPUTER category only
+          const computerSources = allSources.filter(s => s.category === 'COMPUTER');
+          
+          console.log('   Computer sources after filter:', computerSources.length);
+          console.log('   Filtered sources:', computerSources.map(s => ({ id: s.id, category: s.category, type: s.type })));
+          setSources(computerSources);
+        })
         .catch(console.error);
     }
   }, [productionId, oldStore.isConnected]);
@@ -41,7 +55,7 @@ export const Computers: React.FC = () => {
   useProductionEvents({
     productionId,
     onEntityCreated: useCallback((event) => {
-      if (event.entityType === 'source' && event.entity.type === 'Computer') {
+      if (event.entityType === 'source' && event.entity.category === 'COMPUTER') {
         console.log('🔔 Computer created by', event.userName);
         setSources(prev => {
           if (prev.some(s => s.id === event.entity.id)) return prev;
@@ -50,7 +64,7 @@ export const Computers: React.FC = () => {
       }
     }, []),
     onEntityUpdated: useCallback((event) => {
-      if (event.entityType === 'source' && event.entity.type === 'Computer') {
+      if (event.entityType === 'source' && event.entity.category === 'COMPUTER') {
         console.log('🔔 Computer updated by', event.userName);
         setSources(prev => prev.map(s => 
           s.id === event.entity.id ? event.entity : s
@@ -96,20 +110,23 @@ export const Computers: React.FC = () => {
     setConflictError(null);
     
     try {
+      // Force category to 'COMPUTER' for all sources created/edited on Computers page
+      const computerSource = { ...source, category: 'COMPUTER' as any };
+      
       if (editingSource) {
-        const result = await sourcesAPI.updateSource(editingSource.id, source);
+        const result = await sourcesAPI.updateSource(editingSource.id, computerSource);
         if ('error' in result && result.error === 'Conflict') {
           setConflictError(result);
           return;
         }
-        setSources(prev => prev.map(s => s.id === editingSource.id ? source : s));
+        // Don't manually update state - let WebSocket event handle it
       } else {
-        // Pass single object with all fields including productionId
-        const created = await sourcesAPI.createSource({
-          ...source,
+        // Create via API - WebSocket event will update state automatically
+        await sourcesAPI.createSource({
+          ...computerSource,
           productionId: productionId!
         });
-        setSources(prev => [...prev, created]);
+        // Don't manually update state - let WebSocket event handle it
       }
       setIsModalOpen(false);
       setEditingSource(null);
@@ -146,7 +163,7 @@ export const Computers: React.FC = () => {
     if (confirm('Are you sure you want to delete this computer?')) {
       try {
         await sourcesAPI.deleteSource(id);
-        setSources(prev => prev.filter(s => s.id !== id));
+        // Don't manually update state - let WebSocket event handle it
       } catch (error) {
         console.error('Failed to delete computer:', error);
         alert('Failed to delete computer');
@@ -324,6 +341,7 @@ export const Computers: React.FC = () => {
         }}
         existingSources={sources}
         editingSource={editingSource}
+        typeFieldLabel="Computer Type"
       />
     </div>
   );

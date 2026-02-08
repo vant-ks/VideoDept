@@ -36,7 +36,7 @@ export default function CCUs() {
   const [errors, setErrors] = useState<string[]>([]);
 
   // Get CCU equipment specs from store
-  const ccuSpecs = equipmentSpecs.filter(spec => spec.category === 'ccu');
+  const ccuSpecs = equipmentSpecs.filter(spec => spec.category === 'CCU');
   
   // Get unique manufacturers from equipment specs
   const CCU_MANUFACTURERS = Array.from(new Set(ccuSpecs.map(spec => spec.manufacturer))).sort();

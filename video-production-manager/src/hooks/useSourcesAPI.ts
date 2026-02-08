@@ -7,7 +7,8 @@ interface CreateSourceInput {
   productionId: string;
   userId?: string;
   userName?: string;
-  type: string;
+  category: string; // Base category: COMPUTER, SERVER, CAMERA, CCU
+  type?: string; // Settings-defined type (e.g., "Laptop - PC GFX")
   name: string;
   hRes: number;
   vRes: number;
@@ -69,6 +70,7 @@ export function useSourcesAPI() {
       const requestData = {
         id: input.id,
         productionId: input.productionId,
+        category: input.category,
         type: input.type,
         name: input.name,
         hRes: input.hRes,

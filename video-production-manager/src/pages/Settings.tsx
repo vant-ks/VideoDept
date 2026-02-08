@@ -937,14 +937,68 @@ export default function Settings() {
         )}
       </Card>
 
-      {/* Source Types Section */}
+      {/* Equipment Categories Section */}
+      <Card className="p-6">
+        <button 
+          onClick={() => toggleSection('categories')}
+          className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+        >
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold text-av-text">Equipment Categories</h2>
+            <span className="text-xs text-av-info px-2 py-1 bg-av-info/10 rounded">System</span>
+          </div>
+          {expandedSections.includes('categories') ? (
+            <ChevronDown className="w-5 h-5 text-av-text-muted" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-av-text-muted" />
+          )}
+        </button>
+        
+        {expandedSections.includes('categories') && (
+          <>
+            <p className="text-sm text-av-text-muted mb-4">
+              Base categories for equipment and sources. These align with equipment types and determine which subclass properties are available.
+            </p>
+            
+            {/* Category List */}
+            <div className="space-y-2">
+              <div className="flex flex-col gap-2">
+                {[
+                  { name: 'COMPUTER', desc: 'Computers, Laptops' },
+                  { name: 'SERVER', desc: 'Media Servers, Playback' },
+                  { name: 'CAMERA', desc: 'Cameras, PTZ, Robo' },
+                  { name: 'CCU', desc: 'Camera Control Units' },
+                  { name: 'SWITCHER', desc: 'Vision Mixers, Switchers' },
+                  { name: 'ROUTER', desc: 'Video Routers, Matrices' },
+                  { name: 'LED_PROCESSOR', desc: 'LED Processors, Wall Controllers' },
+                  { name: 'LED_TILE', desc: 'LED Tiles, Panels' },
+                  { name: 'PROJECTOR', desc: 'Projectors, Large Format Displays' },
+                  { name: 'RECORDER', desc: 'Recorders, Capture Devices' },
+                  { name: 'MONITOR', desc: 'Monitors, Reference Displays' },
+                  { name: 'CONVERTER', desc: 'Converters, Signal Processing' }
+                ].map((category) => (
+                  <div
+                    key={category.name}
+                    className="flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border"
+                  >
+                    <span className="text-av-text flex-1 font-medium">{category.name}</span>
+                    <span className="text-xs text-av-text-muted">{category.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </Card>
+
+      {/* Computer Types Section (formerly Source Types) */}
       <Card className="p-6">
         <button 
           onClick={() => toggleSection('types')}
           className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
         >
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold text-av-text">Source Types</h2>
+            <h2 className="text-xl font-semibold text-av-text">Computer Types</h2>
             {!canEditEquipmentSettings && (
               <span className="text-xs text-av-warning px-2 py-1 bg-av-warning/10 rounded">Read-only</span>
             )}
@@ -958,7 +1012,7 @@ export default function Settings() {
         
         {expandedSections.includes('types') && (
           <>
-            {/* Add Source Type Form */}
+            {/* Add Computer Type Form */}
             {canEditEquipmentSettings && (
               <form onSubmit={handleAddSourceType} className="mb-6">
                 <div className="flex gap-3">
@@ -970,7 +1024,7 @@ export default function Settings() {
                         setNewSourceType(e.target.value);
                         setTypeError('');
                       }}
-                      placeholder="Enter source type (e.g., Laptop, Camera)"
+                      placeholder="Enter computer type (e.g., Laptop - PC GFX, Laptop - MAC GFX)"
                       className="input-field w-full"
                     />
                     {typeError && (
@@ -998,14 +1052,14 @@ export default function Settings() {
               </div>
             )}
 
-            {/* Source Type List */}
+            {/* Computer Type List */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-av-text-muted mb-3">
                 Active Types ({sourceTypes.length}){canEditEquipmentSettings && ' - Drag to reorder'}
               </h3>
               {sourceTypes.length === 0 ? (
                 <div className="text-center py-8 text-av-text-muted">
-                  No source types configured
+                  No computer types configured
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">

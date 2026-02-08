@@ -1,5 +1,7 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+  binaryTargets = ["native"]
 }
 
 datasource db {
@@ -354,10 +356,9 @@ model source_types {
 }
 
 model sources {
-  uuid                   String           @id @default(uuid())
   id                     String
   production_id          String
-  type                   String
+  category               String
   name                   String
   format_assignment_mode String?          @default("system-wide")
   h_res                  Int?
@@ -373,13 +374,15 @@ model sources {
   last_modified_by       String?
   version                Int              @default(1)
   is_deleted             Boolean          @default(false)
+  uuid                   String           @id @default(uuid())
+  type                   String?
   connections            connections[]
   source_outputs         source_outputs[]
   productions            productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@unique([id, production_id])
   @@index([production_id, is_deleted])
-  @@index([type])
+  @@index([category], map: "sources_type_idx")
 }
 
 model sync_conflicts {
