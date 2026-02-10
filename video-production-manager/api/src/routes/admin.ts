@@ -62,7 +62,7 @@ router.post('/test-field-conflict', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Production not found' });
     }
     
-    const serverFieldVersions = production.field_versions as FieldVersions || {};
+    const serverFieldVersions = (production.field_versions as unknown) as FieldVersions || {};
     const serverData = { ...production };
     
     // Simulate User A's update
@@ -181,8 +181,8 @@ router.post('/simulate-concurrent-edits', async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Production not found' });
     }
     
-    let currentFieldVersions = production.field_versions as FieldVersions || {};
-    let currentData = { ...production };
+    let currentFieldVersions = (production.field_versions as unknown) as FieldVersions || {};
+    let currentData: any = { ...production };
     const results: any[] = [];
     
     // Process each edit sequentially (simulating concurrent arrival at server)

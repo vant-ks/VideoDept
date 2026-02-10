@@ -12,12 +12,12 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const projectionScreens = await prisma.projectionScreen.findMany({
+    const projectionScreens = await prisma.projection_screens.findMany({
       where: {
-        productionId,
-        isDeleted: false
+        production_id: productionId,
+        is_deleted: false
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     
     res.json(toCamelCase(projectionScreens));
@@ -33,7 +33,7 @@ router.post('/', async (req: Request, res: Response) => {
     const { userId, userName, productionId, ...projectionScreenData } = req.body;
     const snakeCaseData = toSnakeCase(projectionScreenData);
     
-    const projectionScreen = await prisma.projectionScreen.create({
+    const projectionScreen = await prisma.projection_screens.create({
       data: {
         ...snakeCaseData,
         productionId,
@@ -43,7 +43,7 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      productionId: projectionScreen.productionId,
+      productionId: projectionScreen.production_id,
       eventType: EventType.PROJECTION_SCREEN,
       operation: EventOperation.CREATE,
       entityId: projectionScreen.id,
@@ -54,7 +54,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${projectionScreen.productionId}`).emit('entity:created', {
+    io.to(`production:${projectionScreen.production_id}`).emit('entity:created', {
       entityType: 'projectionScreen',
       entity: toCamelCase(projectionScreen),
       userId,
@@ -75,7 +75,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
-    const current = await prisma.projectionScreen.findUnique({
+    const current = await prisma.projection_screens.findUnique({
       where: { id }
     });
     
@@ -94,7 +94,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const projectionScreen = await prisma.projectionScreen.update({
+    const projectionScreen = await prisma.projection_screens.update({
       where: { id },
       data: {
         ...updates,
@@ -107,7 +107,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, projectionScreen);
     
     await recordEventFn({
-      productionId: projectionScreen.productionId,
+      productionId: projectionScreen.production_id,
       eventType: EventType.PROJECTION_SCREEN,
       operation: EventOperation.UPDATE,
       entityId: projectionScreen.id,
@@ -119,7 +119,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${projectionScreen.productionId}`).emit('entity:updated', {
+    io.to(`production:${projectionScreen.production_id}`).emit('entity:updated', {
       entityType: 'projectionScreen',
       entity: projectionScreen,
       userId,
@@ -139,21 +139,21 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.projectionScreen.findUnique({ where: { id } });
+    const current = await prisma.projection_screens.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'ProjectionScreen not found' });
     }
     
     // Soft delete
-    await prisma.projectionScreen.update({
+    await prisma.projection_screens.update({
       where: { id },
-      data: { isDeleted: true }
+      data: { is_deleted: true }
     });
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
+      productionId: current.production_id,
       eventType: EventType.PROJECTION_SCREEN,
       operation: EventOperation.DELETE,
       entityId: id,
@@ -164,7 +164,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${current.productionId}`).emit('entity:deleted', {
+    io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'projectionScreen',
       entityId: id,
       userId,

@@ -229,7 +229,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Initialize field_versions if not present (backward compatibility)
-    let serverFieldVersions = current.field_versions as FieldVersions || initFieldVersions();
+    let serverFieldVersions = (current.field_versions as unknown) as FieldVersions || initFieldVersions();
     
     // If client provided field_versions, use field-level conflict detection
     if (clientFieldVersions && isValidFieldVersions(clientFieldVersions)) {

@@ -1,5 +1,97 @@
 # Development Log - Video Production Manager
 
+## February 10, 2026
+
+### Complete baseEntity Signal Flow Architecture - TypeScript Compilation Fixed
+- **Context**: Railway deployment failing due to TypeScript build errors (exit code 2)
+  - Initial symptom: 72 TypeScript compilation errors blocking production deployment
+  - Root cause investigation revealed: Prisma client naming mismatch, not missing models
+  - Discovery: All 9 signal flow models already existed in schema, only route files needed alignment
+
+- **Investigation & Analysis**:
+  - Identified 54 errors from unused route files (incorrect Prisma client references)
+  - Identified 18 errors from active routes (field name mismatches, type casting issues)
+  - Verified all 9 baseEntity models present in schema: cable_snakes, cam_switchers, vision_switchers, led_screens, media_servers, projection_screens, records, routers, streams
+  - Verified all EventType enum values already exist (CAM_SWITCHER, VISION_SWITCHER, RECORD, STREAM)
+  - Confirmed transform utilities (toCamelCase/toSnakeCase) properly established
+
+- **Implemented Fixes** (following sources.ts pattern):
+  1. **Prisma Client References** - Fixed all 9 route files
+     - `prisma.cableSnake` → `prisma.cable_snakes`
+     - `prisma.camSwitcher` → `prisma.cam_switchers`
+     - `prisma.mediaServer` → `prisma.media_servers`
+     - `prisma.visionSwitcher` → `prisma.vision_switchers`
+     - `prisma.ledScreen` → `prisma.led_screens`
+     - `prisma.projectionScreen` → `prisma.projection_screens`
+     - `prisma.record` → `prisma.records`
+     - `prisma.router` → `prisma.routers`
+     - `prisma.stream` → `prisma.streams`
+  
+  2. **Database Field Names** - WHERE/ORDER BY clauses updated to snake_case
+     - `productionId` → `production_id`
+     - `isDeleted` → `is_deleted`
+     - `createdAt` → `created_at`
+     - Applied to all query constructions across 9 route files
+  
+  3. **Property Access Fixes** - Post-query entity object references
+     - `entity.productionId` → `entity.production_id` in recordEvent() calls
+     - Fixed in led-screens.ts, projection-screens.ts, records.ts
+     - Ensures proper access to Prisma-returned snake_case fields
+  
+  4. **Active Route Corrections**:
+     - [validation-helpers.ts:47](api/src/utils/validation-helpers.ts) - sources query uses `uuid` not `id` (sources table special case)
+     - [settings.ts:510](api/src/routes/settings.ts) - added required `id`, `updated_at` fields to upsert, added crypto import
+     - [equipment.ts](api/src/routes/equipment.ts) - fixed relation name `equipment_card_io` (was equipment_io_ports), added required fields
+     - [admin.ts:184](api/src/routes/admin.ts) - FieldVersions type casting with `as unknown` intermediate, currentData declared as `any`
+     - [productions.ts:232](api/src/routes/productions.ts) - FieldVersions type casting fix
+  
+  5. **Server Configuration**:
+     - [server.ts:258-266](api/src/server.ts) - Uncommented all 9 route imports
+     - [server.ts:281-289](api/src/server.ts) - Enabled all 9 route registrations
+     - All signal flow endpoints now active: /api/cable-snakes, /api/cam-switchers, etc.
+  
+  6. **Build Configuration Cleanup**:
+     - [package.json:8](api/package.json) - Restored clean build script: `"build": "tsc"`
+     - [tsconfig.json](api/tsconfig.json) - Removed temporary `"noEmitOnError": false` workaround
+     - TypeScript now properly enforces type safety during build
+
+- **Validation Results**:
+  - ✅ TypeScript compilation: **0 errors**, exit code 0
+  - ✅ Build produces clean dist/ folder with all route files
+  - ✅ All 9 signal flow routes enabled and registered
+  - ✅ Transform pipeline intact: API (camelCase) ↔ Database (snake_case)
+  - ✅ baseEntity pattern complete: id, production_id, created_at, updated_at, version, is_deleted, last_modified_by, synced_at
+
+- **Architecture Pattern Confirmed**:
+  ```typescript
+  // Example: led-screens route
+  const ledScreen = await prisma.led_screens.findUnique({
+    where: { id, is_deleted: false }
+  });
+  await recordEvent({
+    productionId: ledScreen.production_id, // ← snake_case from DB
+    eventType: EventType.LED_SCREEN
+  });
+  io.emit('entity:created', {
+    entity: toCamelCase(ledScreen) // ← Transform before sending to frontend
+  });
+  ```
+
+- **Key Lessons**:
+  - Prisma client property names mirror table names exactly (snake_case from schema)
+  - Database returns snake_case fields, must be accessed with snake_case in TypeScript
+  - Transform utilities convert at API boundary, not within route logic
+  - Systematic sed/perl replacements effective for bulk fixes, multi_replace for precision
+  - Protocol-driven investigation prevented premature implementation of unnecessary features
+
+- **Ready for Deployment**:
+  - All TypeScript errors resolved
+  - Build configuration clean (no workarounds)
+  - All 9 signal flow entity types operational
+  - Ready to test on Railway production environment
+
+---
+
 ## February 9, 2026
 
 ### Session Initialization & Protocol Review

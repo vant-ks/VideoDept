@@ -12,12 +12,12 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const mediaServers = await prisma.mediaServer.findMany({
+    const mediaServers = await prisma.media_servers.findMany({
       where: {
-        productionId,
-        isDeleted: false
+        production_id: productionId,
+        is_deleted: false
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     
     res.json(toCamelCase(mediaServers));
@@ -33,7 +33,7 @@ router.post('/', async (req: Request, res: Response) => {
     const { userId, userName, productionId, ...mediaServerData } = req.body;
     const snakeCaseData = toSnakeCase(mediaServerData);
     
-    const mediaServer = await prisma.mediaServer.create({
+    const mediaServer = await prisma.media_servers.create({
       data: {
         ...snakeCaseData,
         productionId,
@@ -43,7 +43,7 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      productionId: mediaServer.productionId,
+      productionId: mediaServer.production_id,
       eventType: EventType.MEDIA_SERVER,
       operation: EventOperation.CREATE,
       entityId: mediaServer.id,
@@ -54,7 +54,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${mediaServer.productionId}`).emit('entity:created', {
+    io.to(`production:${mediaServer.production_id}`).emit('entity:created', {
       entityType: 'mediaServer',
       entity: toCamelCase(mediaServer),
       userId,
@@ -75,7 +75,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
-    const current = await prisma.mediaServer.findUnique({
+    const current = await prisma.media_servers.findUnique({
       where: { id }
     });
     
@@ -94,7 +94,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const mediaServer = await prisma.mediaServer.update({
+    const mediaServer = await prisma.media_servers.update({
       where: { id },
       data: {
         ...updates,
@@ -107,7 +107,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, mediaServer);
     
     await recordEventFn({
-      productionId: mediaServer.productionId,
+      productionId: mediaServer.production_id,
       eventType: EventType.MEDIA_SERVER,
       operation: EventOperation.UPDATE,
       entityId: mediaServer.id,
@@ -119,7 +119,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${mediaServer.productionId}`).emit('entity:updated', {
+    io.to(`production:${mediaServer.production_id}`).emit('entity:updated', {
       entityType: 'mediaServer',
       entity: mediaServer,
       userId,
@@ -139,21 +139,21 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.mediaServer.findUnique({ where: { id } });
+    const current = await prisma.media_servers.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'MediaServer not found' });
     }
     
     // Soft delete
-    await prisma.mediaServer.update({
+    await prisma.media_servers.update({
       where: { id },
-      data: { isDeleted: true }
+      data: { is_deleted: true }
     });
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
+      productionId: current.production_id,
       eventType: EventType.MEDIA_SERVER,
       operation: EventOperation.DELETE,
       entityId: id,
@@ -164,7 +164,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${current.productionId}`).emit('entity:deleted', {
+    io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'mediaServer',
       entityId: id,
       userId,

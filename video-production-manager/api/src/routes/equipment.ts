@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../server';
 import { toSnakeCase } from '../utils/caseConverter';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -40,7 +41,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         equipment_io_ports: true,
         equipment_cards: {
           include: {
-            equipment_io_ports: true
+            equipment_card_io: true
           }
         }
       }
@@ -64,6 +65,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     const equipment = await prisma.equipment_specs.create({
       data: {
+        id: crypto.randomUUID(),
         category: snakeCaseData.category,
         manufacturer: snakeCaseData.manufacturer,
         model: snakeCaseData.model,
@@ -72,7 +74,8 @@ router.post('/', async (req: Request, res: Response) => {
         format_by_io: snakeCaseData.format_by_io,
         is_secondary_device: snakeCaseData.is_secondary_device,
         device_formats: snakeCaseData.device_formats,
-        specs: snakeCaseData.specs
+        specs: snakeCaseData.specs,
+        updated_at: new Date()
       },
       include: {
         equipment_io_ports: true,
@@ -110,7 +113,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         equipment_io_ports: true,
         equipment_cards: {
           include: {
-            equipment_io_ports: true
+            equipment_card_io: true
           }
         }
       }

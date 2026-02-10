@@ -12,12 +12,12 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const ledScreens = await prisma.ledScreen.findMany({
+    const ledScreens = await prisma.led_screens.findMany({
       where: {
-        productionId,
-        isDeleted: false
+        production_id: productionId,
+        is_deleted: false
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     
     res.json(toCamelCase(ledScreens));
@@ -33,7 +33,7 @@ router.post('/', async (req: Request, res: Response) => {
     const { userId, userName, productionId, ...ledScreenData } = req.body;
     const snakeCaseData = toSnakeCase(ledScreenData);
     
-    const ledScreen = await prisma.ledScreen.create({
+    const ledScreen = await prisma.led_screens.create({
       data: {
         ...snakeCaseData,
         productionId,
@@ -43,7 +43,7 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      productionId: ledScreen.productionId,
+      productionId: ledScreen.production_id,
       eventType: EventType.LED_SCREEN,
       operation: EventOperation.CREATE,
       entityId: ledScreen.id,
@@ -54,7 +54,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${ledScreen.productionId}`).emit('entity:created', {
+    io.to(`production:${ledScreen.production_id}`).emit('entity:created', {
       entityType: 'ledScreen',
       entity: toCamelCase(ledScreen),
       userId,
@@ -75,7 +75,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
-    const current = await prisma.ledScreen.findUnique({
+    const current = await prisma.led_screens.findUnique({
       where: { id }
     });
     
@@ -94,7 +94,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const ledScreen = await prisma.ledScreen.update({
+    const ledScreen = await prisma.led_screens.update({
       where: { id },
       data: {
         ...updates,
@@ -107,7 +107,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, ledScreen);
     
     await recordEventFn({
-      productionId: ledScreen.productionId,
+      productionId: ledScreen.production_id,
       eventType: EventType.LED_SCREEN,
       operation: EventOperation.UPDATE,
       entityId: ledScreen.id,
@@ -119,7 +119,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${ledScreen.productionId}`).emit('entity:updated', {
+    io.to(`production:${ledScreen.production_id}`).emit('entity:updated', {
       entityType: 'ledScreen',
       entity: ledScreen,
       userId,
@@ -139,21 +139,21 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.ledScreen.findUnique({ where: { id } });
+    const current = await prisma.led_screens.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'LEDScreen not found' });
     }
     
     // Soft delete
-    await prisma.ledScreen.update({
+    await prisma.led_screens.update({
       where: { id },
-      data: { isDeleted: true }
+      data: { is_deleted: true }
     });
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
+      productionId: current.production_id,
       eventType: EventType.LED_SCREEN,
       operation: EventOperation.DELETE,
       entityId: id,
@@ -164,7 +164,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${current.productionId}`).emit('entity:deleted', {
+    io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'ledScreen',
       entityId: id,
       userId,

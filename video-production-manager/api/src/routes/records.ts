@@ -14,10 +14,10 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
     
     const records = await prisma.records.findMany({
       where: {
-        productionId,
-        isDeleted: false
+        production_id: productionId,
+        is_deleted: false
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     
     res.json(toCamelCase(records));
@@ -43,7 +43,7 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      productionId: recordEntity.productionId,
+      productionId: recordEntity.production_id,
       eventType: EventType.RECORD,
       operation: EventOperation.CREATE,
       entityId: recordEntity.id,
@@ -54,7 +54,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${recordEntity.productionId}`).emit('entity:created', {
+    io.to(`production:${recordEntity.production_id}`).emit('entity:created', {
       entityType: 'record',
       entity: toCamelCase(recordEntity),
       userId,
@@ -107,7 +107,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, record);
     
     await recordEventFn({
-      productionId: record.productionId,
+      productionId: record.production_id,
       eventType: EventType.RECORD,
       operation: EventOperation.UPDATE,
       entityId: record.id,
@@ -119,7 +119,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${record.productionId}`).emit('entity:updated', {
+    io.to(`production:${record.production_id}`).emit('entity:updated', {
       entityType: 'record',
       entity: record,
       userId,
@@ -148,12 +148,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
     // Soft delete
     await prisma.records.update({
       where: { id },
-      data: { isDeleted: true }
+      data: { is_deleted: true }
     });
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
+      productionId: current.production_id,
       eventType: EventType.RECORD,
       operation: EventOperation.DELETE,
       entityId: id,
@@ -164,7 +164,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${current.productionId}`).emit('entity:deleted', {
+    io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'record',
       entityId: id,
       userId,

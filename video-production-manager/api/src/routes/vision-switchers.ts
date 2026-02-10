@@ -12,12 +12,12 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const visionSwitchers = await prisma.visionSwitcher.findMany({
+    const visionSwitchers = await prisma.vision_switchers.findMany({
       where: {
-        productionId,
-        isDeleted: false
+        production_id: productionId,
+        is_deleted: false
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     
     res.json(toCamelCase(visionSwitchers));
@@ -33,7 +33,7 @@ router.post('/', async (req: Request, res: Response) => {
     const { userId, userName, productionId, ...visionSwitcherData } = req.body;
     const snakeCaseData = toSnakeCase(visionSwitcherData);
     
-    const visionSwitcher = await prisma.visionSwitcher.create({
+    const visionSwitcher = await prisma.vision_switchers.create({
       data: {
         ...snakeCaseData,
         productionId,
@@ -43,7 +43,7 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      productionId: visionSwitcher.productionId,
+      productionId: visionSwitcher.production_id,
       eventType: EventType.VIDEO_SWITCHER,
       operation: EventOperation.CREATE,
       entityId: visionSwitcher.id,
@@ -54,7 +54,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${visionSwitcher.productionId}`).emit('entity:created', {
+    io.to(`production:${visionSwitcher.production_id}`).emit('entity:created', {
       entityType: 'visionSwitcher',
       entity: toCamelCase(visionSwitcher),
       userId,
@@ -75,7 +75,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
-    const current = await prisma.visionSwitcher.findUnique({
+    const current = await prisma.vision_switchers.findUnique({
       where: { id }
     });
     
@@ -94,7 +94,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const visionSwitcher = await prisma.visionSwitcher.update({
+    const visionSwitcher = await prisma.vision_switchers.update({
       where: { id },
       data: {
         ...updates,
@@ -107,7 +107,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, visionSwitcher);
     
     await recordEventFn({
-      productionId: visionSwitcher.productionId,
+      productionId: visionSwitcher.production_id,
       eventType: EventType.VIDEO_SWITCHER,
       operation: EventOperation.UPDATE,
       entityId: visionSwitcher.id,
@@ -119,7 +119,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${visionSwitcher.productionId}`).emit('entity:updated', {
+    io.to(`production:${visionSwitcher.production_id}`).emit('entity:updated', {
       entityType: 'visionSwitcher',
       entity: visionSwitcher,
       userId,
@@ -139,21 +139,21 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.visionSwitcher.findUnique({ where: { id } });
+    const current = await prisma.vision_switchers.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'VisionSwitcher not found' });
     }
     
     // Soft delete
-    await prisma.visionSwitcher.update({
+    await prisma.vision_switchers.update({
       where: { id },
-      data: { isDeleted: true }
+      data: { is_deleted: true }
     });
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
+      productionId: current.production_id,
       eventType: EventType.VIDEO_SWITCHER,
       operation: EventOperation.DELETE,
       entityId: id,
@@ -164,7 +164,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${current.productionId}`).emit('entity:deleted', {
+    io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'visionSwitcher',
       entityId: id,
       userId,

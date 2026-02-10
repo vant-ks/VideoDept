@@ -14,7 +14,6 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "noEmitOnError": false,
     "types": ["node", "jest"]
   },
   "include": ["src/**/*"],

@@ -12,12 +12,12 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
     const { productionId } = req.params;
     
-    const camSwitchers = await prisma.camSwitcher.findMany({
+    const camSwitchers = await prisma.cam_switchers.findMany({
       where: {
-        productionId,
-        isDeleted: false
+        production_id: productionId,
+        is_deleted: false
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { created_at: 'asc' }
     });
     
     res.json(toCamelCase(camSwitchers));
@@ -33,17 +33,17 @@ router.post('/', async (req: Request, res: Response) => {
     const { userId, userName, productionId, ...camSwitcherData } = req.body;
     const snakeCaseData = toSnakeCase(camSwitcherData);
     
-    const camSwitcher = await prisma.camSwitcher.create({
+    const camSwitcher = await prisma.cam_switchers.create({
       data: {
         ...snakeCaseData,
-        productionId,
+        production_id: productionId,
         version: 1
       }
     });
     
     // Record event
     await recordEvent({
-      productionId: camSwitcher.productionId,
+      productionId: camSwitcher.production_id,
       eventType: EventType.CAM_SWITCHER,
       operation: EventOperation.CREATE,
       entityId: camSwitcher.id,
@@ -54,7 +54,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${camSwitcher.productionId}`).emit('entity:created', {
+    io.to(`production:${camSwitcher.production_id}`).emit('entity:created', {
       entityType: 'camSwitcher',
       entity: toCamelCase(camSwitcher),
       userId,
@@ -73,9 +73,10 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { version: clientVersion, userId, userName, ...updates } = req.body;
+    const snakeCaseUpdates = toSnakeCase(updates);
     
     // Get current version for conflict detection
-    const current = await prisma.camSwitcher.findUnique({
+    const current = await prisma.cam_switchers.findUnique({
       where: { id }
     });
     
@@ -94,10 +95,10 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     // Update with incremented version
-    const camSwitcher = await prisma.camSwitcher.update({
+    const camSwitcher = await prisma.cam_switchers.update({
       where: { id },
       data: {
-        ...updates,
+        ...snakeCaseUpdates,
         version: current.version + 1
       }
     });
@@ -107,7 +108,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, camSwitcher);
     
     await recordEventFn({
-      productionId: camSwitcher.productionId,
+      productionId: camSwitcher.production_id,
       eventType: EventType.CAM_SWITCHER,
       operation: EventOperation.UPDATE,
       entityId: camSwitcher.id,
@@ -119,14 +120,14 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${camSwitcher.productionId}`).emit('entity:updated', {
+    io.to(`production:${camSwitcher.production_id}`).emit('entity:updated', {
       entityType: 'camSwitcher',
-      entity: camSwitcher,
+      entity: toCamelCase(camSwitcher),
       userId,
       userName
     });
     
-    res.json(camSwitcher);
+    res.json(toCamelCase(camSwitcher));
   } catch (error) {
     console.error('Error updating camSwitcher:', error);
     res.status(500).json({ error: 'Failed to update camSwitcher' });
@@ -139,21 +140,21 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.camSwitcher.findUnique({ where: { id } });
+    const current = await prisma.cam_switchers.findUnique({ where: { id } });
     
     if (!current) {
       return res.status(404).json({ error: 'CamSwitcher not found' });
     }
     
     // Soft delete
-    await prisma.camSwitcher.update({
+    await prisma.cam_switchers.update({
       where: { id },
-      data: { isDeleted: true }
+      data: { is_deleted: true }
     });
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
+      productionId: current.production_id,
       eventType: EventType.CAM_SWITCHER,
       operation: EventOperation.DELETE,
       entityId: id,
@@ -164,7 +165,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${current.productionId}`).emit('entity:deleted', {
+    io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'camSwitcher',
       entityId: id,
       userId,

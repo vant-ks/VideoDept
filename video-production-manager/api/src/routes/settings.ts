@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma, io } from '../server';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -508,13 +509,16 @@ router.post('/:key', async (req: Request, res: Response) => {
     const setting = await prisma.settings.upsert({
       where: { key: req.params.key },
       create: {
+        id: crypto.randomUUID(),
         key: req.params.key,
         value,
-        category
+        category,
+        updated_at: new Date()
       },
       update: {
         value,
-        category
+        category,
+        updated_at: new Date()
       }
     });
 
