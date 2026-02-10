@@ -1,0 +1,2 @@
+-- This migration was already applied via 'prisma db push' on Feb 9, 2026
+-- No SQL needs to be run - database is already in sync with schema

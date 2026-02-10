@@ -62,6 +62,184 @@ model ccus {
   @@index([production_id])
 }
 
+model cable_snakes {
+  id               String      @id
+  production_id    String
+  name             String
+  manufacturer     String?
+  model            String?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
+  last_modified_by String?
+  synced_at        DateTime?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
+model cam_switchers {
+  id               String      @id
+  production_id    String
+  name             String
+  manufacturer     String?
+  model            String?
+  inputs           Int?
+  outputs          Int?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
+  last_modified_by String?
+  synced_at        DateTime?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
+model vision_switchers {
+  id               String      @id
+  production_id    String
+  name             String
+  manufacturer     String?
+  model            String?
+  inputs           Int?
+  outputs          Int?
+  mes              Int?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
+  last_modified_by String?
+  synced_at        DateTime?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
+model led_screens {
+  id               String      @id
+  production_id    String
+  name             String
+  manufacturer     String?
+  model            String?
+  h_res            Int?
+  v_res            Int?
+  rate             Float?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
+  last_modified_by String?
+  synced_at        DateTime?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
+model media_servers {
+  id               String      @id
+  production_id    String
+  name             String
+  manufacturer     String?
+  model            String?
+  outputs          Int?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
+  last_modified_by String?
+  synced_at        DateTime?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
+model projection_screens {
+  id               String      @id
+  production_id    String
+  name             String
+  manufacturer     String?
+  model            String?
+  h_res            Int?
+  v_res            Int?
+  rate             Float?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
+  last_modified_by String?
+  synced_at        DateTime?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
+model records {
+  id               String      @id
+  production_id    String
+  name             String
+  manufacturer     String?
+  model            String?
+  format           String?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
+  last_modified_by String?
+  synced_at        DateTime?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
+model routers {
+  id               String      @id
+  production_id    String
+  name             String
+  manufacturer     String?
+  model            String?
+  inputs           Int?
+  outputs          Int?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
+  last_modified_by String?
+  synced_at        DateTime?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
+model streams {
+  id               String      @id
+  production_id    String
+  name             String
+  platform         String?
+  url              String?
+  stream_key       String?
+  note             String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime
+  version          Int         @default(1)
+  is_deleted       Boolean     @default(false)
+  last_modified_by String?
+  synced_at        DateTime?
+  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
 model checklist_items {
   id               String      @id
   production_id    String
@@ -242,31 +420,40 @@ model ip_addresses {
 }
 
 model productions {
-  id               String            @id
-  client           String
-  show_name        String
-  venue            String?
-  room             String?
-  load_in          DateTime?
-  load_out         DateTime?
-  show_info_url    String?
-  status           ProductionStatus  @default(PLANNING)
-  created_at       DateTime          @default(now())
-  updated_at       DateTime
-  synced_at        DateTime?
-  last_modified_by String?
-  version          Int               @default(1)
-  is_deleted       Boolean           @default(false)
-  field_versions   Json?
-  source_types     Json?
-  cameras          cameras[]
-  ccus             ccus[]
-  checklist_items  checklist_items[]
-  connections      connections[]
-  events           events[]
-  ip_addresses     ip_addresses[]
-  sends            sends[]
-  sources          sources[]
+  id                 String              @id
+  client             String
+  show_name          String
+  venue              String?
+  room               String?
+  load_in            DateTime?
+  load_out           DateTime?
+  show_info_url      String?
+  status             ProductionStatus    @default(PLANNING)
+  created_at         DateTime            @default(now())
+  updated_at         DateTime
+  synced_at          DateTime?
+  last_modified_by   String?
+  version            Int                 @default(1)
+  is_deleted         Boolean             @default(false)
+  field_versions     Json?
+  source_types       Json?
+  cable_snakes       cable_snakes[]
+  cam_switchers      cam_switchers[]
+  cameras            cameras[]
+  ccus               ccus[]
+  checklist_items    checklist_items[]
+  connections        connections[]
+  events             events[]
+  ip_addresses       ip_addresses[]
+  led_screens        led_screens[]
+  media_servers      media_servers[]
+  projection_screens projection_screens[]
+  records            records[]
+  routers            routers[]
+  sends              sends[]
+  sources            sources[]
+  streams            streams[]
+  vision_switchers   vision_switchers[]
 
   @@index([status, is_deleted])
 }
@@ -446,6 +633,8 @@ enum EventType {
   SEND
   CAMERA
   CCU
+  CAM_SWITCHER
+  VISION_SWITCHER
   MEDIA_SERVER
   VIDEO_SWITCHER
   ROUTER
@@ -453,6 +642,8 @@ enum EventType {
   PROJECTION_SCREEN
   LED_SCREEN
   COMPUTER
+  RECORD
+  STREAM
   IP_ADDRESS
   CHECKLIST_ITEM
   PRODUCTION
