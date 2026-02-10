@@ -96,9 +96,9 @@ export function useChecklistItemAPI() {
   }, []);
 
   return {
-    fetch${ChecklistItem}s,
-    create${ChecklistItem},
-    update${ChecklistItem},
-    delete${ChecklistItem}
+    fetchChecklistItems,
+    createChecklistItem,
+    updateChecklistItem,
+    deleteChecklistItem
   };
 }

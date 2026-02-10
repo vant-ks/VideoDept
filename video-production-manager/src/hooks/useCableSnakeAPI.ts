@@ -96,9 +96,9 @@ export function useCableSnakeAPI() {
   }, []);
 
   return {
-    fetch${CableSnake}s,
-    create${CableSnake},
-    update${CableSnake},
-    delete${CableSnake}
+    fetchCableSnakes,
+    createCableSnake,
+    updateCableSnake,
+    deleteCableSnake
   };
 }

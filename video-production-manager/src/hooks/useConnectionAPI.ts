@@ -96,9 +96,9 @@ export function useConnectionAPI() {
   }, []);
 
   return {
-    fetch${Connection}s,
-    create${Connection},
-    update${Connection},
-    delete${Connection}
+    fetchConnections,
+    createConnection,
+    updateConnection,
+    deleteConnection
   };
 }

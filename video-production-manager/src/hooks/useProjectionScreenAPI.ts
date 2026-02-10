@@ -96,9 +96,9 @@ export function useProjectionScreenAPI() {
   }, []);
 
   return {
-    fetch${ProjectionScreen}s,
-    create${ProjectionScreen},
-    update${ProjectionScreen},
-    delete${ProjectionScreen}
+    fetchProjectionScreens,
+    createProjectionScreen,
+    updateProjectionScreen,
+    deleteProjectionScreen
   };
 }
