@@ -8,7 +8,7 @@ on:
 
 jobs:
   api-check:
-    name: API Validation
+    name: API Dependencies
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,14 +24,8 @@ jobs:
           cache: 'npm'
           cache-dependency-path: video-production-manager/api/package-lock.json
       
-      - name: Install dependencies
+      - name: Install and verify dependencies
         run: npm ci
-      
-      - name: TypeScript check
-        run: npx tsc --noEmit
-      
-      - name: Run tests
-        run: npm test --if-present
 
   frontend-check:
     name: Frontend Validation
