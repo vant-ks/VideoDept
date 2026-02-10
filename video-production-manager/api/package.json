@@ -23,9 +23,11 @@
     "equipment:export": "tsx prisma/export-equipment-data.ts",
     "equipment:seed": "npm run equipment:export && tsx prisma/seed-equipment.ts",
     "seed:equipment": "npm run equipment:export && tsx prisma/seed-equipment.ts",
+    "seed:equipment:prod": "tsx prisma/seed-equipment.ts",
     "seed:settings": "tsx prisma/seed-settings-simple.ts",
     "seed:sample": "tsx prisma/seed-sample-productions.ts",
-    "seed:all": "npm run seed:equipment && npm run seed:settings"
+    "seed:all": "npm run seed:equipment && npm run seed:settings",
+    "seed:all:prod": "npm run seed:equipment:prod && npm run seed:settings"
   },
   "keywords": [
     "video",
