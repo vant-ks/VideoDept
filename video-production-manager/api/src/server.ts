@@ -130,8 +130,7 @@ let discoveryService: ServerDiscoveryService | null = null;
 // ROUTES
 // ============================================================================
 
-// Health check (both root and /api for compatibility)
-app.use('/', healthRouter); // Provides /health and /health/diagnostics
+// Health check at /api/health
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'ok', 
@@ -279,6 +278,7 @@ app.use('/api/cameras', camerasRouter);
 app.use('/api/ccus', ccusRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/', healthRouter); // Provides /health and /health/diagnostics
 // TODO: Uncomment when database tables are created
 // app.use('/api/media-servers', mediaServerRouter);
 // app.use('/api/routers', routerRouter);
