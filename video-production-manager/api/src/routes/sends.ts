@@ -110,7 +110,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id }
     });
 
-    if (!currentSend || currentSend.isDeleted) {
+    if (!currentSend || currentSend.is_deleted) {
       return res.status(404).json({ error: 'Send not found' });
     }
 
@@ -139,7 +139,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Record UPDATE event
     await recordEvent({
-      productionId: currentSend.productionId,
+      productionId: currentSend.production_id,
       eventType: EventType.SEND,
       operation: EventOperation.UPDATE,
       entityId: send.id,
@@ -153,14 +153,14 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Broadcast update via WebSocket
     broadcastEntityUpdate({
       io,
-      productionId: currentSend.productionId,
+      productionId: currentSend.production_id,
       entityType: 'send',
       entityId: send.id,
       data: toCamelCase(send)
     });
 
     res.json(toCamelCase(send));    // Broadcast event to production room
-    io.to(`production:${currentSend.productionId}`).emit('entity:updated', {
+    io.to(`production:${currentSend.production_id}`).emit('entity:updated', {
       entityType: 'send',
       entity: send,
       changes,
@@ -197,7 +197,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     // Record DELETE event
     await recordEvent({
-      productionId: currentSend.productionId,
+      productionId: currentSend.production_id,
       eventType: EventType.SEND,
       operation: EventOperation.DELETE,
       entityId: req.params.id,
@@ -209,7 +209,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
 
     // Broadcast event to production room
-    io.to(`production:${currentSend.productionId}`).emit('entity:deleted', {
+    io.to(`production:${currentSend.production_id}`).emit('entity:deleted', {
       entityType: 'send',
       entityId: req.params.id,
       userId,

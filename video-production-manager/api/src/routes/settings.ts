@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../server';
-import { getIO } from '../server';
+import { prisma, io } from '../server';
 
 const router = Router();
 
@@ -36,7 +35,7 @@ router.post('/connector-types', async (req: Request, res: Response) => {
     });
     
     // Broadcast to all clients
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:connector-types-updated', { action: 'add', type: connectorType.name });
     
     res.json(connectorType);
@@ -52,7 +51,7 @@ router.delete('/connector-types/:name', async (req: Request, res: Response) => {
       data: { is_active: false, updated_at: new Date() }
     });
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:connector-types-updated', { action: 'delete', name: req.params.name });
     
     res.json({ success: true });
@@ -72,7 +71,7 @@ router.put('/connector-types/reorder', async (req: Request, res: Response) => {
     );
     await prisma.$transaction(updates);
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:connector-types-updated', { action: 'reorder', types });
     
     res.json({ success: true });
@@ -105,7 +104,7 @@ router.post('/connector-types/restore-defaults', async (req: Request, res: Respo
       newTypes.push(type.name);
     }
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:connector-types-updated', { action: 'restore-defaults', types: newTypes });
     
     res.json(newTypes);
@@ -146,7 +145,7 @@ router.post('/source-types', async (req: Request, res: Response) => {
       }
     });
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:source-types-updated', { action: 'add', type: sourceType.name });
     
     res.json(sourceType);
@@ -162,7 +161,7 @@ router.delete('/source-types/:name', async (req: Request, res: Response) => {
       data: { is_active: false, updated_at: new Date() }
     });
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:source-types-updated', { action: 'delete', name: req.params.name });
     
     res.json({ success: true });
@@ -182,7 +181,7 @@ router.put('/source-types/reorder', async (req: Request, res: Response) => {
     );
     await prisma.$transaction(updates);
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:source-types-updated', { action: 'reorder', types });
     
     res.json({ success: true });
@@ -221,7 +220,7 @@ router.post('/source-types/restore-defaults', async (req: Request, res: Response
       newTypes.push(type.name);
     }
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:source-types-updated', { action: 'restore-defaults', types: newTypes });
     
     res.json(newTypes);
@@ -262,7 +261,7 @@ router.post('/frame-rates', async (req: Request, res: Response) => {
       }
     });
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:frame-rates-updated', { action: 'add', rate: frameRate.rate });
     
     res.json(frameRate);
@@ -281,7 +280,7 @@ router.delete('/frame-rates/:rate', async (req: Request, res: Response) => {
       }
     });
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:frame-rates-updated', { action: 'delete', rate: req.params.rate });
     
     res.json({ success: true });
@@ -304,7 +303,7 @@ router.put('/frame-rates/reorder', async (req: Request, res: Response) => {
     );
     await prisma.$transaction(updates);
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:frame-rates-updated', { action: 'reorder', rates });
     
     res.json({ success: true });
@@ -337,7 +336,7 @@ router.post('/frame-rates/restore-defaults', async (req: Request, res: Response)
       newRates.push(rate.rate);
     }
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:frame-rates-updated', { action: 'restore-defaults', rates: newRates });
     
     res.json(newRates);
@@ -378,7 +377,7 @@ router.post('/resolutions', async (req: Request, res: Response) => {
       }
     });
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:resolution-presets-updated', { action: 'add', name: resolution.name });
     
     res.json(resolution);
@@ -397,7 +396,7 @@ router.delete('/resolutions/:name', async (req: Request, res: Response) => {
       }
     });
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:resolution-presets-updated', { action: 'delete', name: req.params.name });
     
     res.json({ success: true });
@@ -420,7 +419,7 @@ router.put('/resolutions/reorder', async (req: Request, res: Response) => {
     );
     await prisma.$transaction(updates);
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:resolution-presets-updated', { action: 'reorder', resolutions });
     
     res.json({ success: true });
@@ -453,7 +452,7 @@ router.post('/resolutions/restore-defaults', async (req: Request, res: Response)
       newResolutions.push(resolution.name);
     }
     
-    const io = getIO();
+    // io already imported from server
     io.emit('settings:resolution-presets-updated', { action: 'restore-defaults', resolutions: newResolutions });
     
     res.json(newResolutions);

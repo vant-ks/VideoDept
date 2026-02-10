@@ -63,8 +63,8 @@ export async function recordEvent(params: RecordEventParams) {
  * Get all events for a production
  */
 export async function getProductionEvents(productionId: string, limit = 100) {
-  return prisma.event.findMany({
-    where: { productionId },
+  return prisma.events.findMany({
+    where: { production_id: productionId },
     orderBy: { timestamp: 'desc' },
     take: limit
   });
@@ -74,10 +74,10 @@ export async function getProductionEvents(productionId: string, limit = 100) {
  * Get events for a specific entity
  */
 export async function getEntityEvents(productionId: string, entityId: string) {
-  return prisma.event.findMany({
+  return prisma.events.findMany({
     where: {
-      productionId,
-      entityId
+      production_id: productionId,
+      entity_id: entityId
     },
     orderBy: { timestamp: 'desc' }
   });
@@ -87,9 +87,9 @@ export async function getEntityEvents(productionId: string, entityId: string) {
  * Get events since a timestamp (for incremental sync)
  */
 export async function getEventsSince(productionId: string, since: Date) {
-  return prisma.event.findMany({
+  return prisma.events.findMany({
     where: {
-      productionId,
+      production_id: productionId,
       timestamp: {
         gt: since
       }

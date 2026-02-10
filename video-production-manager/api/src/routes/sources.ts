@@ -32,7 +32,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const source = await prisma.sources.findUnique({
-      where: { id: req.params.id },
+      where: { uuid: req.params.id },
       include: { source_outputs: true }
     });
 
@@ -235,7 +235,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     
     // Get current source for diff and conflict detection
     const currentSource = await prisma.sources.findUnique({
-      where: { id: req.params.id },
+      where: { uuid: req.params.id },
       include: { source_outputs: true }
     });
     
@@ -340,7 +340,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { userId, userName } = req.body;
     
     const source = await prisma.sources.findUnique({
-      where: { id: req.params.id },
+      where: { uuid: req.params.id },
       include: { source_outputs: true }
     });
     

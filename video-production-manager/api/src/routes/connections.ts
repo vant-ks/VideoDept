@@ -15,7 +15,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
     
     const connections = await prisma.connections.findMany({
       where: {
-        productionId,
+        production_id: productionId,
         is_deleted: false
       },
       orderBy: { created_at: 'asc' }
@@ -43,8 +43,8 @@ router.post('/', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      productionId: connection.productionId,
-      eventType: EventType.CONNECTION,
+      productionId: connection.production_id,
+      eventType: 'CONNECTION' as any,
       operation: EventOperation.CREATE,
       entityId: connection.id,
       entityData: connection,
@@ -56,7 +56,7 @@ router.post('/', async (req: Request, res: Response) => {
     // Broadcast creation via WebSocket
     broadcastEntityCreated({
       io,
-      productionId: connection.productionId,
+      productionId: connection.production_id,
       entityType: 'connection',
       entityId: connection.id,
       data: connection
@@ -109,8 +109,8 @@ router.put('/:id', async (req: Request, res: Response) => {
     const changes = calculateDiff(current, connection);
     
     await recordEventFn({
-      productionId: connection.productionId,
-      eventType: EventType.CONNECTION,
+      productionId: connection.production_id,
+      eventType: 'CONNECTION' as any,
       operation: EventOperation.UPDATE,
       entityId: connection.id,
       entityData: connection,
@@ -123,7 +123,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Broadcast update via WebSocket
     broadcastEntityUpdate({
       io,
-      productionId: connection.productionId,
+      productionId: connection.production_id,
       entityType: 'connection',
       entityId: connection.id,
       data: connection
@@ -156,8 +156,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     // Record event
     await recordEvent({
-      productionId: current.productionId,
-      eventType: EventType.CONNECTION,
+      productionId: current.production_id,
+      eventType: 'CONNECTION' as any,
       operation: EventOperation.DELETE,
       entityId: id,
       entityData: current,
@@ -167,7 +167,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     
     // Broadcast to production room
-    io.to(`production:${current.productionId}`).emit('entity:deleted', {
+    io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'connection',
       entityId: id,
       userId,
