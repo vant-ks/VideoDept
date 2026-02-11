@@ -371,6 +371,19 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Promise Rejection:', reason);
+  console.error('   Promise:', promise);
+  // Don't exit - log and continue
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // Log but don't exit immediately - give server time to finish requests
+});
+
 // Start the server
 startServer();
 
