@@ -37,8 +37,8 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // GET single camera
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const camera = await prisma.cameras.findUnique({
-      where: { id: req.params.id }
+    const camera = await prisma.cameras.findFirst({
+      where: { id: req.params.id, is_deleted: false }
     });
 
     if (!camera || camera.is_deleted) {
@@ -73,7 +73,7 @@ router.post('/', async (req: Request, res: Response) => {
     const snakeCaseData = toSnakeCase(cameraData);
     
     // Check if camera with this ID already exists (including soft-deleted)
-    const existingCamera = await prisma.cameras.findUnique({
+    const existingCamera = await prisma.cameras.findFirst({
       where: { id: snakeCaseData.id }
     });
     
@@ -136,8 +136,8 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { userId, userName, version: clientVersion, fieldVersions: clientFieldVersions, lastModifiedBy, productionId, manufacturer, ...updateData } = req.body;
     
     // Fetch current camera state
-    const currentCamera = await prisma.cameras.findUnique({
-      where: { id: req.params.id }
+    const currentCamera = await prisma.cameras.findFirst({
+      where: { id: req.params.id, is_deleted: false }
     });
 
     if (!currentCamera || currentCamera.is_deleted) {
@@ -198,7 +198,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
       // Update camera with field versions
       const camera = await prisma.cameras.update({
-        where: { id: req.params.id },
+        where: { uuid: currentCamera.uuid },
         data: {
           ...snakeCaseData,
           updated_at: new Date(),
@@ -259,7 +259,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Update camera with version increment and metadata
     const camera = await prisma.cameras.update({
-      where: { id: req.params.id },
+      where: { uuid: currentCamera.uuid },
       data: {
         ...snakeCaseData,
         updated_at: new Date(),
@@ -302,8 +302,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { userId, userName } = req.body;
 
     // Fetch current camera
-    const currentCamera = await prisma.cameras.findUnique({
-      where: { id: req.params.id }
+    const currentCamera = await prisma.cameras.findFirst({
+      where: { id: req.params.id, is_deleted: false }
     });
 
     if (!currentCamera || currentCamera.is_deleted) {
@@ -312,7 +312,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     // Soft delete camera
     await prisma.cameras.update({
-      where: { id: req.params.id },
+      where: { uuid: currentCamera.uuid },
       data: { is_deleted: true, version: { increment: 1 } }
     });
 

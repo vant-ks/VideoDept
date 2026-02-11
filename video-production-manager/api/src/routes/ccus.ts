@@ -37,8 +37,8 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // GET single CCU
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const ccu = await prisma.ccus.findUnique({
-      where: { id: req.params.id }
+    const ccu = await prisma.ccus.findFirst({
+      where: { id: req.params.id, is_deleted: false }
     });
 
     if (!ccu || ccu.is_deleted) {
@@ -73,7 +73,7 @@ router.post('/', async (req: Request, res: Response) => {
     const snakeCaseData = toSnakeCase(ccuData);
     
     // Check if CCU with this ID already exists (including soft-deleted)
-    const existingCCU = await prisma.ccus.findUnique({
+    const existingCCU = await prisma.ccus.findFirst({
       where: { id: snakeCaseData.id }
     });
     
@@ -131,8 +131,8 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { userId, userName, version: clientVersion, fieldVersions: clientFieldVersions, lastModifiedBy, productionId, ...updateData } = req.body;
     
     // Fetch current CCU state
-    const currentCCU = await prisma.ccus.findUnique({
-      where: { id: req.params.id }
+    const currentCCU = await prisma.ccus.findFirst({
+      where: { id: req.params.id, is_deleted: false }
     });
 
     if (!currentCCU || currentCCU.is_deleted) {
@@ -188,7 +188,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
       // Update CCU with field versions
       const ccu = await prisma.ccus.update({
-        where: { id: req.params.id },
+        where: { uuid: currentCCU.uuid },
         data: {
           ...snakeCaseData,
           updated_at: new Date(),
@@ -244,7 +244,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Update CCU with version increment and metadata
     const ccu = await prisma.ccus.update({
-      where: { id: req.params.id },
+      where: { uuid: currentCCU.uuid },
       data: {
         ...snakeCaseData,
         updated_at: new Date(),
@@ -287,8 +287,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { userId, userName } = req.body;
 
     // Fetch current CCU
-    const currentCCU = await prisma.ccus.findUnique({
-      where: { id: req.params.id }
+    const currentCCU = await prisma.ccus.findFirst({
+      where: { id: req.params.id, is_deleted: false }
     });
 
     if (!currentCCU || currentCCU.is_deleted) {
@@ -297,7 +297,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     // Soft delete CCU
     await prisma.ccus.update({
-      where: { id: req.params.id },
+      where: { uuid: currentCCU.uuid },
       data: { is_deleted: true, version: { increment: 1 } }
     });
 
