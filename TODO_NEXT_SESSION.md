@@ -245,53 +245,6 @@
 
 ---
 
-## Phase 6: Equipment Relationships Architecture Refactor
-
-**Goal**: Normalize equipment data and eliminate duplication across entities
-
-### Current Problem
-- Cameras, CCUs, and other equipment store `manufacturer` and `model` as text fields
-- Data duplication across entities
-- No single source of truth for equipment specifications
-- Difficult to query "all cameras of X model" or "all equipment from Y manufacturer"
-
-### Target Architecture
-1. **Equipment Master Table** (normalized)
-   - id (equipment_id)
-   - manufacturer
-   - model
-   - category (camera, ccu, monitor, etc.)
-   - specifications (JSON for model-specific specs)
-
-2. **Entity Tables** (cameras, ccus, monitors, etc.)
-   - Add `equipment_id` foreign key
-   - Remove duplicate manufacturer/model fields
-   - Keep entity-specific fields (serial_number, assigned_to, etc.)
-
-3. **Equipment Picker UI**
-   - Dropdown: Select manufacturer → Select model (filtered) → Auto-populate specs
-   - Store only equipment_id in entity record
-   - Display model details via join/relation
-
-### Implementation Steps
-- [ ] Create equipment master table (Prisma schema)
-- [ ] Migrate existing camera/ccu data to equipment table
-- [ ] Add equipment_id FK to cameras, ccus tables
-- [ ] Build equipment picker component
-- [ ] Update API routes to handle equipment relations
-- [ ] Update frontend forms to use equipment picker
-- [ ] Remove old manufacturer/model fields
-- [ ] Test with multi-browser sync
-
-### Benefits
-- Single source of truth for equipment specs
-- Easy queries across all equipment types
-- Consistent manufacturer/model naming
-- Rich relationships (Find all uses of equipment X)
-- Maintainable and scalable
-
----
-
 ## 🐛 Bug Fixes & Issues
 
 ### Known Issues to Address

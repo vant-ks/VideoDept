@@ -228,48 +228,6 @@ export class ApiClient {
     return this.delete(`/sends/${id}`);
   }
 
-  // Cameras
-  async getCameras(productionId: string) {
-    return this.get(`/cameras/production/${productionId}`);
-  }
-
-  async getCamera(id: string) {
-    return this.get(`/cameras/${id}`);
-  }
-
-  async createCamera(data: any) {
-    return this.post('/cameras', data);
-  }
-
-  async updateCamera(id: string, data: any) {
-    return this.put(`/cameras/${id}`, data);
-  }
-
-  async deleteCamera(id: string) {
-    return this.delete(`/cameras/${id}`);
-  }
-
-  // CCUs
-  async getCCUs(productionId: string) {
-    return this.get(`/ccus/production/${productionId}`);
-  }
-
-  async getCCU(id: string) {
-    return this.get(`/ccus/${id}`);
-  }
-
-  async createCCU(data: any) {
-    return this.post('/ccus', data);
-  }
-
-  async updateCCU(id: string, data: any) {
-    return this.put(`/ccus/${id}`, data);
-  }
-
-  async deleteCCU(id: string) {
-    return this.delete(`/ccus/${id}`);
-  }
-
   // Settings
   async getSettings() {
     return this.get('/settings');

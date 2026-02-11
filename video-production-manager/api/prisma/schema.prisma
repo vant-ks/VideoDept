@@ -10,8 +10,7 @@ datasource db {
 }
 
 model cameras {
-  uuid               String      @id @default(uuid())
-  id                 String
+  id                 String      @id
   production_id      String
   name               String
   model              String?
@@ -24,27 +23,24 @@ model cameras {
   has_short_tripod   Boolean?
   has_dolly          Boolean?
   has_jib            Boolean?
-  ccu_uuid           String?
+  ccu_id             String?
   smpte_cable_length Float?
   note               String?
   created_at         DateTime    @default(now())
   updated_at         DateTime
   version            Int         @default(1)
-  field_versions     Json?
   is_deleted         Boolean     @default(false)
   last_modified_by   String?
   synced_at          DateTime?
-  ccus               ccus?       @relation(fields: [ccu_uuid], references: [uuid])
+  ccus               ccus?       @relation(fields: [ccu_id], references: [id])
   productions        productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
-  @@index([ccu_uuid])
+  @@index([ccu_id])
   @@index([production_id])
-  @@index([id])
 }
 
 model ccus {
-  uuid             String      @id @default(uuid())
-  id               String
+  id               String      @id
   production_id    String
   name             String
   manufacturer     String?
@@ -57,7 +53,6 @@ model ccus {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
-  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -65,7 +60,6 @@ model ccus {
   productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@index([production_id])
-  @@index([id])
 }
 
 model cable_snakes {

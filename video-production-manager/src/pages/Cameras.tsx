@@ -97,7 +97,7 @@ export default function Cameras() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     const newErrors: string[] = [];
     if (!formData.id?.trim()) newErrors.push('ID is required');
     if (!formData.name?.trim()) newErrors.push('Name is required');
@@ -116,52 +116,30 @@ export default function Cameras() {
       }
     }
 
-    try {
-      if (editingCamera) {
-        await updateCamera(editingCamera.id, finalFormData);
-      } else {
-        await addCamera(finalFormData as Camera);
-      }
-      setIsModalOpen(false);
-      setFormData({
-        id: '',
-        name: '',
-        manufacturer: '',
-        model: '',
-        formatMode: '',
-        hasTripod: false,
-        hasShortTripod: false,
-        hasDolly: false,
-        hasJib: false,
-        ccuId: '',
-        note: '',
-      });
-    } catch (error: any) {
-      console.error('Failed to save camera:', error);
-      
-      // Handle duplicate ID error
-      if (error?.response?.status === 409 || error?.response?.data?.code === 'DUPLICATE_ID') {
-        const suggestedId = generateId();
-        setErrors([
-          `Camera ID "${formData.id}" is already in use. Please choose a different ID.`,
-          `Suggestion: Use "${suggestedId}" instead.`
-        ]);
-        return;
-      }
-      
-      // Generic error
-      setErrors(['Failed to save camera. Please try again.']);
+    if (editingCamera) {
+      updateCamera(editingCamera.id, finalFormData);
+    } else {
+      addCamera(finalFormData as Camera);
     }
+    setIsModalOpen(false);
+    setFormData({
+      id: '',
+      name: '',
+      manufacturer: '',
+      model: '',
+      formatMode: '',
+      hasTripod: false,
+      hasShortTripod: false,
+      hasDolly: false,
+      hasJib: false,
+      ccuId: '',
+      note: '',
+    });
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (confirm('Are you sure you want to delete this camera?')) {
-      try {
-        await deleteCamera(id);
-      } catch (error) {
-        console.error('Failed to delete camera:', error);
-        alert('Failed to delete camera. Please try again.');
-      }
+      deleteCamera(id);
     }
   };
 

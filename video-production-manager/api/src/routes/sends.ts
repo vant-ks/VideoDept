@@ -4,7 +4,7 @@ import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
-import { broadcastEntityUpdate, broadcastEntityCreated, broadcastEntityDeleted, prepareVersionedUpdate } from '../utils/sync-helpers';
+import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
 import { validateProductionExists } from '../utils/validation-helpers';
 
 const router = Router();
@@ -208,12 +208,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
       version: currentSend.version + 1
     });
 
-    // Broadcast deletion via WebSocket
-    broadcastEntityDeleted({
-      io,
-      productionId: currentSend.production_id,
+    // Broadcast event to production room
+    io.to(`production:${currentSend.production_id}`).emit('entity:deleted', {
       entityType: 'send',
-      entityId: req.params.id
+      entityId: req.params.id,
+      userId,
+      userName
     });
 
     res.json({ success: true });
