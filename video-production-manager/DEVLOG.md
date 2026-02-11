@@ -2,6 +2,47 @@
 
 ## February 10, 2026
 
+### Railway Deployment Crash Fix - Seed Process Issue
+- **Context**: VS Code hung and crashed during previous session; Railway API deployment returning 502 Bad Gateway
+  - API server not responding: `{"status":"error","code":502,"message":"Application failed to respond"}`
+  - Last commits were error handlers for unhandled rejections/exceptions
+  - TypeScript compilation clean locally (0 errors)
+
+- **Investigation Process** (Protocol-Driven):
+  1. Linked Railway CLI to VideoDept-API service
+  2. Verified environment variables: DATABASE_URL, ENABLE_MDNS=false, NODE_ENV=production ✅
+  3. Confirmed Prisma migrations exist (6 migrations including signal flow models from Feb 9) ✅
+  4. Reviewed nixpacks.toml start command ✅
+  5. Identified local build passes cleanly ✅
+
+- **Root Cause Discovered**:
+  - Nixpacks start command: `npx prisma migrate deploy && npm run seed:all && npm run start`
+  - `seed:all` script runs `seed:equipment` which first calls `equipment:export`
+  - `equipment:export` attempts to read from database BEFORE seeding
+  - Fails on fresh Railway deployments where no data exists yet
+  - Process crashes, server never starts, returns 502
+
+- **Solution Implemented**:
+  - Changed nixpacks.toml start command to use `seed:all:prod` instead of `seed:all`
+  - `seed:all:prod` skips export step and seeds directly from equipment-data.json
+  - Proper sequence: migrate → seed from JSON → start server
+
+- **Fix Applied**:
+  ```toml
+  [start]
+  cmd = 'npx prisma migrate deploy && npm run seed:all:prod && npm run start'
+  ```
+  - Committed: `b110a35` - "fix: use seed:all:prod to avoid export step in Railway deployment"
+  - Pushed to trigger automatic Railway redeployment
+
+- **Key Lessons**:
+  - Production seed scripts must not depend on existing database data
+  - Railway deployments are ephemeral - always seed from static files
+  - 502 errors indicate app crash during startup, not build failure
+  - Protocol-driven investigation (link CLI → check vars → verify migrations → review config) efficiently identified issue
+
+---
+
 ### Complete baseEntity Signal Flow Architecture - TypeScript Compilation Fixed
 - **Context**: Railway deployment failing due to TypeScript build errors (exit code 2)
   - Initial symptom: 72 TypeScript compilation errors blocking production deployment
