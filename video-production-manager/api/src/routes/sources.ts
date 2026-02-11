@@ -32,7 +32,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const source = await prisma.sources.findUnique({
-      where: { uuid: req.params.id },
+      where: { id: req.params.id },
       include: { source_outputs: true }
     });
 
@@ -153,12 +153,12 @@ router.post('/', async (req: Request, res: Response) => {
           )
         ) FILTER (WHERE so.id IS NOT NULL) as source_outputs
       FROM sources s
-      LEFT JOIN source_outputs so ON s.uuid = so.source_id
-      WHERE s.uuid::text = ${uuid}
+      LEFT JOIN source_outputs so ON s.id = so.source_id
+      WHERE s.id::text = ${uuid}
       GROUP BY s.id, s.production_id, s.category, s.name, s.type, s.rate, 
                s.h_res, s.v_res, s.standard, s.note, s.secondary_device, 
                s.blanking, s.format_assignment_mode, s.created_at, s.updated_at, 
-               s.synced_at, s.last_modified_by, s.version, s.is_deleted, s.uuid
+               s.synced_at, s.last_modified_by, s.version, s.is_deleted
     ` as any[];
     console.log('✅ Fetched source:', source.length, 'rows');
     console.log('   Source data:', JSON.stringify(source[0], null, 2));
@@ -235,7 +235,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     
     // Get current source for diff and conflict detection
     const currentSource = await prisma.sources.findUnique({
-      where: { uuid: req.params.id },
+      where: { id: req.params.id },
       include: { source_outputs: true }
     });
     
@@ -340,7 +340,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { userId, userName } = req.body;
     
     const source = await prisma.sources.findUnique({
-      where: { uuid: req.params.id },
+      where: { id: req.params.id },
       include: { source_outputs: true }
     });
     

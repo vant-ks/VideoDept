@@ -44,7 +44,7 @@ export async function validateEntityExists(
 
   switch (entityType) {
     case 'source':
-      entity = await prisma.sources.findUnique({ where: { uuid: entityId } });
+      entity = await prisma.sources.findUnique({ where: { id: entityId } });
       break;
     case 'camera':
       entity = await prisma.cameras.findUnique({ where: { id: entityId } });
