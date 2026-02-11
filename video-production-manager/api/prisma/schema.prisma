@@ -545,7 +545,7 @@ model source_types {
 model sources {
   id                     String           @id
   production_id          String
-  category               String
+  type                   String
   name                   String
   format_assignment_mode String?          @default("system-wide")
   h_res                  Int?
@@ -561,13 +561,12 @@ model sources {
   last_modified_by       String?
   version                Int              @default(1)
   is_deleted             Boolean          @default(false)
-  type                   String?
   connections            connections[]
   source_outputs         source_outputs[]
   productions            productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@index([production_id, is_deleted])
-  @@index([category], map: "sources_type_idx")
+  @@index([type], map: "sources_type_idx")
 }
 
 model sync_conflicts {
