@@ -28,7 +28,7 @@ router.get('/health', async (req, res) => {
         connected: true,
         latency: `${dbLatency}ms`,
       },
-      deployTest: 'pipeline-verification-2026-02-10-16:21',
+      deployTest: 'db-reset-verification-2026-02-10-16:42',
       environment: process.env.NODE_ENV || 'development',
       version: '1.0.0',
     });
