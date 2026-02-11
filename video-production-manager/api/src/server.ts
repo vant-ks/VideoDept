@@ -329,10 +329,15 @@ async function startServer() {
       if (ENABLE_MDNS) {
         discoveryService = new ServerDiscoveryService(process.env.SERVER_NAME);
         discoveryService.advertise(Number(PORT));
-      } else {
-        console.log('📍 Local URLs:');
-        const addresses = new ServerDiscoveryService().getLocalIpAddresses();
-        addresses.forEach(ip => console.log(`      - http://${ip}:${PORT}`));
+      } else if (process.env.NODE_ENV !== 'production') {
+        // Only try to get local IPs in development (fails in containers)
+        try {
+          console.log('📍 Local URLs:');
+          const addresses = new ServerDiscoveryService().getLocalIpAddresses();
+          addresses.forEach(ip => console.log(`      - http://${ip}:${PORT}`));
+        } catch (error) {
+          console.log('   (Could not determine local IP addresses)');
+        }
       }
       
       console.log('');

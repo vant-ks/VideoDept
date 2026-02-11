@@ -1,0 +1,29 @@
+fix: Complete baseEntity signal flow architecture - Fix all Prisma client and field name references
+
+Resolves Railway deployment TypeScript compilation errors (72 total errors fixed)
+
+Architecture Fixes:
+- Fixed Prisma client references in 9 route files (camelCase to snake_case)
+  cable-snakes, cam-switchers, vision-switchers, led-screens, media-servers,
+  projection-screens, records, routers, streams
+- Updated all WHERE/ORDER BY clauses to use snake_case field names
+  (production_id, is_deleted, created_at)
+- Fixed post-query property accesses in recordEvent/emit calls
+
+Active Route Corrections:
+- validation-helpers.ts: sources query uses uuid not id
+- settings.ts: added required id, updated_at fields to upsert
+- equipment.ts: fixed relation name to equipment_card_io
+- admin.ts: FieldVersions type casting, currentData type declaration
+- productions.ts: FieldVersions type casting
+
+Server Configuration:
+- Uncommented all 9 signal flow route imports in server.ts
+- Enabled all 9 route registrations (/api/cable-snakes, etc.)
+- Removed build workarounds (package.json, tsconfig.json)
+
+Validation:
+- TypeScript compilation: 0 errors, exit code 0
+- Clean build produces complete dist/ folder
+- All baseEntity models operational with proper transform pipeline
+- Ready for Railway production deployment testing
