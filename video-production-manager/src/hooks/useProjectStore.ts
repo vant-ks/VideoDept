@@ -1268,69 +1268,175 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   },
   
   // ===== CAMERA CRUD =====
-  addCamera: (camera) => {
+  addCamera: async (camera) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
     const newCamera = { ...camera, id: camera.id || uuidv4() };
+    
+    // Optimistic update
     get().updateActiveProject({
       cameras: [...activeProject.cameras, newCamera]
     });
-    get().recordChange('create', 'camera', newCamera.id, newCamera);
-    console.log('Camera added to project:', newCamera.id);
+    
+    // Save to API
+    try {
+      await apiClient.createCamera({
+        ...newCamera,
+        productionId: activeProject.production.id
+      });
+      console.log('✅ Camera saved to database:', newCamera.id);
+    } catch (error) {
+      console.error('Failed to save camera:', error);
+      // Revert optimistic update on error
+      get().updateActiveProject({
+        cameras: activeProject.cameras.filter(c => c.id !== newCamera.id)
+      });
+      throw error;
+    }
   },
   
-  updateCamera: (id, updates) => {
+  updateCamera: async (id, updates) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
+    const oldCamera = activeProject.cameras.find(c => c.id === id);
+    
+    // Optimistic update
     get().updateActiveProject({
       cameras: activeProject.cameras.map(c => c.id === id ? { ...c, ...updates } : c)
     });
-    get().recordChange('update', 'camera', id, updates);
+    
+    // Save to API
+    try {
+      await apiClient.updateCamera(id, {
+        ...updates,
+        productionId: activeProject.production.id
+      });
+      console.log('✅ Camera updated in database:', id);
+    } catch (error) {
+      console.error('Failed to update camera:', error);
+      // Revert optimistic update on error
+      if (oldCamera) {
+        get().updateActiveProject({
+          cameras: activeProject.cameras.map(c => c.id === id ? oldCamera : c)
+        });
+      }
+      throw error;
+    }
   },
   
-  deleteCamera: (id) => {
+  deleteCamera: async (id) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
+    const oldCamera = activeProject.cameras.find(c => c.id === id);
+    
+    // Optimistic update
     get().updateActiveProject({
       cameras: activeProject.cameras.filter(c => c.id !== id)
     });
-    get().recordChange('delete', 'camera', id, {});
+    
+    // Delete from API
+    try {
+      await apiClient.deleteCamera(id);
+      console.log('✅ Camera deleted from database:', id);
+    } catch (error) {
+      console.error('Failed to delete camera:', error);
+      // Revert optimistic update on error
+      if (oldCamera) {
+        get().updateActiveProject({
+          cameras: [...activeProject.cameras, oldCamera]
+        });
+      }
+      throw error;
+    }
   },
   
   // ===== CCU CRUD =====
-  addCCU: (ccu) => {
+  addCCU: async (ccu) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
     const newCCU = { ...ccu, id: ccu.id || uuidv4() };
+    
+    // Optimistic update
     get().updateActiveProject({
       ccus: [...activeProject.ccus, newCCU]
     });
-    get().recordChange('create', 'ccu', newCCU.id, newCCU);
-    console.log('CCU added to project:', newCCU.id);
+    
+    // Save to API
+    try {
+      await apiClient.createCCU({
+        ...newCCU,
+        productionId: activeProject.production.id
+      });
+      console.log('✅ CCU saved to database:', newCCU.id);
+    } catch (error) {
+      console.error('Failed to save CCU:', error);
+      // Revert optimistic update on error
+      get().updateActiveProject({
+        ccus: activeProject.ccus.filter(c => c.id !== newCCU.id)
+      });
+      throw error;
+    }
   },
   
-  updateCCU: (id, updates) => {
+  updateCCU: async (id, updates) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
+    const oldCCU = activeProject.ccus.find(c => c.id === id);
+    
+    // Optimistic update
     get().updateActiveProject({
       ccus: activeProject.ccus.map(c => c.id === id ? { ...c, ...updates } : c)
     });
-    get().recordChange('update', 'ccu', id, updates);
+    
+    // Save to API
+    try {
+      await apiClient.updateCCU(id, {
+        ...updates,
+        productionId: activeProject.production.id
+      });
+      console.log('✅ CCU updated in database:', id);
+    } catch (error) {
+      console.error('Failed to update CCU:', error);
+      // Revert optimistic update on error
+      if (oldCCU) {
+        get().updateActiveProject({
+          ccus: activeProject.ccus.map(c => c.id === id ? oldCCU : c)
+        });
+      }
+      throw error;
+    }
   },
   
-  deleteCCU: (id) => {
+  deleteCCU: async (id) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
+    const oldCCU = activeProject.ccus.find(c => c.id === id);
+    
+    // Optimistic update
     get().updateActiveProject({
       ccus: activeProject.ccus.filter(c => c.id !== id)
     });
-    get().recordChange('delete', 'ccu', id, {});
+    
+    // Delete from API
+    try {
+      await apiClient.deleteCCU(id);
+      console.log('✅ CCU deleted from database:', id);
+    } catch (error) {
+      console.error('Failed to delete CCU:', error);
+      // Revert optimistic update on error
+      if (oldCCU) {
+        get().updateActiveProject({
+          ccus: [...activeProject.ccus, oldCCU]
+        });
+      }
+      throw error;
+    }
   },
   
   // ===== LED SCREEN CRUD =====

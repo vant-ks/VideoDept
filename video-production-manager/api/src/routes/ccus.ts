@@ -4,8 +4,16 @@ import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
-import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
+import { broadcastEntityUpdate, broadcastEntityCreated, broadcastEntityDeleted, prepareVersionedUpdate } from '../utils/sync-helpers';
 import { validateProductionExists } from '../utils/validation-helpers';
+import { 
+  CCU_VERSIONED_FIELDS,
+  compareFieldVersionsForEntity,
+  mergeNonConflictingFieldsForEntity,
+  initFieldVersionsForEntity,
+  isValidFieldVersions,
+  FieldVersions
+} from '../utils/fieldVersioning';
 
 const router = Router();
 
@@ -61,9 +69,26 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
     
+    // Convert camelCase to snake_case for database
+    const snakeCaseData = toSnakeCase(ccuData);
+    
+    // Check if CCU with this ID already exists (including soft-deleted)
+    const existingCCU = await prisma.ccus.findUnique({
+      where: { id: snakeCaseData.id }
+    });
+    
+    if (existingCCU) {
+      return res.status(409).json({ 
+        error: 'A CCU with this ID already exists. Please choose a different ID.',
+        code: 'DUPLICATE_ID',
+        existingId: snakeCaseData.id,
+        isDeleted: existingCCU.is_deleted
+      });
+    }
+    
     const ccu = await prisma.ccus.create({
       data: {
-        ...ccuData,
+        ...snakeCaseData,
         production_id: productionId,
         last_modified_by: lastModifiedBy || userId || null,
         updated_at: new Date(),
@@ -103,7 +128,7 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT update CCU
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, version: clientVersion, lastModifiedBy, ...updateData } = req.body;
+    const { userId, userName, version: clientVersion, fieldVersions: clientFieldVersions, lastModifiedBy, productionId, ...updateData } = req.body;
     
     // Fetch current CCU state
     const currentCCU = await prisma.ccus.findUnique({
@@ -114,24 +139,114 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'CCU not found' });
     }
 
+    // FIELD-LEVEL VERSIONING: Check if client provided field versions
+    const serverFieldVersions = (currentCCU.field_versions as unknown) as FieldVersions || {};
+    const serverData = toCamelCase(currentCCU);
+    
+    if (clientFieldVersions && isValidFieldVersions(clientFieldVersions)) {
+      console.log('🔍 Field-level conflict detection for CCU:', req.params.id);
+      
+      // Compare field versions to detect conflicts
+      const conflicts = compareFieldVersionsForEntity(
+        clientFieldVersions,
+        serverFieldVersions,
+        updateData,
+        serverData,
+        CCU_VERSIONED_FIELDS
+      );
+      
+      if (conflicts.length > 0) {
+        console.log('⚠️  Field conflicts detected:', conflicts.map(c => c.fieldName).join(', '));
+        
+        // Return conflict information
+        return res.status(409).json({
+          error: 'Field conflict',
+          message: 'Some fields were modified by another user',
+          conflicts,
+          serverData,
+          serverFieldVersions,
+          currentVersion: currentCCU.version
+        });
+      }
+      
+      // Merge non-conflicting updates
+      const mergeResult = mergeNonConflictingFieldsForEntity(
+        clientFieldVersions,
+        serverFieldVersions,
+        updateData,
+        serverData,
+        CCU_VERSIONED_FIELDS
+      );
+      
+      console.log('✅ Field-level merge successful for CCU');
+      
+      // Calculate changes
+      const changes = calculateDiff(currentCCU, mergeResult.mergedData);
+
+      // Convert camelCase to snake_case for database
+      const snakeCaseData = toSnakeCase(mergeResult.mergedData);
+
+      // Update CCU with field versions
+      const ccu = await prisma.ccus.update({
+        where: { id: req.params.id },
+        data: {
+          ...snakeCaseData,
+          updated_at: new Date(),
+          field_versions: mergeResult.mergedVersions as any,
+          ...prepareVersionedUpdate(lastModifiedBy || userId)
+        }
+      });
+
+      // Record UPDATE event
+      await recordEvent({
+        productionId: currentCCU.production_id,
+        eventType: EventType.CCU,
+        operation: EventOperation.UPDATE,
+        entityId: ccu.id,
+        entityData: ccu,
+        changes,
+        userId: userId || 'system',
+        userName: userName || 'System',
+        version: ccu.version
+      });
+
+      // Broadcast update via WebSocket
+      broadcastEntityUpdate({
+        io,
+        productionId: currentCCU.production_id,
+        entityType: 'ccu',
+        entityId: ccu.id,
+        data: toCamelCase(ccu)
+      });
+
+      return res.json(toCamelCase(ccu));
+    }
+    
+    // FALLBACK: Record-level versioning (for backward compatibility)
+    console.log('🔄 Using record-level versioning for CCU (legacy)');
+    
     // Check for conflicts if client provides version
     if (clientVersion !== undefined && currentCCU.version !== clientVersion) {
       return res.status(409).json({
         error: 'Conflict detected',
         message: 'This CCU was modified by another user',
         currentVersion: currentCCU.version,
-        clientVersion
+        clientVersion,
+        serverData
       });
     }
 
     // Calculate changes
     const changes = calculateDiff(currentCCU, updateData);
 
+    // Convert camelCase to snake_case for database
+    const snakeCaseData = toSnakeCase(updateData);
+
     // Update CCU with version increment and metadata
     const ccu = await prisma.ccus.update({
       where: { id: req.params.id },
       data: {
-        ...updateData,
+        ...snakeCaseData,
         updated_at: new Date(),
         ...prepareVersionedUpdate(lastModifiedBy || userId)
       }
@@ -197,6 +312,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
       userId: userId || 'system',
       userName: userName || 'System',
       version: currentCCU.version + 1
+    });
+
+    // Broadcast deletion via WebSocket
+    broadcastEntityDeleted({
+      io,
+      productionId: currentCCU.production_id,
+      entityType: 'ccu',
+      entityId: req.params.id
     });
 
     res.json({ success: true });

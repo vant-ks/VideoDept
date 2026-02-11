@@ -99,7 +99,7 @@ export default function CCUs() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newErrors: string[] = [];
     if (!formData.manufacturer?.trim()) newErrors.push('Manufacturer is required');
     if (!formData.model?.trim()) newErrors.push('Model is required');
@@ -109,25 +109,47 @@ export default function CCUs() {
       return;
     }
 
-    if (editingCCU) {
-      updateCCU(editingCCU.id, formData);
-    } else {
-      // Auto-generate ID and name
-      const newId = generateId();
-      const ccuData = {
-        ...formData,
-        id: newId,
-        name: newId, // Use ID as name (e.g., "CCU 1")
-      } as CCU;
-      addCCU(ccuData);
+    try {
+      if (editingCCU) {
+        await updateCCU(editingCCU.id, formData);
+      } else {
+        // Auto-generate ID and name
+        const newId = generateId();
+        const ccuData = {
+          ...formData,
+          id: newId,
+          name: newId, // Use ID as name (e.g., "CCU 1")
+        } as CCU;
+        await addCCU(ccuData);
+      }
+      setIsModalOpen(false);
+      setFormData({ manufacturer: '', model: '', outputs: [] });
+    } catch (error: any) {
+      console.error('Failed to save CCU:', error);
+      
+      // Handle duplicate ID error
+      if (error?.response?.status === 409 || error?.response?.data?.code === 'DUPLICATE_ID') {
+        const suggestedId = generateId();
+        setErrors([
+          `CCU ID "${formData.id || generateId()}" is already in use. Please try again.`,
+          `Suggestion: The system will use "${suggestedId}" on next attempt.`
+        ]);
+        return;
+      }
+      
+      // Generic error
+      setErrors(['Failed to save CCU. Please try again.']);
     }
-    setIsModalOpen(false);
-    setFormData({ manufacturer: '', model: '', outputs: [] });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this CCU?')) {
-      deleteCCU(id);
+      try {
+        await deleteCCU(id);
+      } catch (error) {
+        console.error('Failed to delete CCU:', error);
+        alert('Failed to delete CCU. Please try again.');
+      }
     }
   };
 

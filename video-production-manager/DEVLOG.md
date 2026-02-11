@@ -280,6 +280,189 @@
 
 ---
 
+## February 10, 2026
+
+### Phase 5 Multi-Browser Sync Testing & Bug Fixes
+
+**Context**: Executing local multi-browser sync tests from RAILWAY_SYNC_TESTING.md
+
+#### Test 2: Checklist Sync - PASSED ✅
+
+**Issue 1**: 409 conflict on checklist page load (Browser B)
+- **Root Cause**: Checklist page's useEffect was mutating activeProject on mount (computing collapsedCategories)
+- **Solution**: Removed mutation - compute collapsed state on-the-fly from checklist items instead of storing in project
+- **Files**: [Checklist.tsx](video-production-manager/src/pages/Checklist.tsx#L33-47) - Removed lines 33-47
+
+**Issue 2**: 409 conflict when toggling category visibility
+- **Root Cause**: Category collapsed state stored in project.collapsedCategories → triggered saveProject() → sync conflict
+- **Solution**: Moved UI preferences to localStorage (per-browser, never synced)
+- **Pattern**: UI state should be local, not synced across browsers
+- **Files**: [Checklist.tsx](video-production-manager/src/pages/Checklist.tsx#L23-70) - localStorage init and sync
+
+#### Test 3: Camera Sync - Fixed, Ready to Retest
+
+**Issue 1**: Cameras not persisting/appearing in other browser
+- **Root Cause**: Camera CRUD functions only updated local Zustand state, never called API
+- **Solution**: 
+  - Added camera/CCU API methods to apiClient: `createCamera`, `updateCamera`, `deleteCamera`, `getCameras`, `createCCU`, `updateCCU`, `deleteCCU`, `getCCUs`
+  - Made store CRUD functions async with API calls + optimistic updates
+  - Added error rollback pattern
+- **Files**: 
+  - [apiClient.ts](video-production-manager/src/services/apiClient.ts#L213-252) - New methods
+  - [useProjectStore.ts](video-production-manager/src/hooks/useProjectStore.ts#L1268-1445) - Async CRUD
+  - [Cameras.tsx](video-production-manager/src/pages/Cameras.tsx) - Async handlers
+
+**Issue 2**: 500 error "Unknown argument `manufacturer`" from API
+- **Root Cause**: 
+  - Frontend sends camelCase fields
+  - API wasn't converting to snake_case for Prisma
+  - `manufacturer` field doesn't exist in cameras schema (only `model`)
+- **Solution**:
+  - Added `toSnakeCase()` conversion in POST/PUT routes
+  - Filtered out `manufacturer` field before database insert
+  - Applied same pattern to CCU routes preemptively
+- **Files**:
+  - [cameras.ts](video-production-manager/api/src/routes/cameras.ts#L47-140) - toSnakeCase + filter
+  - [ccus.ts](video-production-manager/api/src/routes/ccus.ts#L47-145) - Same pattern
+
+#### Test 3 Retest Results (2026-02-10 Evening)
+
+**Issue 3: Foreign Key Constraint**
+- **Problem**: After fixing field mismatch, got new 500 error: "Foreign key constraint violated: `cameras_ccu_id_fkey (index)`"
+- **Root Cause**: Form was sending empty string `''` for ccuId field instead of `null`, which violated the foreign key constraint
+- **Solution**: Added check in API routes to convert empty string to null before database operations
+- **Files Changed**:
+  - [cameras.ts](video-production-manager/api/src/routes/cameras.ts#L67-71) - Convert empty ccuId to null
+  - Same pattern applied to update route
+
+**Issue 4: Real-Time Sync Not Working**
+- **Problem**: Created camera on Browser A successfully, but Browser B required manual refresh to see the new camera
+- **Root Cause**: API was broadcasting WebSocket events (`camera:created`) but frontend had no listeners for entity events
+- **Investigation**: Found `useProductionSync` hook already had checklist-item listeners but no listeners for other entities
+- **Solution**: Added WebSocket event listeners for all entity types:
+  - Camera events: camera:created, camera:updated, camera:deleted
+  - CCU events: ccu:created, ccu:updated, ccu:deleted
+  - Source events: source:created, source:updated, source:deleted
+  - Send events: send:created, send:updated, send:deleted
+- **Files Changed**:
+  - [useProductionSync.ts](video-production-manager/src/hooks/useProductionSync.ts#L221-390) - Added entity event listeners
+- **Pattern**: Each listener:
+  1. Checks if update is for current production
+  2. Prevents duplicates by checking if entity already exists
+  3. Updates activeProject in store
+  4. Persists to IndexedDB
+  5. Logs success
+
+**Issue 5: Delete Not Syncing (2026-02-10 Evening)**
+- **Problem**: Browser A deleted camera successfully, but Browser B required manual refresh to see the deletion
+- **Root Cause**: DELETE routes in API were missing WebSocket broadcast calls
+  - Cameras and CCUs: No broadcast at all
+  - Sources and Sends: Had generic `entity:deleted` broadcast instead of specific event names
+- **Solution**: Added `broadcastEntityDeleted()` helper calls to all DELETE routes
+- **Files Changed**:
+  - [cameras.ts](video-production-manager/api/src/routes/cameras.ts#L219-225) - Added broadcast after event recording
+  - [ccus.ts](video-production-manager/api/src/routes/ccus.ts) - Added broadcast after event recording
+  - [sources.ts](video-production-manager/api/src/routes/sources.ts) - Replaced generic broadcast with broadcastEntityDeleted
+  - [sends.ts](video-production-manager/api/src/routes/sends.ts) - Replaced generic broadcast with broadcastEntityDeleted
+- **Pattern**: Each DELETE route now:
+  1. Soft deletes entity (is_deleted = true)
+  2. Records DELETE event
+  3. Broadcasts `{entityType}:deleted` via broadcastEntityDeleted()
+  4. Returns success
+- **Note**: Sources and sends were using generic `entity:deleted` event, now all use specific events matching frontend listeners
+
+**Issue 6: Cannot Create New Camera/CCU After Deletion (2026-02-10 Evening)**
+- **Problem**: After deleting a camera (e.g., "CAM 1") and trying to create a new one with the same ID → 500 error: "Unique constraint failed on the fields: (`id`)"
+- **Root Cause**: Soft deletes keep the ID in database (is_deleted=true), but unique constraint on `id` field prevents reusing the ID
+- **Solution**: 
+  1. Added ID uniqueness check in CREATE routes before attempting database insert
+  2. Return 409 conflict with helpful message instead of 500 error
+  3. Improved frontend error handling to catch 409 and suggest next available ID
+- **Files Changed**:
+  - [cameras.ts](video-production-manager/api/src/routes/cameras.ts) - Check for existing ID including soft-deleted
+  - [ccus.ts](video-production-manager/api/src/routes/ccus.ts) - Same check
+  - [Cameras.tsx](video-production-manager/src/pages/Cameras.tsx#L119-138) - Better error handling with ID suggestion
+  - [CCUs.tsx](video-production-manager/src/pages/CCUs.tsx#L103-144) - Better error handling, made async
+- **Pattern**: Before CREATE, always check `findUnique` on ID field, return 409 if exists
+- **User Experience**: Error message now says "Camera ID 'CAM 1' is already in use. Suggestion: Use 'CAM 2' instead."
+
+#### Lessons Learned (Critical for Sends, Signal Flow, etc.)
+
+**Pattern 1: Entity CRUD Requirements**
+- EVERY entity needs API methods in apiClient (create, update, delete, get)
+- EVERY store CRUD function must be async and call API
+- Use optimistic updates + error rollback pattern
+- **CRITICAL**: WebSocket broadcasts required for ALL operations:
+  - CREATE: `broadcastEntityCreated()` after recording event
+  - UPDATE: `broadcastEntityUpdate()` after recording event
+  - DELETE: `broadcastEntityDeleted()` after recording event
+- Import helpers from `utils/sync-helpers`
+- Broadcasts enable instant sync across browsers without refresh
+
+**Pattern 2: Frontend WebSocket Listeners**
+- Frontend must have corresponding listeners in `useProductionSync.ts` for each entity type
+- Required listeners: `{entityType}:created`, `{entityType}:updated`, `{entityType}:deleted`
+- Each listener should:
+  1. Check if update is for current production
+  2. Prevent duplicates (check if entity already exists for create events)
+  3. Update `activeProject` state via `useProjectStore.setState()`
+  4. Persist changes to IndexedDB
+  5. Log success for debugging
+- Without frontend listeners, API broadcasts are ignored and refresh is required
+
+**Pattern 3: Field Case Conversion**
+- Frontend uses camelCase
+- Database/Prisma uses snake_case
+- ALWAYS use `toSnakeCase()` in API routes before Prisma operations
+- ALWAYS use `toCamelCase()` when returning data to frontend
+- Import from: `utils/caseConverter`
+
+**Pattern 4: Schema Validation**
+- Check Prisma schema BEFORE adding fields to API routes
+- Filter out fields that don't exist in schema
+- Frontend might send extra fields from forms - filter defensively
+
+**Pattern 5: Foreign Key Constraints**
+- Empty strings violate foreign key constraints
+- Convert empty string to `null` for optional FK fields
+- Example: `if (snakeCaseData.ccu_id === '') { snakeCaseData.ccu_id = null; }`
+- Applies to all optional FK fields (ccu_id, source_id, etc.)
+
+**Pattern 6: UI State vs Data State**
+- UI preferences (collapsed state, sort order, view mode) → localStorage
+- Business data (production, equipment, connections) → API + sync
+- Never trigger API saves for pure UI state changes
+
+**Pattern 7: Equipment Data Duplication Issue**
+- Current: Cameras store `model`, forms collect `manufacturer`
+- Problem: Data duplication, no single source of truth
+- Future: Phase 6 will normalize with equipment_id FK and master equipment table
+- Quick fix: Filter out non-schema fields for now
+
+**Pattern 8: Soft Deletes and ID Uniqueness**
+- Soft deletes set `is_deleted=true` but keep the ID in database
+- Unique constraint on `id` field prevents reusing IDs from deleted entities
+- **CRITICAL**: Always check for existing ID (including soft-deleted) before CREATE
+- Example: `const existing = await prisma.entity.findUnique({ where: { id } }); if (existing) return 409;`
+- Return 409 conflict with helpful error message
+- Frontend should catch 409 and suggest next available ID to user
+- Applies to ALL entities with user-specified IDs (cameras, CCUs, etc.)
+
+#### Testing Status
+- Test 2 (Checklist): ✅ PASSED - All UI preference conflicts resolved
+- Test 3 (Cameras): ✅ READY TO RETEST - Fixed all 6 issues:
+  1. Missing API methods ✅
+  2. Field conversion (toSnakeCase) ✅
+  3. FK constraints (empty string → null) ✅
+  4. WebSocket listener for create ✅
+  5. WebSocket broadcast for delete ✅
+  6. ID uniqueness validation ✅
+- Test 6 (CCUs): ✅ READY TO RETEST - Same 6 fixes applied
+- Tests 4-5, 7-10: Pending (Sources, Sends, Connections, Offline, Conflicts, Rapid)
+- Note: Sources and Sends should also work with same patterns applied
+
+---
+
 ## Previous Work
 
 ### Equipment Management System

@@ -23,42 +23,58 @@ const categoryLabels: Record<string, string> = {
 
 export const Checklist: React.FC = () => {
   // Use new stores
-  const { activeProject, saveProject } = useProjectStore();
+  const { activeProject } = useProjectStore();
   const { collapsedCategories: globalCollapsedCategories, toggleCategoryCollapsed: toggleGlobalCategory } = usePreferencesStore();
   
-  // Use project-specific collapsed categories if project exists, otherwise use global
-  const collapsedCategories = activeProject?.uiPreferences?.collapsedChecklistCategories ?? globalCollapsedCategories;
-  
-  // Initialize collapsed categories for new projects with all categories collapsed by default
-  React.useEffect(() => {
-    if (activeProject && !activeProject.uiPreferences?.collapsedChecklistCategories) {
-      // First time opening checklist for this project - collapse all categories by default
-      const allCategories = Object.keys(categoryLabels);
-      
-      // Update the activeProject reference directly (Zustand handles reactivity)
-      if (!activeProject.uiPreferences) {
-        activeProject.uiPreferences = {};
+  // Project-specific UI preferences stored in localStorage (per-browser, never synced)
+  const [collapsedCategories, setCollapsedCategories] = React.useState<string[]>(() => {
+    if (!activeProject?.production?.id) return globalCollapsedCategories;
+    
+    // Load from localStorage for this production
+    const storageKey = `uiPrefs-checklist-${activeProject.production.id}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return Object.keys(categoryLabels); // Default: all collapsed
       }
-      activeProject.uiPreferences.collapsedChecklistCategories = allCategories;
-      
-      // Save to persist the default collapsed state
-      saveProject();
+    }
+    return Object.keys(categoryLabels); // Default: all collapsed
+  });
+  
+  // Sync collapsedCategories when activeProject changes
+  React.useEffect(() => {
+    if (!activeProject?.production?.id) {
+      setCollapsedCategories(globalCollapsedCategories);
+      return;
+    }
+    
+    const storageKey = `uiPrefs-checklist-${activeProject.production.id}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        setCollapsedCategories(JSON.parse(stored));
+      } catch {
+        setCollapsedCategories(Object.keys(categoryLabels));
+      }
+    } else {
+      setCollapsedCategories(Object.keys(categoryLabels));
     }
   }, [activeProject?.production?.id]);
   
   const toggleCategoryCollapsed = (category: string) => {
-    if (activeProject) {
-      // Update project-specific preferences
-      const currentCollapsed = activeProject.uiPreferences?.collapsedChecklistCategories || [];
-      const newCollapsed = currentCollapsed.includes(category)
-        ? currentCollapsed.filter(c => c !== category)
-        : [...currentCollapsed, category];
+    if (activeProject?.production?.id) {
+      // Update local state
+      const newCollapsed = collapsedCategories.includes(category)
+        ? collapsedCategories.filter(c => c !== category)
+        : [...collapsedCategories, category];
       
-      activeProject.uiPreferences = {
-        ...activeProject.uiPreferences,
-        collapsedChecklistCategories: newCollapsed
-      };
-      saveProject();
+      setCollapsedCategories(newCollapsed);
+      
+      // Save to localStorage only (never triggers API save or conflicts)
+      const storageKey = `uiPrefs-checklist-${activeProject.production.id}`;
+      localStorage.setItem(storageKey, JSON.stringify(newCollapsed));
     } else {
       // Fallback to global preferences
       toggleGlobalCategory(category);

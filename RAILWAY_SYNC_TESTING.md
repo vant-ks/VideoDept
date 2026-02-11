@@ -62,19 +62,40 @@ Choose one of these methods:
 
 ### Test 2: Checklist Item Sync 📋
 
+**🐛 ISSUES FOUND & FIXED (2026-02-10):**
+
+**Issue 1: Conflict on Page Load**
+- **Problem**: Browser B showed conflict warning (409) just from opening Checklist page
+- **Root Cause**: Checklist.tsx was mutating `activeProject.uiPreferences` on mount, triggering Zustand reactivity → save → conflict
+- **Fix**: Removed mutation useEffect, compute default collapsed categories on-the-fly
+- **Status**: ✅ FIXED
+
+**Issue 2: Conflict When Revealing Categories**
+- **Problem**: When B reveals a category, then A reveals same category → conflict alert
+- **Root Cause**: Toggling categories called `saveProject()` which synced to API database with fieldVersions, causing conflicts even though uiPreferences wasn't being synced
+- **Fix**: Store UI preferences in localStorage only (per-browser, never synced to API)
+- **Rationale**: Each user/browser should have independent UI preferences
+- **Status**: ✅ FIXED
+
 **Browser A Actions:**
 1. Navigate to **Checklist** page
-2. Click **"+ Add Item"** button
-3. Type: "Test Real-Time Sync"
-4. Click **Save** (or press Enter)
-5. **Check the box** to mark it complete
+2. **Expand/collapse** a category (e.g., "Screens")
+3. Click **"+ Add Item"** button
+4. Type: "Test Real-Time Sync"
+5. Click **Save** (or press Enter)
+6. **Check the box** to mark it complete
 
 **Browser B - What You Should See:**
+- ✅ **NO conflict warning** when A opens checklist
+- ✅ **NO conflict warning** when A or B toggle categories
+- ✅ Categories remain in your own collapsed/expanded state (not synced)
 - ✨ New item appears **instantly** (no refresh needed)
 - ☑️ Checkbox state updates in **real-time** when toggled in Browser A
 
 **Pass Criteria:**
-- ✅ Item appears in Browser B within 1 second
+- ✅ No 409 conflicts from page navigation or UI interactions
+- ✅ UI preferences (collapsed categories) are independent per browser
+- ✅ Item creation syncs in real-time
 - ✅ Checkbox toggles sync between browsers
 - ✅ No page refresh required
 
@@ -86,6 +107,62 @@ Choose one of these methods:
 ---
 
 ### Test 3: Camera Sync 🎥
+
+**🐛 ISSUES FOUND & FIXED (2026-02-10):**
+
+**Issue 1: Missing API Methods**
+- **Problem**: Created camera on A didn't appear on B; created camera on B with same ID showed no conflict; refreshing both browsers made cameras disappear
+- **Root Cause**: Camera CRUD operations only updated local state but never called API endpoints to persist data
+- **Fix**: Added camera/CCU API methods to apiClient and updated store to call them
+- **Status**: ✅ FIXED
+
+**Issue 2: Field Mismatch (500 Error)**
+- **Problem**: API returned 500 error: "Unknown argument `manufacturer`"
+- **Root Cause**: Frontend sent camelCase fields including `manufacturer`, but database schema has snake_case fields and cameras table has no `manufacturer` column (only `model`)
+- **Fix Applied**:
+  1. [cameras.ts](video-production-manager/api/src/routes/cameras.ts) - Added `toSnakeCase` conversion for create/update
+  2. Filtered out `manufacturer` field (doesn't exist in schema)  
+  3. Applied same fix to [ccus.ts](video-production-manager/api/src/routes/ccus.ts) for consistency
+- **Status**: ✅ FIXED
+
+**Issue 3: Foreign Key Constraint (500 Error)**
+- **Problem**: API returned 500 error: "Foreign key constraint violated: `cameras_ccu_id_fkey`"
+- **Root Cause**: Empty string `''` for ccuId violated foreign key constraint (must be UUID or null)
+- **Fix Applied**: Convert empty string ccuId to `null` before database insert/update
+- **Status**: ✅ FIXED
+
+**Issue 4: Browser B Required Refresh to See Created Camera**
+- **Problem**: Created camera on Browser A successfully saved, but Browser B required refresh to see it
+- **Root Cause**: API was broadcasting `camera:created` WebSocket events, but frontend had no listeners for entity events
+- **Fix Applied**: Added WebSocket event listeners to [useProductionSync.ts](video-production-manager/src/hooks/useProductionSync.ts) for all entity types:
+  - camera:created, camera:updated, camera:deleted
+  - ccu:created, ccu:updated, ccu:deleted
+  - source:created, source:updated, source:deleted
+  - send:created, send:updated, send:deleted
+- **Pattern**: Same approach already used for checklist-item events
+- **Status**: ✅ FIXED
+
+**Issue 5: Browser B Required Refresh for Camera Deletion**
+- **Problem**: Deleted camera on Browser A successfully, but Browser B required refresh to see the deletion
+- **Root Cause**: DELETE routes were missing WebSocket broadcast calls. Sources and sends had generic broadcasts, cameras and CCUs had none
+- **Fix Applied**: Added `broadcastEntityDeleted()` calls to all entity DELETE routes:
+  - [cameras.ts](video-production-manager/api/src/routes/cameras.ts#L219-225)
+  - [ccus.ts](video-production-manager/api/src/routes/ccus.ts)
+  - [sources.ts](video-production-manager/api/src/routes/sources.ts) (replaced generic broadcast)
+  - [sends.ts](video-production-manager/api/src/routes/sends.ts) (replaced generic broadcast)
+- **Pattern**: Each DELETE route now broadcasts `{entityType}:deleted` event after recording event
+- **Status**: ✅ FIXED
+
+**Issue 6: Cannot Create New Camera/CCU After Deletion**
+- **Problem**: After deleting a camera (e.g., "CAM 1"), attempting to create a new camera with the same ID fails with "Unique constraint failed"
+- **Root Cause**: Soft deletes set `is_deleted=true` but keep the ID in the database. When user tries to reuse the same ID, database rejects it due to unique constraint
+- **Fix Applied**:
+  1. API routes now check for existing ID (including soft-deleted) before creating - [cameras.ts](video-production-manager/api/src/routes/cameras.ts), [ccus.ts](video-production-manager/api/src/routes/ccus.ts)
+  2. Returns 409 error with clear message: "A camera with this ID already exists. Please choose a different ID."
+  3. Frontend now catches 409 errors and displays helpful message with suggested next available ID
+  4. [Cameras.tsx](video-production-manager/src/pages/Cameras.tsx) and [CCUs.tsx](video-production-manager/src/pages/CCUs.tsx) improved error handling
+- **Pattern**: Always validate ID uniqueness before CREATE, even for soft-deleted entities
+- **Status**: ✅ FIXED - Ready to retest
 
 **Browser A Actions:**
 1. Navigate to **Cameras** page
@@ -99,11 +176,13 @@ Choose one of these methods:
 **Browser B - What You Should See:**
 - ✨ New camera appears **instantly** after step 5
 - ✏️ Name change appears **instantly** after step 7
+- ✅ Camera persists after refresh (saved to database)
 
 **Pass Criteria:**
 - ✅ Camera creation syncs immediately
 - ✅ Camera updates sync immediately
 - ✅ No manual refresh needed
+- ✅ Camera persists in database (survives page refresh)
 
 ---
 
@@ -148,6 +227,11 @@ Choose one of these methods:
 ---
 
 ### Test 6: CCU Sync 🎛️
+
+**ℹ️ PREEMPTIVE FIX (2026-02-10):**
+- While fixing Test 3 (cameras), also fixed CCU CRUD operations
+- Added CCU API methods and proper async/await handling
+- Should work correctly from the start
 
 **Browser A Actions:**
 1. Navigate to **CCUs** page

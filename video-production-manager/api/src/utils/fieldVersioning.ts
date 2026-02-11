@@ -61,6 +61,71 @@ export const VERSIONED_FIELDS = [
 ] as const;
 
 /**
+ * Camera field names that support versioning
+ * Note: 'id' is excluded - it's a user-defined label, UUID is the real identifier
+ * Changing the ID should not cause conflicts with other field edits
+ */
+export const CAMERA_VERSIONED_FIELDS = [
+  'name',
+  'model',
+  'format_mode',
+  'lens_type',
+  'max_zoom',
+  'shooting_distance',
+  'calculated_zoom',
+  'has_tripod',
+  'has_short_tripod',
+  'has_dolly',
+  'has_jib',
+  'ccu_uuid',
+  'smpte_cable_length',
+  'note',
+] as const;
+
+/**
+ * CCU field names that support versioning
+ * Note: 'id' is excluded - it's a user-defined label, UUID is the real identifier
+ */
+export const CCU_VERSIONED_FIELDS = [
+  'name',
+  'manufacturer',
+  'model',
+  'format_mode',
+  'fiber_input',
+  'reference_input',
+  'outputs',
+  'note',
+] as const;
+
+/**
+ * Source field names that support versioning
+ * Note: 'id' is excluded for same reason as cameras/CCUs
+ */
+export const SOURCE_VERSIONED_FIELDS = [
+  'name',
+  'category',
+  'type',
+  'h_res',
+  'v_res',
+  'rate',
+  'note',
+] as const;
+
+/**
+ * Send field names that support versioning
+ * Note: 'id' is excluded for same reason as cameras/CCUs
+ */
+export const SEND_VERSIONED_FIELDS = [
+  'name',
+  'category',
+  'type',
+  'h_res',
+  'v_res',
+  'rate',
+  'note',
+] as const;
+
+/**
  * Initialize field versions for a new production
  * Sets all fields to version 1 with current timestamp
  */
@@ -69,6 +134,24 @@ export function initFieldVersions(): FieldVersions {
   const fieldVersions: FieldVersions = {};
   
   for (const field of VERSIONED_FIELDS) {
+    fieldVersions[field] = {
+      version: 1,
+      updated_at: now,
+    };
+  }
+  
+  return fieldVersions;
+}
+
+/**
+ * Generic version: Initialize field versions for any entity type
+ * @param versionedFields - Array of field names to version
+ */
+export function initFieldVersionsForEntity(versionedFields: readonly string[]): FieldVersions {
+  const now = new Date().toISOString();
+  const fieldVersions: FieldVersions = {};
+  
+  for (const field of versionedFields) {
     fieldVersions[field] = {
       version: 1,
       updated_at: now,
@@ -141,6 +224,44 @@ export function compareFieldVersions(
 }
 
 /**
+ * Generic version: Compare field versions for any entity type
+ * @param versionedFields - Array of field names that should be versioned
+ */
+export function compareFieldVersionsForEntity(
+  clientFieldVersions: FieldVersions,
+  serverFieldVersions: FieldVersions,
+  clientData: Record<string, any>,
+  serverData: Record<string, any>,
+  versionedFields: readonly string[]
+): FieldConflict[] {
+  const conflicts: FieldConflict[] = [];
+  
+  // Check each field that the client is trying to update
+  for (const fieldName in clientData) {
+    // Skip if not a versioned field
+    if (!versionedFields.includes(fieldName)) {
+      continue;
+    }
+    
+    const clientVersion = clientFieldVersions[fieldName]?.version || 0;
+    const serverVersion = serverFieldVersions[fieldName]?.version || 0;
+    
+    // Conflict: client has stale version (server was updated by someone else)
+    if (clientVersion < serverVersion) {
+      conflicts.push({
+        fieldName,
+        clientVersion,
+        serverVersion,
+        clientValue: clientData[fieldName],
+        serverValue: serverData[fieldName],
+      });
+    }
+  }
+  
+  return conflicts;
+}
+
+/**
  * Merge non-conflicting field updates
  * 
  * Allows concurrent editing of different fields by:
@@ -179,6 +300,58 @@ export function mergeNonConflictingFields(
     
     // Skip non-versioned fields (apply directly)
     if (!VERSIONED_FIELDS.includes(fieldName as any)) {
+      mergedData[fieldName] = clientData[fieldName];
+      continue;
+    }
+    
+    // Apply the update and increment version
+    mergedData[fieldName] = clientData[fieldName];
+    mergedVersions[fieldName] = {
+      version: (serverFieldVersions[fieldName]?.version || 0) + 1,
+      updated_at: new Date().toISOString(),
+    };
+  }
+  
+  return {
+    hasConflicts: conflicts.length > 0,
+    conflicts,
+    mergedData,
+    mergedVersions,
+  };
+}
+
+/**
+ * Generic version: Merge non-conflicting field updates for any entity type
+ * @param versionedFields - Array of field names that should be versioned
+ */
+export function mergeNonConflictingFieldsForEntity(
+  clientFieldVersions: FieldVersions,
+  serverFieldVersions: FieldVersions,
+  clientData: Record<string, any>,
+  serverData: Record<string, any>,
+  versionedFields: readonly string[]
+): MergeResult {
+  const conflicts = compareFieldVersionsForEntity(
+    clientFieldVersions,
+    serverFieldVersions,
+    clientData,
+    serverData,
+    versionedFields
+  );
+  
+  const conflictFields = new Set(conflicts.map(c => c.fieldName));
+  const mergedData: Record<string, any> = { ...serverData };
+  const mergedVersions: FieldVersions = { ...serverFieldVersions };
+  
+  // Apply non-conflicting updates
+  for (const fieldName in clientData) {
+    // Skip conflicting fields
+    if (conflictFields.has(fieldName)) {
+      continue;
+    }
+    
+    // Skip non-versioned fields (apply directly)
+    if (!versionedFields.includes(fieldName)) {
       mergedData[fieldName] = clientData[fieldName];
       continue;
     }
