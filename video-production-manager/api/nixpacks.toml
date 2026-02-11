@@ -11,4 +11,4 @@ cmds = [
 cmds = ['npm run build']
 
 [start]
-cmd = 'npx prisma migrate deploy && npm run seed:all && npm run start'
+cmd = 'npx prisma migrate deploy && npm run seed:all:prod && npm run start'
