@@ -74,6 +74,7 @@ model cable_snakes {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -94,6 +95,7 @@ model cam_switchers {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -115,6 +117,7 @@ model vision_switchers {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -136,6 +139,7 @@ model led_screens {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -155,6 +159,7 @@ model media_servers {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -176,6 +181,7 @@ model projection_screens {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -195,6 +201,7 @@ model records {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -215,6 +222,7 @@ model routers {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -234,6 +242,7 @@ model streams {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
@@ -485,9 +494,10 @@ model sends {
   output_connector String?
   created_at       DateTime    @default(now())
   updated_at       DateTime
+  version          Int         @default(1)
+  field_versions   Json?
   synced_at        DateTime?
   last_modified_by String?
-  version          Int         @default(1)
   is_deleted       Boolean     @default(false)
   productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
@@ -559,9 +569,10 @@ model sources {
   blanking               String?
   created_at             DateTime         @default(now())
   updated_at             DateTime
+  version                Int              @default(1)
+  field_versions         Json?
   synced_at              DateTime?
   last_modified_by       String?
-  version                Int              @default(1)
   is_deleted             Boolean          @default(false)
   connections            connections[]
   source_outputs         source_outputs[]
