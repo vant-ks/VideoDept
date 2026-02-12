@@ -6,6 +6,14 @@ import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
 import { validateProductionExists } from '../utils/validation-helpers';
+import { 
+  CAMERA_VERSIONED_FIELDS,
+  initFieldVersionsForEntity,
+  compareFieldVersionsForEntity,
+  mergeNonConflictingFieldsForEntity,
+  isValidFieldVersions,
+  FieldVersions
+} from '../utils/fieldVersioning';
 
 const router = Router();
 
@@ -103,7 +111,7 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT update camera
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, version: clientVersion, lastModifiedBy, ...updateData } = req.body;
+    const { userId, userName, version: clientVersion, lastModifiedBy, fieldVersions: clientFieldVersions, ...updateData } = req.body;
     
     // Fetch current camera state
     const currentCamera = await prisma.cameras.findUnique({
@@ -114,24 +122,78 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Camera not found' });
     }
 
-    // Check for conflicts if client provides version
-    if (clientVersion !== undefined && currentCamera.version !== clientVersion) {
-      return res.status(409).json({
-        error: 'Conflict detected',
-        message: 'This camera was modified by another user',
-        currentVersion: currentCamera.version,
-        clientVersion
-      });
+    // Parse server field versions
+    const serverFieldVersions: FieldVersions = 
+      (currentCamera.field_versions && isValidFieldVersions(currentCamera.field_versions))
+        ? currentCamera.field_versions as FieldVersions
+        : initFieldVersionsForEntity(CAMERA_VERSIONED_FIELDS);
+
+    // If client provides field versions, use field-level conflict detection
+    let finalUpdateData = updateData;
+    let finalFieldVersions = serverFieldVersions;
+
+    if (clientFieldVersions && isValidFieldVersions(clientFieldVersions)) {
+      // Check for field-level conflicts
+      const conflicts = compareFieldVersionsForEntity(
+        clientFieldVersions,
+        serverFieldVersions,
+        updateData,
+        currentCamera,
+        CAMERA_VERSIONED_FIELDS
+      );
+
+      if (conflicts.length > 0) {
+        // Try to merge non-conflicting fields
+        const mergeResult = mergeNonConflictingFieldsForEntity(
+          clientFieldVersions,
+          serverFieldVersions,
+          updateData,
+          currentCamera,
+          CAMERA_VERSIONED_FIELDS
+        );
+
+        return res.status(409).json({
+          error: 'Conflict detected',
+          message: 'Some fields were modified by another user',
+          conflicts: mergeResult.conflicts,
+          mergedData: toCamelCase(mergeResult.mergedData),
+          mergedFieldVersions: mergeResult.mergedVersions,
+          serverData: toCamelCase(currentCamera),
+          serverFieldVersions
+        });
+      }
+
+      // No conflicts - update field versions for changed fields
+      finalFieldVersions = { ...serverFieldVersions };
+      for (const fieldName in updateData) {
+        if (CAMERA_VERSIONED_FIELDS.includes(fieldName as any)) {
+          finalFieldVersions[fieldName] = {
+            version: (serverFieldVersions[fieldName]?.version || 0) + 1,
+            updated_at: new Date().toISOString()
+          };
+        }
+      }
+    } else {
+      // Fallback to entity-level version check
+      if (clientVersion !== undefined && currentCamera.version !== clientVersion) {
+        return res.status(409).json({
+          error: 'Conflict detected',
+          message: 'This camera was modified by another user',
+          currentVersion: currentCamera.version,
+          clientVersion
+        });
+      }
     }
 
     // Calculate changes
-    const changes = calculateDiff(currentCamera, updateData);
+    const changes = calculateDiff(currentCamera, finalUpdateData);
 
     // Update camera with version increment and metadata
     const camera = await prisma.cameras.update({
       where: { id: req.params.id },
       data: {
-        ...updateData,
+        ...finalUpdateData,
+        field_versions: finalFieldVersions,
         updated_at: new Date(),
         ...prepareVersionedUpdate(lastModifiedBy || userId)
       }

@@ -61,6 +61,66 @@ export const VERSIONED_FIELDS = [
 ] as const;
 
 /**
+ * Camera field names that support versioning
+ * NOTE: 'id' is deliberately excluded - it's a user-facing label, not real data
+ */
+export const CAMERA_VERSIONED_FIELDS = [
+  'name',
+  'model',
+  'format_mode',
+  'lens_type',
+  'max_zoom',
+  'shooting_distance',
+  'calculated_zoom',
+  'has_tripod',
+  'has_short_tripod',
+  'has_dolly',
+  'has_jib',
+  'ccu_id',
+  'smpte_cable_length',
+  'note',
+] as const;
+
+/**
+ * CCU field names that support versioning
+ * NOTE: 'id' is deliberately excluded - it's a user-facing label, not real data
+ */
+export const CCU_VERSIONED_FIELDS = [
+  'name',
+  'manufacturer',
+  'model',
+  'format_mode',
+  'fiber_input',
+  'reference_input',
+  'outputs',
+  'note',
+] as const;
+
+/**
+ * Source field names that support versioning
+ * NOTE: 'id' is deliberately excluded - it's a user-facing label, not real data
+ */
+export const SOURCE_VERSIONED_FIELDS = [
+  'name',
+  'type',
+  'resolution',
+  'frame_rate',
+  'note',
+] as const;
+
+/**
+ * Send field names that support versioning
+ * NOTE: 'id' is deliberately excluded - it's a user-facing label, not real data
+ */
+export const SEND_VERSIONED_FIELDS = [
+  'name',
+  'type',
+  'resolution',
+  'frame_rate',
+  'note',
+] as const;
+
+/**
  * Initialize field versions for a new production
  * Sets all fields to version 1 with current timestamp
  */
@@ -218,4 +278,108 @@ export function isValidFieldVersions(fieldVersions: any): fieldVersions is Field
   }
   
   return true;
+}
+
+/**
+ * Initialize field versions for an entity with custom field list
+ * Sets all fields to version 1 with current timestamp
+ */
+export function initFieldVersionsForEntity(
+  fields: readonly string[]
+): FieldVersions {
+  const now = new Date().toISOString();
+  const fieldVersions: FieldVersions = {};
+  
+  for (const field of fields) {
+    fieldVersions[field] = {
+      version: 1,
+      updated_at: now,
+    };
+  }
+  
+  return fieldVersions;
+}
+
+/**
+ * Compare field versions for an entity with custom field list
+ * Returns conflicts where client's version doesn't match server's
+ */
+export function compareFieldVersionsForEntity(
+  clientFieldVersions: FieldVersions,
+  serverFieldVersions: FieldVersions,
+  clientData: Record<string, any>,
+  serverData: Record<string, any>,
+  versionedFields: readonly string[]
+): FieldConflict[] {
+  const conflicts: FieldConflict[] = [];
+  
+  for (const fieldName of versionedFields) {
+    const clientVersion = clientFieldVersions[fieldName]?.version || 0;
+    const serverVersion = serverFieldVersions[fieldName]?.version || 0;
+    
+    // If versions differ, we have a conflict
+    if (clientVersion !== serverVersion) {
+      conflicts.push({
+        fieldName,
+        clientVersion,
+        serverVersion,
+        clientValue: clientData[fieldName],
+        serverValue: serverData[fieldName],
+      });
+    }
+  }
+  
+  return conflicts;
+}
+
+/**
+ * Merge non-conflicting fields for an entity with custom field list
+ * Applies client changes for fields that don't conflict with server changes
+ */
+export function mergeNonConflictingFieldsForEntity(
+  clientFieldVersions: FieldVersions,
+  serverFieldVersions: FieldVersions,
+  clientData: Record<string, any>,
+  serverData: Record<string, any>,
+  versionedFields: readonly string[]
+): MergeResult {
+  const conflicts = compareFieldVersionsForEntity(
+    clientFieldVersions,
+    serverFieldVersions,
+    clientData,
+    serverData,
+    versionedFields
+  );
+  
+  const conflictFields = new Set(conflicts.map(c => c.fieldName));
+  const mergedData: Record<string, any> = { ...serverData };
+  const mergedVersions: FieldVersions = { ...serverFieldVersions };
+  
+  // Apply non-conflicting updates
+  for (const fieldName in clientData) {
+    // Skip conflicting fields
+    if (conflictFields.has(fieldName)) {
+      continue;
+    }
+    
+    // Skip non-versioned fields (apply directly from client)
+    if (!versionedFields.includes(fieldName)) {
+      mergedData[fieldName] = clientData[fieldName];
+      continue;
+    }
+    
+    // Apply the update and increment version
+    mergedData[fieldName] = clientData[fieldName];
+    mergedVersions[fieldName] = {
+      version: (serverFieldVersions[fieldName]?.version || 0) + 1,
+      updated_at: new Date().toISOString(),
+    };
+  }
+  
+  return {
+    hasConflicts: conflicts.length > 0,
+    conflicts,
+    mergedData,
+    mergedVersions,
+  };
 }
