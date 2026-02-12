@@ -1,7 +1,7 @@
 # Video Production Manager - Project Rules
 
 **Project:** VideoDept Video Production Manager  
-**Last Updated:** February 4, 2026  
+**Last Updated:** February 12, 2026  
 **Maintained By:** Kevin @ GJS Media
 
 This document contains **project-specific** rules and conventions for this codebase. For universal AI agent protocols, see the symlinked `AI_AGENT_PROTOCOL.md` or `~/Dropbox (Personal)/Development/_Utilities/AI_AGENT_PROTOCOL.md`.
@@ -50,6 +50,18 @@ This document contains **project-specific** rules and conventions for this codeb
    - Covers: Knowledge capture, pattern evolution, preventing repeat issues
    - Pattern: Audit → Document → Update Rules → Verify Implementation
 
+9. **ALWAYS USE PRE-MIGRATION SAFETY CHECKS** → Run `npm run db:migrate:check` before EVERY migration to prevent VS Code crashes.
+   - See: [Database Migration Safety](#database-migration-safety---critical-patterns)
+   - Covers: Zombie process detection, memory checks, schema drift detection
+   - Pattern: Safety Check → Migration → Verify Cleanup
+   - **CRITICAL**: Never skip this step, even for "simple" migrations
+
+10. **SCHEMA DRIFT = DATABASE RESET IN DEV** → When Prisma detects drift from schema changes/reverts, use `npm run db:reset` to realign.
+   - See: [Schema Drift Resolution](#schema-drift-resolution---critical-patterns)
+   - Covers: Post-rollback drift, UUID experiments, schema edits without migrations
+   - Pattern: Detect Drift → Check Git History → Reset Database → Create Migration
+   - **Safe in Dev**: No production data risk, fresh migrations guaranteed
+
 ### Quick Diagnostic Checklist
 
 **When you see an error:**
@@ -68,6 +80,9 @@ This document contains **project-specific** rules and conventions for this codeb
 - 🔥 "Foreign key constraint violated" → Production not saved to API database, check production creation sync
 - 🔥 "Argument updated_at is missing" → Check schema - field might not exist (e.g., source_outputs)
 - 🔥 "Unknown argument outputs" → Check Prisma relation name (might be source_outputs not outputs)
+- 🔥 "VS Code crash (exit 137)" → Zombie Prisma processes, run pre-migration check (#9)
+- 🔥 "Prisma needs reset/drift detected" → Schema changed without migration, check git history then run db:reset (#10)
+- 🔥 "Migration hangs >30s" → Kill prisma processes, verify no zombie schema-engines
 
 **Before writing ANY code that touches data:**
 1. Is this a new entity? → Follow schema → migration → seed → types → routes order
@@ -76,6 +91,10 @@ This document contains **project-specific** rules and conventions for this codeb
 4. Does this set timestamps? → Only on server, never client
 5. Does this load production? → Fetch ALL entities in parallel
 6. Does this delete/update entity? → API call + cache update + WebSocket broadcast
+7. **Is this a database migration?** → ALWAYS run `npm run db:migrate:check` first (#9)
+
+**Before committing:**
+8. **Check for zombie Prisma processes:** `ps aux | grep -E '(prisma|schema-engine)' | grep -v grep` (expected: no results)
 
 ### Self-Audit Commands
 
@@ -2359,7 +2378,194 @@ New patterns should include:
 
 ---
 
-## 🔄 When to Update This Document
+## � Database Migration Safety - Critical Patterns
+
+**PILLAR #9: ALWAYS USE PRE-MIGRATION SAFETY CHECKS**
+
+### The Problem
+
+VS Code crashes (exit code 137 - SIGKILL) caused by:
+- Zombie Prisma processes consuming CPU/memory
+- Multiple concurrent migrations
+- Low available memory (<500MB)
+- Long-running schema-engine processes
+
+### The Solution
+
+**MANDATORY before every migration:**
+
+```bash
+cd video-production-manager/api
+npm run db:migrate:check  # NEVER skip this!
+```
+
+### What the Safety Check Does
+
+1. ✅ Detects and kills zombie `prisma` and `schema-engine` processes
+2. ✅ Validates Prisma schema syntax
+3. ✅ Tests database connection
+4. ✅ Checks available system memory (requires 500MB+)
+5. ✅ Warns about concurrent heavy processes
+6. ✅ Verifies migrations directory exists
+
+### When Migration Hangs
+
+If migration doesn't complete in 30 seconds:
+
+```bash
+# Kill stuck migration
+pkill -9 -f 'prisma migrate'
+pkill -9 -f 'schema-engine'
+
+# Verify cleanup
+ps aux | grep -E '(prisma|schema-engine)' | grep -v grep
+# Expected: No results
+
+# Check status
+npx prisma migrate status
+
+# Retry with safety check
+npm run db:migrate:check
+npx prisma migrate dev --name your_migration_name
+```
+
+### Never Do This
+
+❌ Run Prisma Studio from terminal during migrations  
+❌ Run multiple migrations concurrently  
+❌ Skip the safety check ("it's just a small change")  
+❌ Ignore low memory warnings  
+❌ Edit schema while migration is running
+
+### Self-Audit Command
+
+```bash
+# Before ANY migration
+npm run db:migrate:check
+
+# After migration - verify cleanup
+ps aux | grep -E '(prisma|schema-engine)' | grep -v grep
+# Must return: (nothing - grep exit code 1)
+```
+
+### References
+
+- Full details: `../../CRASH_PREVENTION_SUMMARY.md`
+- Script source: `../api/scripts/pre-migration-check.sh`
+- Quick reference: `../../MIGRATION_SAFETY_QUICK_REF.md`
+
+---
+
+## 🔄 Schema Drift Resolution - Critical Patterns
+
+**PILLAR #10: SCHEMA DRIFT = DATABASE RESET IN DEV**
+
+### The Problem
+
+**Schema Drift** occurs when:
+1. Schema.prisma is edited manually without creating a migration
+2. Git reverts schema changes but database already has those changes
+3. UUID experiments or other structural changes are rolled back in code but not in database
+4. Migration files are modified after being applied
+
+**Symptoms:**
+- Prisma says "Need to reset schema"
+- "Drift detected: database not in sync with migrations"
+- Migration lists changes that seem backwards (adding columns you removed)
+- Routes fail with "column does not exist" but it's in the schema
+
+### The Solution - Investigation First
+
+**Step 1: Check Git History**
+```bash
+git log --oneline --all | grep -i "uuid\|rollback\|revert"
+git show <suspect-commit> --stat
+```
+
+**Step 2: Compare Schema vs Database**
+``` bash
+npx prisma db pull --print | grep -A20 "model <table_name>"
+# Compare with your schema.prisma
+```
+
+**Step 3: Verify Drift**
+```bash
+npx prisma migrate status
+# Look for "drift detected" message
+```
+
+### The Solution - Database Reset in Dev
+
+**Safe in development (local database only):**
+
+```bash
+cd video-production-manager/api
+
+# OPTION 1: Full reset with seed data (recommended)
+npm run db:reset
+# Result: Clean schema, migrations reapplied, settings seeded
+
+# OPTION 2: Just schema (no seed data)
+npx prisma migrate reset --force
+```
+
+**Creates:**
+- Clean database matching current schema.prisma
+- Fresh migration history
+- No drift
+- Ready for new migrations
+
+**Then create your migration:**
+```bash
+npm run db:migrate:check
+npx prisma migrate dev --name descriptive_migration_name
+```
+
+### When NOT to Use Database Reset
+
+❌ **Production/Railway:** NEVER reset production database  
+❌ **Shared dev database:** Coordinate with team  
+❌ **If you have critical test data:** Export first with `pg_dump`
+
+### The UUID Rollback Case Study
+
+**Scenario:** Code changed to use uuid primary keys, then reverted, but database still had uuid as PK.
+
+**Error:** "Need to reset schema - drift detected"
+
+**Investigation:**
+```bash
+git show 2e0e3b7  # Found the revert commit
+npx prisma db pull --print | grep "model sources"  # Saw uuid was still PK
+```
+
+**Resolution:**
+```bash
+npm run db:reset  # Clean slate
+# Then committed new migration with actual changes
+```
+
+### Self-Audit Command
+
+```bash
+# Check for schema/database drift
+npx prisma migrate status
+# Expected: "Database schema is up to date!"
+# If drift detected: Investigate git history then reset
+
+# After reset - verify
+npx prisma migrate status
+# Should show: "Database schema is up to date!"
+```
+
+### References
+
+- Detailed case study: `../../UUID_MIGRATION_RECOVERY.md`
+- Reset guide: `../DATABASE_RESET_GUIDE.md`
+
+---
+
+## �🔄 When to Update This Document
 
 - New project-specific conventions are established
 - Architecture decisions are made
