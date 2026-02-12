@@ -29,6 +29,7 @@ model cameras {
   created_at         DateTime    @default(now())
   updated_at         DateTime
   version            Int         @default(1)
+  field_versions     Json?
   is_deleted         Boolean     @default(false)
   last_modified_by   String?
   synced_at          DateTime?
@@ -53,6 +54,7 @@ model ccus {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
+  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?

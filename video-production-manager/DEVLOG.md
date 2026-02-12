@@ -1,5 +1,119 @@
 # Development Log - Video Production Manager
 
+## February 12, 2026
+
+### VS Code Crash - Zombie Process Migration Failure ❌
+- **Context**: VS Code crashed (SIGKILL exit code 137) during database migration attempt
+  - Pattern: Recurring crash issue documented in CRASH_AUDIT_2026-01-30.md
+  - Exit code 137 = SIGKILL = forced termination due to memory pressure
+  - **Root cause**: 6+ zombie Prisma processes from previous sessions consuming resources
+
+- **Investigation Process** (Protocol-Driven):
+  1. Reviewed AI_AGENT_PROTOCOL.md crash prevention guidelines
+  2. Reviewed CRASH_AUDIT_2026-01-30.md and DB_DEVELOPMENT_LESSONS.md
+  3. Checked running processes: `ps aux | grep -E '(prisma|tsx|vite|node)'`
+  4. Discovered critical evidence:
+     - PID 26833: schema-engine running since **Monday 7PM** (40+ hours!) consuming **103.7% CPU**
+     - PID 48424: Prisma Studio running from terminal (**protocol violation**)
+     - PID 50257, 40782, 33997, 32601, 58205: Five **hung migration processes**
+     - Total: 6+ zombie processes + active dev servers
+
+- **Root Cause Analysis**:
+  - **Primary**: No pre-migration cleanup - zombie processes accumulated over multiple sessions
+  - **Secondary**: Prisma Studio running from terminal (explicitly forbidden by existing protocol)
+  - **Tertiary**: Multiple concurrent migration attempts (each hung, never terminated)
+  - **Result**: New migration spawned while 6 others hung → memory exhaustion → SIGKILL
+  
+- **Protocol Violation Assessment**:
+  - Existing documentation **was available** in 3 files:
+    - [CRASH_AUDIT_2026-01-30.md](../docs/CRASH_AUDIT_2026-01-30.md#L56): "Never run Prisma Studio from terminal"
+    - [DB_DEVELOPMENT_LESSONS.md](../docs/DB_DEVELOPMENT_LESSONS.md#L142): "Check memory before operations"
+    - [AI_AGENT_PROTOCOL.md](../_Utilities/AI_AGENT_PROTOCOL.md#L454): "Sequential operations only"
+  - **Problem**: Documentation alone insufficient - protocols not being executed as checklists
+  - **Solution**: Automated enforcement required
+
+- **Solutions Implemented**:
+  
+  1. **Immediate Remediation**:
+     - Killed all zombie processes: `pkill -9 -f 'prisma migrate|prisma studio|schema-engine'`
+     - Verified cleanup: `ps aux | grep -E '(prisma|schema-engine)' | grep -v grep` → 0 processes
+  
+  2. **Created Pre-Migration Safety Script**:
+     - File: [api/scripts/pre-migration-check.sh](api/scripts/pre-migration-check.sh)
+     - Automated 6-step pre-flight checklist:
+       1. ✅ Detect and terminate zombie Prisma processes
+       2. ✅ Validate Prisma schema
+       3. ✅ Test database connection
+       4. ✅ Check available system memory (requires 500MB+)
+       5. ✅ Warn about concurrent heavy processes
+       6. ✅ Verify migrations directory exists
+     - **Usage**: `./scripts/pre-migration-check.sh && npx prisma migrate dev --name migration_name`
+     - Made executable: `chmod +x`
+  
+  3. **Enhanced AI_AGENT_PROTOCOL.md**:
+     - Added comprehensive "Database Migration Safety Protocol" section
+     - **Pre-Migration Mandatory Checklist** with explicit commands
+     - **Migration Execution Rules** (❌ NEVER / ✅ ALWAYS lists)
+     - **Common Migration Crash Scenarios** with prevention/recovery steps
+     - **Post-Migration Verification** procedures
+     - Integration point: After "Process Management" section (line ~480)
+  
+  4. **Updated DB_DEVELOPMENT_LESSONS.md**:
+     - Added "CRITICAL: February 12, 2026 - Zombie Process Migration Crash" section
+     - Documented all 7 zombie processes with PIDs and start times
+     - Listed specific protocol violations with file references
+     - Explained why protocols weren't followed (lack of automation)
+     - Detailed new mandatory protocol for all migrations
+     - Added testing verification commands
+  
+  5. **New Mandatory Workflow**:
+     ```bash
+     # BEFORE every migration
+     ./scripts/pre-migration-check.sh
+     
+     # DURING migration
+     # Monitor for completion, no other heavy operations
+     
+     # AFTER migration
+     ps aux | grep -E '(prisma|schema-engine)' | grep -v grep
+     # Must return 0 processes
+     ```
+
+- **Key Lessons**:
+  - **Documentation ≠ Execution**: Even with detailed protocols, manual checklists get skipped
+  - **Automation Required**: Crash-prone operations need automated pre-flight checks
+  - **Zombie Detection**: Processes can hang for days silently consuming resources
+  - **Exit Code 137**: Always means SIGKILL from memory pressure - check for resource hogs first
+  - **Protocol Consolidation**: Migration rules now centralized in AI_AGENT_PROTOCOL with mandatory script
+
+- **Files Modified**:
+  - Created: [api/scripts/pre-migration-check.sh](api/scripts/pre-migration-check.sh) (new automated safety check)
+  - Updated: [_Utilities/AI_AGENT_PROTOCOL.md](../_Utilities/AI_AGENT_PROTOCOL.md) (new Database Migration Safety Protocol section)
+  - Updated: [docs/DB_DEVELOPMENT_LESSONS.md](../docs/DB_DEVELOPMENT_LESSONS.md) (February 12 incident documentation)
+  - Updated: [DEVLOG.md](DEVLOG.md) (this entry)
+
+- **Prevention Going Forward**:
+  - ✅ Run `./scripts/pre-migration-check.sh` before EVERY migration (mandatory)
+  - ✅ AI agents must execute automated checks, not just read protocols
+  - ✅ Never run Prisma Studio from integrated terminal (use VS Code extension)
+  - ✅ Always verify 0 zombie processes after any Prisma operation
+  - ✅ Treat exit code 137 as "check for zombie processes" signal
+
+- **System Status**:
+  - ✅ All zombie processes terminated
+  - ✅ Pre-migration safety script created and tested
+  - ✅ Protocols updated with mandatory automation
+  - ✅ Dev servers running cleanly (API: 3010, Frontend: 3011)
+  - ⚠️  Database migration that triggered crash NOT completed - needs retry with safety script
+
+- **Next Steps**:
+  - If migration still needed: Run `./scripts/pre-migration-check.sh` first
+  - Test automated safety script in next migration workflow
+  - Consider adding pre-commit hook to catch hung processes
+  - Monitor for protocol compliance in future sessions
+
+---
+
 ## February 10, 2026
 
 ### Railway Deployment Crash Fix - Seed Process Issue

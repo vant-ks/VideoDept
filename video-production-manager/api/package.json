@@ -19,6 +19,8 @@
     "db:reset:confirm": "echo '⚠️  WARNING: This will delete ALL data in your LOCAL database!' && echo 'Press Ctrl+C to cancel, or wait 3 seconds...' && sleep 3",
     "db:drop": "prisma migrate reset --force --skip-seed",
     "db:migrate": "prisma migrate deploy",
+    "db:migrate:safe": "./scripts/pre-migration-check.sh",
+    "db:migrate:check": "./scripts/pre-migration-check.sh",
     "db:seed:dev": "npm run seed:settings",
     "equipment:export": "tsx prisma/export-equipment-data.ts",
     "equipment:seed": "npm run equipment:export && tsx prisma/seed-equipment.ts",
