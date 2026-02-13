@@ -211,11 +211,16 @@ export default function Cameras() {
       } else {
         // Create new camera via API
         console.log('💾 Creating new camera with id:', finalFormData.id);
+        
+        // Combine manufacturer and model into single model field for database
+        const combinedModel = finalFormData.manufacturer && finalFormData.model
+          ? `${finalFormData.manufacturer} ${finalFormData.model}`
+          : finalFormData.model || '';
+        
         const newCamera = await camerasAPI.createCamera({
           id: finalFormData.id as string,
           name: finalFormData.name as string,
-          manufacturer: finalFormData.manufacturer,
-          model: finalFormData.model,
+          model: combinedModel,
           formatMode: finalFormData.formatMode,
           maxZoom: finalFormData.maxZoom,
           shootingDistance: finalFormData.shootingDistance,
