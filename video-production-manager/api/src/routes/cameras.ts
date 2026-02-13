@@ -72,6 +72,13 @@ router.post('/', async (req: Request, res: Response) => {
     // Convert camelCase to snake_case for database
     const snakeCaseData = toSnakeCase(cameraData);
     
+    // Convert empty strings to null for optional fields
+    Object.keys(snakeCaseData).forEach(key => {
+      if (snakeCaseData[key] === '') {
+        snakeCaseData[key] = null;
+      }
+    });
+    
     const camera = await prisma.cameras.create({
       data: {
         ...snakeCaseData,
@@ -107,7 +114,8 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json(toCamelCase(camera));
   } catch (error: any) {
     console.error('Failed to create camera:', error);
-    res.status(500).json({ error: 'Failed to create camera' });
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
+    res.status(500).json({ error: 'Failed to create camera', details: error.message });
   }
 });
 
