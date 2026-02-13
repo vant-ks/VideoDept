@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Copy, Monitor, Radio, Projector, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, Monitor, Radio, Projector, AlertCircle, X } from 'lucide-react';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -335,13 +335,24 @@ export const Sends: React.FC = () => {
           {/* Filters */}
           <Card className="p-4">
             <div className="flex flex-col md:flex-row gap-4">
-              <input
-                type="text"
-                placeholder="Search sends..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field flex-1"
-              />
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Search sends..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="input-field w-full pr-10"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-av-surface rounded transition-colors text-av-text-muted hover:text-av-text"
+                    title="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               <div className="flex gap-2 flex-wrap">
                 {sendTypes.map(type => (
                   <button
@@ -467,13 +478,24 @@ export const Sends: React.FC = () => {
         <>
           {/* Search */}
           <Card className="p-4">
-            <input
-              type="text"
-              placeholder="Search projection screens..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-field w-full"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search projection screens..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input-field w-full pr-10"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-av-surface rounded transition-colors text-av-text-muted hover:text-av-text"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </Card>
 
           {/* Projection Screens List */}

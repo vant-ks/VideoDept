@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import { Plus, Search, Network, Edit2, Trash2, Copy, Check } from 'lucide-react';
+import { Plus, Search, Network, Edit2, Trash2, Copy, Check, X } from 'lucide-react';
 import { 
   Card, 
   Button, 
@@ -101,8 +101,17 @@ export const IPManagement: React.FC = () => {
                 placeholder="Search by IP or device..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field w-full pl-10"
+                className="input-field w-full pl-10 pr-10"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-av-surface rounded transition-colors text-av-text-muted hover:text-av-text"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">

@@ -283,13 +283,24 @@ export default function Equipment() {
       {/* Search and Category Filter */}
       <Card className="p-4">
         <div className="flex gap-3">
-          <input
-            type="text"
-            placeholder="Search equipment..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-field flex-1"
-          />
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search equipment..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-field w-full pr-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-av-surface rounded transition-colors text-av-text-muted hover:text-av-text"
+                title="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
           <button
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
             className="px-4 py-2 bg-av-surface-light hover:bg-av-surface text-av-text border border-av-border rounded-md transition-colors flex items-center gap-2"

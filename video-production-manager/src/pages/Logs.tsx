@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import LogService, { type LogEntry } from '@/services/logService';
 import { Card } from '@/components/ui';
-import { Clock, Filter, Download, Trash2, ChevronDown, ChevronRight, Search, Eye, EyeOff } from 'lucide-react';
+import { Clock, Filter, Download, Trash2, ChevronDown, ChevronRight, Search, Eye, EyeOff, X } from 'lucide-react';
 import { cn } from '@/utils/helpers';
 
 export default function Logs() {
@@ -186,8 +186,17 @@ export default function Logs() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search logs..."
-              className="w-full pl-10 pr-4 py-2 bg-av-cardBg border border-av-border rounded-lg text-black placeholder:text-av-textSecondary focus:outline-none focus:border-av-borderHover transition-colors"
+              className="w-full pl-10 pr-10 py-2 bg-av-cardBg border border-av-border rounded-lg text-black placeholder:text-av-textSecondary focus:outline-none focus:border-av-borderHover transition-colors"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-av-surface rounded transition-colors text-black/50 hover:text-black"
+                title="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
           
           {/* Debug Toggle - Eye Icon */}

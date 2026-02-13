@@ -375,13 +375,24 @@ export const Checklist: React.FC = () => {
       {/* Search and Category Filter */}
       <Card className="p-4">
         <div className="flex gap-3">
-          <input
-            type="text"
-            placeholder="Search checklist items..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-field flex-1"
-          />
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search checklist items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-field w-full pr-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-av-surface rounded transition-colors text-av-text-muted hover:text-av-text"
+                title="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
           <select
             value={selectedCategory}
             onChange={(e) => {
