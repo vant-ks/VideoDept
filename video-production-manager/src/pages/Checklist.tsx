@@ -24,46 +24,9 @@ const categoryLabels: Record<string, string> = {
 export const Checklist: React.FC = () => {
   // Use new stores
   const { activeProject, saveProject } = useProjectStore();
-  const { collapsedCategories: globalCollapsedCategories, toggleCategoryCollapsed: toggleGlobalCategory } = usePreferencesStore();
   
-  // Use project-specific collapsed categories if project exists, otherwise use global
-  const collapsedCategories = activeProject?.uiPreferences?.collapsedChecklistCategories ?? globalCollapsedCategories;
-  
-  // Initialize collapsed categories for new projects with all categories collapsed by default
-  React.useEffect(() => {
-    if (activeProject && !activeProject.uiPreferences?.collapsedChecklistCategories) {
-      // First time opening checklist for this project - collapse all categories by default
-      const allCategories = Object.keys(categoryLabels);
-      
-      // Update the activeProject reference directly (Zustand handles reactivity)
-      if (!activeProject.uiPreferences) {
-        activeProject.uiPreferences = {};
-      }
-      activeProject.uiPreferences.collapsedChecklistCategories = allCategories;
-      
-      // Save to persist the default collapsed state
-      saveProject();
-    }
-  }, [activeProject?.production?.id]);
-  
-  const toggleCategoryCollapsed = (category: string) => {
-    if (activeProject) {
-      // Update project-specific preferences
-      const currentCollapsed = activeProject.uiPreferences?.collapsedChecklistCategories || [];
-      const newCollapsed = currentCollapsed.includes(category)
-        ? currentCollapsed.filter(c => c !== category)
-        : [...currentCollapsed, category];
-      
-      activeProject.uiPreferences = {
-        ...activeProject.uiPreferences,
-        collapsedChecklistCategories: newCollapsed
-      };
-      saveProject();
-    } else {
-      // Fallback to global preferences
-      toggleGlobalCategory(category);
-    }
-  };
+  // Always use global (localStorage) preferences for UI state - NOT synced across users
+  const { collapsedCategories, toggleCategoryCollapsed } = usePreferencesStore();
   
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();

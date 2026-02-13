@@ -17,7 +17,7 @@ import { DevResetButton } from '@/components/DevResetButton';
 
 export const Projects: React.FC = () => {
   const { listProjects, loadProject, deleteProject, createProject, syncWithAPI } = useProjectStore();
-  const { setLastOpenedProjectId } = usePreferencesStore();
+  const { setLastOpenedProjectId, setActiveTab } = usePreferencesStore();
   const { defaultChecklistItems } = useProductionStore();
   const [shows, setShows] = useState<VideoDepProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -164,6 +164,8 @@ export const Projects: React.FC = () => {
     try {
       await loadProject(id);
       setLastOpenedProjectId(id);
+      // Always navigate to dashboard when opening a show
+      setActiveTab('dashboard');
       // Navigate to main app (handled by App.tsx)
     } catch (error) {
       console.error('Failed to open show:', error);

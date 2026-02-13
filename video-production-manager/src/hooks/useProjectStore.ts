@@ -77,7 +77,7 @@ interface ProjectStoreState {
   
   // Checklist CRUD
   addChecklistItem: (item: Omit<ChecklistItem, 'id' | 'completed'>) => void;
-  updateChecklistItem: (id: string, updates: Partial<ChecklistItem>) => void;
+  updateChecklistItem: (id: string, updates: Partial<ChecklistItem>) => Promise<void>;
   deleteChecklistItem: (id: string) => void;
   toggleChecklistItem: (id: string) => void;
   
@@ -1124,43 +1124,79 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().recordChange('create', 'checklist', newItem.id, newItem);
   },
   
-  updateChecklistItem: (id, updates) => {
-    const { activeProject } = get();
+  updateChecklistItem: async (id, updates) => {
+    const { activeProject, activeProjectId } = get();
     if (!activeProject) return;
     
+    // Find the item to update
+    const originalItem = activeProject.checklist.find(item => item.id === id);
+    if (!originalItem) {
+      console.error('❌ Checklist item not found:', id);
+      return;
+    }
+    
+    // Prepare updated item
+    let updatedItem = { ...originalItem, ...updates };
+    
+    // Handle timestamped entries (convert strings to timestamped format)
+    if (typeof updates.moreInfo === 'string' && (updates.moreInfo as string).trim()) {
+      const newEntry = {
+        id: `entry-${Date.now()}`,
+        text: (updates.moreInfo as string).trim(),
+        timestamp: Date.now(),
+        type: 'info' as const
+      };
+      updatedItem.moreInfo = [...(originalItem.moreInfo || []), newEntry];
+    }
+    
+    if (typeof updates.completionNote === 'string' && (updates.completionNote as string).trim()) {
+      const newEntry = {
+        id: `entry-${Date.now()}`,
+        text: (updates.completionNote as string).trim(),
+        timestamp: Date.now(),
+        type: 'completion' as const
+      };
+      updatedItem.completionNote = [...(originalItem.completionNote || []), newEntry];
+    }
+    
+    // Optimistic update - update local state immediately
     get().updateActiveProject({
-      checklist: activeProject.checklist.map(item => {
-        if (item.id === id) {
-          const updatedItem = { ...item, ...updates };
-          
-          // Handle timestamped entries (convert strings to timestamped format)
-          if (typeof updates.moreInfo === 'string' && (updates.moreInfo as string).trim()) {
-            const newEntry = {
-              id: `entry-${Date.now()}`,
-              text: (updates.moreInfo as string).trim(),
-              timestamp: Date.now(),
-              type: 'info' as const
-            };
-            updatedItem.moreInfo = [...(item.moreInfo || []), newEntry];
-          }
-          
-          if (typeof updates.completionNote === 'string' && (updates.completionNote as string).trim()) {
-            const newEntry = {
-              id: `entry-${Date.now()}`,
-              text: (updates.completionNote as string).trim(),
-              timestamp: Date.now(),
-              type: 'completion' as const
-            };
-            updatedItem.completionNote = [...(item.completionNote || []), newEntry];
-          }
-          
-          return updatedItem;
-        }
-        return item;
-      })
+      checklist: activeProject.checklist.map(item => 
+        item.id === id ? updatedItem : item
+      )
     });
-    get().recordChange('update', 'checklist', id, updates);
-    console.log('Checklist item updated:', id);
+    
+    try {
+      // Save to database via API (this will trigger WebSocket broadcast)
+      await apiClient.updateChecklistItem(id, {
+        ...updates,
+        version: originalItem.version,
+        lastModifiedBy: getCurrentUserId()
+      });
+      
+      // Update IndexedDB cache
+      if (activeProjectId) {
+        const updatedProject = {
+          ...activeProject,
+          checklist: activeProject.checklist.map(item => 
+            item.id === id ? updatedItem : item
+          )
+        };
+        await projectDB.updateProject(activeProjectId, updatedProject);
+      }
+      
+      get().recordChange('update', 'checklist', id, updates);
+      console.log('✅ Checklist item saved to database:', id);
+    } catch (error) {
+      console.error('❌ Failed to update checklist item:', error);
+      // Revert optimistic update on error
+      get().updateActiveProject({
+        checklist: activeProject.checklist.map(item => 
+          item.id === id ? originalItem : item
+        )
+      });
+      throw error;
+    }
   },
   
   deleteChecklistItem: async (id) => {
