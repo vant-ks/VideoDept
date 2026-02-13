@@ -262,9 +262,15 @@ export default function Cameras() {
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this camera?')) {
-      deleteCamera(id);
+      try {
+        await camerasAPI.deleteCamera(id);
+        deleteCamera(id);
+      } catch (error: any) {
+        console.error('❌ Failed to delete camera:', error);
+        alert(error.message || 'Failed to delete camera. Please try again.');
+      }
     }
   };
 
