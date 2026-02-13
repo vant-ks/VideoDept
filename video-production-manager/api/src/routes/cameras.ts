@@ -69,9 +69,12 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
     
+    // Convert camelCase to snake_case for database
+    const snakeCaseData = toSnakeCase(cameraData);
+    
     const camera = await prisma.cameras.create({
       data: {
-        ...cameraData,
+        ...snakeCaseData,
         production_id: productionId,
         last_modified_by: lastModifiedBy || userId || null,
         updated_at: new Date(),
@@ -188,11 +191,14 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Calculate changes
     const changes = calculateDiff(currentCamera, finalUpdateData);
 
+    // Convert final update data to snake_case for database
+    const finalSnakeCaseData = toSnakeCase(finalUpdateData);
+
     // Update camera with version increment and metadata
     const camera = await prisma.cameras.update({
       where: { id: req.params.id },
       data: {
-        ...finalUpdateData,
+        ...finalSnakeCaseData,
         field_versions: finalFieldVersions,
         updated_at: new Date(),
         ...prepareVersionedUpdate(lastModifiedBy || userId)
