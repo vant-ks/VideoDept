@@ -4,7 +4,7 @@ import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
-import { broadcastEntityUpdate, broadcastEntityCreated, prepareVersionedUpdate } from '../utils/sync-helpers';
+import { prepareVersionedUpdate } from '../utils/sync-helpers';
 import { validateProductionExists } from '../utils/validation-helpers';
 import { 
   CAMERA_VERSIONED_FIELDS,
@@ -103,12 +103,11 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     // Broadcast creation via WebSocket
-    broadcastEntityCreated({
-      io,
-      productionId,
+    io.to(`production:${productionId}`).emit('entity:created', {
       entityType: 'camera',
-      entityId: camera.id,
-      data: toCamelCase(camera)
+      entity: toCamelCase(camera),
+      userId: userId || 'system',
+      userName: userName || 'System'
     });
 
     res.status(201).json(toCamelCase(camera));
@@ -227,12 +226,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
 
     // Broadcast update via WebSocket
-    broadcastEntityUpdate({
-      io,
-      productionId: currentCamera.production_id,
+    io.to(`production:${currentCamera.production_id}`).emit('entity:updated', {
       entityType: 'camera',
-      entityId: camera.id,
-      data: toCamelCase(camera)
+      entity: toCamelCase(camera),
+      changes,
+      userId: userId || 'system',
+      userName: userName || 'System'
     });
 
     res.json(toCamelCase(camera));
@@ -273,6 +272,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
       userId: userId || 'system',
       userName: userName || 'System',
       version: currentCamera.version + 1
+    });
+
+    // Broadcast deletion via WebSocket
+    io.to(`production:${currentCamera.production_id}`).emit('entity:deleted', {
+      entityType: 'camera',
+      entityId: req.params.id,
+      userId: userId || 'system',
+      userName: userName || 'System'
     });
 
     res.json({ success: true });
