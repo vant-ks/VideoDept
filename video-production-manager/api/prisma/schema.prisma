@@ -265,10 +265,10 @@ model checklist_items {
   category         String?
   completed_at     BigInt?
   completion_date  DateTime?
-  completion_note  String?
+  completion_note  Json?
   days_before_show Int?
   due_date         DateTime?
-  more_info        String?
+  more_info        Json?
   reference        String?
   productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 

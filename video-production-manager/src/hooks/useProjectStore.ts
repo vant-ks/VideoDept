@@ -1167,9 +1167,18 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     });
     
     try {
+      // Prepare API updates with transformed timestamped entries
+      const apiUpdates: any = { ...updates };
+      if (typeof updates.moreInfo === 'string' && updates.moreInfo.trim()) {
+        apiUpdates.moreInfo = updatedItem.moreInfo;
+      }
+      if (typeof updates.completionNote === 'string' && updates.completionNote.trim()) {
+        apiUpdates.completionNote = updatedItem.completionNote;
+      }
+      
       // Save to database via API (this will trigger WebSocket broadcast)
       await apiClient.updateChecklistItem(id, {
-        ...updates,
+        ...apiUpdates,
         version: originalItem.version,
         lastModifiedBy: getCurrentUserId()
       });
