@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Video, Link as LinkIcon, Copy } from 'lucide-react';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
+import { useCamerasAPI } from '@/hooks/useCamerasAPI';
+import { useProductionEvents } from '@/hooks/useProductionEvents';
 import type { Camera } from '@/types';
 
 export default function Cameras() {
@@ -11,6 +13,63 @@ export default function Cameras() {
   const projectStore = useProjectStore();
   const oldStore = useProductionStore();
   const equipmentLib = useEquipmentLibrary();
+  const camerasAPI = useCamerasAPI();
+  
+  // Local state for cameras
+  const [localCameras, setLocalCameras] = useState<Camera[]>(cameras);
+  
+  // Sync local state when store cameras change (on initial load)
+  useEffect(() => {
+    setLocalCameras(cameras);
+  }, [cameras]);
+  
+  // Get production ID for WebSocket subscription
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
+  
+  // Handle real-time WebSocket updates
+  useProductionEvents({
+    productionId,
+    onEntityCreated: useCallback((event) => {
+      if (event.entityType === 'camera') {
+        console.log('🔔 Camera created by', event.userName, '| Camera:', event.entity.id);
+        setLocalCameras(prev => {
+          // Avoid duplicates using ID
+          if (prev.some(c => c.id === event.entity.id)) {
+            console.log('⚠️ Duplicate detected - skipping add');
+            return prev;
+          }
+          console.log('✅ Adding camera to state via WebSocket');
+          return [...prev, event.entity];
+        });
+        // Also update project store
+        if (activeProject && !cameras.some(c => c.id === event.entity.id)) {
+          addCamera(event.entity);
+        }
+      }
+    }, [activeProject, cameras, addCamera]),
+    onEntityUpdated: useCallback((event) => {
+      if (event.entityType === 'camera') {
+        console.log('🔔 Camera updated by', event.userName);
+        setLocalCameras(prev => prev.map(c => 
+          c.id === event.entity.id ? event.entity : c
+        ));
+        // Also update project store
+        if (activeProject) {
+          updateCamera(event.entity.id, event.entity);
+        }
+      }
+    }, [activeProject, updateCamera]),
+    onEntityDeleted: useCallback((event) => {
+      if (event.entityType === 'camera') {
+        console.log('🔔 Camera deleted by', event.userName);
+        setLocalCameras(prev => prev.filter(c => c.id !== event.entityId));
+        // Also update project store
+        if (activeProject) {
+          deleteCamera(event.entityId);
+        }
+      }
+    }, [activeProject, deleteCamera])
+  });
   
   // Fetch equipment data on mount
   useEffect(() => {
@@ -97,13 +156,19 @@ export default function Cameras() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newErrors: string[] = [];
     if (!formData.id?.trim()) newErrors.push('ID is required');
     if (!formData.name?.trim()) newErrors.push('Name is required');
 
     if (newErrors.length > 0) {
       setErrors(newErrors);
+      return;
+    }
+
+    const productionId = activeProject?.production?.id || oldStore.production?.id;
+    if (!productionId) {
+      alert('No production selected');
       return;
     }
 
@@ -116,25 +181,64 @@ export default function Cameras() {
       }
     }
 
-    if (editingCamera) {
-      updateCamera(editingCamera.id, finalFormData);
-    } else {
-      addCamera(finalFormData as Camera);
+    try {
+      if (editingCamera) {
+        // Update existing camera via API
+        const result = await camerasAPI.updateCamera(editingCamera.id, {
+          ...finalFormData,
+          productionId,
+          version: editingCamera.version,
+        });
+        
+        // Check for conflict
+        if ('error' in result) {
+          alert(`Version conflict: ${result.message}\nPlease refresh and try again.`);
+          return;
+        }
+        
+        // Success - update local state
+        updateCamera(result.id, result);
+      } else {
+        // Create new camera via API
+        console.log('💾 Creating new camera with id:', finalFormData.id);
+        const newCamera = await camerasAPI.createCamera({
+          id: finalFormData.id as string,
+          name: finalFormData.name as string,
+          hRes: finalFormData.hRes ?? 1920,
+          vRes: finalFormData.vRes ?? 1080,
+          rate: finalFormData.rate ?? 59.94,
+          ccuId: finalFormData.ccuId,
+          model: finalFormData.model, // Include model from equipment specs
+          note: finalFormData.note,
+          productionId,
+        });
+        console.log('✅ Camera created successfully:', { id: newCamera.id });
+        
+        // Optimistic update - add immediately so UI is responsive
+        // WebSocket handler will detect duplicate and skip if already present
+        addCamera(newCamera);
+      }
+      
+      setIsModalOpen(false);
+      setFormData({
+        id: '',
+        name: '',
+        manufacturer: '',
+        model: '',
+        formatMode: '',
+        hasTripod: false,
+        hasShortTripod: false,
+        hasDolly: false,
+        hasJib: false,
+        ccuId: '',
+        note: '',
+      });
+      setEditingCamera(null);
+      setErrors([]);
+    } catch (error: any) {
+      console.error('❌ Failed to save camera:', error);
+      alert(error.message || 'Failed to save camera. Please try again.');
     }
-    setIsModalOpen(false);
-    setFormData({
-      id: '',
-      name: '',
-      manufacturer: '',
-      model: '',
-      formatMode: '',
-      hasTripod: false,
-      hasShortTripod: false,
-      hasDolly: false,
-      hasJib: false,
-      ccuId: '',
-      note: '',
-    });
   };
 
   const handleDelete = (id: string) => {
@@ -144,7 +248,7 @@ export default function Cameras() {
   };
 
   const generateId = (): string => {
-    const camNumbers = cameras
+    const camNumbers = localCameras
       .map(c => {
         const match = c.id.match(/^CAM\s*(\d+)$/i);
         return match ? parseInt(match[1], 10) : 0;
@@ -196,7 +300,7 @@ export default function Cameras() {
       </div>
 
       {/* Cameras List */}
-      {cameras.length === 0 ? (
+      {localCameras.length === 0 ? (
         <EmptyState
           icon={Video}
           title="No Cameras Found"
@@ -206,7 +310,7 @@ export default function Cameras() {
         />
       ) : (
         <div className="space-y-3">
-          {cameras.map((camera) => {
+          {localCameras.map((camera) => {
             const supportBadges = getSupportBadges(camera);
             const ccuName = getCCUName(camera.ccuId);
             

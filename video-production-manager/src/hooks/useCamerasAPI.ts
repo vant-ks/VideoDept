@@ -3,6 +3,7 @@ import { apiClient } from '@/services/apiClient';
 import type { Camera } from '@/types';
 
 interface CreateCameraInput {
+  id?: string; // Optional custom ID (e.g., "CAM 1")
   productionId: string;
   userId?: string;
   userName?: string;
@@ -11,6 +12,7 @@ interface CreateCameraInput {
   vRes: number;
   rate: number;
   ccuId?: string;
+  model?: string; // Camera model from equipment specs
   note?: string;
 }
 
@@ -56,12 +58,14 @@ export function useCamerasAPI() {
     try {
       const { userId, userName } = getUserInfo();
       const requestData = {
+        id: input.id, // Include custom ID if provided
         productionId: input.productionId,
         name: input.name,
         hRes: input.hRes,
         vRes: input.vRes,
         rate: input.rate,
         ccuId: input.ccuId,
+        model: input.model, // Include model from equipment specs
         note: input.note,
         userId,
         userName,
