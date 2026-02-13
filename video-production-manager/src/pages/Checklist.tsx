@@ -65,6 +65,7 @@ export const Checklist: React.FC = () => {
   const { total, completed, percentage } = useChecklistProgress();
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
   const [showCompleted, setShowCompleted] = React.useState(true);
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
   const [showCompletionModal, setShowCompletionModal] = React.useState(false);
@@ -116,9 +117,14 @@ export const Checklist: React.FC = () => {
     return checklist.filter(item => {
       const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
       const matchesCompleted = showCompleted || !item.completed;
-      return matchesCategory && matchesCompleted;
+      const matchesSearch = searchQuery === '' ||
+        item.item.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.moreInfo && item.moreInfo.some(entry => entry.text.toLowerCase().includes(searchQuery.toLowerCase()))) ||
+        (item.assignedTo && item.assignedTo.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesCategory && matchesCompleted && matchesSearch;
     });
-  }, [checklist, selectedCategory, showCompleted]);
+  }, [checklist, selectedCategory, showCompleted, searchQuery]);
 
   const groupedChecklist = React.useMemo(() => {
     const groups: Record<string, typeof checklist> = {};
@@ -258,8 +264,10 @@ export const Checklist: React.FC = () => {
       // Only add moreInfo if user entered new text
       if (editItemMoreInfo.trim()) {
         updates.moreInfo = editItemMoreInfo.trim();
-        console.log('Adding moreInfo to checklist item:', editingItem, editItemMoreInfo.trim());
+        console.log('📝 [Checklist.tsx] Adding moreInfo to checklist item:', editingItem, editItemMoreInfo.trim());
       }
+      
+      console.log('📝 [Checklist.tsx] Calling updateChecklistItem with updates:', updates);
       
       try {
         await updateChecklistItem(editingItem, updates);
@@ -364,59 +372,56 @@ export const Checklist: React.FC = () => {
         </div>
       </Card>
 
-      {/* Category Filters */}
-      <div className="flex gap-2 flex-wrap items-center justify-between">
-        <div className="flex gap-2 flex-wrap">
-          {categories.map(cat => {
-            const progress = cat !== 'all' ? getCategoryProgress(cat) : null;
-            return (
-              <button
-                key={cat}
-                onClick={() => {
-                  if (cat !== 'all') {
-                    // Toggle collapse state
-                    toggleCategoryCollapsed(cat);
-                    // Scroll to category
-                    setTimeout(() => {
-                      const element = document.getElementById(`category-${cat}`);
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    }, 100);
-                  } else {
-                    setSelectedCategory(cat);
+      {/* Search and Category Filter */}
+      <Card className="p-4">
+        <div className="flex gap-3">
+          <input
+            type="text"
+            placeholder="Search checklist items..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-field flex-1"
+          />
+          <select
+            value={selectedCategory}
+            onChange={(e) => {
+              const cat = e.target.value;
+              setSelectedCategory(cat);
+              if (cat !== 'all') {
+                // Scroll to category
+                setTimeout(() => {
+                  const element = document.getElementById(`category-${cat}`);
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }
-                }}
-                className={cn(
-                  'px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2',
-                  selectedCategory === cat
-                    ? 'bg-av-accent/20 text-av-accent border border-av-accent/30'
-                    : 'bg-av-surface text-av-text-muted hover:text-av-text border border-av-border'
-                )}
-              >
-                {cat === 'all' ? 'All Categories' : categoryLabels[cat] || cat}
-                {progress && (
-                  <span className="text-xs opacity-70">
-                    ({progress.completed}/{progress.total})
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                }, 100);
+              }
+            }}
+            className="input-field w-56"
+          >
+            <option value="all">All Categories</option>
+            {Object.entries(categoryLabels).map(([key, label]) => {
+              const progress = getCategoryProgress(key);
+              return (
+                <option key={key} value={key}>
+                  {label} ({progress.completed}/{progress.total})
+                </option>
+              );
+            })}
+          </select>
+          <button
+            onClick={() => setShowCompleted(!showCompleted)}
+            className={cn(
+              'px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap',
+              showCompleted
+                ? 'bg-av-accent/20 text-av-accent border border-av-accent/30'
+                : 'bg-av-surface-light text-av-text-muted border border-av-border'
+            )}
+          >
+            {showCompleted ? 'Hide Completed' : 'Show Completed'}
+          </button>
         </div>
-        
-        <button
-          onClick={() => setShowCompleted(!showCompleted)}
-          className={cn(
-            'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-            showCompleted
-              ? 'bg-av-accent/20 text-av-accent'
-              : 'bg-av-surface-light text-av-text-muted'
-          )}
-        >
-          {showCompleted ? 'Hide Completed' : 'Show Completed'}
-        </button>
-      </div>
+      </Card>
 
       {/* Checklist Items */}
       <div className="space-y-6">
@@ -436,27 +441,27 @@ export const Checklist: React.FC = () => {
                   )}
                   <h3 className="font-semibold text-av-text">
                     {categoryLabels[category] || category}
+                    <span className="ml-2 text-sm font-normal text-av-text-muted">
+                      ({getCategoryProgress(category).completed}/{getCategoryProgress(category).total})
+                    </span>
                   </h3>
                 </div>
                 <div className="flex items-center gap-3">
+                  <ProgressBar 
+                    value={getCategoryProgress(category).percentage} 
+                    showPercentage={false}
+                    className="w-32"
+                  />
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleOpenAddModal(category);
                     }}
-                    className="flex items-center gap-1 px-2 py-1 text-xs bg-av-accent/10 hover:bg-av-accent/20 text-av-accent rounded transition-colors"
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-av-accent/10 hover:bg-av-accent/20 text-av-accent rounded transition-colors"
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-4 h-4" />
                     Add Item
                   </button>
-                  <ProgressBar 
-                    value={getCategoryProgress(category).percentage} 
-                    showPercentage={false}
-                    className="w-24"
-                  />
-                  <span className="text-xs text-av-text-muted">
-                    {getCategoryProgress(category).completed}/{getCategoryProgress(category).total}
-                  </span>
                 </div>
               </div>
               {!isCollapsed && (

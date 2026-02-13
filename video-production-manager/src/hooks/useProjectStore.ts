@@ -1147,6 +1147,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         type: 'info' as const
       };
       updatedItem.moreInfo = [...(originalItem.moreInfo || []), newEntry];
+      console.log('📝 [useProjectStore] Created new moreInfo entry:', newEntry, 'Full array:', updatedItem.moreInfo);
     }
     
     if (typeof updates.completionNote === 'string' && (updates.completionNote as string).trim()) {
@@ -1171,10 +1172,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       const apiUpdates: any = { ...updates };
       if (typeof updates.moreInfo === 'string' && updates.moreInfo.trim()) {
         apiUpdates.moreInfo = updatedItem.moreInfo;
+        console.log('📝 [useProjectStore] Sending moreInfo array to API:', apiUpdates.moreInfo);
       }
       if (typeof updates.completionNote === 'string' && updates.completionNote.trim()) {
         apiUpdates.completionNote = updatedItem.completionNote;
       }
+      
+      console.log('📝 [useProjectStore] Final API call data:', apiUpdates);
       
       // Save to database via API (this will trigger WebSocket broadcast)
       await apiClient.updateChecklistItem(id, {

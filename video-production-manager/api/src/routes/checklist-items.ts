@@ -113,7 +113,9 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { updated_at, ...updateFields } = toSnakeCase(updates);
     snakeCaseUpdates = updateFields;
     
-    console.log('🔧 Updating checklist item:', id, 'with fields:', Object.keys(snakeCaseUpdates));
+    console.log('🔧 [API] Updating checklist item:', id, 'with fields:', Object.keys(snakeCaseUpdates));
+    console.log('🔧 [API] Raw updates received:', JSON.stringify(updates, null, 2));
+    console.log('🔧 [API] Snake case updates:', JSON.stringify(snakeCaseUpdates, null, 2));
     
     // Get current version for conflict detection
     const current = await prisma.checklist_items.findUnique({
