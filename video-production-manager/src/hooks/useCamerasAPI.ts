@@ -8,11 +8,19 @@ interface CreateCameraInput {
   userId?: string;
   userName?: string;
   name: string;
-  hRes: number;
-  vRes: number;
-  rate: number;
+  manufacturer?: string;
+  model?: string;
+  formatMode?: string;
+  lensType?: string;
+  maxZoom?: number;
+  shootingDistance?: number;
+  calculatedZoom?: number;
+  hasTripod?: boolean;
+  hasShortTripod?: boolean;
+  hasDolly?: boolean;
+  hasJib?: boolean;
   ccuId?: string;
-  model?: string; // Camera model from equipment specs
+  smpteCableLength?: number;
   note?: string;
 }
 
@@ -58,14 +66,22 @@ export function useCamerasAPI() {
     try {
       const { userId, userName } = getUserInfo();
       const requestData = {
-        id: input.id, // Include custom ID if provided
+        id: input.id,
         productionId: input.productionId,
         name: input.name,
-        hRes: input.hRes,
-        vRes: input.vRes,
-        rate: input.rate,
+        manufacturer: input.manufacturer,
+        model: input.model,
+        formatMode: input.formatMode,
+        lensType: input.lensType,
+        maxZoom: input.maxZoom,
+        shootingDistance: input.shootingDistance,
+        calculatedZoom: input.calculatedZoom,
+        hasTripod: input.hasTripod,
+        hasShortTripod: input.hasShortTripod,
+        hasDolly: input.hasDolly,
+        hasJib: input.hasJib,
         ccuId: input.ccuId,
-        model: input.model, // Include model from equipment specs
+        smpteCableLength: input.smpteCableLength,
         note: input.note,
         userId,
         userName,
@@ -92,10 +108,19 @@ export function useCamerasAPI() {
       const requestData = {
         productionId: input.productionId,
         name: input.name,
-        hRes: input.hRes,
-        vRes: input.vRes,
-        rate: input.rate,
+        manufacturer: input.manufacturer,
+        model: input.model,
+        formatMode: input.formatMode,
+        lensType: input.lensType,
+        maxZoom: input.maxZoom,
+        shootingDistance: input.shootingDistance,
+        calculatedZoom: input.calculatedZoom,
+        hasTripod: input.hasTripod,
+        hasShortTripod: input.hasShortTripod,
+        hasDolly: input.hasDolly,
+        hasJib: input.hasJib,
         ccuId: input.ccuId,
+        smpteCableLength: input.smpteCableLength,
         note: input.note,
         version: input.version,
         userId,

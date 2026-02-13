@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Video, Link as LinkIcon, Copy } from 'lucide-react';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
@@ -14,6 +14,16 @@ export default function Cameras() {
   const oldStore = useProductionStore();
   const equipmentLib = useEquipmentLibrary();
   const camerasAPI = useCamerasAPI();
+  
+  // Extract store values FIRST (before using them)
+  const cameras = activeProject?.cameras || oldStore.cameras;
+  const ccus = activeProject?.ccus || oldStore.ccus;
+  const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;
+  
+  // Use project store CRUD if activeProject exists, otherwise use old store
+  const addCamera = activeProject ? projectStore.addCamera : oldStore.addCamera;
+  const updateCamera = activeProject ? projectStore.updateCamera : oldStore.updateCamera;
+  const deleteCamera = activeProject ? projectStore.deleteCamera : oldStore.deleteCamera;
   
   // Local state for cameras
   const [localCameras, setLocalCameras] = useState<Camera[]>(cameras);
@@ -78,29 +88,29 @@ export default function Cameras() {
     }
   }, []);
   
-  const cameras = activeProject?.cameras || oldStore.cameras;
-  const ccus = activeProject?.ccus || oldStore.ccus;
-  const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;
+  // Get camera equipment specs - recompute when equipmentSpecs changes
+  const cameraSpecs = useMemo(() => 
+    equipmentSpecs.filter(spec => spec.category === 'CAMERA'),
+    [equipmentSpecs]
+  );
   
-  // Get camera equipment specs from store
-  const cameraSpecs = equipmentSpecs.filter(spec => spec.category === 'CAMERA');
+  // Get unique manufacturers - recompute when cameraSpecs changes
+  const CAMERA_MANUFACTURERS = useMemo(() => 
+    Array.from(new Set(cameraSpecs.map(spec => spec.manufacturer))).sort(),
+    [cameraSpecs]
+  );
   
-  // Get unique manufacturers from equipment specs
-  const CAMERA_MANUFACTURERS = Array.from(new Set(cameraSpecs.map(spec => spec.manufacturer))).sort();
-  
-  // Get models by manufacturer from equipment specs
-  const CAMERA_MODELS_BY_MANUFACTURER: Record<string, string[]> = {};
-  CAMERA_MANUFACTURERS.forEach(mfr => {
-    CAMERA_MODELS_BY_MANUFACTURER[mfr] = cameraSpecs
-      .filter(spec => spec.manufacturer === mfr)
-      .map(spec => spec.model)
-      .sort();
-  });
-  
-  // Use project store CRUD if activeProject exists, otherwise use old store
-  const addCamera = activeProject ? projectStore.addCamera : oldStore.addCamera;
-  const updateCamera = activeProject ? projectStore.updateCamera : oldStore.updateCamera;
-  const deleteCamera = activeProject ? projectStore.deleteCamera : oldStore.deleteCamera;
+  // Get models by manufacturer - recompute when cameraSpecs changes
+  const CAMERA_MODELS_BY_MANUFACTURER = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    CAMERA_MANUFACTURERS.forEach(mfr => {
+      result[mfr] = cameraSpecs
+        .filter(spec => spec.manufacturer === mfr)
+        .map(spec => spec.model)
+        .sort();
+    });
+    return result;
+  }, [CAMERA_MANUFACTURERS, cameraSpecs]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null);
   const [formData, setFormData] = useState<Partial<Camera>>({
@@ -204,11 +214,17 @@ export default function Cameras() {
         const newCamera = await camerasAPI.createCamera({
           id: finalFormData.id as string,
           name: finalFormData.name as string,
-          hRes: finalFormData.hRes ?? 1920,
-          vRes: finalFormData.vRes ?? 1080,
-          rate: finalFormData.rate ?? 59.94,
+          manufacturer: finalFormData.manufacturer,
+          model: finalFormData.model,
+          formatMode: finalFormData.formatMode,
+          maxZoom: finalFormData.maxZoom,
+          shootingDistance: finalFormData.shootingDistance,
+          hasTripod: finalFormData.hasTripod,
+          hasShortTripod: finalFormData.hasShortTripod,
+          hasDolly: finalFormData.hasDolly,
+          hasJib: finalFormData.hasJib,
           ccuId: finalFormData.ccuId,
-          model: finalFormData.model, // Include model from equipment specs
+          smpteCableLength: finalFormData.smpteCableLength,
           note: finalFormData.note,
           productionId,
         });
