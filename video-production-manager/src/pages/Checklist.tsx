@@ -247,10 +247,10 @@ export const Checklist: React.FC = () => {
     }
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editingItem && updateChecklistItem) {
       const updates: any = {
-        item: editItemText.trim(),
+        title: editItemText.trim(), // Database field is 'title', not 'item'
         assignedTo: editItemAssignedTo || undefined,
         daysBeforeShow: editItemDays
       };
@@ -261,8 +261,14 @@ export const Checklist: React.FC = () => {
         console.log('Adding moreInfo to checklist item:', editingItem, editItemMoreInfo.trim());
       }
       
-      updateChecklistItem(editingItem, updates);
-      console.log('Checklist item updated:', editingItem, updates);
+      try {
+        await updateChecklistItem(editingItem, updates);
+        console.log('✅ Checklist item updated:', editingItem, updates);
+      } catch (error) {
+        console.error('❌ Failed to update checklist item:', error);
+        alert('Failed to save changes. Please try again.');
+        return; // Don't close modal on error
+      }
     }
     setShowEditModal(false);
     setEditingItem('');
