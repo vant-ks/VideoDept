@@ -1,6 +1,87 @@
 # Development Log - Video Production Manager
 
-## February 12, 2026
+## February 12, 2026 (Evening Session)
+
+### Multi-Browser Sync Testing - Test 2 Complete, Test 3 Camera Sync Fix ✅
+
+**Context**: Continued Phase 5 multi-browser testing suite. Test 2 (Checklist sync) passed after bug fixes. Test 3 (Camera sync) revealed cameras weren't syncing across browsers.
+
+**Test 2 (Checklist) - PASSING** ✅:
+- Fixed 3 bugs from initial test:
+  - Bug 2.1: Navigation issue (shows Media Servers instead of Dashboard) - Added `setActiveTab('dashboard')` on show open
+  - Bug 2.2: Preference conflict warnings - Removed project-specific UI preferences, use global usePreferencesStore only  
+  - Bug 2.3: Edit sync missing API call - Made updateChecklistItem async, added WebSocket broadcast
+  - Bug 2.3b: Field name mismatch - Changed `item` to `title` in update payload
+  - Bug 2.3c: Notes data format - Database columns already JSONB, fixed frontend to send JSON arrays instead of strings
+- All checklist operations now sync correctly: add, delete, complete/incomplete, reveal/collapse, edit (title, assignTo, days, notes)
+- Regenerated Prisma Client after schema was updated to recognize JSON columns
+
+**Test 3 (Camera) - Fixed** ✅:
+- **Issue**: Camera created in Browser A didn't sync to Browser B; refresh on A deleted the camera
+- **Root Cause**: Cameras page wasn't using `useCamerasAPI` hook - only updating local state, no API call/WebSocket broadcast
+- **Analysis**: Same pattern previously solved for Sources, Sends, CCUs - some entities weren't migrated to new API architecture
+- **Solution Implemented**:
+  1. Integrated `useCamerasAPI` hook into Cameras page
+  2. Updated `handleSave` to:
+     - Call `camerasAPI.createCamera()` for new cameras (properly saves to database)
+     - Call `camerasAPI.updateCamera()` for edits (with version conflict detection)
+     - Perform optimistic updates to local state for responsive UI
+  3. Added `useProductionEvents` WebSocket listener:
+     - `onEntityCreated`: Add camera to local state when created by other users
+     - `onEntityUpdated`: Update camera when edited by other users
+     - `onEntityDeleted`: Remove camera when deleted by other users
+  4. Updated `useCamerasAPI` interface to support:
+     - Custom IDs (e.g., "CAM 1", "CAM 2") - added `id?` optional field
+     - Model field from equipment specs - added `model?` field
+  5. Switched component to use `localCameras` state that syncs via WebSocket instead of direct store access
+
+**UI Improvements** ✨:
+1. **Search Bar Clear Buttons**: Added X icon to all search fields across app to clear search and release filters
+   - Files modified: Checklist, Equipment, Logs, IPManagement, Sources, Sends (both search bars)
+   - Pattern: Relative container with absolute positioned X button (only shows when text entered)
+   
+2. **Checklist Page Redesign**:
+   - Added search bar below summary card (searches: title, notes, assignedTo)
+   - Converted category quick-select buttons to dropdown list (cleaner, matches Equipment page)
+   - Integrated completion counters into group titles (e.g., "Screens (3/5)")
+   - Repositioned Add Item button to far right of group headers (larger, more prominent)
+   - Moved progress bar between counter and Add button
+
+**Files Modified**:
+- `src/pages/Cameras.tsx`: Integrated useCamerasAPI and useProductionEvents for sync
+- `src/hooks/useCamerasAPI.ts`: Added `id?` and `model?` fields to CreateCameraInput interface
+- `src/pages/Checklist.tsx`: Search bar, dropdown, UI layout improvements
+- `src/pages/Equipment.tsx`: Added search clear button
+- `src/pages/Logs.tsx`: Added search clear button (with X import)
+- `src/pages/IPManagement.tsx`: Added search clear button (with X import)
+- `src/pages/Sources.tsx`: Added search clear button (with X import)
+- `src/pages/Sends.tsx`: Added search clear buttons (2 locations - sends and projection screens, with X import)
+
+**Git Commits**:
+- `48bf9d3` - Fix checklist notes data format - send JSON arrays to API instead of raw strings
+- `66efaae` - Improve checklist UI: add search bar, convert category buttons to dropdown, integrate counters into group titles
+- `96e877a` - Add X clear button to all search fields across application
+- `6b06d5e` - Fix Camera sync: integrate useCamerasAPI and useProductionEvents for proper database save and WebSocket broadcast
+
+**Testing Status**:
+- ✅ Test 2: Checklist Sync - PASSING (all features work, notes now display correctly)
+- ✅ Test 3: Camera Sync - READY FOR RETEST (API integration complete, needs user verification)
+- ⏭️ Tests 4-10: Pending (Source, Send, CCU, Connections, Offline, Conflicts, Rapid Updates)
+
+**Key Architectural Pattern Confirmed**:
+- **Preference vs Data Sync**:
+  - UI preferences (collapse/expand, theme, tabs) → `usePreferencesStore` (localStorage, user-specific, NOT synced)
+  - Production data (entities, settings) → `useProjectStore`/`useProductionStore` (database, WebSocket synced)
+  - Pattern applies to all current and future components
+
+**Next Session**:
+- Verify Test 3 camera sync works across browsers
+- Continue with Tests 4-10 from MULTI_BROWSER_TESTING_PROCEDURES.md
+- Monitor for any other entities missing API integration pattern
+
+---
+
+## February 12, 2026 (Morning Session)
 
 ### VS Code Crash - Zombie Process Migration Failure ❌
 - **Context**: VS Code crashed (SIGKILL exit code 137) during database migration attempt
