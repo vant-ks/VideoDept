@@ -197,11 +197,49 @@ Checklist group expand/collapse preferences are being synced across browsers as 
 📊 Version check: current: 1, incoming: 2
 🔀 Auto-merging camera update
 ✅ Auto-merged camera update
-📡 Broadcasting camera:deleted
-📨 Received camera:deleted
+📡 Broadcasting entity:deleted
+📨 Received entity:deleted
 ```
 
-**Status:** ⏳ PENDING TEST
+**Status:** ✅ PASSING (Fixed 2026-02-12)
+
+### 🐛 BUGS FOUND & FIXED (Test 3)
+
+#### Bug 3.1: Camera Delete Not Persisting
+**Severity:** High  
+**Repro Steps:**
+1. Create camera in Browser A
+2. Delete camera in Browser A
+3. Refresh browser
+
+**ACTUAL:** Camera reappears after refresh  
+**EXPECTED:** Camera stays deleted  
+
+**Root Cause:** `handleDelete` only called local store deleteCamera, didn't call API  
+**Fix:** Updated to call `camerasAPI.deleteCamera()` before updating local state  
+**Commit:** 5d54e6e - "Fix camera delete to call API before updating local state"
+
+---
+
+#### Bug 3.2: Real-Time Sync Not Working
+**Severity:** High  
+**Repro Steps:**
+1. Create camera in Browser A
+2. Observe Browser B
+
+**ACTUAL:** Camera only appears in Browser B after manual refresh  
+**EXPECTED:** Camera appears instantly via WebSocket  
+
+**Root Cause:** Camera API routes emitted `camera:created/updated/deleted` events but frontend listened for generic `entity:created/updated/deleted` events  
+**Fix:** Updated cameras.ts to emit generic entity events matching sources.ts pattern  
+**Commit:** c3b747f - "Fix camera WebSocket sync by using generic entity events"
+
+---
+
+**Test Completion Notes:**
+- All camera CRUD operations now persist to database
+- Real-time sync working across browsers without refresh
+- Equipment library seeded with 133 items (3 cameras, 30 LED tiles, 26 routers, etc.)
 
 ---
 

@@ -1,5 +1,45 @@
 # Development Log - Video Production Manager
 
+## February 12, 2026 (Late Evening Session)
+
+### Test 3: Camera Sync Complete ✅
+
+**Context**: Completed Test 3 of Phase 5 multi-browser testing. Fixed two critical camera sync bugs.
+
+**Issues Fixed**:
+
+1. **Camera Delete Not Persisting** (Bug 3.1):
+   - **Problem**: Camera deleted in Browser A reappeared after refresh
+   - **Root Cause**: `handleDelete` only updated local state, didn't call API
+   - **Fix**: Updated `handleDelete` to `async` function that calls `camerasAPI.deleteCamera()` before updating local state
+   - **Commit**: 5d54e6e - "Fix camera delete to call API before updating local state"
+
+2. **Real-Time Sync Not Working** (Bug 3.2):
+   - **Problem**: Camera CRUD operations only visible after manual refresh
+   - **Root Cause**: Camera API routes emitted specific `camera:created/updated/deleted` events, but frontend listened for generic `entity:created/updated/deleted` events
+   - **Pattern Mismatch**: Sources, Sends, CCUs all use generic events; cameras was inconsistent
+   - **Fix**: Updated cameras.ts routes to emit generic entity events matching pattern:
+     - Changed: `broadcastEntityCreated()` → `io.to().emit('entity:created', {entityType: 'camera', ...})`
+     - Changed: `broadcastEntityUpdate()` → `io.to().emit('entity:updated', {entityType: 'camera', ...})`
+     - Changed: `broadcastEntityDeleted()` → `io.to().emit('entity:deleted', {entityType: 'camera', ...})`
+   - **Commit**: c3b747f - "Fix camera WebSocket sync by using generic entity events"
+
+**Test Results**: ✅ ALL PASSING
+- ✅ Camera creation syncs instantly across browsers
+- ✅ Camera edits sync in real-time without refresh
+- ✅ Camera deletions sync immediately and persist through refresh
+- ✅ No duplicates, no orphaned data
+- ✅ Version conflicts detected properly
+
+**Files Modified**:
+- `video-production-manager/src/pages/Cameras.tsx` - Fixed handleDelete to call API
+- `video-production-manager/api/src/routes/cameras.ts` - Standardized WebSocket events
+- `docs/testing/MULTI_BROWSER_TESTING_PROCEDURES.md` - Documented bugs and fixes
+
+**Next Steps**: Proceed to Test 4 (Source Sync) in next session
+
+---
+
 ## February 12, 2026 (Evening Session)
 
 ### Multi-Browser Sync Testing - Test 2 Complete, Test 3 Camera Sync Fix ✅
