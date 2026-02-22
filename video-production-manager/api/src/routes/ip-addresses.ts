@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../server';
 import { io } from '../server';
-import { recordEvent } from '../services/eventService';
+import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { broadcastEntityUpdate, broadcastEntityCreated, broadcastEntityDeleted } from '../utils/sync-helpers';
 
 const router = Router();
 
@@ -48,15 +49,16 @@ router.post('/', async (req: Request, res: Response) => {
       version: ipAddress.version
     });
     
-    // Broadcast to production room
-    io.to(`production:${ipAddress.production_id}`).emit('entity:created', {
+    // Broadcast to production room using sync-helpers
+    broadcastEntityCreated({
+      io,
+      productionId: ipAddress.production_id,
       entityType: 'ipAddress',
-      entity: ipAddress,
-      userId,
-      userName
+      entityId: ipAddress.id,
+      data: toCamelCase(ipAddress)
     });
     
-    res.status(201).json(ipAddress);
+    res.status(201).json(toCamelCase(ipAddress));
   } catch (error) {
     console.error('Error creating ipAddress:', error);
     res.status(500).json({ error: 'Failed to create ipAddress' });
@@ -98,10 +100,9 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     
     // Calculate diff and record event
-    const { recordEvent: recordEventFn, calculateDiff } = await import('../services/eventService');
     const changes = calculateDiff(current, ipAddress);
     
-    await recordEventFn({
+    await recordEvent({
       productionId: ipAddress.production_id,
       eventType: EventType.IP_ADDRESS,
       operation: EventOperation.UPDATE,
@@ -113,15 +114,16 @@ router.put('/:id', async (req: Request, res: Response) => {
       version: ipAddress.version
     });
     
-    // Broadcast to production room
-    io.to(`production:${ipAddress.production_id}`).emit('entity:updated', {
+    // Broadcast to production room using sync-helpers
+    broadcastEntityUpdate({
+      io,
+      productionId: ipAddress.production_id,
       entityType: 'ipAddress',
-      entity: ipAddress,
-      userId,
-      userName
+      entityId: ipAddress.id,
+      data: toCamelCase(ipAddress)
     });
     
-    res.json(ipAddress);
+    res.json(toCamelCase(ipAddress));
   } catch (error) {
     console.error('Error updating ipAddress:', error);
     res.status(500).json({ error: 'Failed to update ipAddress' });
@@ -157,12 +159,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
       version: current.version
     });
     
-    // Broadcast to production room
-    io.to(`production:${current.production_id}`).emit('entity:deleted', {
+    // Broadcast to production room using sync-helpers
+    broadcastEntityDeleted({
+      io,
+      productionId: current.production_id,
       entityType: 'ipAddress',
-      entityId: id,
-      userId,
-      userName
+      entityId: id
     });
     
     res.json({ success: true });

@@ -4,6 +4,7 @@ import { io } from '../server';
 import { recordEvent, calculateDiff } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { broadcastEntityUpdate, broadcastEntityCreated, broadcastEntityDeleted } from '../utils/sync-helpers';
 import { validateProductionExists } from '../utils/validation-helpers';
 import crypto from 'crypto';
 
@@ -179,8 +180,8 @@ router.post('/', async (req: Request, res: Response) => {
     });
     console.log('✅ Event recorded');
 
-    // Broadcast event to production room
-    console.log('📡 Broadcasting entity:created event');
+    // Broadcast creation via WebSocket using sync-helpers
+    console.log('📡 Broadcasting source:created event');
     const camelCaseSource = toCamelCase(createdSource);
     // Map sourceOutputs to outputs for frontend compatibility
     const broadcastData = {
@@ -189,11 +190,12 @@ router.post('/', async (req: Request, res: Response) => {
     };
     delete broadcastData.sourceOutputs;
     
-    io.to(`production:${productionId}`).emit('entity:created', {
+    broadcastEntityCreated({
+      io,
+      productionId,
       entityType: 'source',
-      entity: broadcastData,
-      userId,
-      userName
+      entityId: createdSource.id,
+      data: broadcastData
     });
 
     console.log('✅ Sending 201 response');
@@ -311,7 +313,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       version: newVersion
     });
 
-    // Broadcast event to production room
+    // Broadcast update via WebSocket using sync-helpers
     const camelCaseUpdated = toCamelCase(updatedSource);
     const broadcastUpdated = {
       ...camelCaseUpdated,
@@ -319,12 +321,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     };
     delete broadcastUpdated.sourceOutputs;
     
-    io.to(`production:${currentSource.production_id}`).emit('entity:updated', {
+    broadcastEntityUpdate({
+      io,
+      productionId: currentSource.production_id,
       entityType: 'source',
-      entity: broadcastUpdated,
-      changes,
-      userId,
-      userName
+      entityId: updatedSource.id,
+      data: broadcastUpdated
     });
 
     res.json(broadcastUpdated);
@@ -390,12 +392,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
       version: newVersion
     });
 
-    // Broadcast event to production room
-    io.to(`production:${source.production_id}`).emit('entity:deleted', {
+    // Broadcast deletion via WebSocket using sync-helpers
+    broadcastEntityDeleted({
+      io,
+      productionId: source.production_id,
       entityType: 'source',
-      entityId: deletedSource.id,
-      userId,
-      userName
+      entityId: deletedSource.id
     });
 
     res.json({ success: true, message: 'Source deleted' });

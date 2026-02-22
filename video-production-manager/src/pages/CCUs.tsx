@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Copy } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
+import { useCCUsAPI } from '@/hooks/useCCUsAPI';
+import { useProductionEvents } from '@/hooks/useProductionEvents';
 import type { CCU } from '@/types';
 
 export default function CCUs() {
@@ -11,6 +13,22 @@ export default function CCUs() {
   const projectStore = useProjectStore();
   const equipmentLib = useEquipmentLibrary();
   const oldStore = useProductionStore();
+  const ccusAPI = useCCUsAPI();
+  
+  // Extract store values
+  const storeCCUs = activeProject?.ccus || oldStore.ccus;
+  const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;
+  
+  // Local state for CCUs with real-time updates
+  const [localCCUs, setLocalCCUs] = useState<CCU[]>(storeCCUs);
+  
+  // Sync local state when store CCUs change (on initial load)
+  useEffect(() => {
+    setLocalCCUs(storeCCUs);
+  }, [storeCCUs]);
+  
+  // Get production ID for WebSocket subscription
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
   
   // Fetch equipment data on mount
   useEffect(() => {
@@ -19,13 +37,37 @@ export default function CCUs() {
     }
   }, []);
   
-  const ccus = activeProject?.ccus || oldStore.ccus;
-  const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0 ? equipmentLib.equipmentSpecs : oldStore.equipmentSpecs;
-  
-  // Use project store CRUD if activeProject exists, otherwise use old store
-  const addCCU = activeProject ? projectStore.addCCU : oldStore.addCCU;
-  const updateCCU = activeProject ? projectStore.updateCCU : oldStore.updateCCU;
-  const deleteCCU = activeProject ? projectStore.deleteCCU : oldStore.deleteCCU;
+  // Handle real-time WebSocket updates
+  useProductionEvents({
+    productionId,
+    onEntityCreated: useCallback((event) => {
+      if (event.entityType === 'ccu') {
+        console.log('🔔 CCU created by', event.userName, '| CCU:', event.entity.id);
+        setLocalCCUs(prev => {
+          // Avoid duplicates using ID
+          if (prev.some(c => c.id === event.entity.id)) {
+            console.log('⚠️ Duplicate detected - skipping add');
+            return prev;
+          }
+          return [...prev, event.entity];
+        });
+      }
+    }, []),
+    onEntityUpdated: useCallback((event) => {
+      if (event.entityType === 'ccu') {
+        console.log('🔔 CCU updated by', event.userName, '| CCU:', event.entity.id);
+        setLocalCCUs(prev => 
+          prev.map(c => c.id === event.entity.id ? event.entity : c)
+        );
+      }
+    }, []),
+    onEntityDeleted: useCallback((event) => {
+      if (event.entityType === 'ccu') {
+        console.log('🔔 CCU deleted by', event.userName, '| CCU:', event.entityId);
+        setLocalCCUs(prev => prev.filter(c => c.id !== event.entityId));
+      }
+    }, [])
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCCU, setEditingCCU] = useState<CCU | null>(null);
   const [formData, setFormData] = useState<Partial<CCU>>({
@@ -35,6 +77,9 @@ export default function CCUs() {
   });
   const [errors, setErrors] = useState<string[]>([]);
 
+  // Use localCCUs for rendering
+  const ccus = localCCUs;
+  
   // Get CCU equipment specs from store
   const ccuSpecs = equipmentSpecs.filter(spec => spec.category === 'CCU');
   
@@ -99,7 +144,7 @@ export default function CCUs() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newErrors: string[] = [];
     if (!formData.manufacturer?.trim()) newErrors.push('Manufacturer is required');
     if (!formData.model?.trim()) newErrors.push('Model is required');
@@ -109,25 +154,37 @@ export default function CCUs() {
       return;
     }
 
-    if (editingCCU) {
-      updateCCU(editingCCU.id, formData);
-    } else {
-      // Auto-generate ID and name
-      const newId = generateId();
-      const ccuData = {
-        ...formData,
-        id: newId,
-        name: newId, // Use ID as name (e.g., "CCU 1")
-      } as CCU;
-      addCCU(ccuData);
+    try {
+      if (editingCCU) {
+        // Update existing CCU via API
+        await ccusAPI.updateCCU(productionId!, editingCCU.id, formData);
+      } else {
+        // Auto-generate ID and name
+        const newId = generateId();
+        const ccuData = {
+          ...formData,
+          id: newId,
+          name: newId, // Use ID as name (e.g., "CCU 1")
+        } as CCU;
+        // Create new CCU via API
+        await ccusAPI.createCCU(productionId!, ccuData);
+      }
+      setIsModalOpen(false);
+      setFormData({ manufacturer: '', model: '', outputs: [] });
+    } catch (error) {
+      console.error('Failed to save CCU:', error);
+      setErrors(['Failed to save CCU. Please try again.']);
     }
-    setIsModalOpen(false);
-    setFormData({ manufacturer: '', model: '', outputs: [] });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this CCU?')) {
-      deleteCCU(id);
+      try {
+        await ccusAPI.deleteCCU(productionId!, id);
+      } catch (error) {
+        console.error('Failed to delete CCU:', error);
+        alert('Failed to delete CCU. Please try again.');
+      }
     }
   };
 
