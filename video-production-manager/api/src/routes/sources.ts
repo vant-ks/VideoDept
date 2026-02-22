@@ -84,16 +84,15 @@ router.post('/', async (req: Request, res: Response) => {
     console.log('   Snake case data:', snakeCaseData);
 
     // BYPASS PRISMA - Use raw SQL to avoid Prisma's broken constraint handling
-    const uuid = crypto.randomUUID();
     const now = new Date();
     
     // Insert source using raw SQL
-    console.log('💾 Inserting source with uuid:', uuid);
+    console.log('💾 Inserting source with id:', snakeCaseData.id);
     await prisma.$executeRaw`
       INSERT INTO sources (
         id, production_id, name, type, rate, 
         h_res, v_res, standard, note, secondary_device, blanking,
-        format_assignment_mode, created_at, updated_at, version, is_deleted, uuid
+        format_assignment_mode, created_at, updated_at, version, is_deleted
       ) VALUES (
         ${snakeCaseData.id},
         ${productionId},
@@ -110,8 +109,7 @@ router.post('/', async (req: Request, res: Response) => {
         ${now},
         ${now},
         1,
-        false,
-        ${uuid}
+        false
       )
     `;
     console.log('✅ Source inserted successfully');
@@ -129,7 +127,7 @@ router.post('/', async (req: Request, res: Response) => {
             id, source_id, connector, output_index, h_res, v_res, rate, standard
           ) VALUES (
             ${outputId},
-            ${uuid},
+            ${snakeCaseData.id},
             ${snakeCaseOutput.connector},
             ${snakeCaseOutput.output_index || (i + 1)},
             ${snakeCaseOutput.h_res || null},
@@ -143,7 +141,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
     
     // Fetch the created source back
-    console.log('🔍 Fetching created source with uuid:', uuid);
+    console.log('🔍 Fetching created source with id:', snakeCaseData.id);
     const source = await prisma.$queryRaw`
       SELECT s.*, 
         json_agg(
@@ -158,12 +156,12 @@ router.post('/', async (req: Request, res: Response) => {
           )
         ) FILTER (WHERE so.id IS NOT NULL) as source_outputs
       FROM sources s
-      LEFT JOIN source_outputs so ON s.uuid = so.source_id
-      WHERE s.uuid::text = ${uuid}
+      LEFT JOIN source_outputs so ON s.id = so.source_id
+      WHERE s.id = ${snakeCaseData.id}
       GROUP BY s.id, s.production_id, s.name, s.type, s.rate, 
                s.h_res, s.v_res, s.standard, s.note, s.secondary_device, 
                s.blanking, s.format_assignment_mode, s.created_at, s.updated_at, 
-               s.synced_at, s.last_modified_by, s.version, s.is_deleted, s.uuid
+               s.synced_at, s.last_modified_by, s.version, s.is_deleted
     ` as any[];
     console.log('✅ Fetched source:', source.length, 'rows');
     console.log('   Source data:', JSON.stringify(source[0], null, 2));
@@ -298,9 +296,9 @@ router.put('/:id', async (req: Request, res: Response) => {
         )
       ) FILTER (WHERE so.id IS NOT NULL) as source_outputs
       FROM sources s
-      LEFT JOIN source_outputs so ON so.source_id = s.uuid
+      LEFT JOIN source_outputs so ON so.source_id = s.id
       WHERE s.id = ${req.params.id}
-      GROUP BY s.id, s.uuid, s.production_id, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
+      GROUP BY s.id, s.production_id, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
     `;
     
     const updatedSource = Array.isArray(updatedSourceRaw) ? updatedSourceRaw[0] : updatedSourceRaw;
@@ -382,9 +380,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
         )
       ) FILTER (WHERE so.id IS NOT NULL) as source_outputs
       FROM sources s
-      LEFT JOIN source_outputs so ON so.source_id = s.uuid
+      LEFT JOIN source_outputs so ON so.source_id = s.id
       WHERE s.id = ${req.params.id}
-      GROUP BY s.id, s.uuid, s.production_id, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
+      GROUP BY s.id, s.production_id, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
     `;
     
     const deletedSource = Array.isArray(deletedSourceRaw) ? deletedSourceRaw[0] : deletedSourceRaw;

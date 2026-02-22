@@ -44,7 +44,7 @@ export async function validateEntityExists(
 
   switch (entityType) {
     case 'source':
-      // Sources use uuid as PK, but entityId is the user-friendly id field
+      // Sources use id as PK, check is_deleted to exclude soft-deleted records
       entity = await prisma.sources.findFirst({ 
         where: { 
           id: entityId,

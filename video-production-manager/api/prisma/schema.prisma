@@ -295,7 +295,7 @@ model connections {
   last_modified_by    String?
   synced_at           DateTime?
   productions         productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
-  sources             sources?    @relation(fields: [source_id], references: [uuid])
+  sources             sources?    @relation(fields: [source_id], references: [id])
 
   @@index([production_id])
   @@index([source_id])
@@ -538,7 +538,7 @@ model source_outputs {
   standard     String?
   created_at   DateTime @default(now())
   version      Int      @default(1)
-  sources      sources  @relation(fields: [source_id], references: [uuid], onDelete: Cascade)
+  sources      sources  @relation(fields: [source_id], references: [id], onDelete: Cascade)
 
   @@index([source_id])
 }
@@ -555,8 +555,7 @@ model source_types {
 }
 
 model sources {
-  uuid                   String           @id @default(uuid())
-  id                     String
+  id                     String           @id
   production_id          String
   type                   String
   name                   String
@@ -579,7 +578,6 @@ model sources {
   source_outputs         source_outputs[]
   productions            productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
-  @@unique([id, production_id])
   @@index([production_id, is_deleted])
   @@index([type], map: "sources_type_idx")
 }
