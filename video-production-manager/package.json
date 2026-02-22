@@ -1,6 +1,6 @@
 {
   "name": "video-production-manager",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Professional Video Production Management System for AV events",
   "type": "module",
   "scripts": {

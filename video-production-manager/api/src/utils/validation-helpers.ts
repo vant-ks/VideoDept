@@ -44,7 +44,13 @@ export async function validateEntityExists(
 
   switch (entityType) {
     case 'source':
-      entity = await prisma.sources.findUnique({ where: { id: entityId } });
+      // Sources use uuid as PK, but entityId is the user-friendly id field
+      entity = await prisma.sources.findFirst({ 
+        where: { 
+          id: entityId,
+          is_deleted: false 
+        } 
+      });
       break;
     case 'camera':
       entity = await prisma.cameras.findUnique({ where: { id: entityId } });

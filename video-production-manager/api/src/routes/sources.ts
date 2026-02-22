@@ -25,25 +25,30 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
     });
     res.json(toCamelCase(sources));
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch sources' });
+    console.error('❌ GET sources error:', error);
+    res.status(500).json({ error: 'Failed to fetch sources', details: error.message });
   }
 });
 
 // GET single source
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const source = await prisma.sources.findUnique({
-      where: { id: req.params.id },
+    const source = await prisma.sources.findFirst({
+      where: { 
+        id: req.params.id,
+        is_deleted: false
+      },
       include: { source_outputs: true }
     });
 
-    if (!source || source.is_deleted) {
+    if (!source) {
       return res.status(404).json({ error: 'Source not found' });
     }
 
     res.json(toCamelCase(source));
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch source' });
+    console.error('❌ GET single source error:', error);
+    res.status(500).json({ error: 'Failed to fetch source', details: error.message });
   }
 });
 
@@ -56,7 +61,7 @@ router.post('/', async (req: Request, res: Response) => {
     // Debug logging - log FULL req.body first
     console.log('🔍 FULL req.body:', JSON.stringify(req.body, null, 2));
     
-    const { outputs, productionId, userId, userName, ...sourceData } = req.body;
+    const { outputs, productionId, userId, userName, category, ...sourceData } = req.body;
     
     // VALIDATION: Verify production exists in database
     try {
@@ -86,13 +91,12 @@ router.post('/', async (req: Request, res: Response) => {
     console.log('💾 Inserting source with uuid:', uuid);
     await prisma.$executeRaw`
       INSERT INTO sources (
-        id, production_id, category, name, type, rate, 
+        id, production_id, name, type, rate, 
         h_res, v_res, standard, note, secondary_device, blanking,
         format_assignment_mode, created_at, updated_at, version, is_deleted, uuid
       ) VALUES (
         ${snakeCaseData.id},
         ${productionId},
-        ${snakeCaseData.category},
         ${snakeCaseData.name},
         ${snakeCaseData.type || null},
         ${snakeCaseData.rate || null},
@@ -154,12 +158,12 @@ router.post('/', async (req: Request, res: Response) => {
           )
         ) FILTER (WHERE so.id IS NOT NULL) as source_outputs
       FROM sources s
-      LEFT JOIN source_outputs so ON s.id = so.source_id
-      WHERE s.id::text = ${uuid}
-      GROUP BY s.id, s.production_id, s.category, s.name, s.type, s.rate, 
+      LEFT JOIN source_outputs so ON s.uuid = so.source_id
+      WHERE s.uuid::text = ${uuid}
+      GROUP BY s.id, s.production_id, s.name, s.type, s.rate, 
                s.h_res, s.v_res, s.standard, s.note, s.secondary_device, 
                s.blanking, s.format_assignment_mode, s.created_at, s.updated_at, 
-               s.synced_at, s.last_modified_by, s.version, s.is_deleted
+               s.synced_at, s.last_modified_by, s.version, s.is_deleted, s.uuid
     ` as any[];
     console.log('✅ Fetched source:', source.length, 'rows');
     console.log('   Source data:', JSON.stringify(source[0], null, 2));
@@ -233,15 +237,18 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT update source (with event recording and conflict detection)
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { outputs, userId, userName, version: clientVersion, ...updateData } = req.body;
+    const { outputs, userId, userName, version: clientVersion, category, ...updateData } = req.body;
     
     // Get current source for diff and conflict detection
-    const currentSource = await prisma.sources.findUnique({
-      where: { id: req.params.id },
+    const currentSource = await prisma.sources.findFirst({
+      where: { 
+        id: req.params.id,
+        is_deleted: false
+      },
       include: { source_outputs: true }
     });
     
-    if (!currentSource || currentSource.is_deleted) {
+    if (!currentSource) {
       return res.status(404).json({ error: 'Source not found' });
     }
     
@@ -265,7 +272,6 @@ router.put('/:id', async (req: Request, res: Response) => {
     await prisma.$executeRaw`
       UPDATE sources
       SET
-        category = ${snakeCaseData.category},
         name = ${snakeCaseData.name},
         type = ${snakeCaseData.type || null},
         rate = ${snakeCaseData.rate || null},
@@ -292,9 +298,9 @@ router.put('/:id', async (req: Request, res: Response) => {
         )
       ) FILTER (WHERE so.id IS NOT NULL) as source_outputs
       FROM sources s
-      LEFT JOIN source_outputs so ON so.source_id = s.id
+      LEFT JOIN source_outputs so ON so.source_id = s.uuid
       WHERE s.id = ${req.params.id}
-      GROUP BY s.id, s.uuid, s.production_id, s.category, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
+      GROUP BY s.id, s.uuid, s.production_id, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
     `;
     
     const updatedSource = Array.isArray(updatedSourceRaw) ? updatedSourceRaw[0] : updatedSourceRaw;
@@ -341,12 +347,15 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { userId, userName } = req.body;
     
-    const source = await prisma.sources.findUnique({
-      where: { id: req.params.id },
+    const source = await prisma.sources.findFirst({
+      where: { 
+        id: req.params.id,
+        is_deleted: false
+      },
       include: { source_outputs: true }
     });
     
-    if (!source || source.is_deleted) {
+    if (!source) {
       return res.status(404).json({ error: 'Source not found' });
     }
     
@@ -373,9 +382,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
         )
       ) FILTER (WHERE so.id IS NOT NULL) as source_outputs
       FROM sources s
-      LEFT JOIN source_outputs so ON so.source_id = s.id
+      LEFT JOIN source_outputs so ON so.source_id = s.uuid
       WHERE s.id = ${req.params.id}
-      GROUP BY s.id, s.uuid, s.production_id, s.category, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
+      GROUP BY s.id, s.uuid, s.production_id, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
     `;
     
     const deletedSource = Array.isArray(deletedSourceRaw) ? deletedSourceRaw[0] : deletedSourceRaw;
