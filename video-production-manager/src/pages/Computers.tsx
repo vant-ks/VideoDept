@@ -58,7 +58,8 @@ export const Computers: React.FC = () => {
       if (event.entityType === 'source' && event.entity.category === 'COMPUTER') {
         console.log('🔔 Computer created by', event.userName);
         setSources(prev => {
-          if (prev.some(s => s.id === event.entity.id)) return prev;
+          // Use uuid for duplicate detection (immutable PRIMARY KEY)
+          if (prev.some(s => s.uuid === event.entity.uuid)) return prev;
           return [...prev, event.entity];
         });
       }
@@ -67,14 +68,14 @@ export const Computers: React.FC = () => {
       if (event.entityType === 'source' && event.entity.category === 'COMPUTER') {
         console.log('🔔 Computer updated by', event.userName);
         setSources(prev => prev.map(s => 
-          s.id === event.entity.id ? event.entity : s
+          s.uuid === event.entity.uuid ? event.entity : s
         ));
       }
     }, []),
     onEntityDeleted: useCallback((event) => {
       if (event.entityType === 'source') {
         console.log('🔔 Computer deleted by', event.userName);
-        setSources(prev => prev.filter(s => s.id !== event.entityId));
+        setSources(prev => prev.filter(s => s.uuid !== event.entityId));
       }
     }, [])
   });
@@ -114,7 +115,7 @@ export const Computers: React.FC = () => {
       const computerSource = { ...source, category: 'COMPUTER' as any };
       
       if (editingSource) {
-        const result = await sourcesAPI.updateSource(editingSource.id, computerSource);
+        const result = await sourcesAPI.updateSource(editingSource.uuid, computerSource);
         if ('error' in result && result.error === 'Conflict') {
           setConflictError(result);
           return;

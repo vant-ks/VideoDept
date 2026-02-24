@@ -1,7 +1,7 @@
 # Video Production Manager - Project Rules
 
 **Project:** VideoDept Video Production Manager  
-**Last Updated:** February 12, 2026  
+**Last Updated:** February 22, 2026  
 **Maintained By:** Kevin @ GJS Media
 
 This document contains **project-specific** rules and conventions for this codebase. For universal AI agent protocols, see the symlinked `AI_AGENT_PROTOCOL.md` or `~/Dropbox (Personal)/Development/_Utilities/AI_AGENT_PROTOCOL.md`.
@@ -48,15 +48,31 @@ This document contains **project-specific** rules and conventions for this codeb
 8. **AUDIT FINDINGS GO TO PROJECT RULES** → When you conduct an audit and discover novel patterns, document them here immediately.
    - See: [Meta-Rule: Documentation Updates](#meta-rule-documentation-updates)
    - Covers: Knowledge capture, pattern evolution, preventing repeat issues
-   - Pattern: Audit → Document → Update Rules → Verify Implementation
 
-9. **ALWAYS USE PRE-MIGRATION SAFETY CHECKS** → Run `npm run db:migrate:check` before EVERY migration to prevent VS Code crashes.
+9. **ENTITY DATA FLOW STANDARD** → All entities MUST follow standardized 4-layer pattern: Database (snake_case) → API (transform + emit) → Frontend hooks → Pages (WebSocket sync).
+   - See: [../../docs/ENTITY_DATA_FLOW_STANDARD.md](../../docs/ENTITY_DATA_FLOW_STANDARD.md) for complete reference implementation
+   - Enforced: Run `./scripts/validate-entity-pattern.sh` before commits
+   - Covers: WebSocket event naming (entity:created not source:created), .id not .uuid, generic events, toCamelCase usage
+   - Pattern: Backend emits `entity:created/updated/deleted` with entityType in payload, frontend filters by entityType
+   - **MANDATORY**: Follow checklist when creating new entities to prevent sync bugs
+
+10. **UUID AS PRIMARY KEY, ID AS DISPLAY** → All entity tables use auto-generated uuid as PRIMARY KEY. The id field is user-editable for display purposes.
+   - See: [../../docs/incident-reports/UUID_ARCHITECTURE_SOLUTION_2026-02-22.md](../../docs/incident-reports/UUID_ARCHITECTURE_SOLUTION_2026-02-22.md) for complete architecture
+   - Database: `uuid String @id @default(uuid())` - Postgres auto-generates
+   - Database: `id String` with `@@unique([production_id, id])` - User can edit
+   - WebSocket: Always use uuid for entityId (immutable, reliable matching)
+   - Frontend: Create without uuid, receive it from API response
+   - Foreign Keys: Always reference uuid (immune to id changes)
+   - **PATTERN**: User can rename "SRC 1" → "SRC A" anytime, uuid stays same, all references remain valid
+   - **MIGRATION**: ONE table at a time, track progress in DEVLOG.md to prevent crashes
+
+11. **ALWAYS USE PRE-MIGRATION SAFETY CHECKS** → Run `npm run db:migrate:check` before EVERY migration to prevent VS Code crashes.
    - See: [Database Migration Safety](#database-migration-safety---critical-patterns)
    - Covers: Zombie process detection, memory checks, schema drift detection
    - Pattern: Safety Check → Migration → Verify Cleanup
    - **CRITICAL**: Never skip this step, even for "simple" migrations
 
-10. **SCHEMA DRIFT = DATABASE RESET IN DEV** → When Prisma detects drift from schema changes/reverts, use `npm run db:reset` to realign.
+12. **SCHEMA DRIFT = DATABASE RESET IN DEV** → When Prisma detects drift from schema changes/reverts, use `npm run db:reset` to realign.
    - See: [Schema Drift Resolution](#schema-drift-resolution---critical-patterns)
    - Covers: Post-rollback drift, UUID experiments, schema edits without migrations
    - Pattern: Detect Drift → Check Git History → Reset Database → Create Migration

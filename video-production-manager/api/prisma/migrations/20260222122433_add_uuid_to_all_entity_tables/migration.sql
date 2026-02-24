@@ -1,0 +1,21 @@
+-- Add uuid column to all entity tables (nullable for now)
+ALTER TABLE "cameras" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "ccus" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "cable_snakes" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "cam_switchers" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "vision_switchers" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "led_screens" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "media_servers" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "projection_screens" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "records" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "routers" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "streams" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "checklist_items" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "connections" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "equipment_card_io" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "equipment_cards" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "equipment_io_ports" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "equipment_specs" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "events" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "ip_addresses" ADD COLUMN "uuid" TEXT;
+ALTER TABLE "sends" ADD COLUMN "uuid" TEXT;

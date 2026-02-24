@@ -1,5 +1,184 @@
 # Development Log - Video Production Manager
 
+## February 22, 2026 - UUID Architecture Migration
+
+### ID vs UUID Conflict Resolution
+
+**Context**: Investigation revealed architectural conflict - `id` field is user-editable (can rename "SRC 1" → "SRC A") but was being used as PRIMARY KEY, causing sync issues and preventing ID changes.
+
+**Root Cause Analysis**:
+- **Feb 10, 2026**: UUID migration attempted but rolled back due to crashes
+- **Feb 21, 2026**: ENTITY_DATA_FLOW_STANDARD.md created saying "use id as PRIMARY KEY"
+- **Feb 21, 2026**: Sources.tsx updated to use `.id` for matching (assumes immutable)
+- **Conflict**: User requirement is that ID is editable, but PRIMARY KEY must be immutable
+
+**Historical Context** (from UUID_MIGRATION_RECOVERY.md):
+- Original design: UUID as PRIMARY KEY, id as user-friendly display field
+- Migration crashed: Code expected uuid, database didn't have it
+- Rolled back: Used id as PRIMARY KEY (violated design intent)
+- User confirmed: IDs should be editable, need proper UUID implementation
+
+**Approved Solution** (Standard Industry Pattern):
+- **uuid**: Auto-generated PRIMARY KEY by Postgres (@default(uuid()))
+- **id**: User-editable display field (unique within production)
+- **WebSocket**: Uses uuid for reliable matching (immutable)
+- **Frontend**: Creates without uuid, receives it from database
+
+**Reference Documentation**: [UUID_ARCHITECTURE_SOLUTION_2026-02-22.md](../../docs/incident-reports/UUID_ARCHITECTURE_SOLUTION_2026-02-22.md)
+
+---
+
+### Migration Progress Tracker
+
+**Status**: � IN PROGRESS - sources Table Migration Underway
+
+**Phase 1: sources Table (Pilot)**
+
+| Step | Status | Description | Started | Completed |
+|------|--------|-------------|---------|-----------|
+| 1.1 | ✅ Complete | Add uuid column (nullable) | Feb 22, 2026 05:10 | Feb 22, 2026 05:10 |
+| 1.2 | ✅ Complete | Populate uuid for existing rows | Feb 22, 2026 05:12 | Feb 22, 2026 05:12 |
+| 1.3 | ✅ Complete | Add source_uuid columns to FKs | Feb 22, 2026 05:13 | Feb 22, 2026 05:14 |
+| 1.4 | ✅ Complete | Populate source_uuid references | Feb 22, 2026 05:14 | Feb 22, 2026 05:14 |
+| 1.5 | ✅ Complete | Make uuid PRIMARY KEY, update FKs | Feb 22, 2026 05:15 | Feb 22, 2026 05:15 |
+| 1.5 | ⬜ Not Started | Update sources.ts routes | - | - |
+| 1.6 | ⬜ Not Started | Update Sources.tsx frontend | - | - |
+| 1.7 | ⬜ Not Started | Update useSourcesAPI hook | - | - |
+| 1.8 | ⬜ Not Started | Update TypeScript types | - | - |
+| 1.9 | ⬜ Not Started | Test locally (6 test cases) | - | - |
+| 1.10 | ⬜ Not Started | Deploy to Railway | - | - |
+| 1.11 | ⬜ Not Started | Monitor 24 hours | - | - |
+
+**Safety Lessons from Feb 10 Crash**:
+- ✅ ONE table at a time (not all at once)
+- ✅ Document each step before executing
+- ✅ Test locally with production data copy
+- ✅ Verify Railway deploy before next table
+- ✅ Track progress to prevent partial completions
+- ✅ Can pause/rollback at any step
+
+**Remaining Tables** (after sources verified):
+- ⬜ sends
+- ⬜ ccus
+- ⬜ cameras
+- ⬜ connections
+- ⬜ checklist_items
+- ⬜ cable_snakes
+- ⬜ routers
+- ⬜ ... (all other entity tables)
+
+**Migration Log** (detailed step-by-step tracking):
+
+```
+[Timestamp] [Step] [Status] [Details]
+-------------------------------------------------------------------------
+[2026-02-22 05:10] [1.1] [STARTED] Adding nullable uuid column to sources table
+[2026-02-22 05:10] [1.1] [SUCCESS] Migration 20260222051017_add_uuid_column_to_sources created and applied
+                                     SQL: ALTER TABLE "sources" ADD COLUMN "uuid" TEXT;
+                                     Database and schema now in sync
+[2026-02-22 05:12] [1.2] [STARTED] Populating uuid for all existing sources
+[2026-02-22 05:12] [1.2] [SUCCESS] Migration 20260222051203_populate_source_uuids applied
+                                     SQL: UPDATE sources SET uuid = gen_random_uuid() WHERE uuid IS NULL;
+                                     All existing sources now have UUIDs
+[2026-02-22 05:13] [1.3] [STARTED] Adding source_uuid columns to connections and source_outputs
+[2026-02-22 05:13] [1.3] [SUCCESS] Migration 20260222051352_add_source_uuid_to_referencing_tables applied
+                                     SQL: ALTER TABLE "connections" ADD COLUMN "source_uuid" TEXT;
+                                          ALTER TABLE "source_outputs" ADD COLUMN "source_uuid" TEXT;
+[2026-02-22 05:14] [1.4] [STARTED] Populating source_uuid in referencing tables
+[2026-02-22 05:14] [1.4] [SUCCESS] Migration 20260222051408_populate_source_uuid_references applied
+                                     Joined with sources table to copy uuid values
+[2026-02-22 05:15] [1.5] [STARTED] CRITICAL: Making uuid PRIMARY KEY on sources, updating all FK constraints
+[2026-02-22 05:15] [1.5] [SUCCESS] Migration 20260222051530_make_uuid_primary_key_on_sources applied
+                                     - Made sources.uuid NOT NULL
+                                     - Made source_outputs.source_uuid NOT NULL
+                                     - Dropped old FK constraints
+                                     - Changed PRIMARY KEY from id to uuid
+                                     - Added UNIQUE constraint on (production_id, id)
+                                     - Created new FK constraints pointing to uuid
+                                     - Updated indices
+                                     DATABASE MIGRATION PHASE COMPLETE ✅
+[2026-02-22 05:24] [BUG FIX] Found missing DEFAULT constraint on uuid column
+                              Error 23502 (NOT NULL violation) when creating sources
+                              Migration 20260222052400_add_uuid_default_constraint applied
+                              Added: ALTER COLUMN "uuid" SET DEFAULT gen_random_uuid()
+                              uuid now auto-generates on INSERT ✅
+```
+
+---
+
+## February 21, 2026 - Systematic Entity Data Flow Standardization
+
+### Test 4 Source Sync - Revealed Systemic Pattern Violations
+
+**Context**: Started Test 4 (Source Sync) and immediately hit 500 errors. Investigation revealed the camera sync fix from Feb 12 was never propagated to other entities, causing circular recurring bugs.
+
+**Root Cause Analysis**:
+- **Immediate Issue**: sync-helpers.ts emitted entity-specific events (`source:created`, `send:created`) but frontend listens for generic events (`entity:created`)
+- **Systemic Issue**: Pattern violations recurring despite documentation in PROJECT_RULES.md
+- **Historical Pattern**: Identical bug was fixed for cameras Feb 12 (Bug 3.2) but pattern wasn't enforced for new/existing entities
+- **Affected Routes**: 6 routes using sync-helpers.ts (sources, sends, ccus, connections, checklist-items, ip-addresses)
+
+**Systematic Solution Implemented**:
+
+1. **Fixed sync-helpers.ts** - Changed from entity-specific to generic events:
+   ```typescript
+   // BEFORE (WRONG):
+   const event = `${entityType}:created`;  // Creates "source:created"
+   io.to(room).emit(event, data);
+   
+   // AFTER (CORRECT):
+   const event = 'entity:created';  // Generic event
+   io.to(room).emit(event, {
+     entityType,
+     entityId,
+     entity: data
+   });
+   ```
+
+2. **Fixed Sources.tsx** - Replaced `.uuid` references with `.id`:
+   - Line 77: Changed duplicate check from `s.uuid` to `s.id` (PRIMARY KEY)
+   - Line 89: Changed update matching from `s.uuid` to `s.id`
+   - Line 96: Changed delete filtering from `s.uuid` to `s.id`
+   - Removed all console.log references to uuid field
+
+3. **Created Enforcement Mechanisms**:
+   - **Validation Script**: `scripts/validate-entity-pattern.sh` checks:
+     - ✅ WebSocket events use generic pattern (`entity:*` not `source:*`)
+     - ✅ Frontend doesn't use `.uuid` field
+     - ✅ sync-helpers.ts emits correct event names
+     - ⚠️ API routes use toCamelCase (tracked as technical debt)
+   - **Documentation**: Created [ENTITY_DATA_FLOW_STANDARD.md](../../docs/ENTITY_DATA_FLOW_STANDARD.md) with:
+     - Complete 4-layer pattern (Database → API → Hooks → Pages)
+     - Copy-paste templates for all layers
+     - 22-point checklist for new entities
+     - Migration plan for existing violations
+   - **PROJECT_RULES.md**: Added Pillar #9 referencing standard and validation script
+
+**Pattern Audit Results** (83 broadcast calls):
+- ✅ **9 routes correct**: cameras, routers, cable-snakes, projection-screens, streams, records, media-servers, led-screens, vision-switchers
+- ❌ **6 routes fixed**: sources, sends, ccus, connections, checklist-items, ip-addresses (via sync-helpers fix)
+- ✅ **2 domain-specific**: productions (production:*), settings (settings:*) - correctly different
+
+**Files Modified**:
+- `video-production-manager/api/src/utils/sync-helpers.ts` - Fixed all 3 broadcast functions to emit generic events
+- `video-production-manager/src/pages/Sources.tsx` - Changed .uuid to .id throughout
+- `video-production-manager/docs/PROJECT_RULES.md` - Added Pillar #9, updated date to Feb 21, 2026
+- `scripts/validate-entity-pattern.sh` - New validation script (executable)
+- `docs/ENTITY_DATA_FLOW_STANDARD.md` - Complete reference implementation and checklist
+
+**Success Criteria Met**:
+- ✅ All 6 affected routes now use correct pattern
+- ✅ Validation script passes all checks
+- ✅ Pattern documented in 3 places (STANDARD, PROJECT_RULES, DEVLOG)
+- ✅ Enforcement mechanism prevents future violations
+
+**Next Steps**:
+- Run Test 4 (Source Sync) to verify fix works end-to-end
+- Continue Phase 5 multi-browser testing (Tests 5-10)
+- Track toCamelCase technical debt for future cleanup session
+
+---
+
 ## February 12, 2026 (Late Evening Session)
 
 ### Test 3: Camera Sync Complete ✅

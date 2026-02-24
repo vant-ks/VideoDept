@@ -10,7 +10,8 @@ datasource db {
 }
 
 model cameras {
-  id                 String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id      String
   name               String
   model              String?
@@ -24,6 +25,7 @@ model cameras {
   has_dolly          Boolean?
   has_jib            Boolean?
   ccu_id             String?
+  ccu_uuid           String?
   smpte_cable_length Float?
   note               String?
   created_at         DateTime    @default(now())
@@ -33,15 +35,16 @@ model cameras {
   is_deleted         Boolean     @default(false)
   last_modified_by   String?
   synced_at          DateTime?
-  ccus               ccus?       @relation(fields: [ccu_id], references: [id])
+  ccus               ccus?       @relation(fields: [ccu_uuid], references: [uuid])
   productions        productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
-  @@index([ccu_id])
+  @@index([ccu_uuid])
   @@index([production_id])
 }
 
 model ccus {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   manufacturer     String?
@@ -65,7 +68,8 @@ model ccus {
 }
 
 model cable_snakes {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   manufacturer     String?
@@ -84,7 +88,8 @@ model cable_snakes {
 }
 
 model cam_switchers {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   manufacturer     String?
@@ -105,7 +110,8 @@ model cam_switchers {
 }
 
 model vision_switchers {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   manufacturer     String?
@@ -127,7 +133,8 @@ model vision_switchers {
 }
 
 model led_screens {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   manufacturer     String?
@@ -149,7 +156,8 @@ model led_screens {
 }
 
 model media_servers {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   manufacturer     String?
@@ -169,7 +177,8 @@ model media_servers {
 }
 
 model projection_screens {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   manufacturer     String?
@@ -191,7 +200,8 @@ model projection_screens {
 }
 
 model records {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   manufacturer     String?
@@ -211,7 +221,8 @@ model records {
 }
 
 model routers {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   manufacturer     String?
@@ -232,7 +243,8 @@ model routers {
 }
 
 model streams {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   name             String
   platform         String?
@@ -252,7 +264,8 @@ model streams {
 }
 
 model checklist_items {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   completed        Boolean     @default(false)
   sort_order       Int?
@@ -276,8 +289,10 @@ model checklist_items {
 }
 
 model connections {
-  id                  String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id       String
+  source_uuid         String?
   source_id           String?
   source_output_id    String?
   intermediate_type   String?
@@ -295,10 +310,10 @@ model connections {
   last_modified_by    String?
   synced_at           DateTime?
   productions         productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
-  sources             sources?    @relation(fields: [source_id], references: [id])
+  sources             sources?    @relation(fields: [source_uuid], references: [uuid])
 
   @@index([production_id])
-  @@index([source_id])
+  @@index([source_uuid])
 }
 
 model connector_types {
@@ -313,37 +328,43 @@ model connector_types {
 }
 
 model equipment_card_io {
-  id              String          @id
+  uuid         String   @id @default(uuid())
+  id           String
   card_id         String
   port_type       PortType
   io_type         String
   label           String?
   format          String?
+  card_uuid       String?
   port_index      Int?
   created_at      DateTime        @default(now())
   updated_at      DateTime
   version         Int             @default(1)
-  equipment_cards equipment_cards @relation(fields: [card_id], references: [id], onDelete: Cascade)
+  equipment_cards equipment_cards? @relation(fields: [card_uuid], references: [uuid], onDelete: Cascade)
 
-  @@index([card_id])
+  @@index([card_uuid])
 }
 
 model equipment_cards {
-  id                String              @id
+  uuid         String   @id @default(uuid())
+  id           String
   equipment_id      String
+  equipment_uuid    String?
   slot_number       Int
   created_at        DateTime            @default(now())
   updated_at        DateTime
   version           Int                 @default(1)
   equipment_card_io equipment_card_io[]
-  equipment_specs   equipment_specs     @relation(fields: [equipment_id], references: [id], onDelete: Cascade)
+  equipment_specs   equipment_specs?     @relation(fields: [equipment_uuid], references: [uuid], onDelete: Cascade)
 
   @@unique([equipment_id, slot_number])
 }
 
 model equipment_io_ports {
-  id              String          @id
+  uuid         String   @id @default(uuid())
+  id           String
   equipment_id    String
+  equipment_uuid  String?
   port_type       PortType
   io_type         String
   label           String?
@@ -352,13 +373,14 @@ model equipment_io_ports {
   created_at      DateTime        @default(now())
   updated_at      DateTime
   version         Int             @default(1)
-  equipment_specs equipment_specs @relation(fields: [equipment_id], references: [id], onDelete: Cascade)
+  equipment_specs equipment_specs? @relation(fields: [equipment_uuid], references: [uuid], onDelete: Cascade)
 
   @@index([equipment_id])
 }
 
 model equipment_specs {
-  id                  String               @id
+  uuid         String   @id @default(uuid())
+  id           String
   category            EquipmentCategory
   manufacturer        String
   model               String
@@ -382,7 +404,8 @@ model equipment_specs {
 }
 
 model events {
-  id            String         @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id String
   event_type    EventType
   operation     EventOperation
@@ -412,7 +435,8 @@ model frame_rates {
 }
 
 model ip_addresses {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   ip               String
   device_name      String
@@ -481,7 +505,8 @@ model resolution_presets {
 }
 
 model sends {
-  id               String      @id
+  uuid         String   @id @default(uuid())
+  id           String
   production_id    String
   type             String
   name             String
@@ -528,7 +553,9 @@ model settings {
 }
 
 model source_outputs {
-  id           String   @id
+  uuid         String   @id @default(uuid())
+  id           String
+  source_uuid  String
   source_id    String
   connector    String
   output_index Int      @default(1)
@@ -538,9 +565,9 @@ model source_outputs {
   standard     String?
   created_at   DateTime @default(now())
   version      Int      @default(1)
-  sources      sources  @relation(fields: [source_id], references: [id], onDelete: Cascade)
+  sources      sources  @relation(fields: [source_uuid], references: [uuid], onDelete: Cascade)
 
-  @@index([source_id])
+  @@index([source_uuid])
 }
 
 model source_types {
@@ -555,8 +582,10 @@ model source_types {
 }
 
 model sources {
-  id                     String           @id
+  uuid                   String           @id @default(uuid())
+  id                     String
   production_id          String
+  category               String?
   type                   String
   name                   String
   format_assignment_mode String?          @default("system-wide")
@@ -579,6 +608,7 @@ model sources {
   productions            productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@index([production_id, is_deleted])
+  @@index([category], map: "sources_category_idx")
   @@index([type], map: "sources_type_idx")
 }
 

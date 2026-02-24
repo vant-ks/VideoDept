@@ -29,15 +29,20 @@ export function broadcastEntityUpdate(options: BroadcastOptions): void {
   const { io, productionId, entityType, entityId, data } = options;
   
   const room = `production:${productionId}`;
-  const event = `${entityType}:updated`;
+  const event = 'entity:updated';
   
   console.log(`📡 Broadcasting ${event} to room ${room}`, {
+    entityType,
     entityId,
     version: data.version,
     lastModifiedBy: data.last_modified_by || data.lastModifiedBy
   });
   
-  io.to(room).emit(event, data);
+  io.to(room).emit(event, {
+    entityType,
+    entityId,
+    entity: data
+  });
 }
 
 /**
@@ -47,14 +52,19 @@ export function broadcastEntityCreated(options: BroadcastOptions): void {
   const { io, productionId, entityType, entityId, data } = options;
   
   const room = `production:${productionId}`;
-  const event = `${entityType}:created`;
+  const event = 'entity:created';
   
   console.log(`📡 Broadcasting ${event} to room ${room}`, {
+    entityType,
     entityId,
     version: data.version
   });
   
-  io.to(room).emit(event, data);
+  io.to(room).emit(event, {
+    entityType,
+    entityId,
+    entity: data
+  });
 }
 
 /**
@@ -64,13 +74,18 @@ export function broadcastEntityDeleted(options: Omit<BroadcastOptions, 'data'> &
   const { io, productionId, entityType, entityId, data } = options;
   
   const room = `production:${productionId}`;
-  const event = `${entityType}:deleted`;
+  const event = 'entity:deleted';
   
   console.log(`📡 Broadcasting ${event} to room ${room}`, {
+    entityType,
     entityId
   });
   
-  io.to(room).emit(event, { id: entityId, ...data });
+  io.to(room).emit(event, {
+    entityType,
+    entityId,
+    ...data
+  });
 }
 
 /**

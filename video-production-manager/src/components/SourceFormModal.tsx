@@ -73,6 +73,7 @@ export function SourceFormModal({
   const [isCustomResolution, setIsCustomResolution] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>('');
   const [selectedFrameRate, setSelectedFrameRate] = useState<string>('59.94');
+  const [isDuplicateId, setIsDuplicateId] = useState(false);
   
   // Per-I/O format states (for when formatAssignmentMode is 'per-io')
   const [perIoPresets, setPerIoPresets] = useState<Record<string, string>>({});
@@ -212,6 +213,14 @@ export function SourceFormModal({
   const handleChange = (field: keyof Source, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors([]); // Clear errors on change
+    
+    // Check for duplicate ID (excluding the current editing source)
+    if (field === 'id') {
+      const isDuplicate = existingSources.some(s => 
+        s.id === value && s.uuid !== editingSource?.uuid
+      );
+      setIsDuplicateId(isDuplicate);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent | React.MouseEvent, action: 'close' | 'duplicate' = 'close') => {
@@ -231,16 +240,7 @@ export function SourceFormModal({
       return;
     }
 
-    // Check for ID conflicts (only if creating new or changing ID)
-    if (!editingSource || editingSource.id !== formData.id) {
-      console.log('🔍 Checking for ID conflicts...');
-      if (SourceService.idExists(formData.id!, existingSources, editingSource?.id, sends)) {
-        console.log('❌ ID conflict detected!');
-        setErrors([`ID "${formData.id}" already exists. IDs must be unique across all Sources and Sends.`]);
-        return;
-      }
-      console.log('✅ No ID conflict');
-    }
+    // Note: Duplicate IDs are allowed, but will show visual warnings in the UI
 
     const sourceData = formData as Source;
     onSave(sourceData);
@@ -306,10 +306,15 @@ export function SourceFormModal({
                 type="text"
                 value={formData.id}
                 onChange={(e) => handleChange('id', e.target.value)}
-                className="input-field w-full"
+                className={`input-field w-full ${isDuplicateId ? 'border-red-500 border-2' : ''}`}
                 placeholder="SRC 1"
                 required
               />
+              {isDuplicateId && (
+                <p className="text-xs text-red-500 mt-1">
+                  ⚠️ This ID already exists. Duplicates will be highlighted in red.
+                </p>
+              )}
             </div>
 
             <div>

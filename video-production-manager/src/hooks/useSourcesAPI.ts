@@ -106,14 +106,14 @@ export function useSourcesAPI() {
   }, [getUserInfo]);
 
   const updateSource = useCallback(async (
-    id: string,
+    uuid: string,
     input: UpdateSourceInput
   ): Promise<Source | ConflictError> => {
     setIsLoading(true);
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      const data = await apiClient.put<any>(`/sources/${id}`, {
+      const data = await apiClient.put<any>(`/sources/${uuid}`, {
         ...input,
         userId,
         userName,
@@ -137,12 +137,12 @@ export function useSourcesAPI() {
     }
   }, [getUserInfo]);
 
-  const deleteSource = useCallback(async (id: string): Promise<void> => {
+  const deleteSource = useCallback(async (uuid: string): Promise<void> => {
     setIsLoading(true);
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      await apiClient.delete(`/sources/${id}`, {
+      await apiClient.delete(`/sources/${uuid}`, {
         data: { userId, userName }
       });
     } catch (err: any) {

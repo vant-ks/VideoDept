@@ -55,7 +55,7 @@ export const Sources: React.FC = () => {
       sourcesAPI.fetchSources(productionId)
         .then(fetchedSources => {
           console.log('   ✅ Fetched sources:', fetchedSources.length, 'sources');
-          console.log('   Sources:', fetchedSources.map(s => ({ id: s.id, uuid: s.uuid })));
+          console.log('   Sources:', fetchedSources.map(s => ({ id: s.id, name: s.name })));
           setSources(fetchedSources);
         })
         .catch(err => {
@@ -71,9 +71,9 @@ export const Sources: React.FC = () => {
     productionId,
     onEntityCreated: useCallback((event) => {
       if (event.entityType === 'source') {
-        console.log('🔔 Source created by', event.userName, '| Source:', event.entity.id, 'uuid:', event.entity.uuid);
+        console.log('🔔 Source created by', event.userName, '| Source:', event.entity.id);
         setSources(prev => {
-          // Avoid duplicates using UUID (more reliable than human-readable id)
+          // Avoid duplicates using uuid (immutable PRIMARY KEY)
           if (prev.some(s => s.uuid === event.entity.uuid)) {
             console.log('⚠️ Duplicate detected - skipping add');
             return prev;
@@ -127,7 +127,7 @@ export const Sources: React.FC = () => {
 
   const handleAddNew = () => {
     console.log('📝 handleAddNew called - opening modal for new source');
-    console.log('📝 Current sources state:', sources.map(s => ({ id: s.id, uuid: s.uuid })));
+    console.log('📝 Current sources state:', sources.map(s => ({ id: s.id, name: s.name })));
     setEditingSource(null);
     setIsModalOpen(true);
   };
@@ -146,7 +146,7 @@ export const Sources: React.FC = () => {
     try {
       if (editingSource) {
         // Update existing source
-        const result = await sourcesAPI.updateSource(editingSource.id, {
+        const result = await sourcesAPI.updateSource(editingSource.uuid, {
           ...source,
           version: editingSource.version,
         });
@@ -161,8 +161,8 @@ export const Sources: React.FC = () => {
           return;
         }
         
-        // Success - update local state
-        setSources(prev => prev.map(s => s.id === result.id ? result : s));
+        // Success - update local state (match by uuid)
+        setSources(prev => prev.map(s => s.uuid === result.uuid ? result : s));
       } else {
         // Create new source - explicitly pass fields to prevent string iteration
         console.log('💾 Creating new source with id:', source.id);
@@ -177,7 +177,7 @@ export const Sources: React.FC = () => {
           note: source.note,
           productionId,
         });
-        console.log('✅ Source created successfully:', { id: newSource.id, uuid: newSource.uuid });
+        console.log('✅ Source created successfully:', { id: newSource.id, name: newSource.name });
         console.log('💡 Optimistically adding to state - WebSocket will deduplicate if needed');
         
         // Optimistic update - add immediately so UI is responsive
@@ -191,12 +191,12 @@ export const Sources: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (uuid: string) => {
     if (!confirm('Are you sure you want to delete this source?')) return;
 
     try {
-      await sourcesAPI.deleteSource(id);
-      setSources(prev => prev.filter(s => s.id !== id));
+      await sourcesAPI.deleteSource(uuid);
+      setSources(prev => prev.filter(s => s.uuid !== uuid));
     } catch (error) {
       console.error('Failed to delete source:', error);
       alert('Failed to delete source. Please try again.');
@@ -339,7 +339,11 @@ export const Sources: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredSources.map((source) => (
+          {filteredSources.map((source) => {
+            // Check if this ID is duplicated
+            const isDuplicateId = filteredSources.filter(s => s.id === source.id).length > 1;
+            
+            return (
             <Card key={source.id} className="p-6 hover:border-av-accent/30 transition-colors">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -354,7 +358,7 @@ export const Sources: React.FC = () => {
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                     <div>
                       <span className="text-av-text-muted">ID:</span>
-                      <span className="text-av-text ml-2">{source.id}</span>
+                      <span className={isDuplicateId ? 'text-red-500 ml-2' : 'text-av-text ml-2'}>{source.id}</span>
                     </div>
                     {source.hRes && source.vRes && (
                       <div>
@@ -403,7 +407,7 @@ export const Sources: React.FC = () => {
                     <Copy className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete(source.id)}
+                    onClick={() => handleDelete(source.uuid)}
                     className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
                     title="Delete"
                   >
@@ -412,7 +416,8 @@ export const Sources: React.FC = () => {
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
