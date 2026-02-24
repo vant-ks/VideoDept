@@ -7,7 +7,7 @@ interface CreateSourceInput {
   productionId: string;
   userId?: string;
   userName?: string;
-  category: string; // Base category: COMPUTER, SERVER, CAMERA, CCU
+  category?: string; // Auto-set to "COMPUTER" by backend - don't send from frontend
   type?: string; // Settings-defined type (e.g., "Laptop - PC GFX")
   name: string;
   hRes: number;
@@ -67,10 +67,10 @@ export function useSourcesAPI() {
       console.log('🚀 getUserInfo returned:', { userId, userName });
       
       // Explicitly structure the request to prevent string iteration
+      // NOTE: category is auto-set to "COMPUTER" on backend - don't send it
       const requestData = {
         id: input.id,
         productionId: input.productionId,
-        category: input.category,
         type: input.type,
         name: input.name,
         hRes: input.hRes,

@@ -96,6 +96,15 @@ export const Computers: React.FC = () => {
     });
   }, [sources, selectedType]);
 
+  // Helper: Check if a source has a duplicate ID (for visual warning)
+  const hasDuplicateId = useCallback((source: Source) => {
+    return sources.filter(s => 
+      s.id === source.id && 
+      s.uuid !== source.uuid && 
+      s.production_id === source.production_id
+    ).length > 0;
+  }, [sources]);
+
   const handleAddNew = () => {
     setEditingSource(null);
     setIsModalOpen(true);
@@ -160,10 +169,10 @@ export const Computers: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (uuid: string) => {
     if (confirm('Are you sure you want to delete this computer?')) {
       try {
-        await sourcesAPI.deleteSource(id);
+        await sourcesAPI.deleteSource(uuid);
         // Don't manually update state - let WebSocket event handle it
       } catch (error) {
         console.error('Failed to delete computer:', error);
@@ -172,8 +181,8 @@ export const Computers: React.FC = () => {
     }
   };
 
-  const handleDuplicate = (id: string) => {
-    duplicateSource(id);
+  const handleDuplicate = (uuid: string) => {
+    duplicateSource(uuid);
   };
 
   const stats = SourceService.getStatistics(sources);
@@ -244,20 +253,26 @@ export const Computers: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredSources.map((source) => (
-            <Card 
-              key={source.id} 
-              className="p-6 hover:border-av-accent/30 transition-colors cursor-pointer"
-              onDoubleClick={() => handleEdit(source)}
-            >
-              <div className="grid grid-cols-3 gap-6 items-center">
-                {/* Left 1/3: ID and Name */}
-                <div className="flex items-center gap-12">
-                  <span className="text-sm text-av-text">
-                    {source.id}
-                  </span>
-                  <h3 className="text-lg font-semibold text-av-text">{source.name}</h3>
-                </div>
+          {filteredSources.map((source) => {
+            const isDuplicate = hasDuplicateId(source);
+            return (
+              <Card 
+                key={source.uuid} 
+                className={`p-6 hover:border-av-accent/30 transition-colors cursor-pointer ${
+                  isDuplicate ? 'border-red-500 bg-red-900/10' : ''
+                }`}
+                onDoubleClick={() => handleEdit(source)}
+              >
+                <div className="grid grid-cols-3 gap-6 items-center">
+                  {/* Left 1/3: ID and Name */}
+                  <div className="flex items-center gap-12">
+                    <span className={`text-sm ${isDuplicate ? 'text-red-500 font-bold' : 'text-av-text'}`}>
+                      {source.id}
+                    </span>
+                    <h3 className={`text-lg font-semibold ${isDuplicate ? 'text-red-500' : 'text-av-text'}`}>
+                      {source.name}
+                    </h3>
+                  </div>
                 
                 {/* Middle 1/3: Badges */}
                 <div className="flex items-center gap-2">
@@ -280,7 +295,7 @@ export const Computers: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDuplicate(source.id);
+                        handleDuplicate(source.uuid);
                       }}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
                       title="Duplicate"
@@ -290,7 +305,7 @@ export const Computers: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDelete(source.id);
+                        handleDelete(source.uuid);
                       }}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
                       title="Delete"
@@ -309,7 +324,8 @@ export const Computers: React.FC = () => {
                 </div>
               )}
             </Card>
-          ))}
+          );
+          })}
         </div>
       )}
 
@@ -322,7 +338,7 @@ export const Computers: React.FC = () => {
 
       {/* Form Modal */}
       <SourceFormModal
-        key={isModalOpen ? `modal-${editingSource?.id || 'new'}-${Date.now()}` : 'closed'}
+        key={editingSource?.uuid || 'new'}
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
@@ -335,10 +351,11 @@ export const Computers: React.FC = () => {
           const newId = SourceService.generateId([...sources, source]);
           setEditingSource({
             ...source,
+            uuid: '', // Clear uuid so it gets a new one from backend
             id: newId,
             name: `${source.name} (Copy)`
           });
-          setIsModalOpen(true);
+          // Modal stays open with duplicated data
         }}
         existingSources={sources}
         editingSource={editingSource}

@@ -55,7 +55,6 @@ export function SourceFormModal({
   
   const [formData, setFormData] = useState<Partial<Source>>({
     id: '',
-    category: 'COMPUTER', // Base category
     type: defaultType, // Settings-defined type (e.g., "Laptop - PC GFX")
     name: '',
     formatAssignmentMode: 'per-io', // Always per-io for computers
@@ -88,7 +87,6 @@ export function SourceFormModal({
       // Ensure outputs array exists for backwards compatibility
       const sourceWithOutputs = {
         ...editingSource,
-        category: editingSource.category || 'COMPUTER',
         type: editingSource.type || (sourceTypes.length > 0 ? sourceTypes[0] : defaultType),
         outputs: editingSource.outputs || [{ id: 'out-1', connector: 'HDMI' as ConnectorType }]
       };
@@ -117,7 +115,6 @@ export function SourceFormModal({
       console.log('🔧 Generated newId:', newId);
       setFormData({
         id: newId,
-        category: 'COMPUTER',
         type: defaultType,
         name: '',
         rate: 59.94,
@@ -240,7 +237,8 @@ export function SourceFormModal({
       return;
     }
 
-    // Note: Duplicate IDs are allowed, but will show visual warnings in the UI
+    // Note: Duplicate IDs are allowed with visual warnings (red text in UI)
+    // The uuid is the immutable primary key, id is user-editable
 
     const sourceData = formData as Source;
     onSave(sourceData);

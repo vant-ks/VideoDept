@@ -344,7 +344,7 @@ export const Sources: React.FC = () => {
             const isDuplicateId = filteredSources.filter(s => s.id === source.id).length > 1;
             
             return (
-            <Card key={source.id} className="p-6 hover:border-av-accent/30 transition-colors">
+            <Card key={source.uuid} className="p-6 hover:border-av-accent/30 transition-colors">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
