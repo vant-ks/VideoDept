@@ -115,7 +115,7 @@ export const Computers: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (source: Source) => {
+  const handleSave = async (source: Source, shouldCloseModal: boolean = true) => {
     console.log('Saving computer:', source);
     setConflictError(null);
     
@@ -123,7 +123,8 @@ export const Computers: React.FC = () => {
       // Force category to 'COMPUTER' for all sources created/edited on Computers page
       const computerSource = { ...source, category: 'COMPUTER' as any };
       
-      if (editingSource) {
+      // Check if we're editing an existing source (uuid must be present and not empty)
+      if (editingSource && editingSource.uuid) {
         const result = await sourcesAPI.updateSource(editingSource.uuid, computerSource);
         if ('error' in result && result.error === 'Conflict') {
           setConflictError(result);
@@ -138,8 +139,11 @@ export const Computers: React.FC = () => {
         });
         // Don't manually update state - let WebSocket event handle it
       }
-      setIsModalOpen(false);
-      setEditingSource(null);
+      
+      if (shouldCloseModal) {
+        setIsModalOpen(false);
+        setEditingSource(null);
+      }
     } catch (error: any) {
       console.error('Failed to save computer:', error);
       
@@ -345,9 +349,10 @@ export const Computers: React.FC = () => {
           setEditingSource(null);
         }}
         onSave={handleSave}
-        onSaveAndDuplicate={(source) => {
-          handleSave(source);
-          // Generate new ID and open modal with duplicated data
+        onSaveAndDuplicate={async (source) => {
+          // Save without closing the modal
+          await handleSave(source, false);
+          // Generate new ID and set editing source with duplicated data
           const newId = SourceService.generateId([...sources, source]);
           setEditingSource({
             ...source,

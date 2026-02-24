@@ -241,11 +241,13 @@ export function SourceFormModal({
     // The uuid is the immutable primary key, id is user-editable
 
     const sourceData = formData as Source;
-    onSave(sourceData);
     
     if (action === 'duplicate' && onSaveAndDuplicate) {
+      // Call onSaveAndDuplicate which handles save + keeping modal open
       onSaveAndDuplicate(sourceData);
     } else {
+      // Normal save - calls onSave and closes modal
+      onSave(sourceData);
       handleClose();
     }
   };
