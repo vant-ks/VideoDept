@@ -43,11 +43,8 @@ export function useSourcesAPI() {
     setError(null);
     try {
       const data = await apiClient.get<any[]>(`/sources/production/${productionId}`);
-      // Map API response (sourceOutputs) to frontend format (outputs)
-      return data.map(source => ({
-        ...source,
-        outputs: source.sourceOutputs || []
-      }));
+      // API already returns outputs in correct format
+      return data;
     } catch (err: any) {
       const message = err.response?.data?.error || 'Failed to fetch sources';
       setError(message);
@@ -62,9 +59,6 @@ export function useSourcesAPI() {
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      console.log('🚀 Creating source with input:', input);
-      console.log('🚀 ProductionId:', input.productionId);
-      console.log('🚀 getUserInfo returned:', { userId, userName });
       
       // Explicitly structure the request to prevent string iteration
       // NOTE: category is auto-set to "COMPUTER" on backend - don't send it
@@ -82,19 +76,10 @@ export function useSourcesAPI() {
         userName,
       };
       
-      console.log('🚀 Request data BEFORE apiClient.post:', JSON.stringify(requestData, null, 2));
-      
       const data = await apiClient.post<any>('/sources', requestData);
       
-      console.log('🚀 Response from API:', data);
-      
-      // Map API response (sourceOutputs) to frontend format (outputs)
-      const mappedSource: Source = {
-        ...data,
-        outputs: data.sourceOutputs || []
-      };
-      
-      return mappedSource;
+      // API already returns outputs in correct format
+      return data;
     } catch (err: any) {
       const message = err.response?.data?.error || err.response?.data?.message || 'Failed to create source';
       setError(message);
@@ -118,11 +103,8 @@ export function useSourcesAPI() {
         userId,
         userName,
       });
-      // Map API response (sourceOutputs) to frontend format (outputs)
-      return {
-        ...data,
-        outputs: data.sourceOutputs || []
-      };
+      // API already returns outputs in correct format
+      return data;
     } catch (err: any) {
       if (err.response?.status === 409) {
         // Conflict detected

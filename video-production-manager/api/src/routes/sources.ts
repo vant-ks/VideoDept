@@ -19,11 +19,22 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
         is_deleted: false
       },
       include: {
-        source_outputs: true
+        source_outputs: {
+          orderBy: { output_index: 'asc' }
+        }
       },
       orderBy: { created_at: 'asc' }
     });
-    res.json(toCamelCase(sources));
+    
+    const camelSources = toCamelCase(sources);
+    // Transform sourceOutputs to outputs for frontend compatibility
+    const transformed = camelSources.map((s: any) => ({
+      ...s,
+      outputs: s.sourceOutputs || [],
+      sourceOutputs: undefined
+    }));
+    
+    res.json(transformed);
   } catch (error: any) {
     console.error('❌ GET sources error:', error);
     res.status(500).json({ error: 'Failed to fetch sources', details: error.message });
@@ -38,14 +49,26 @@ router.get('/:uuid', async (req: Request, res: Response) => {
         uuid: req.params.uuid,
         is_deleted: false
       },
-      include: { source_outputs: true }
+      include: { 
+        source_outputs: {
+          orderBy: { output_index: 'asc' }
+        }
+      }
     });
 
     if (!source) {
       return res.status(404).json({ error: 'Source not found' });
     }
 
-    res.json(toCamelCase(source));
+    const camelSource = toCamelCase(source);
+    // Transform sourceOutputs to outputs for frontend compatibility
+    const transformed = {
+      ...camelSource,
+      outputs: camelSource.sourceOutputs || [],
+      sourceOutputs: undefined
+    };
+    
+    res.json(transformed);
   } catch (error: any) {
     console.error('❌ GET single source error:', error);
     res.status(500).json({ error: 'Failed to fetch source', details: error.message });
@@ -225,6 +248,11 @@ router.put('/:uuid', async (req: Request, res: Response) => {
   try {
     const { outputs, userId, userName, version: clientVersion, ...updateData } = req.body;
     
+    console.log('📝 PUT /sources/:uuid - Updating source');
+    console.log('   UUID:', req.params.uuid);
+    console.log('   note:', updateData.note);
+    console.log('   outputs:', JSON.stringify(outputs, null, 2));
+    
     // Get current source for diff and conflict detection
     const currentSource = await prisma.sources.findFirst({
       where: { 
@@ -275,13 +303,52 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       WHERE uuid = ${req.params.uuid}
     `;
     
-    // Fetch the updated source with raw SQL
+    // Handle outputs update - delete old outputs and insert new ones
+    if (outputs && Array.isArray(outputs)) {
+      console.log('   Updating outputs...');
+      // Delete existing outputs
+      await prisma.$executeRaw`
+        DELETE FROM source_outputs WHERE source_uuid = ${req.params.uuid}
+      `;
+      
+      // Insert new outputs
+      for (const output of outputs) {
+        const snakeCaseOutput = toSnakeCase(output);
+        await prisma.$executeRaw`
+          INSERT INTO source_outputs (
+            id, source_uuid, source_id, connector, output_index,
+            h_res, v_res, rate, standard
+          ) VALUES (
+            ${snakeCaseOutput.id || `${snakeCaseData.id}-out-${snakeCaseOutput.output_index || 1}`},
+            ${req.params.uuid},
+            ${snakeCaseData.id},
+            ${snakeCaseOutput.connector},
+            ${snakeCaseOutput.output_index || 1},
+            ${snakeCaseOutput.h_res || null},
+            ${snakeCaseOutput.v_res || null},
+            ${snakeCaseOutput.rate || null},
+            ${snakeCaseOutput.standard || null}
+          )
+        `;
+      }
+    }
+    
+    // Fetch the updated source with raw SQL including ALL output fields
     const updatedSourceRaw = await prisma.$queryRaw`
       SELECT s.*, json_agg(
         json_build_object(
+          'uuid', so.uuid,
           'id', so.id,
+          'source_uuid', so.source_uuid,
+          'source_id', so.source_id,
           'connector', so.connector,
-          'output_index', so.output_index
+          'output_index', so.output_index,
+          'h_res', so.h_res,
+          'v_res', so.v_res,
+          'rate', so.rate,
+          'standard', so.standard,
+          'created_at', so.created_at,
+          'version', so.version
         )
       ) FILTER (WHERE so.id IS NOT NULL) as source_outputs
       FROM sources s
@@ -289,6 +356,8 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       WHERE s.uuid = ${req.params.uuid}
       GROUP BY s.uuid, s.id, s.production_id, s.category, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
     `;
+    
+    console.log('   Updated source:', JSON.stringify(updatedSourceRaw, null, 2));
     
     const updatedSource = Array.isArray(updatedSourceRaw) ? updatedSourceRaw[0] : updatedSourceRaw;
     

@@ -30,21 +30,11 @@ export const Computers: React.FC = () => {
   
   // Load sources from API on mount and filter for computers
   useEffect(() => {
-    console.log('💻 Computers page - fetching sources');
-    console.log('   productionId:', productionId);
-    console.log('   isConnected:', oldStore.isConnected);
-    
     if (productionId && oldStore.isConnected) {
       sourcesAPI.fetchSources(productionId)
         .then(allSources => {
-          console.log('   Total sources fetched:', allSources.length);
-          console.log('   Full source data:', allSources.map(s => ({ id: s.id, category: s.category, type: s.type })));
-          
           // Filter for COMPUTER category only
           const computerSources = allSources.filter(s => s.category === 'COMPUTER');
-          
-          console.log('   Computer sources after filter:', computerSources.length);
-          console.log('   Filtered sources:', computerSources.map(s => ({ id: s.id, category: s.category, type: s.type })));
           setSources(computerSources);
         })
         .catch(console.error);
@@ -116,7 +106,6 @@ export const Computers: React.FC = () => {
   };
 
   const handleSave = async (source: Source, shouldCloseModal: boolean = true) => {
-    console.log('Saving computer:', source);
     setConflictError(null);
     
     try {
@@ -185,10 +174,10 @@ export const Computers: React.FC = () => {
     }
   };
 
-  const handleDuplicate = (uuid: string) => {
-    duplicateSource(uuid);
+  const handleDuplicate = (sourceId: string) => {
+    console.log('🔄 Duplicating source:', sourceId);
+    duplicateSource(sourceId);
   };
-
   const stats = SourceService.getStatistics(sources);
 
   return (
@@ -267,39 +256,61 @@ export const Computers: React.FC = () => {
                 }`}
                 onDoubleClick={() => handleEdit(source)}
               >
-                <div className="grid grid-cols-3 gap-6 items-center">
-                  {/* Left 1/3: ID and Name */}
-                  <div className="flex items-center gap-12">
-                    <span className={`text-sm ${isDuplicate ? 'text-red-500 font-bold' : 'text-av-text'}`}>
+                <div className="grid gap-6 items-center" style={{ gridTemplateColumns: '8% 16% 28% 18% 16% 14%' }}>
+                  {/* ID (8%) */}
+                  <div>
+                    <span className={`text-sm font-medium ${isDuplicate ? 'text-red-500 font-bold' : 'text-av-text'}`}>
                       {source.id}
                     </span>
+                  </div>
+                  
+                  {/* NAME (16%) */}
+                  <div>
                     <h3 className={`text-lg font-semibold ${isDuplicate ? 'text-red-500' : 'text-av-text'}`}>
                       {source.name}
                     </h3>
                   </div>
-                
-                {/* Middle 1/3: Badges */}
-                <div className="flex items-center gap-2">
-                  <Badge>{source.type}</Badge>
-                  {source.outputs.map((output, idx) => (
-                    <Badge key={output.id}>{output.connector}{source.outputs.length > 1 ? ` ${idx + 1}` : ''}</Badge>
-                  ))}
-                  {source.secondaryDevice && (
-                    <Badge variant="warning">{source.secondaryDevice}</Badge>
-                  )}
-                </div>
-                
-                {/* Right 1/3: Resolution and Action Buttons */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-av-text">
-                    {SourceService.getFormattedDisplay(source)}
-                  </span>
                   
-                  <div className="flex gap-2">
+                  {/* NOTE (28%) */}
+                  <div>
+                    {source.note ? (
+                      <p className="text-sm text-av-text-muted line-clamp-2">
+                        {source.note}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-av-text-muted/50 italic">No notes</p>
+                    )}
+                  </div>
+                  
+                  {/* TAGS (18%) */}
+                  <div className="flex flex-wrap gap-2">
+                    <Badge>{source.type}</Badge>
+                    {source.outputs.map((output, idx) => (
+                      <Badge key={output.id}>{output.connector}{source.outputs.length > 1 ? ` ${idx + 1}` : ''}</Badge>
+                    ))}
+                    {source.secondaryDevice && (
+                      <Badge variant="warning">{source.secondaryDevice}</Badge>
+                    )}
+                  </div>
+                  
+                  {/* RES + RATE (16%) */}
+                  <div className="space-y-1">
+                    {source.outputs.map((output, idx) => (
+                      <div key={output.id} className="text-sm text-av-text">
+                        {output.hRes && output.vRes 
+                          ? `${output.hRes}×${output.vRes} @ ${output.rate || source.rate} fps`
+                          : `@ ${output.rate || source.rate} fps`
+                        }
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* BUTTONS (14%) */}
+                  <div className="flex gap-2 justify-end">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDuplicate(source.uuid);
+                        handleDuplicate(source.id);
                       }}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
                       title="Duplicate"
@@ -318,17 +329,8 @@ export const Computers: React.FC = () => {
                     </button>
                   </div>
                 </div>
-              </div>
-              
-              {source.note && (
-                <div className="mt-3">
-                  <p className="text-sm text-av-text-muted">
-                    <span className="font-medium">Note:</span> {source.note}
-                  </p>
-                </div>
-              )}
-            </Card>
-          );
+              </Card>
+            );
           })}
         </div>
       )}

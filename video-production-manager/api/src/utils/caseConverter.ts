@@ -7,7 +7,7 @@ const SPECIAL_MAPPINGS: Record<string, string> = {
   // Database -> Frontend
   'output_connector': 'output',
   'device_name': 'device',
-  'note': 'notes', // Only for ip_addresses
+  // Removed 'note' -> 'notes' mapping - it was causing issues with sources.note field
 };
 
 const REVERSE_MAPPINGS: Record<string, string> = Object.fromEntries(
