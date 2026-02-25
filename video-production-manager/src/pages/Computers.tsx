@@ -251,27 +251,27 @@ export const Computers: React.FC = () => {
             return (
               <Card 
                 key={source.uuid} 
-                className={`p-6 hover:border-av-accent/30 transition-colors cursor-pointer ${
+                className={`p-4 hover:border-av-accent/30 transition-colors cursor-pointer ${
                   isDuplicate ? 'border-red-500 bg-red-900/10' : ''
                 }`}
                 onDoubleClick={() => handleEdit(source)}
               >
-                <div className="grid gap-4 items-center" style={{ gridTemplateColumns: '8% 15% 26% 18% 18% 15%' }}>
-                  {/* ID (8%) */}
+                <div className="grid gap-2 items-center" style={{ gridTemplateColumns: '7% 14% 25% 17% 20% 17%' }}>
+                  {/* ID (7%) */}
                   <div>
                     <span className={`text-sm font-medium ${isDuplicate ? 'text-red-500 font-bold' : 'text-av-text'}`}>
                       {source.id}
                     </span>
                   </div>
                   
-                  {/* NAME (15%) */}
+                  {/* NAME (14%) */}
                   <div>
                     <h3 className={`text-lg font-semibold ${isDuplicate ? 'text-red-500' : 'text-av-text'}`}>
                       {source.name}
                     </h3>
                   </div>
                   
-                  {/* NOTE (26%) */}
+                  {/* NOTE (25%) */}
                   <div>
                     {source.note ? (
                       <p className="text-sm text-av-text-muted line-clamp-2">
@@ -282,7 +282,7 @@ export const Computers: React.FC = () => {
                     )}
                   </div>
                   
-                  {/* TAGS (18%) */}
+                  {/* TAGS (17%) */}
                   <div className="flex flex-wrap gap-2">
                     <Badge>{source.type}</Badge>
                     {source.outputs.map((output, idx) => (
@@ -293,7 +293,7 @@ export const Computers: React.FC = () => {
                     )}
                   </div>
                   
-                  {/* RES + RATE (18%) */}
+                  {/* RES + RATE (20%) */}
                   <div className="space-y-1">
                     {source.outputs.map((output, idx) => {
                       const rate = output.rate || source.rate;
@@ -311,7 +311,7 @@ export const Computers: React.FC = () => {
                     })}
                   </div>
                   
-                  {/* BUTTONS (15%) */}
+                  {/* BUTTONS (17%) */}
                   <div className="flex gap-2 justify-end items-center">
                     <button
                       onClick={(e) => {
