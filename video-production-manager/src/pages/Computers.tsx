@@ -70,7 +70,6 @@ export const Computers: React.FC = () => {
     }, [])
   });
   
-  const duplicateSource = activeProject ? useProjectStore().duplicateSource : oldStore.duplicateSource;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -174,9 +173,38 @@ export const Computers: React.FC = () => {
     }
   };
 
-  const handleDuplicate = (sourceId: string) => {
+  const handleDuplicate = async (sourceId: string) => {
     console.log('🔄 Duplicating source:', sourceId);
-    duplicateSource(sourceId);
+    
+    // Find the source to duplicate by its display ID
+    const sourceToDuplicate = sources.find(s => s.id === sourceId);
+    if (!sourceToDuplicate) {
+      console.error('Source not found:', sourceId);
+      return;
+    }
+    
+    try {
+      // Create a copy with modified name
+      const duplicatedSource = {
+        ...sourceToDuplicate,
+        name: `${sourceToDuplicate.name} (Copy)`,
+        // Remove uuid and id so backend generates new ones
+        uuid: undefined,
+        id: undefined,
+        productionId: productionId!,
+        category: 'COMPUTER' as any
+      };
+      
+      // Create the new source via API
+      const newSource = await sourcesAPI.createSource(duplicatedSource);
+      
+      // Open modal with the newly created source for editing
+      setEditingSource(newSource);
+      setIsModalOpen(true);
+    } catch (error) {
+      console.error('Failed to duplicate computer:', error);
+      alert('Failed to duplicate computer');
+    }
   };
   const stats = SourceService.getStatistics(sources);
 
