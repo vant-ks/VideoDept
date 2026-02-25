@@ -256,22 +256,22 @@ export const Computers: React.FC = () => {
                 }`}
                 onDoubleClick={() => handleEdit(source)}
               >
-                <div className="grid items-center" style={{ gridTemplateColumns: '7% 14% 25% 17% 20% 17%' }}>
-                  {/* ID (7%) */}
+                <div className="grid items-center" style={{ gridTemplateColumns: '10% 20% 30% 15% 15% 10%' }}>
+                  {/* ID (10%) */}
                   <div className="pr-2">
                     <span className={`text-sm font-medium ${isDuplicate ? 'text-red-500 font-bold' : 'text-av-text'}`}>
                       {source.id}
                     </span>
                   </div>
                   
-                  {/* NAME (14%) */}
+                  {/* NAME (20%) */}
                   <div className="pr-2">
                     <h3 className={`text-lg font-semibold ${isDuplicate ? 'text-red-500' : 'text-av-text'}`}>
                       {source.name}
                     </h3>
                   </div>
                   
-                  {/* NOTE (25%) */}
+                  {/* NOTE (30%) */}
                   <div className="pr-2">
                     {source.note ? (
                       <p className="text-sm text-av-text-muted line-clamp-2">
@@ -282,7 +282,7 @@ export const Computers: React.FC = () => {
                     )}
                   </div>
                   
-                  {/* TAGS (17%) */}
+                  {/* TAGS (15%) */}
                   <div className="flex flex-wrap gap-2 pr-2">
                     <Badge>{source.type}</Badge>
                     {source.outputs.map((output, idx) => (
@@ -293,7 +293,7 @@ export const Computers: React.FC = () => {
                     )}
                   </div>
                   
-                  {/* RES + RATE (20%) */}
+                  {/* RES + RATE (15%) */}
                   <div className="space-y-1 pr-2">
                     {source.outputs.map((output, idx) => {
                       const rate = output.rate || source.rate;
@@ -311,7 +311,7 @@ export const Computers: React.FC = () => {
                     })}
                   </div>
                   
-                  {/* BUTTONS (17%) */}
+                  {/* BUTTONS (10%) */}
                   <div className="flex gap-2 justify-end items-center">
                     <button
                       onClick={(e) => {
