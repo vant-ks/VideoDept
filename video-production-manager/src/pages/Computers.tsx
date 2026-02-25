@@ -173,7 +173,7 @@ export const Computers: React.FC = () => {
     }
   };
 
-  const handleDuplicate = async (sourceId: string) => {
+  const handleDuplicate = (sourceId: string) => {
     console.log('🔄 Duplicating source:', sourceId);
     
     // Find the source to duplicate by its display ID
@@ -183,28 +183,21 @@ export const Computers: React.FC = () => {
       return;
     }
     
-    try {
-      // Create a copy with modified name
-      const duplicatedSource = {
-        ...sourceToDuplicate,
-        name: `${sourceToDuplicate.name} (Copy)`,
-        // Remove uuid and id so backend generates new ones
-        uuid: undefined,
-        id: undefined,
-        productionId: productionId!,
-        category: 'COMPUTER' as any
-      };
-      
-      // Create the new source via API
-      const newSource = await sourcesAPI.createSource(duplicatedSource);
-      
-      // Open modal with the newly created source for editing
-      setEditingSource(newSource);
-      setIsModalOpen(true);
-    } catch (error) {
-      console.error('Failed to duplicate computer:', error);
-      alert('Failed to duplicate computer');
-    }
+    // Generate a new unique ID for the duplicate
+    const newId = SourceService.generateId(sources);
+    
+    // Create a template object without UUID (so it's treated as new)
+    const duplicateTemplate = {
+      ...sourceToDuplicate,
+      uuid: undefined, // Remove UUID so it's treated as new
+      id: newId, // Assign new unique ID
+      name: `${sourceToDuplicate.name} (Copy)`,
+    } as Source;
+    
+    // Open modal with the duplicate data pre-populated
+    // The existing save handler will create the new record
+    setEditingSource(duplicateTemplate);
+    setIsModalOpen(true);
   };
   const stats = SourceService.getStatistics(sources);
 
