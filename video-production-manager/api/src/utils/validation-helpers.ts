@@ -53,13 +53,13 @@ export async function validateEntityExists(
       });
       break;
     case 'camera':
-      entity = await prisma.cameras.findUnique({ where: { id: entityId } });
+      entity = await prisma.cameras.findUnique({ where: { uuid: entityId } });
       break;
     case 'ccu':
-      entity = await prisma.ccus.findUnique({ where: { id: entityId } });
+      entity = await prisma.ccus.findUnique({ where: { uuid: entityId } });
       break;
     case 'send':
-      entity = await prisma.sends.findUnique({ where: { id: entityId } });
+      entity = await prisma.sends.findUnique({ where: { uuid: entityId } });
       break;
     // Add more as needed
     default:

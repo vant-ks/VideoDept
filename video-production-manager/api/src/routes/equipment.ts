@@ -33,10 +33,10 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET single equipment spec
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:uuid', async (req: Request, res: Response) => {
   try {
     const equipment = await prisma.equipment_specs.findUnique({
-      where: { id: req.params.id },
+      where: { uuid: req.params.uuid },
       include: {
         equipment_io_ports: true,
         equipment_cards: {
@@ -91,12 +91,12 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT update equipment
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:uuid', async (req: Request, res: Response) => {
   try {
     const snakeCaseData = toSnakeCase(req.body);
 
     const equipment = await prisma.equipment_specs.update({
-      where: { id: req.params.id },
+      where: { uuid: req.params.uuid },
       data: {
         category: snakeCaseData.category,
         manufacturer: snakeCaseData.manufacturer,
@@ -127,10 +127,10 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE equipment (soft delete)
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:uuid', async (req: Request, res: Response) => {
   try {
     await prisma.equipment_specs.update({
-      where: { id: req.params.id },
+      where: { uuid: req.params.uuid },
       data: {
         is_deleted: true,
         version: { increment: 1 }

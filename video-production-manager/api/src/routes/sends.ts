@@ -26,10 +26,10 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 });
 
 // GET single send
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:uuid', async (req: Request, res: Response) => {
   try {
     const send = await prisma.sends.findUnique({
-      where: { id: req.params.id }
+      where: { uuid: req.params.uuid }
     });
 
     if (!send || send.is_deleted) {
@@ -101,13 +101,13 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT update send
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:uuid', async (req: Request, res: Response) => {
   try {
     const { userId, userName, version: clientVersion, lastModifiedBy, ...updateData } = req.body;
     
     // Fetch current send state
     const currentSend = await prisma.sends.findUnique({
-      where: { id: req.params.id }
+      where: { uuid: req.params.uuid }
     });
 
     if (!currentSend || currentSend.is_deleted) {
@@ -129,7 +129,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Update send with version increment and metadata
     const send = await prisma.sends.update({
-      where: { id: req.params.id },
+      where: { uuid: req.params.uuid },
       data: {
         ...updateData,
         updated_at: new Date(),
@@ -176,13 +176,13 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE send
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:uuid', async (req: Request, res: Response) => {
   try {
     const { userId, userName } = req.body;
 
     // Fetch current send
     const currentSend = await prisma.sends.findUnique({
-      where: { id: req.params.id }
+      where: { uuid: req.params.uuid }
     });
 
     if (!currentSend || currentSend.is_deleted) {
@@ -191,7 +191,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     // Soft delete send
     await prisma.sends.update({
-      where: { id: req.params.id },
+      where: { uuid: req.params.uuid },
       data: { is_deleted: true, version: { increment: 1 } }
     });
 
@@ -200,7 +200,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       productionId: currentSend.production_id,
       eventType: EventType.SEND,
       operation: EventOperation.DELETE,
-      entityId: req.params.id,
+      entityId: req.params.uuid,
       entityData: currentSend,
       changes: null,
       userId: userId || 'system',
@@ -211,7 +211,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     // Broadcast event to production room
     io.to(`production:${currentSend.production_id}`).emit('entity:deleted', {
       entityType: 'send',
-      entityId: req.params.id,
+      entityId: req.params.uuid,
       userId,
       userName
     });

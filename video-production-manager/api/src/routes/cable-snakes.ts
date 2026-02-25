@@ -69,15 +69,15 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // Update cableSnake
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:uuid', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     const snakeCaseUpdates = toSnakeCase(updates);
     
     // Get current version for conflict detection
     const current = await prisma.cable_snakes.findUnique({
-      where: { id }
+      where: { uuid }
     });
     
     if (!current) {
@@ -96,7 +96,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     
     // Update with incremented version
     const cableSnake = await prisma.cable_snakes.update({
-      where: { id },
+      where: { uuid },
       data: {
         ...snakeCaseUpdates,
         version: current.version + 1
@@ -135,12 +135,12 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // Delete cableSnake (soft delete)
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:uuid', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.cable_snakes.findUnique({ where: { id } });
+    const current = await prisma.cable_snakes.findUnique({ where: { uuid } });
     
     if (!current) {
       return res.status(404).json({ error: 'CableSnake not found' });
@@ -148,7 +148,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     // Soft delete
     await prisma.cable_snakes.update({
-      where: { id },
+      where: { uuid },
       data: { is_deleted: true }
     });
     
@@ -157,7 +157,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       productionId: current.production_id,
       eventType: EventType.CABLE_SNAKE,
       operation: EventOperation.DELETE,
-      entityId: id,
+      entityId: uuid,
       entityData: current,
       userId: userId || 'system',
       userName: userName || 'System',
@@ -167,7 +167,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'cableSnake',
-      entityId: id,
+      entityId: uuid,
       userId,
       userName
     });

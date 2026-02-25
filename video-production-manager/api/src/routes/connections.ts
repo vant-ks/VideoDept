@@ -70,14 +70,14 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // Update connection
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:uuid', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
     const { version: clientVersion, userId, userName, lastModifiedBy, ...updates } = req.body;
     
     // Get current version for conflict detection
     const current = await prisma.connections.findUnique({
-      where: { id }
+      where: { uuid }
     });
     
     if (!current) {
@@ -97,7 +97,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Update with incremented version and metadata
     const snakeCaseUpdates = toSnakeCase(updates);
     const connection = await prisma.connections.update({
-      where: { id },
+      where: { uuid },
       data: {
         ...snakeCaseUpdates,
         ...prepareVersionedUpdate(lastModifiedBy || userId)
@@ -137,12 +137,12 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // Delete connection (soft delete)
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:uuid', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.connections.findUnique({ where: { id } });
+    const current = await prisma.connections.findUnique({ where: { uuid } });
     
     if (!current) {
       return res.status(404).json({ error: 'Connection not found' });
@@ -150,7 +150,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     // Soft delete
     await prisma.connections.update({
-      where: { id },
+      where: { uuid },
       data: { is_deleted: true }
     });
     
@@ -159,7 +159,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       productionId: current.production_id,
       eventType: 'CONNECTION' as any,
       operation: EventOperation.DELETE,
-      entityId: id,
+      entityId: uuid,
       entityData: current,
       userId: userId || 'system',
       userName: userName || 'System',
@@ -169,7 +169,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${current.production_id}`).emit('entity:deleted', {
       entityType: 'connection',
-      entityId: id,
+      entityId: uuid,
       userId,
       userName
     });

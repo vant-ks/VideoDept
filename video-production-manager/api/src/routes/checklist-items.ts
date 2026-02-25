@@ -103,27 +103,27 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // Update checklistItem
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:uuid', async (req: Request, res: Response) => {
   let snakeCaseUpdates: any;
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
     const { version: clientVersion, userId, userName, lastModifiedBy, ...updates } = req.body;
     
     // Convert camelCase to snake_case and remove updated_at if present (we'll set it ourselves)
     const { updated_at, ...updateFields } = toSnakeCase(updates);
     snakeCaseUpdates = updateFields;
     
-    console.log('🔧 [API] Updating checklist item:', id, 'with fields:', Object.keys(snakeCaseUpdates));
+    console.log('🔧 [API] Updating checklist item:', uuid, 'with fields:', Object.keys(snakeCaseUpdates));
     console.log('🔧 [API] Raw updates received:', JSON.stringify(updates, null, 2));
     console.log('🔧 [API] Snake case updates:', JSON.stringify(snakeCaseUpdates, null, 2));
     
     // Get current version for conflict detection
     const current = await prisma.checklist_items.findUnique({
-      where: { id }
+      where: { uuid }
     });
     
     if (!current) {
-      console.error('❌ ChecklistItem not found:', id);
+      console.error('❌ ChecklistItem not found:', uuid);
       return res.status(404).json({ error: 'ChecklistItem not found' });
     }
     
@@ -153,7 +153,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
     const checklistItem = await prisma.checklist_items.update({
-      where: { id },
+      where: { uuid },
       data: updateData
     });
     
@@ -185,7 +185,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     res.json(toCamelCase(checklistItem));
   } catch (error) {
     console.error('❌ Error updating checklistItem:', error);
-    console.error('📋 Request ID:', req.params.id);
+    console.error('📋 Request ID:', req.params.uuid);
     console.error('📋 Request body:', JSON.stringify(req.body, null, 2));
     if (snakeCaseUpdates) {
       console.error('📋 Snake case updates:', JSON.stringify(snakeCaseUpdates, null, 2));
@@ -199,12 +199,12 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // Delete checklistItem (hard delete since no is_deleted field)
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:uuid', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.checklist_items.findUnique({ where: { id } });
+    const current = await prisma.checklist_items.findUnique({ where: { uuid } });
     
     if (!current) {
       return res.status(404).json({ error: 'ChecklistItem not found' });
@@ -215,7 +215,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       productionId: current.production_id,
       eventType: EventType.CHECKLIST_ITEM,
       operation: EventOperation.DELETE,
-      entityId: id,
+      entityId: uuid,
       entityData: current,
       userId: userId || 'system',
       userName: userName || 'System',
@@ -224,7 +224,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     // Hard delete (no is_deleted field in schema)
     await prisma.checklist_items.delete({
-      where: { id }
+      where: { uuid }
     });
     
     // Broadcast deletion via WebSocket
@@ -232,7 +232,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       io,
       productionId: current.production_id,
       entityType: 'checklist-item',
-      entityId: id
+      entityId: uuid
     });
     
     res.json({ success: true });

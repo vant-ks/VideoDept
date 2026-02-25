@@ -66,14 +66,14 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // Update ipAddress
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:uuid', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
     const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     // Get current version for conflict detection
     const current = await prisma.ip_addresses.findUnique({
-      where: { id }
+      where: { uuid }
     });
     
     if (!current) {
@@ -92,7 +92,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     
     // Update with incremented version
     const ipAddress = await prisma.ip_addresses.update({
-      where: { id },
+      where: { uuid },
       data: {
         ...updates,
         version: current.version + 1
@@ -131,12 +131,12 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // Delete ipAddress (soft delete)
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:uuid', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
     const { userId, userName } = req.body;
     
-    const current = await prisma.ip_addresses.findUnique({ where: { id } });
+    const current = await prisma.ip_addresses.findUnique({ where: { uuid } });
     
     if (!current) {
       return res.status(404).json({ error: 'IPAddress not found' });
@@ -144,7 +144,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     
     // Note: ip_addresses table doesn't have is_deleted field - using hard delete
     await prisma.ip_addresses.delete({
-      where: { id }
+      where: { uuid }
     });
     
     // Record event
@@ -152,7 +152,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       productionId: current.production_id,
       eventType: EventType.IP_ADDRESS,
       operation: EventOperation.DELETE,
-      entityId: id,
+      entityId: uuid,
       entityData: current,
       userId: userId || 'system',
       userName: userName || 'System',
@@ -164,7 +164,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       io,
       productionId: current.production_id,
       entityType: 'ipAddress',
-      entityId: id
+      entityId: uuid
     });
     
     res.json({ success: true });

@@ -35,10 +35,10 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 });
 
 // GET single CCU
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:uuid', async (req: Request, res: Response) => {
   try {
     const ccu = await prisma.ccus.findUnique({
-      where: { id: req.params.id }
+      where: { uuid: req.params.uuid }
     });
 
     if (!ccu || ccu.is_deleted) {
@@ -109,13 +109,13 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT update CCU
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:uuid', async (req: Request, res: Response) => {
   try {
     const { userId, userName, version: clientVersion, lastModifiedBy, fieldVersions: clientFieldVersions, ...updateData } = req.body;
     
     // Fetch current CCU state
     const currentCCU = await prisma.ccus.findUnique({
-      where: { id: req.params.id }
+      where: { uuid: req.params.uuid }
     });
 
     if (!currentCCU || currentCCU.is_deleted) {
@@ -190,7 +190,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     // Update CCU with version increment and metadata
     const ccu = await prisma.ccus.update({
-      where: { id: req.params.id },
+      where: { uuid: req.params.uuid },
       data: {
         ...finalUpdateData,
         field_versions: finalFieldVersions,
@@ -229,13 +229,13 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE CCU
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:uuid', async (req: Request, res: Response) => {
   try {
     const { userId, userName } = req.body;
 
     // Fetch current CCU
     const currentCCU = await prisma.ccus.findUnique({
-      where: { id: req.params.id }
+      where: { uuid: req.params.uuid }
     });
 
     if (!currentCCU || currentCCU.is_deleted) {
@@ -244,7 +244,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     // Soft delete CCU
     await prisma.ccus.update({
-      where: { id: req.params.id },
+      where: { uuid: req.params.uuid },
       data: { is_deleted: true, version: { increment: 1 } }
     });
 
@@ -253,7 +253,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       productionId: currentCCU.production_id,
       eventType: EventType.CCU,
       operation: EventOperation.DELETE,
-      entityId: req.params.id,
+      entityId: req.params.uuid,
       entityData: currentCCU,
       changes: null,
       userId: userId || 'system',
