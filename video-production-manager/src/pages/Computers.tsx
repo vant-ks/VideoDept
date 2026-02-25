@@ -256,7 +256,7 @@ export const Computers: React.FC = () => {
                 }`}
                 onDoubleClick={() => handleEdit(source)}
               >
-                <div className="grid gap-6 items-center" style={{ gridTemplateColumns: '8% 16% 28% 18% 16% 14%' }}>
+                <div className="grid gap-4 items-center" style={{ gridTemplateColumns: '8% 15% 26% 18% 18% 15%' }}>
                   {/* ID (8%) */}
                   <div>
                     <span className={`text-sm font-medium ${isDuplicate ? 'text-red-500 font-bold' : 'text-av-text'}`}>
@@ -264,14 +264,14 @@ export const Computers: React.FC = () => {
                     </span>
                   </div>
                   
-                  {/* NAME (16%) */}
+                  {/* NAME (15%) */}
                   <div>
                     <h3 className={`text-lg font-semibold ${isDuplicate ? 'text-red-500' : 'text-av-text'}`}>
                       {source.name}
                     </h3>
                   </div>
                   
-                  {/* NOTE (28%) */}
+                  {/* NOTE (26%) */}
                   <div>
                     {source.note ? (
                       <p className="text-sm text-av-text-muted line-clamp-2">
@@ -293,26 +293,32 @@ export const Computers: React.FC = () => {
                     )}
                   </div>
                   
-                  {/* RES + RATE (16%) */}
+                  {/* RES + RATE (18%) */}
                   <div className="space-y-1">
-                    {source.outputs.map((output, idx) => (
-                      <div key={output.id} className="text-sm text-av-text">
-                        {output.hRes && output.vRes 
-                          ? `${output.hRes}×${output.vRes} @ ${output.rate || source.rate} fps`
-                          : `@ ${output.rate || source.rate} fps`
-                        }
-                      </div>
-                    ))}
+                    {source.outputs.map((output, idx) => {
+                      const rate = output.rate || source.rate;
+                      const hasResolution = output.hRes && output.vRes;
+                      const hasRate = rate !== null && rate !== undefined;
+                      
+                      return (
+                        <div key={output.id} className="text-sm text-av-text">
+                          {hasResolution && hasRate && `${output.hRes}×${output.vRes} @ ${rate} fps`}
+                          {hasResolution && !hasRate && `${output.hRes}×${output.vRes}`}
+                          {!hasResolution && hasRate && `@ ${rate} fps`}
+                          {!hasResolution && !hasRate && <span className="text-av-text-muted/50 italic">No format</span>}
+                        </div>
+                      );
+                    })}
                   </div>
                   
-                  {/* BUTTONS (14%) */}
-                  <div className="flex gap-2 justify-end">
+                  {/* BUTTONS (15%) */}
+                  <div className="flex gap-2 justify-end items-center">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDuplicate(source.id);
                       }}
-                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors flex-shrink-0"
                       title="Duplicate"
                     >
                       <Copy className="w-4 h-4" />
@@ -322,7 +328,7 @@ export const Computers: React.FC = () => {
                         e.stopPropagation();
                         handleDelete(source.uuid);
                       }}
-                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors flex-shrink-0"
                       title="Delete"
                     >
                       <Trash2 className="w-4 h-4" />
