@@ -1,6 +1,6 @@
 {
   "name": "video-production-api",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "Backend API for Video Production Manager",
   "main": "dist/server.js",
   "scripts": {

@@ -5,6 +5,8 @@ import { Card, Badge, ProgressBar } from '@/components/ui';
 import { useProductionStore, useChecklistProgress } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
+import { useChecklistAPI, type ChecklistItem } from '@/hooks/useChecklistAPI';
+import { useProductionEvents } from '@/hooks/useProductionEvents';
 import type { TimestampedEntry } from '@/types';
 import { cn } from '@/utils/helpers';
 
@@ -32,35 +34,67 @@ export const Checklist: React.FC = () => {
   const oldStore = useProductionStore();
   const projectStore = useProjectStore();
   
+  // API hook for checklist operations
+  const checklistAPI = useChecklistAPI();
+  
+  // Local state for checklist items
+  const [checklist, setChecklist] = React.useState<ChecklistItem[]>([]);
+  
   const production = activeProject?.production || oldStore.production;
-  const checklist = activeProject?.checklist || oldStore.checklist;
   const defaultChecklistItems = oldStore.defaultChecklistItems;
   
-  // DEBUG: Log checklist data
-  React.useEffect(() => {
-    const itemsWithDays = checklist?.filter(item => item.daysBeforeShow);
-    const itemsWithoutDays = checklist?.filter(item => !item.daysBeforeShow);
-    console.log('🔍 Checklist page render:', {
-      hasActiveProject: !!activeProject,
-      checklistLength: checklist?.length,
-      checklistSample: checklist?.[0],
-      itemsWithDays: itemsWithDays?.length || 0,
-      itemsWithoutDays: itemsWithoutDays?.length || 0,
-      firstItemWithDays: itemsWithDays?.[0],
-      firstItemSample: checklist?.[0] ? {
-        id: checklist[0].id,
-        title: checklist[0].item,
-        daysBeforeShow: checklist[0].daysBeforeShow,
-        category: checklist[0].category
-      } : null
-    });
-  }, [checklist, activeProject]);
+  // Get production ID for API calls and WebSocket
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
   
-  // Use project store CRUD if activeProject exists, otherwise use old store
-  const toggleChecklistItem = activeProject ? projectStore.toggleChecklistItem : oldStore.toggleChecklistItem;
-  const addChecklistItem = activeProject ? projectStore.addChecklistItem : oldStore.addChecklistItem;
-  const deleteChecklistItem = activeProject ? projectStore.deleteChecklistItem : oldStore.deleteChecklistItem;
-  const updateChecklistItem = activeProject ? projectStore.updateChecklistItem : oldStore.updateChecklistItem;
+  // Fetch checklist items from API on mount
+  React.useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      checklistAPI.fetchChecklistItems(productionId)
+        .then(items => {
+          console.log('📋 Fetched checklist items:', items.length);
+          if (items.length > 0) {
+            console.log('📋 Sample item structure:', {
+              uuid: items[0].uuid,
+              moreInfo: items[0].moreInfo,
+              moreInfoType: Array.isArray(items[0].moreInfo) ? 'array' : typeof items[0].moreInfo,
+              completionNote: items[0].completionNote,
+              completionNoteType: Array.isArray(items[0].completionNote) ? 'array' : typeof items[0].completionNote
+            });
+          }
+          setChecklist(items);
+        })
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
+  
+  // Real-time event subscriptions
+  useProductionEvents({
+    productionId,
+    onEntityCreated: React.useCallback((event) => {
+      if (event.entityType === 'checklist-item') {
+        console.log('🔔 Checklist item created by', event.userName);
+        setChecklist(prev => {
+          // Avoid duplicates using uuid
+          if (prev.some(item => item.uuid === event.entity.uuid)) return prev;
+          return [...prev, event.entity];
+        });
+      }
+    }, []),
+    onEntityUpdated: React.useCallback((event) => {
+      if (event.entityType === 'checklist-item') {
+        console.log('🔔 Checklist item updated by', event.userName);
+        setChecklist(prev => prev.map(item => 
+          item.uuid === event.entity.uuid ? event.entity : item
+        ));
+      }
+    }, []),
+    onEntityDeleted: React.useCallback((event) => {
+      if (event.entityType === 'checklist-item') {
+        console.log('🔔 Checklist item deleted by', event.userName);
+        setChecklist(prev => prev.filter(item => item.uuid !== event.entityId));
+      }
+    }, [])
+  });
   
   const { total, completed, percentage } = useChecklistProgress();
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
@@ -85,6 +119,7 @@ export const Checklist: React.FC = () => {
   const [newItemDate, setNewItemDate] = React.useState<string>('');
   const [editItemDate, setEditItemDate] = React.useState<string>('');
   const [selectedDefaultItem, setSelectedDefaultItem] = React.useState<string>('');
+  const [expandedNoteIds, setExpandedNoteIds] = React.useState<Set<string>>(new Set());
 
   // Handle navigation from Dashboard - scroll to category and reveal it
   React.useEffect(() => {
@@ -118,7 +153,6 @@ export const Checklist: React.FC = () => {
       const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
       const matchesCompleted = showCompleted || !item.completed;
       const matchesSearch = searchQuery === '' ||
-        item.item.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (item.moreInfo && item.moreInfo.some(entry => entry.text.toLowerCase().includes(searchQuery.toLowerCase()))) ||
         (item.assignedTo && item.assignedTo.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -153,71 +187,144 @@ export const Checklist: React.FC = () => {
     };
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
+    if (!productionId) {
+      alert('No production selected');
+      return;
+    }
+    
+    let itemData: any = null;
+    
     if (selectedDefaultItem === 'custom') {
-      if (newItemText.trim()) {
-        addChecklistItem({
-          category: addCategory,
-          item: newItemText.trim(),
-          moreInfo: newItemMoreInfo.trim() || undefined,
-          daysBeforeShow: newItemDays
-        });
-      } else {
-        return; // Don't close modal if text is empty
-      }
+      if (!newItemText.trim()) return; // Don't close modal if text is empty
+      // Generate unique ID for new checklist item
+      const newId = `chk-${Date.now()}`;
+      
+      itemData = {
+        id: newId,
+        productionId,
+        title: newItemText.trim(),
+        category: addCategory,
+        moreInfo: newItemMoreInfo.trim() || undefined,
+        daysBeforeShow: newItemDays,
+        completed: false
+      };
     } else if (selectedDefaultItem) {
       const defaultItem = defaultChecklistItems[parseInt(selectedDefaultItem)];
-      if (defaultItem) {
-        // CRITICAL: Build clean object, don't spread (may have snake_case)
-        addChecklistItem({ 
-          category: addCategory,
-          item: defaultItem.item || defaultItem.title,
-          title: defaultItem.title || defaultItem.item,
-          moreInfo: newItemMoreInfo.trim() || defaultItem.moreInfo,
-          daysBeforeShow: newItemDays !== undefined ? newItemDays : defaultItem.daysBeforeShow,
-          reference: defaultItem.reference
-        });
-      } else {
-        return;
-      }
+      if (!defaultItem) return;
+      
+      // Generate unique ID for new checklist item
+      const newId = `chk-${Date.now()}`;
+      
+      itemData = {
+        id: newId,
+        productionId,
+        title: defaultItem.title || defaultItem.item,
+        category: addCategory,
+        moreInfo: newItemMoreInfo.trim() || defaultItem.moreInfo,
+        daysBeforeShow: newItemDays !== undefined ? newItemDays : defaultItem.daysBeforeShow,
+        reference: defaultItem.reference,
+        completed: false
+      };
     } else {
       return;
     }
     
-    setShowAddModal(false);
-    setNewItemText('');
-    setNewItemMoreInfo('');
-    setNewItemDays(undefined);
-    setNewItemDate('');
-    setSelectedDefaultItem('');
+    try {
+      await checklistAPI.createChecklistItem(itemData);
+      // Don't add optimistically - let WebSocket handle it to avoid duplicates
+      
+      // Close modal and reset form
+      setShowAddModal(false);
+      setNewItemText('');
+      setNewItemMoreInfo('');
+      setNewItemDays(undefined);
+      setNewItemDate('');
+      setSelectedDefaultItem('');
+    } catch (error) {
+      console.error('Failed to add checklist item:', error);
+      alert('Failed to add checklist item. Please try again.');
+    }
   };
 
   const handleToggleItem = (itemId: string) => {
-    const item = checklist.find(i => i.id === itemId);
+    const item = checklist.find(i => i.id === itemId || i.uuid === itemId);
     if (item && !item.completed) {
       // If marking as complete, show completion note modal
-      setCompletionItemId(itemId);
+      setCompletionItemId(item.uuid);
       setCompletionNote('');
       setShowCompletionModal(true);
-    } else {
-      // If unchecking, just toggle (no category collapse)
-      toggleChecklistItem(itemId);
+    } else if (item) {
+      // If unchecking, just toggle
+      checklistAPI.toggleChecklistItem(item.uuid, false, item.version)
+        .then(result => {
+          if ('error' in result) {
+            alert('This item was modified by another user. Refreshing...');
+            // Fetch fresh data
+            if (productionId) {
+              checklistAPI.fetchChecklistItems(productionId).then(setChecklist);
+            }
+          } else {
+            setChecklist(prev => prev.map(i => i.uuid === item.uuid ? result : i));
+          }
+        })
+        .catch(error => {
+          console.error('Failed to toggle checklist item:', error);
+          alert('Failed to toggle checklist item. Please try again.');
+        });
     }
-    // Note: Removed category collapse behavior that was triggered by completion
   };
 
-  const handleSaveCompletion = () => {
-    if (completionItemId) {
-      // Toggle the item first
-      toggleChecklistItem(completionItemId);
+  const handleSaveCompletion = async () => {
+    if (!completionItemId) return;
+    
+    const item = checklist.find(i => i.uuid === completionItemId);
+    if (!item) return;
+    
+    try {
+      // Create completion note entry with proper structure
+      const completionNoteEntry = completionNote.trim() ? {
+        id: `entry-${Date.now()}`,
+        text: completionNote.trim(),
+        timestamp: Date.now(),
+        type: 'completion' as const
+      } : undefined;
       
-      // Add completion note if provided
-      if (completionNote.trim() && updateChecklistItem) {
-        updateChecklistItem(completionItemId, { completionNote: completionNote.trim() });
+      // Ensure completionNote is an array before appending
+      const existingCompletionNote = Array.isArray(item.completionNote) ? item.completionNote : [];
+      
+      // Append to existing completionNote array
+      const updatedCompletionNote = completionNoteEntry 
+        ? [...existingCompletionNote, completionNoteEntry]
+        : existingCompletionNote;
+      
+      console.log('📝 [Checklist.tsx] Saving completion note:', {
+        existingCount: existingCompletionNote.length,
+        newEntry: completionNoteEntry,
+        totalCount: updatedCompletionNote.length
+      });
+      
+      // Toggle the item with completion note
+      const result = await checklistAPI.updateChecklistItem(item.uuid, {
+        completed: true,
+        completionNote: updatedCompletionNote,
+        completionDate: new Date().toISOString(),
+        version: item.version
+      });
+      
+      if ('error' in result) {
+        alert('This item was modified by another user. Refreshing...');
+        if (productionId) {
+          checklistAPI.fetchChecklistItems(productionId).then(setChecklist);
+        }
+      } else {
+        setChecklist(prev => prev.map(i => i.uuid === item.uuid ? result : i));
+        console.log('Checklist item toggled:', completionItemId, 'Note:', completionNote);
       }
-      
-      // Log for debugging
-      console.log('Checklist item toggled:', completionItemId, 'Note:', completionNote);
+    } catch (error) {
+      console.error('Failed to complete checklist item:', error);
+      alert('Failed to complete checklist item. Please try again.');
+      return; // Don't close modal on error
     }
     
     // Clear modal state
@@ -226,10 +333,28 @@ export const Checklist: React.FC = () => {
     setCompletionNote('');
   };
 
-  const handleSkipCompletion = () => {
-    if (completionItemId) {
-      toggleChecklistItem(completionItemId);
-      console.log('Checklist item toggled (no note):', completionItemId);
+  const handleSkipCompletion = async () => {
+    if (!completionItemId) return;
+    
+    const item = checklist.find(i => i.uuid === completionItemId);
+    if (!item) return;
+    
+    try {
+      const result = await checklistAPI.toggleChecklistItem(item.uuid, true, item.version);
+      
+      if ('error' in result) {
+        alert('This item was modified by another user. Refreshing...');
+        if (productionId) {
+          checklistAPI.fetchChecklistItems(productionId).then(setChecklist);
+        }
+      } else {
+        setChecklist(prev => prev.map(i => i.uuid === item.uuid ? result : i));
+        console.log('Checklist item toggled (no note):', completionItemId);
+      }
+    } catch (error) {
+      console.error('Failed to complete checklist item:', error);
+      alert('Failed to complete checklist item. Please try again.');
+      return;
     }
     
     // Clear modal state
@@ -239,45 +364,83 @@ export const Checklist: React.FC = () => {
   };
 
   const handleEditItem = (itemId: string) => {
-    const item = checklist.find(i => i.id === itemId);
+    const item = checklist.find(i => i.id === itemId || i.uuid === itemId);
     if (item) {
-      setEditingItem(itemId);
-      setEditItemText(item.item);
+      setEditingItem(item.uuid);
+      setEditItemText(item.title);
       setEditItemMoreInfo('');  // Clear input field for new entry
       setEditItemAssignedTo(item.assignedTo || '');
-      setEditItemHistoryInfo(item.moreInfo || []);
-      setEditItemHistoryCompletion(item.completionNote || []);
+      
+      // Ensure arrays are properly initialized
+      const moreInfoArray = Array.isArray(item.moreInfo) ? item.moreInfo : [];
+      const completionNoteArray = Array.isArray(item.completionNote) ? item.completionNote : [];
+      
+      setEditItemHistoryInfo(moreInfoArray);
+      setEditItemHistoryCompletion(completionNoteArray);
       setEditItemDays(item.daysBeforeShow);
       setEditItemDate(calculateDateFromDays(item.daysBeforeShow));
+      setExpandedNoteIds(new Set()); // Reset expanded notes
       setShowEditModal(true);
     }
   };
 
   const handleSaveEdit = async () => {
-    if (editingItem && updateChecklistItem) {
-      const updates: any = {
-        title: editItemText.trim(), // Database field is 'title', not 'item'
-        assignedTo: editItemAssignedTo || undefined,
-        daysBeforeShow: editItemDays
+    if (!editingItem) return;
+    
+    const item = checklist.find(i => i.uuid === editingItem);
+    if (!item) return;
+    
+    const updates: any = {
+      title: editItemText.trim(),
+      assignedTo: editItemAssignedTo || undefined,
+      daysBeforeShow: editItemDays,
+      version: item.version
+    };
+    
+    // Append new moreInfo entry if user entered text
+    if (editItemMoreInfo.trim()) {
+      const newEntry = {
+        id: `entry-${Date.now()}`,
+        text: editItemMoreInfo.trim(),
+        timestamp: Date.now(),
+        type: 'info' as const
       };
-      
-      // Only add moreInfo if user entered new text
-      if (editItemMoreInfo.trim()) {
-        updates.moreInfo = editItemMoreInfo.trim();
-        console.log('📝 [Checklist.tsx] Adding moreInfo to checklist item:', editingItem, editItemMoreInfo.trim());
-      }
-      
-      console.log('📝 [Checklist.tsx] Calling updateChecklistItem with updates:', updates);
-      
-      try {
-        await updateChecklistItem(editingItem, updates);
-        console.log('✅ Checklist item updated:', editingItem, updates);
-      } catch (error) {
-        console.error('❌ Failed to update checklist item:', error);
-        alert('Failed to save changes. Please try again.');
-        return; // Don't close modal on error
-      }
+      updates.moreInfo = [...editItemHistoryInfo, newEntry];
+      console.log('📝 [Checklist.tsx] Appending moreInfo entry:', {
+        existingCount: editItemHistoryInfo.length,
+        newEntry,
+        totalCount: updates.moreInfo.length,
+        fullArray: updates.moreInfo
+      });
     }
+    
+    console.log('📝 [Checklist.tsx] Calling updateChecklistItem with updates:', updates);
+    
+    try {
+      const result = await checklistAPI.updateChecklistItem(item.uuid, updates);
+      
+      if ('error' in result) {
+        alert('This item was modified by another user. Refreshing...');
+        if (productionId) {
+          checklistAPI.fetchChecklistItems(productionId).then(setChecklist);
+        }
+        return;
+      }
+      
+      console.log('✅ [Checklist.tsx] Item updated successfully:', {
+        uuid: result.uuid,
+        moreInfo: result.moreInfo,
+        moreInfoCount: Array.isArray(result.moreInfo) ? result.moreInfo.length : 'not array'
+      });
+      
+      setChecklist(prev => prev.map(i => i.uuid === item.uuid ? result : i));
+      console.log('✅ Checklist item updated:', editingItem, updates);
+    } catch (error) {
+      console.error('❌ Failed to update checklist item:', error);
+      alert('Failed to save changes. Please try again.');
+      return; // Don't close modal on error
+    }
+    
     setShowEditModal(false);
     setEditingItem('');
     setEditItemText('');
@@ -287,6 +450,7 @@ export const Checklist: React.FC = () => {
     setEditItemHistoryCompletion([]);
     setEditItemDays(undefined);
     setEditItemDate('');
+    setExpandedNoteIds(new Set());
   };
 
   const calculateDueDate = (daysBeforeShow: number): string => {
@@ -323,10 +487,20 @@ export const Checklist: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleDeleteItem = (id: string, e: React.MouseEvent) => {
+  const handleDeleteItem = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to delete this checklist item?')) {
-      deleteChecklistItem(id);
+    if (!confirm('Are you sure you want to delete this checklist item?')) return;
+    
+    const item = checklist.find(i => i.id === id || i.uuid === id);
+    if (!item) return;
+    
+    try {
+      await checklistAPI.deleteChecklistItem(item.uuid);
+      // Optimistically remove from local state - WebSocket will confirm
+      setChecklist(prev => prev.filter(i => i.uuid !== item.uuid));
+    } catch (error) {
+      console.error('Failed to delete checklist item:', error);
+      alert('Failed to delete checklist item. Please try again.');
     }
   };
 
@@ -478,23 +652,26 @@ export const Checklist: React.FC = () => {
               {!isCollapsed && (
               <div className="divide-y divide-av-border">
               {items.map((item, index) => {
-                // Get latest entry from arrays
-                const latestInfo = item.moreInfo && item.moreInfo.length > 0 
-                  ? item.moreInfo[item.moreInfo.length - 1].text 
+                // Get latest entry from arrays - with safety checks
+                const moreInfoArray = Array.isArray(item.moreInfo) ? item.moreInfo : [];
+                const completionNoteArray = Array.isArray(item.completionNote) ? item.completionNote : [];
+                
+                const latestInfo = moreInfoArray.length > 0 && moreInfoArray[moreInfoArray.length - 1]?.text
+                  ? moreInfoArray[moreInfoArray.length - 1].text 
                   : '';
-                const latestCompletion = item.completionNote && item.completionNote.length > 0 
-                  ? item.completionNote[item.completionNote.length - 1].text 
+                const latestCompletion = completionNoteArray.length > 0 && completionNoteArray[completionNoteArray.length - 1]?.text
+                  ? completionNoteArray[completionNoteArray.length - 1].text 
                   : '';
                 
                 const middleContent = item.completed 
                   ? (latestCompletion || latestInfo)
                   : latestInfo;
                 
-                const tooltipText = `${item.item}${middleContent ? '\n' + middleContent : ''}${item.daysBeforeShow ? '\nDue: ' + item.daysBeforeShow + ' days before show' : ''}`;
+                const tooltipText = `${item.title}${middleContent ? '\n' + middleContent : ''}${item.daysBeforeShow ? '\nDue: ' + item.daysBeforeShow + ' days before show' : ''}`;
                 
                 return (
                   <div
-                    key={item.id}
+                    key={item.uuid}
                     className={cn(
                       'flex items-center gap-3 py-2 px-3 hover:bg-av-surface-light/50 transition-colors group',
                       item.completed && 'opacity-60'
@@ -526,7 +703,7 @@ export const Checklist: React.FC = () => {
                       )}
                       style={{ width: '30%' }}
                     >
-                      {item.item}
+                      {item.title}
                     </div>
                     
                     {/* More Info / Completion Note - 55% */}
@@ -811,41 +988,101 @@ export const Checklist: React.FC = () => {
                   </label>
                   <div className={`space-y-2 mb-2 ${(editItemHistoryInfo.length + editItemHistoryCompletion.length) > 5 ? 'max-h-64 overflow-y-auto pr-2' : ''}`}>
                     {[...editItemHistoryInfo, ...editItemHistoryCompletion]
-                      .sort((a, b) => a.timestamp - b.timestamp)
-                      .map((entry) => (
-                      <div key={entry.id} className="grid grid-cols-[25%_70%_5%] gap-2 items-start bg-av-surface-light p-2 rounded border border-av-border">
-                        <Badge variant={entry.type === 'completion' ? 'success' : 'default'} className="justify-center">
-                          {entry.type === 'completion' ? 'Completion' : 'Info'}
-                        </Badge>
-                        <div className="min-w-0">
-                          <p className="text-xs text-av-text-muted mb-1">
-                            {new Date(entry.timestamp).toLocaleString()}
-                          </p>
-                          <p className="text-sm text-av-text">{entry.text}</p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            if (entry.type === 'completion') {
-                              const updated = editItemHistoryCompletion.filter(e => e.id !== entry.id);
-                              setEditItemHistoryCompletion(updated);
-                              if (updateChecklistItem && editingItem) {
-                                updateChecklistItem(editingItem, { completionNote: updated });
-                              }
-                            } else {
-                              const updated = editItemHistoryInfo.filter(e => e.id !== entry.id);
-                              setEditItemHistoryInfo(updated);
-                              if (updateChecklistItem && editingItem) {
-                                updateChecklistItem(editingItem, { moreInfo: updated });
-                              }
-                            }
-                          }}
-                          className="text-red-400 hover:text-red-300 p-1 shrink-0 justify-self-center"
-                          title="Delete note"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+                      .map((entry, idx) => {
+                        const noteId = entry.id || `entry-${idx}-${entry.timestamp}`;
+                        const isExpanded = expandedNoteIds.has(noteId);
+                        const noteText = entry.text || '';
+                        const isTruncated = noteText.length > 80;
+                        const displayText = (!isExpanded && isTruncated) ? noteText.substring(0, 80) + '...' : noteText;
+                        
+                        return (
+                          <div 
+                            key={noteId} 
+                            className="bg-av-surface-light rounded border border-av-border overflow-hidden"
+                          >
+                            <div 
+                              className="flex items-center gap-2 p-2 cursor-pointer hover:bg-av-surface-light/80 transition-colors"
+                              onClick={() => {
+                                if (isTruncated) {
+                                  setExpandedNoteIds(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(noteId)) {
+                                      next.delete(noteId);
+                                    } else {
+                                      next.add(noteId);
+                                    }
+                                    return next;
+                                  });
+                                }
+                              }}
+                            >
+                              {/* Timestamp Badge */}
+                              <div className="flex-shrink-0">
+                                <span className={cn(
+                                  "text-xs px-2 py-1 rounded",
+                                  entry.type === 'completion' 
+                                    ? "bg-green-500/20 text-green-400" 
+                                    : "bg-blue-500/20 text-blue-400"
+                                )}>
+                                  {entry.timestamp ? new Date(entry.timestamp).toLocaleString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric', 
+                                    hour: 'numeric', 
+                                    minute: '2-digit',
+                                    hour12: true 
+                                  }) : 'Unknown'}
+                                </span>
+                              </div>
+                              
+                              {/* Note Text */}
+                              <div className="flex-1 min-w-0">
+                                <p className={cn(
+                                  "text-sm text-av-text",
+                                  !isExpanded && "truncate"
+                                )}>
+                                  {displayText}
+                                </p>
+                              </div>
+                              
+                              {/* Expand/Collapse Icon */}
+                              {isTruncated && (
+                                <div className="flex-shrink-0">
+                                  {isExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-av-text-muted" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-av-text-muted" />
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Delete Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (entry.type === 'completion') {
+                                    const updated = editItemHistoryCompletion.filter(e => e.id !== entry.id);
+                                    setEditItemHistoryCompletion(updated);
+                                  } else {
+                                    const updated = editItemHistoryInfo.filter(e => e.id !== entry.id);
+                                    setEditItemHistoryInfo(updated);
+                                  }
+                                  // Remove from expanded set if it was expanded
+                                  setExpandedNoteIds(prev => {
+                                    const next = new Set(prev);
+                                    next.delete(noteId);
+                                    return next;
+                                  });
+                                }}
+                                className="flex-shrink-0 text-red-400 hover:text-red-300 p-1"
+                                title="Delete note"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}

@@ -20,7 +20,30 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { created_at: 'asc' }
     });
     
-    res.json(toCamelCase(checklistItems));
+    console.log('📋 Fetched checklist items from DB:', checklistItems.length);
+    if (checklistItems.length > 0) {
+      console.log('📋 Sample item from DB:', {
+        uuid: checklistItems[0].uuid,
+        more_info: checklistItems[0].more_info,
+        more_info_type: Array.isArray(checklistItems[0].more_info) ? 'array' : typeof checklistItems[0].more_info,
+        completion_note: checklistItems[0].completion_note,
+        completion_note_type: Array.isArray(checklistItems[0].completion_note) ? 'array' : typeof checklistItems[0].completion_note
+      });
+    }
+    
+    const camelCaseItems = toCamelCase(checklistItems);
+    
+    if (camelCaseItems.length > 0) {
+      console.log('📋 Sample item after toCamelCase:', {
+        uuid: camelCaseItems[0].uuid,
+        moreInfo: camelCaseItems[0].moreInfo,
+        moreInfoType: Array.isArray(camelCaseItems[0].moreInfo) ? 'array' : typeof camelCaseItems[0].moreInfo,
+        completionNote: camelCaseItems[0].completionNote,
+        completionNoteType: Array.isArray(camelCaseItems[0].completionNote) ? 'array' : typeof camelCaseItems[0].completionNote
+      });
+    }
+    
+    res.json(camelCaseItems);
   } catch (error) {
     console.error('Error fetching checklist-items:', error);
     res.status(500).json({ error: 'Failed to fetch checklist-items' });
@@ -157,6 +180,14 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       data: updateData
     });
     
+    console.log('✅ [API] ChecklistItem updated in DB:', {
+      uuid: checklistItem.uuid,
+      more_info: checklistItem.more_info,
+      more_info_type: Array.isArray(checklistItem.more_info) ? `array[${checklistItem.more_info.length}]` : typeof checklistItem.more_info,
+      completion_note: checklistItem.completion_note,
+      completion_note_type: Array.isArray(checklistItem.completion_note) ? `array[${checklistItem.completion_note.length}]` : typeof checklistItem.completion_note
+    });
+    
     // Calculate diff and record event
     const { recordEvent: recordEventFn, calculateDiff } = await import('../services/eventService');
     const changes = calculateDiff(current, checklistItem);
@@ -182,7 +213,16 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       data: toCamelCase(checklistItem)
     });
     
-    res.json(toCamelCase(checklistItem));
+    const responseData = toCamelCase(checklistItem);
+    console.log('📤 [API] Sending response:', {
+      uuid: responseData.uuid,
+      moreInfo: responseData.moreInfo,
+      moreInfoType: Array.isArray(responseData.moreInfo) ? `array[${responseData.moreInfo.length}]` : typeof responseData.moreInfo,
+      completionNote: responseData.completionNote,
+      completionNoteType: Array.isArray(responseData.completionNote) ? `array[${responseData.completionNote.length}]` : typeof responseData.completionNote
+    });
+    
+    res.json(responseData);
   } catch (error) {
     console.error('❌ Error updating checklistItem:', error);
     console.error('📋 Request ID:', req.params.uuid);

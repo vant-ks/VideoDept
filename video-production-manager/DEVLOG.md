@@ -1,5 +1,108 @@
 # Development Log - Video Production Manager
 
+## February 25, 2026 - Checklist API Migration & Full Functionality (v0.0.3)
+
+### Checklist Page Modernization - Complete ✅
+
+**Context**: Completed comprehensive migration of Checklist page from Zustand store pattern to modern API-first architecture with real-time WebSocket synchronization. This brings checklists to feature parity with other entities (Sources, Cameras, etc.).
+
+**Decision Path**:
+- Previous sessions had checklists working but using old Zustand store pattern (local state only)
+- Other entities (Sources, Cameras, Sends, CCUs) already migrated to API-first pattern in Phase 5
+- Need consistency: all entities should use same architecture pattern (API + WebSocket)
+- Goal: Checklists should sync in real-time across browsers like other entities
+
+**Implementation**:
+
+1. **Created `useChecklistAPI.ts` Hook** (New File)
+   - Mirrors pattern from `useCamerasAPI`, `useSourcesAPI`, etc.
+   - Implements CRUD operations:
+     - `fetchChecklistItems()` - Get all items for production
+     - `createChecklistItem()` - Add new item
+     - `updateChecklistItem()` - Edit existing item with version conflict detection
+     - `deleteChecklistItem()` - Remove item
+     - `toggleChecklistItem()` - Quick complete/incomplete toggle
+   - Includes user context (userId, userName) for all mutations
+   - Returns `ConflictError` type for version mismatch handling
+
+2. **Migrated Checklist.tsx to API Pattern**
+   - **Removed**: Direct Zustand store access (`useProductionStore().checklist`)
+   - **Added**: Local React state + API hook + WebSocket subscriptions
+   - **Fetch on Mount**: Calls `fetchChecklistItems()` when production loads
+   - **Real-time Sync**: `useProductionEvents` for `entity:created`, `entity:updated`, `entity:deleted`
+   - **Optimistic Updates**: UI updates immediately, WebSocket confirms
+   - **Conflict Resolution**: Detects version mismatches, alerts user, refetches data
+
+3. **Fixed Data Structures** (Array Handling)
+   - **Issue**: `moreInfo` and `completionNote` fields are JSONB arrays in DB
+   - **Fix**: Ensured frontend always sends/receives arrays (not strings)
+   - **Safety Checks**: `Array.isArray()` checks before array operations
+   - **Append Pattern**: New entries append to existing arrays (don't replace)
+   - Structure: `[{ id, text, timestamp, type }]`
+
+4. **Enhanced Notes UI**
+   - **Expand/Collapse**: Long notes (>80 chars) show "..." with click to expand
+   - **Type Badges**: Color-coded "Info" (blue) vs "Completion" (green) notes
+   - **Timestamp**: Human-readable format (e.g., "Feb 25, 3:45 PM")
+   - **Delete Button**: Per-note deletion with immediate update
+   - **Scrollable History**: Max height with overflow for long histories
+
+5. **UUID Matching Throughout**
+   - Changed all item lookups from `.id` to `.uuid` (PRIMARY KEY)
+   - Field `.id` remains user-editable identifier (e.g., "chk-1234567890")
+   - WebSocket events match by `uuid` for reliability
+   - Prevents duplicate entries and ensures proper sync
+
+6. **Added Debug Logging** (checklist-items.ts API routes)
+   - Logs data types at each transformation stage:
+     - Raw from database (snake_case JSONB)
+     - After `toCamelCase()` transformation
+     - Sent in response
+   - Helps diagnose array vs string issues
+   - Can be removed in future cleanup if no longer needed
+
+**Files Modified**:
+- `video-production-manager/src/hooks/useChecklistAPI.ts` - NEW FILE (145 lines)
+- `video-production-manager/src/pages/Checklist.tsx` - Complete rewrite (1,100+ lines)
+- `video-production-manager/api/src/routes/checklist-items.ts` - Added debug logging
+
+**Testing Status**: READY FOR TESTING
+- [ ] Test 2 from MULTI_BROWSER_SYNC_TEST.md needs re-run
+- [ ] Verify: Create checklist item in Browser A → appears in Browser B
+- [ ] Verify: Edit notes appends correctly, shows in both browsers
+- [ ] Verify: Toggle complete/incomplete syncs instantly
+- [ ] Verify: Delete syncs immediately
+- [ ] Verify: Version conflict detection shows alert
+
+**Version**: v0.0.3
+
+---
+
+## February 25, 2026 - Media Servers Migration Started
+
+### Schema Design for Playback Pairs
+
+**Context**: Beginning API migration for media_servers table. Adding fields to support paired playback server architecture (primary + backup pairs).
+
+**Schema Updates** (WIP):
+- `pair_number` - INT: Identifies which pair (e.g., Pair 1, Pair 2)
+- `is_backup` - BOOLEAN: True for backup server, false for primary
+- `platform` - STRING: e.g., "Disguise", "Resolume", "Watchout"
+- `outputs_data` - JSONB: Structured output configuration per server
+- Added composite index: `(production_id, pair_number)`
+
+**Status**: Schema defined, not yet migrated. Code updates pending.
+
+**Next Steps**:
+1. Generate Prisma migration
+2. Apply to local database
+3. Update media-servers.ts routes
+4. Update MediaServers.tsx frontend
+5. Update useMediaServersAPI hook
+6. Test locally, then deploy
+
+---
+
 ## February 22, 2026 - UUID Architecture Migration
 
 ### ID vs UUID Conflict Resolution
