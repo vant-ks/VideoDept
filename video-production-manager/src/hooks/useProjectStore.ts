@@ -109,9 +109,9 @@ interface ProjectStoreState {
   
   // Media Server CRUD
   addMediaServer: (server: MediaServer) => void;
-  addMediaServerPair: (platform: string, outputs: any[], note?: string) => void;
-  updateMediaServer: (id: string, updates: Partial<MediaServer>) => void;
-  deleteMediaServer: (id: string) => void;
+  addMediaServerPair: (platform: string, outputs: any[], note?: string) => Promise<void>;
+  updateMediaServer: (id: string, updates: Partial<MediaServer>) => Promise<void>;
+  deleteMediaServer: (id: string) => Promise<void>;
   
   // Media Server Layer CRUD
   addMediaServerLayer: (layer: MediaServerLayer) => void;
@@ -168,13 +168,15 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               sources,
               sends,
               cameras,
-              ccus
+              ccus,
+              mediaServers
             ] = await Promise.all([
               apiClient.getChecklistItems(cachedProject.production.id).catch(err => { console.warn('Failed to load checklist items:', err); return []; }),
               apiClient.getSources(cachedProject.production.id).catch(err => { console.warn('Failed to load sources:', err); return []; }),
               apiClient.getSends(cachedProject.production.id).catch(err => { console.warn('Failed to load sends:', err); return []; }),
               apiClient.get(`/cameras/production/${cachedProject.production.id}`).catch(err => { console.warn('Failed to load cameras:', err); return []; }),
-              apiClient.get(`/ccus/production/${cachedProject.production.id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; })
+              apiClient.get(`/ccus/production/${cachedProject.production.id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; }),
+              apiClient.get(`/media-servers/production/${cachedProject.production.id}`).catch(err => { console.warn('Failed to load media servers:', err); return []; })
             ]);
             
             console.log('📦 Loaded entity data:', {
@@ -182,7 +184,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               sources: sources.length,
               sends: sends.length,
               cameras: cameras.length,
-              ccus: ccus.length
+              ccus: ccus.length,
+              mediaServers: mediaServers.length
             });
             
             // Update cached project with fresh data including field_versions AND entities
@@ -220,7 +223,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                 reference: item.reference
               })),
               cameras: cameras || [],
-              ccus: ccus || []
+              ccus: ccus || [],
+              mediaServers: mediaServers || []
             };
             
             await projectDB.updateProject(id, freshProject);
@@ -265,13 +269,15 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             sources,
             sends,
             cameras,
-            ccus
+            ccus,
+            mediaServers
           ] = await Promise.all([
             apiClient.getChecklistItems(production.id).catch(err => { console.warn('Failed to load checklist items:', err); return []; }),
             apiClient.getSources(production.id).catch(err => { console.warn('Failed to load sources:', err); return []; }),
             apiClient.getSends(production.id).catch(err => { console.warn('Failed to load sends:', err); return []; }),
             apiClient.get(`/cameras/production/${production.id}`).catch(err => { console.warn('Failed to load cameras:', err); return []; }),
-            apiClient.get(`/ccus/production/${production.id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; })
+            apiClient.get(`/ccus/production/${production.id}`).catch(err => { console.warn('Failed to load CCUs:', err); return []; }),
+            apiClient.get(`/media-servers/production/${production.id}`).catch(err => { console.warn('Failed to load media servers:', err); return []; })
           ]);
           
           console.log('📦 Loaded entity data:', {
@@ -279,7 +285,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             sources: sources.length,
             sends: sends.length,
             cameras: cameras.length,
-            ccus: ccus.length
+            ccus: ccus.length,
+            mediaServers: mediaServers.length
           });
           
           // Create a minimal project structure from API data
@@ -322,7 +329,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             ledScreens: [],
             projectionScreens: [],
             computers: [],
-            mediaServers: [],
+            mediaServers: mediaServers || [],
             mediaServerLayers: [],
             videoSwitchers: [],
             routers: [],
@@ -1474,7 +1481,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().recordChange('create', 'mediaServer', newServer.id, newServer);
   },
   
-  addMediaServerPair: (platform: string, outputs: any[], note?: string) => {
+  addMediaServerPair: async (platform: string, outputs: any[], note?: string) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
@@ -1502,32 +1509,131 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       note
     };
     
+    // Optimistic update - add to local state immediately
     get().updateActiveProject({
       mediaServers: [...activeProject.mediaServers, mainServer, backupServer]
     });
-    get().recordChange('create', 'mediaServer', mainServer.id, mainServer);
-    get().recordChange('create', 'mediaServer', backupServer.id, backupServer);
-    console.log('Media server pair added:', nextPairNumber);
+    
+    // Save to API database
+    try {
+      const { userId, userName } = { userId: getCurrentUserId(), userName: 'User' };
+      
+      // Save main server to database and get uuid
+      const savedMainServer = await apiClient.post('/media-servers', {
+        ...mainServer,
+        productionId: activeProject.production.id,
+        userId,
+        userName
+      });
+      
+      // Save backup server to database and get uuid
+      const savedBackupServer = await apiClient.post('/media-servers', {
+        ...backupServer,
+        productionId: activeProject.production.id,
+        userId,
+        userName
+      });
+      
+      // Update local state with saved servers (including uuid from database)
+      get().updateActiveProject({
+        mediaServers: [
+          ...activeProject.mediaServers.filter(s => s.id !== mainServer.id && s.id !== backupServer.id),
+          { ...mainServer, uuid: savedMainServer.uuid, version: savedMainServer.version },
+          { ...backupServer, uuid: savedBackupServer.uuid, version: savedBackupServer.version }
+        ]
+      });
+      
+      console.log('✅ Media server pair saved to database:', nextPairNumber);
+    } catch (error) {
+      console.error('❌ Failed to save media server pair:', error);
+      // Revert optimistic update on error
+      get().updateActiveProject({
+        mediaServers: activeProject.mediaServers.filter(s => s.id !== mainServer.id && s.id !== backupServer.id)
+      });
+      throw new Error('Failed to save media server pair to database');
+    }
   },
   
-  updateMediaServer: (id, updates) => {
+  updateMediaServer: async (id, updates) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
+    // Find the server to get its uuid
+    const originalServer = activeProject.mediaServers.find(s => s.id === id);
+    if (!originalServer) {
+      console.error('❌ Media server not found:', id);
+      return;
+    }
+    
+    if (!originalServer.uuid) {
+      console.error('❌ Media server missing uuid:', id);
+      return;
+    }
+    
+    const updatedServer = { ...originalServer, ...updates };
+    
+    // Optimistic update
     get().updateActiveProject({
-      mediaServers: activeProject.mediaServers.map(s => s.id === id ? { ...s, ...updates } : s)
+      mediaServers: activeProject.mediaServers.map(s => s.id === id ? updatedServer : s)
     });
-    get().recordChange('update', 'mediaServer', id, updates);
+    
+    try {
+      const { userId, userName } = { userId: getCurrentUserId(), userName: 'User' };
+      
+      // Save to API database using uuid
+      await apiClient.put(`/media-servers/${originalServer.uuid}`, {
+        ...updates,
+        version: originalServer.version,
+        userId,
+        userName
+      });
+      
+      console.log('✅ Media server updated in database:', id);
+    } catch (error) {
+      console.error('❌ Failed to update media server:', error);
+      // Revert optimistic update on error
+      get().updateActiveProject({
+        mediaServers: activeProject.mediaServers.map(s => s.id === id ? originalServer : s)
+      });
+      throw error;
+    }
   },
   
-  deleteMediaServer: (id) => {
+  deleteMediaServer: async (id) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
+    // Find the server to get its uuid
+    const server = activeProject.mediaServers.find(s => s.id === id);
+    if (!server) {
+      console.error('❌ Media server not found:', id);
+      return;
+    }
+    
+    if (!server.uuid) {
+      console.error('❌ Media server missing uuid:', id);
+      return;
+    }
+    
+    // Optimistic update - remove from state immediately
+    const originalServers = activeProject.mediaServers;
     get().updateActiveProject({
       mediaServers: activeProject.mediaServers.filter(s => s.id !== id)
     });
-    get().recordChange('delete', 'mediaServer', id, {});
+    
+    try {
+      // Soft delete via API
+      await apiClient.delete(`/media-servers/${server.uuid}`);
+      
+      console.log('✅ Media server deleted from database:', id);
+    } catch (error) {
+      console.error('❌ Failed to delete media server:', error);
+      // Revert optimistic update on error
+      get().updateActiveProject({
+        mediaServers: originalServers
+      });
+      throw error;
+    }
   },
   
   // ===== MEDIA SERVER LAYER CRUD =====

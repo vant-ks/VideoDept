@@ -30,13 +30,23 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create mediaServer
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, productionId, ...mediaServerData } = req.body;
+    const { userId, userName, productionId, outputs, ...mediaServerData } = req.body;
     const snakeCaseData = toSnakeCase(mediaServerData);
+    
+    console.log('📥 Creating media server:', {
+      productionId,
+      id: mediaServerData.id,
+      name: mediaServerData.name,
+      hasOutputs: !!outputs,
+      snakeCaseKeys: Object.keys(snakeCaseData)
+    });
     
     const mediaServer = await prisma.media_servers.create({
       data: {
         ...snakeCaseData,
-        productionId,
+        production_id: productionId,
+        outputs_data: outputs || null,
+        updated_at: new Date(),
         version: 1
       }
     });
@@ -61,9 +71,12 @@ router.post('/', async (req: Request, res: Response) => {
       userName
     });
     
+    console.log('✅ Media server created:', mediaServer.id, 'uuid:', mediaServer.uuid);
+    
     res.status(201).json(toCamelCase(mediaServer));
   } catch (error) {
-    console.error('Error creating mediaServer:', error);
+    console.error('❌ Error creating mediaServer:', error);
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
     res.status(500).json({ error: 'Failed to create mediaServer' });
   }
 });

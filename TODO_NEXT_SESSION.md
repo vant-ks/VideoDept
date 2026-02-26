@@ -1,6 +1,94 @@
 # TODO List - Next Work Session
 
-## � DEPLOYMENT: Update Railway to New GitHub Repository
+## 🔴 URGENT: Media Server Creation Failing - Pick Up Here
+
+**Status:** BLOCKED - 500 error on creation, servers disappear immediately  
+**Date:** 2026-02-26  
+**Session End State:** Both API (port 3010) and Frontend (port 3011) running but media server creation broken
+
+### Current Problem
+Media servers appear briefly in UI then immediately disappear. API returns 500 error.
+
+**Error Pattern:** Identical to the "computers disappearing" bug we fixed previously  
+**API Error:** `POST http://localhost:3010/api/media-servers 500 (Internal Server Error)`  
+**Frontend Error:** `❌ Failed to save media server pair` → optimistic update gets reverted
+
+### What We Know
+1. **Media servers worked perfectly BEFORE sync hooks** - this is a regression
+2. **Latest API fix attempted:**
+   - Fixed `productionId` → `production_id` mapping (line 46 in media-servers.ts)
+   - Added `updated_at: new Date()` (required field)
+   - Changed `outputs` → `outputs_data` for JSONB field
+   - Still getting 500 error after all fixes
+
+3. **Frontend changes made:**
+   - Updated `addMediaServerPair()` to be async and call API
+   - Updated `updateMediaServer()` to call API with uuid
+   - Updated `deleteMediaServer()` to call API with uuid
+   - Updated `loadProject()` to fetch media servers from database
+
+4. **Files modified this session:**
+   - `video-production-manager/src/hooks/useProjectStore.ts` (lines 1477-1601)
+   - `video-production-manager/api/src/routes/media-servers.ts` (lines 30-78)
+
+### Action Plan for Next Session
+
+#### Step 1: Research Historical Working State
+- [ ] Search DEVLOG.md for "media server" entries showing when it worked
+- [ ] Find commits where media servers functioned correctly
+- [ ] Document the working implementation pattern
+
+#### Step 2: Study Computers Regression Pattern
+- [ ] Search DEVLOG.md for "computer.*disappear" or "disappearing computer"
+- [ ] Review commits that fixed computers bug
+- [ ] Identify common patterns between computers and media servers bugs
+- [ ] Document the fix that made computers work
+
+#### Step 3: Compare Patterns
+- [ ] Compare working media server implementation vs current broken state
+- [ ] Compare computers fix vs media servers current state
+- [ ] Identify what changed in the sync hooks that broke media servers
+- [ ] Check if outputs_data JSONB handling differs from computers slots_data
+
+#### Step 4: Develop Detailed Fix Plan
+Based on research, create step-by-step plan to:
+- [ ] Restore media server creation functionality
+- [ ] Ensure proper database storage (uuid, outputs_data, etc.)
+- [ ] Verify optimistic updates work correctly
+- [ ] Add proper error handling and rollback
+- [ ] Test both A and B servers persist after refresh
+
+#### Step 5: Verify Similar Entities
+Once media servers work:
+- [ ] Test computers still work
+- [ ] Test cameras still work
+- [ ] Test all entities with JSONB fields (outputs_data, slots_data, etc.)
+
+### Debug Commands for Next Session
+```bash
+# Check what's in the database
+cd video-production-manager/api
+npx prisma studio
+
+# Watch API logs in real-time
+cd video-production-manager/api
+npm run dev
+# Then create media server and watch console
+
+# Check media_servers table structure
+npx prisma db execute --stdin <<< "SELECT column_name, data_type, column_default, is_nullable FROM information_schema.columns WHERE table_name = 'media_servers' AND table_schema = 'public' ORDER BY ordinal_position;"
+```
+
+### Key Files to Review
+- `video-production-manager/DEVLOG.md` - historical working states
+- `video-production-manager/src/hooks/useProjectStore.ts` - frontend CRUD
+- `video-production-manager/api/src/routes/media-servers.ts` - API routes
+- `video-production-manager/api/prisma/schema.prisma` - database schema
+- Git history around computers bug fix
+
+---
+
+## 🚀 DEPLOYMENT: Update Railway to New GitHub Repository
 
 **Issue:** Railway production server still connected to old GitHub repo (kashea24/VideoDept)  
 **New Repo:** https://github.com/vant-ks/VideoDept  
