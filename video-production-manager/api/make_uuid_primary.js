@@ -10,13 +10,13 @@ const tablesToMigrate = [
 ];
 
 tablesToMigrate.forEach(tableName => {
-  // Replace: uuid String? → uuid String @id @default(uuid())
+  // Replace: uuid String? → uuid String @id @default(dbgenerated("gen_random_uuid()"))
   //          id String @id → id String
   const modelRegex = new RegExp(
     `(model ${tableName} \\{\\n)(  uuid\\s+String\\?\\n)(  id\\s+String\\s+@id)`,
     'g'
   );
-  schema = schema.replace(modelRegex, `$1  uuid         String   @id @default(uuid())\\n  id           String`);
+  schema = schema.replace(modelRegex, `$1  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))\\n  id           String`);
 });
 
 fs.writeFileSync('prisma/schema.prisma', schema);

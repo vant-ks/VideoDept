@@ -10,7 +10,7 @@ datasource db {
 }
 
 model cameras {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id      String
   name               String
@@ -43,7 +43,7 @@ model cameras {
 }
 
 model ccus {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
@@ -68,7 +68,7 @@ model ccus {
 }
 
 model cable_snakes {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
@@ -88,7 +88,7 @@ model cable_snakes {
 }
 
 model cam_switchers {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
@@ -110,7 +110,7 @@ model cam_switchers {
 }
 
 model vision_switchers {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
@@ -133,7 +133,7 @@ model vision_switchers {
 }
 
 model led_screens {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
@@ -156,10 +156,14 @@ model led_screens {
 }
 
 model media_servers {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
+  pair_number      Int?
+  is_backup        Boolean     @default(false)
+  platform         String?
+  outputs_data     Json?
   manufacturer     String?
   model            String?
   outputs          Int?
@@ -174,10 +178,11 @@ model media_servers {
   productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@index([production_id])
+  @@index([production_id, pair_number])
 }
 
 model projection_screens {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
@@ -200,7 +205,7 @@ model projection_screens {
 }
 
 model records {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
@@ -221,7 +226,7 @@ model records {
 }
 
 model routers {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
@@ -243,7 +248,7 @@ model routers {
 }
 
 model streams {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   name             String
@@ -264,7 +269,7 @@ model streams {
 }
 
 model checklist_items {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   completed        Boolean     @default(false)
@@ -289,7 +294,7 @@ model checklist_items {
 }
 
 model connections {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id       String
   source_uuid         String?
@@ -328,7 +333,7 @@ model connector_types {
 }
 
 model equipment_card_io {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   card_id         String
   port_type       PortType
@@ -346,7 +351,7 @@ model equipment_card_io {
 }
 
 model equipment_cards {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   equipment_id      String
   equipment_uuid    String?
@@ -361,7 +366,7 @@ model equipment_cards {
 }
 
 model equipment_io_ports {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   equipment_id    String
   equipment_uuid  String?
@@ -379,7 +384,7 @@ model equipment_io_ports {
 }
 
 model equipment_specs {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   category            EquipmentCategory
   manufacturer        String
@@ -404,7 +409,7 @@ model equipment_specs {
 }
 
 model events {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id String
   event_type    EventType
@@ -435,7 +440,7 @@ model frame_rates {
 }
 
 model ip_addresses {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   ip               String
@@ -505,7 +510,7 @@ model resolution_presets {
 }
 
 model sends {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   production_id    String
   type             String
@@ -553,7 +558,7 @@ model settings {
 }
 
 model source_outputs {
-  uuid         String   @id @default(uuid())
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
   source_uuid  String
   source_id    String
@@ -582,7 +587,7 @@ model source_types {
 }
 
 model sources {
-  uuid                   String           @id @default(uuid())
+  uuid                   String           @id @default(dbgenerated("gen_random_uuid()"))
   id                     String
   production_id          String
   category               String?
