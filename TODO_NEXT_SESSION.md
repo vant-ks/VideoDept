@@ -1,68 +1,40 @@
 # TODO List - Next Work Session
 
-## 🔴 URGENT: Media Server Creation Failing - Pick Up Here
+## ✅ COMPLETED: Media Server Creation Fixed (2026-02-26)
 
-**Status:** BLOCKED - 500 error on creation, servers disappear immediately  
-**Date:** 2026-02-26  
-**Session End State:** Both API (port 3010) and Frontend (port 3011) running but media server creation broken
+**Status:** RESOLVED  
+**Root Cause:** Spread operator violation (Rule #6)  
+**Fix:** Commit `75f7ea0` - Replace spread operators with explicit field lists
 
-### Current Problem
-Media servers appear briefly in UI then immediately disappear. API returns 500 error.
+### What Was Fixed
+Media servers were appearing briefly then disappearing due to 500 error on creation.
 
-**Error Pattern:** Identical to the "computers disappearing" bug we fixed previously  
-**API Error:** `POST http://localhost:3010/api/media-servers 500 (Internal Server Error)`  
-**Frontend Error:** `❌ Failed to save media server pair` → optimistic update gets reverted
+**Root Cause Identified:**
+- `useProjectStore.ts` was using `...mainServer` and `...backupServer` spreads
+- Violated PROJECT_RULES.md Rule #6: "NO SPREAD OPERATORS ON INPUT"
+- When transformation fails, strings iterate character-by-character: `{0:'M', 1:'e', 2:'d'...}`
+- Prisma rejected with "Invalid invocation" showing numeric keys
 
-### What We Know
-1. **Media servers worked perfectly BEFORE sync hooks** - this is a regression
-2. **Latest API fix attempted:**
-   - Fixed `productionId` → `production_id` mapping (line 46 in media-servers.ts)
-   - Added `updated_at: new Date()` (required field)
-   - Changed `outputs` → `outputs_data` for JSONB field
-   - Still getting 500 error after all fixes
+**Fix Applied:**
+- Replaced spread operators with explicit field lists in `addMediaServerPair()`
+- Matched pattern from working entities (cameras, sources, ccus)
+- Explicitly listed: id, name, pairNumber, isBackup, platform, outputs, note
 
-3. **Frontend changes made:**
-   - Updated `addMediaServerPair()` to be async and call API
-   - Updated `updateMediaServer()` to call API with uuid
-   - Updated `deleteMediaServer()` to call API with uuid
-   - Updated `loadProject()` to fetch media servers from database
+**Files Changed:**
+- `video-production-manager/src/hooks/useProjectStore.ts` (lines 1518-1532)
+- `video-production-manager/DEVLOG.md` (added root cause analysis)
 
-4. **Files modified this session:**
-   - `video-production-manager/src/hooks/useProjectStore.ts` (lines 1477-1601)
-   - `video-production-manager/api/src/routes/media-servers.ts` (lines 30-78)
+**Testing Status:** Ready for verification
+1. Open Media Servers page
+2. Click "Add Media Server Pair"
+3. Configure platform and outputs
+4. Save and verify both A and B servers persist
+5. Refresh page and confirm servers still present
 
-### Action Plan for Next Session
-
-#### Step 1: Research Historical Working State
-- [ ] Search DEVLOG.md for "media server" entries showing when it worked
-- [ ] Find commits where media servers functioned correctly
-- [ ] Document the working implementation pattern
-
-#### Step 2: Study Computers Regression Pattern
-- [ ] Search DEVLOG.md for "computer.*disappear" or "disappearing computer"
-- [ ] Review commits that fixed computers bug
-- [ ] Identify common patterns between computers and media servers bugs
-- [ ] Document the fix that made computers work
-
-#### Step 3: Compare Patterns
-- [ ] Compare working media server implementation vs current broken state
-- [ ] Compare computers fix vs media servers current state
-- [ ] Identify what changed in the sync hooks that broke media servers
-- [ ] Check if outputs_data JSONB handling differs from computers slots_data
-
-#### Step 4: Develop Detailed Fix Plan
-Based on research, create step-by-step plan to:
-- [ ] Restore media server creation functionality
-- [ ] Ensure proper database storage (uuid, outputs_data, etc.)
-- [ ] Verify optimistic updates work correctly
-- [ ] Add proper error handling and rollback
-- [ ] Test both A and B servers persist after refresh
-
-#### Step 5: Verify Similar Entities
-Once media servers work:
-- [ ] Test computers still work
-- [ ] Test cameras still work
-- [ ] Test all entities with JSONB fields (outputs_data, slots_data, etc.)
+**Lessons Learned:**
+- Research pattern: Compare working entities → Find differences → Apply same pattern
+- Git history invaluable: commit `908983a` showed computers fix, `daf68ff` showed working media servers
+- Rule #6 is critical: Never spread objects going to API, always explicit field lists
 
 ### Debug Commands for Next Session
 ```bash

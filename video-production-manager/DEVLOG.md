@@ -85,6 +85,26 @@ const savedMainServer = await apiClient.post('/media-servers', {
 5. Refresh page and confirm servers still present
 6. Check database for proper uuid and outputs_data storage
 
+### Results ✅
+
+**Fix Committed**: `75f7ea0` - "fix: Remove spread operators from media server creation (Rule #6)"  
+**Pushed to GitHub**: main branch  
+**Status**: Implementation complete, ready for user testing
+
+**What Changed**:
+- Frontend explicitly lists all fields instead of spreading objects
+- Prevents string iteration bug that caused `{0:'M', 1:'e'...}` errors
+- Aligns with working pattern from cameras, sources, ccus entities
+- Maintains proper JSONB handling for outputs field
+
+**Next Steps for User**:
+1. Test media server creation in UI
+2. Verify persistence after refresh
+3. Confirm no 500 errors in console
+4. Report any issues
+
+**Lesson Reinforced**: Rule #6 (No Spread Operators) is critical for API stability. Always explicitly list fields when sending data to API endpoints.
+
 ---
 
 ## February 25, 2026 - Checklist API Migration & Full Functionality (v0.0.3)
