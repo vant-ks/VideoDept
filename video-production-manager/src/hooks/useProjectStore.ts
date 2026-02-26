@@ -1519,16 +1519,30 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       const { userId, userName } = { userId: getCurrentUserId(), userName: 'User' };
       
       // Save main server to database and get uuid
+      // CRITICAL: Never spread objects - explicitly list all fields (Rule #6)
       const savedMainServer = await apiClient.post('/media-servers', {
-        ...mainServer,
+        id: mainServer.id,
+        name: mainServer.name,
+        pairNumber: mainServer.pairNumber,
+        isBackup: mainServer.isBackup,
+        platform: mainServer.platform,
+        outputs: mainServer.outputs,
+        note: mainServer.note,
         productionId: activeProject.production.id,
         userId,
         userName
       });
       
       // Save backup server to database and get uuid
+      // CRITICAL: Never spread objects - explicitly list all fields (Rule #6)
       const savedBackupServer = await apiClient.post('/media-servers', {
-        ...backupServer,
+        id: backupServer.id,
+        name: backupServer.name,
+        pairNumber: backupServer.pairNumber,
+        isBackup: backupServer.isBackup,
+        platform: backupServer.platform,
+        outputs: backupServer.outputs,
+        note: backupServer.note,
         productionId: activeProject.production.id,
         userId,
         userName

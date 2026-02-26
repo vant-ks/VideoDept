@@ -1,5 +1,92 @@
 # Development Log - Video Production Manager
 
+## February 26, 2026 - Media Server Creation Fix (Spread Operator Bug)
+
+### Root Cause Discovery 🔍
+
+**Context**: Media servers were appearing briefly in UI then immediately disappearing. API returned 500 error on creation. Identical pattern to "computers disappearing" bug previously fixed.
+
+**Research Findings**:
+- Searched git history: commit `908983a` fixed computers bug with array type checking
+- Searched DEVLOG: media servers worked before API migration (commit `daf68ff`)
+- Compared working entities (cameras, ccus, sources) vs broken (media servers)
+
+**Key Discovery - Rule #6 Violation**:
+```typescript
+// ❌ BROKEN (media servers) - lines 1518-1522 in useProjectStore.ts
+await apiClient.post('/media-servers', {
+  ...mainServer,  // SPREADING entire object
+  productionId: activeProject.production.id,
+  userId,
+  userName
+});
+
+// ✅ WORKING (cameras) - from useCamerasAPI.ts
+const requestData = {
+  id: input.id,
+  productionId: input.productionId,
+  name: input.name,
+  model: input.model,
+  // ... all fields explicitly listed
+  userId,
+  userName,
+};
+await apiClient.post<Camera>('/cameras', requestData);
+```
+
+**Why Spread Operators Fail**:
+- When transformation goes wrong, strings iterate character-by-character
+- Results in: `{0:'M', 1:'e', 2:'d', 3:'i', 4:'a'...}` instead of proper fields
+- Prisma rejects with "Invalid invocation" showing numeric keys
+- Violates PROJECT_RULES.md Rule #6: "NO SPREAD OPERATORS ON INPUT"
+
+**Fix Strategy**:
+- Replace `...mainServer` and `...backupServer` with explicit field lists
+- Match pattern from working entities (cameras, sources, ccus)
+- Ensure all JSONB fields (outputs) are properly structured
+
+### Implementation
+
+**Files Modified**:
+- `video-production-manager/src/hooks/useProjectStore.ts` (lines 1518-1532)
+
+**Changes Applied**:
+```typescript
+// BEFORE (broken):
+const savedMainServer = await apiClient.post('/media-servers', {
+  ...mainServer,  // ❌ String iteration risk
+  productionId: activeProject.production.id,
+  userId,
+  userName
+});
+
+// AFTER (fixed):
+const savedMainServer = await apiClient.post('/media-servers', {
+  id: mainServer.id,
+  name: mainServer.name,
+  pairNumber: mainServer.pairNumber,
+  isBackup: mainServer.isBackup,
+  platform: mainServer.platform,
+  outputs: mainServer.outputs,
+  note: mainServer.note,
+  productionId: activeProject.production.id,
+  userId,
+  userName
+});
+```
+
+**Testing**: Ready to verify media server creation works correctly.
+
+### Testing Plan
+1. Open Media Servers page
+2. Click "Add Media Server Pair"
+3. Configure platform and outputs
+4. Save and verify both A and B servers persist
+5. Refresh page and confirm servers still present
+6. Check database for proper uuid and outputs_data storage
+
+---
+
 ## February 25, 2026 - Checklist API Migration & Full Functionality (v0.0.3)
 
 ### Checklist Page Modernization - Complete ✅
