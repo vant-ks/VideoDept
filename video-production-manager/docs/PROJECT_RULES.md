@@ -1,10 +1,18 @@
 # Video Production Manager - Project Rules
 
 **Project:** VideoDept Video Production Manager  
-**Last Updated:** February 22, 2026  
+**Last Updated:** February 26, 2026  
 **Maintained By:** Kevin @ GJS Media
 
 This document contains **project-specific** rules and conventions for this codebase. For universal AI agent protocols, see the symlinked `AI_AGENT_PROTOCOL.md` or `~/Dropbox (Personal)/Development/_Utilities/AI_AGENT_PROTOCOL.md`.
+
+---
+
+## 🚨 CRITICAL WARNING: Migration Safety
+
+**Before ANY database migration work, read this:** [../../_Utilities/MIGRATION_CRASH_PREVENTION_RULE.md](../../_Utilities/MIGRATION_CRASH_PREVENTION_RULE.md)
+
+**This project has crashed 3+ times from migration errors. If Prisma asks to "reset schema", STOP immediately - it's a red flag for schema-database mismatch.**
 
 ---
 
@@ -12,7 +20,7 @@ This document contains **project-specific** rules and conventions for this codeb
 
 **Every bug we've encountered traces back to violating one of these core principles:**
 
-### The Five Pillars of Data Integrity
+### The Pillars of Data Integrity
 
 1. **TRANSFORMS ARE TRUTH** → Never manually convert types. Use `toCamelCase()`/`toSnakeCase()` everywhere.
    - See: [Data Flow Architecture](#data-flow-architecture---critical-patterns)
@@ -78,6 +86,15 @@ This document contains **project-specific** rules and conventions for this codeb
    - Pattern: Detect Drift → Check Git History → Reset Database → Create Migration
    - **Safe in Dev**: No production data risk, fresh migrations guaranteed
 
+13. **⛔ MIGRATION STOP CONDITIONS - NEVER IGNORE** → If Prisma asks to "reset schema", STOP IMMEDIATELY. This is NOT normal migration behavior.
+   - See: [../../_Utilities/MIGRATION_CRASH_PREVENTION_RULE.md](../../_Utilities/MIGRATION_CRASH_PREVENTION_RULE.md) for complete rules
+   - **RED FLAG**: "We need to reset the 'public' schema... All data will be lost" → Schema-database mismatch, investigate before proceeding
+   - **MANDATORY**: Run `npx prisma validate` and `npx prisma migrate status` before EVERY migration
+   - **NEVER**: Retry a failed migration without investigating root cause (causes crashes)
+   - **ALWAYS**: Kill zombie Prisma processes before migrations (`pkill -9 -f 'schema-engine'`)
+   - **Pattern**: Validate → Check Status → Kill Zombies → ONE Migration → Verify → Pause 2s before next
+   - **CRITICAL**: This rule has prevented 3+ crashes. Non-negotiable.
+
 ### Quick Diagnostic Checklist
 
 **When you see an error:**
@@ -96,18 +113,19 @@ This document contains **project-specific** rules and conventions for this codeb
 - 🔥 "Foreign key constraint violated" → Production not saved to API database, check production creation sync
 - 🔥 "Argument updated_at is missing" → Check schema - field might not exist (e.g., source_outputs)
 - 🔥 "Unknown argument outputs" → Check Prisma relation name (might be source_outputs not outputs)
-- 🔥 "VS Code crash (exit 137)" → Zombie Prisma processes, run pre-migration check (#9)
-- 🔥 "Prisma needs reset/drift detected" → Schema changed without migration, check git history then run db:reset (#10)
-- 🔥 "Migration hangs >30s" → Kill prisma processes, verify no zombie schema-engines
+- 🔥 **"VS Code crash (exit 137)" → Zombie Prisma processes, run pre-migration check (#11, #13)**
+- 🔥 **"Prisma needs reset/drift detected" → Schema changed without migration, check git history then run db:reset (#12, #13)**
+- 🔥 **"Migration hangs >30s" → Kill prisma processes, verify no zombie schema-engines (#13)**
+- 🔥 **"We need to reset the 'public' schema" → STOP IMMEDIATELY, schema-database mismatch (#13)**
 
 **Before writing ANY code that touches data:**
-1. Is this a new entity? → Follow schema → migration → seed → types → routes order
-2. Does this read/write database? → Use transforms, never manual conversions
-3. Does this cache data? → Add invalidation logic
-4. Does this set timestamps? → Only on server, never client
-5. Does this load production? → Fetch ALL entities in parallel
-6. Does this delete/update entity? → API call + cache update + WebSocket broadcast
-7. **Is this a database migration?** → ALWAYS run `npm run db:migrate:check` first (#9)
+1. **Is this a database migration?** → READ PILLAR #13 first, NEVER skip pre-migration checks
+2. Is this a new entity? → Follow schema → migration → seed → types → routes order
+3. Does this read/write database? → Use transforms, never manual conversions
+4. Does this cache data? → Add invalidation logic
+5. Does this set timestamps? → Only on server, never client
+6. Does this load production? → Fetch ALL entities in parallel
+7. Does this delete/update entity? → API call + cache update + WebSocket broadcast
 
 **Before committing:**
 8. **Check for zombie Prisma processes:** `ps aux | grep -E '(prisma|schema-engine)' | grep -v grep` (expected: no results)
