@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 let socket: Socket | null = null;
 
 interface EntityEvent {
-  entityType: 'source' | 'send' | 'camera' | 'ccu';
+  entityType: 'source' | 'send' | 'camera' | 'ccu' | 'checklist-item' | 'connection' | 'router' | 'stream';
   entity?: any;
   entityId?: string;
   changes?: any;

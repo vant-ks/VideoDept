@@ -204,7 +204,30 @@ export const Sources: React.FC = () => {
   };
 
   const handleDuplicate = (id: string) => {
-    duplicateSource(id);
+    console.log('🔄 Duplicating source:', id);
+    
+    // Find the source to duplicate by its display ID
+    const sourceToDuplicate = sources.find(s => s.id === id);
+    if (!sourceToDuplicate) {
+      console.error('Source not found:', id);
+      return;
+    }
+    
+    // Generate a new unique ID for the duplicate
+    const newId = SourceService.generateId(sources);
+    
+    // Create a template object without UUID (so it's treated as new)
+    const duplicateTemplate = {
+      ...sourceToDuplicate,
+      uuid: undefined, // Remove UUID so it's treated as new
+      id: newId, // Assign new unique ID
+      name: `${sourceToDuplicate.name} (Copy)`,
+    } as Source;
+    
+    // Open modal with the duplicate data pre-populated
+    // The existing save handler will create the new record
+    setEditingSource(duplicateTemplate);
+    setIsModalOpen(true);
   };
 
   const stats = SourceService.getStatistics(sources);
