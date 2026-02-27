@@ -7,6 +7,17 @@ import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 
 const router = Router();
 
+// Helper: Transform database media_server to frontend format
+// Converts outputs_data → outputs to match TypeScript interfaces
+function normalizeMediaServer(server: any) {
+  const camelCased = toCamelCase(server);
+  return {
+    ...camelCased,
+    outputs: camelCased.outputsData || [], // Ensure outputs is always an array
+    outputsData: undefined // Remove the database field name
+  };
+}
+
 // Get all media-servers for a production
 router.get('/production/:productionId', async (req: Request, res: Response) => {
   try {
@@ -20,7 +31,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
       orderBy: { created_at: 'asc' }
     });
     
-    res.json(toCamelCase(mediaServers));
+    res.json(mediaServers.map(normalizeMediaServer));
   } catch (error) {
     console.error('Error fetching media-servers:', error);
     res.status(500).json({ error: 'Failed to fetch media-servers' });
@@ -45,7 +56,7 @@ router.post('/', async (req: Request, res: Response) => {
       data: {
         ...snakeCaseData,
         production_id: productionId,
-        outputs_data: outputs || null,
+        outputs_data: outputs || [], // Store as outputs_data, default to empty array
         updated_at: new Date(),
         version: 1
       }
@@ -66,14 +77,14 @@ router.post('/', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${mediaServer.production_id}`).emit('entity:created', {
       entityType: 'mediaServer',
-      entity: toCamelCase(mediaServer),
+      entity: normalizeMediaServer(mediaServer),
       userId,
       userName
     });
     
     console.log('✅ Media server created:', mediaServer.id, 'uuid:', mediaServer.uuid);
     
-    res.status(201).json(toCamelCase(mediaServer));
+    res.status(201).json(normalizeMediaServer(mediaServer));
   } catch (error) {
     console.error('❌ Error creating mediaServer:', error);
     console.error('Request body:', JSON.stringify(req.body, null, 2));
@@ -85,7 +96,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:uuid', async (req: Request, res: Response) => {
   try {
     const { uuid } = req.params;
-    const { version: clientVersion, userId, userName, ...updates } = req.body;
+    const { version: clientVersion, userId, userName, outputs, ...updates } = req.body;
     
     // Get current version for conflict detection
     const current = await prisma.media_servers.findUnique({
@@ -106,13 +117,16 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       });
     }
     
+    // Prepare update data - transform outputs → outputs_data if present
+    const updateData: any = { ...updates, version: current.version + 1 };
+    if (outputs !== undefined) {
+      updateData.outputs_data = outputs;
+    }
+    
     // Update with incremented version
     const mediaServer = await prisma.media_servers.update({
       where: { uuid },
-      data: {
-        ...updates,
-        version: current.version + 1
-      }
+      data: updateData
     });
     
     // Calculate diff and record event
@@ -134,12 +148,12 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${mediaServer.production_id}`).emit('entity:updated', {
       entityType: 'mediaServer',
-      entity: mediaServer,
+      entity: normalizeMediaServer(mediaServer),
       userId,
       userName
     });
     
-    res.json(mediaServer);
+    res.json(normalizeMediaServer(mediaServer));
   } catch (error) {
     console.error('Error updating mediaServer:', error);
     res.status(500).json({ error: 'Failed to update mediaServer' });

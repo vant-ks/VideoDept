@@ -1,9 +1,10 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
+import { useProductionEvents } from '@/hooks/useProductionEvents';
 import type { MediaServer, MediaServerOutput, MediaServerLayer } from '@/types';
 import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
 
@@ -14,6 +15,50 @@ export default function MediaServers() {
   
   const mediaServers = activeProject?.mediaServers || oldStore.mediaServers;
   const mediaServerLayers = activeProject?.mediaServerLayers || oldStore.mediaServerLayers;
+  
+  // Get production ID for WebSocket events
+  const productionId = activeProject?.production?.id || oldStore.production?.id;
+  
+  // Real-time event subscriptions
+  useProductionEvents({
+    productionId,
+    onEntityCreated: useCallback((event) => {
+      if (event.entityType === 'mediaServer') {
+        console.log('🔔 Media server created by', event.userName);
+        // Refresh from Zustand - it will be updated by the store's WebSocket handler
+        // Or directly update if using local state
+        if (activeProject) {
+          // The store should already have it via its own WebSocket listener
+          // Force a re-render by touching the state
+          projectStore.updateActiveProject({ 
+            mediaServers: [...(activeProject.mediaServers || []), event.entity]
+          });
+        }
+      }
+    }, [activeProject, projectStore]),
+    onEntityUpdated: useCallback((event) => {
+      if (event.entityType === 'mediaServer') {
+        console.log('🔔 Media server updated by', event.userName);
+        if (activeProject) {
+          projectStore.updateActiveProject({
+            mediaServers: (activeProject.mediaServers || []).map(s =>
+              s.uuid === event.entity.uuid ? event.entity : s
+            )
+          });
+        }
+      }
+    }, [activeProject, projectStore]),
+    onEntityDeleted: useCallback((event) => {
+      if (event.entityType === 'mediaServer') {
+        console.log('🔔 Media server deleted by', event.userName);
+        if (activeProject) {
+          projectStore.updateActiveProject({
+            mediaServers: (activeProject.mediaServers || []).filter(s => s.uuid !== event.entityId)
+          });
+        }
+      }
+    }, [activeProject, projectStore])
+  });
   
   // Use project store CRUD if activeProject exists, otherwise use old store
   const addMediaServerPair = activeProject ? projectStore.addMediaServerPair : oldStore.addMediaServerPair;
@@ -298,11 +343,11 @@ export default function MediaServers() {
                             {layer.outputAssignments.length > 1 && ' (spanning)'}:
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {layer.outputAssignments.map((assignment: any, idx: any) => {
+                            {layer.outputAssignments.map((assignment: any) => {
                               const server = mediaServers.find((s: any) => s.id === assignment.serverId);
                               const output = server?.outputs.find((o: any) => o.id === assignment.outputId);
                               return (
-                                <span key={idx} className="text-xs bg-av-surface-light px-3 py-1.5 rounded border border-av-border">
+                                <span key={`${assignment.serverId}-${assignment.outputId}`} className="text-xs bg-av-surface-light px-3 py-1.5 rounded border border-av-border">
                                   {server?.name} → {output?.name || assignment.outputId}
                                 </span>
                               );
@@ -474,16 +519,16 @@ export default function MediaServers() {
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSave={(platform, outputs, note) => {
+          onSave={(name, platform, outputs, note) => {
             if (editingServer && !isDuplicating) {
               // Update both main and backup
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
-                updateMediaServer(pair.main.id, { platform, outputs, note });
-                updateMediaServer(pair.backup.id, { platform, outputs, note });
+                updateMediaServer(pair.main.id, { name: `${name} A`, platform, outputs, note });
+                updateMediaServer(pair.backup.id, { name: `${name} B`, platform, outputs, note });
               }
             } else {
-              addMediaServerPair(platform, outputs, note);
+              addMediaServerPair(name, platform, outputs, note);
             }
             setIsServerModalOpen(false);
             setEditingServer(null);
@@ -526,19 +571,35 @@ export default function MediaServers() {
 interface ServerPairModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (platform: string, outputs: MediaServerOutput[], note?: string) => void;
+  onSave: (name: string, platform: string, outputs: MediaServerOutput[], note?: string) => void;
   editingServer: MediaServer | null;
 }
 
 function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairModalProps) {
+  // Get the next server number for default name
+  const { activeProject } = useProjectStore();
+  const oldStore = useProductionStore();
+  const mediaServers = activeProject?.mediaServers || oldStore.mediaServers;
+  const nextPairNumber = editingServer?.pairNumber || 
+    (mediaServers.length > 0 ? Math.max(...mediaServers.map(s => s.pairNumber)) + 1 : 1);
+  
+  const [name, setName] = useState(() => {
+    if (editingServer) {
+      // Extract base name without A/B suffix for editing
+      return editingServer.name.replace(/[AB]$/, '').trim();
+    }
+    return `MEDIA ${nextPairNumber}`;
+  });
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
   const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
     if (editingServer?.outputs) {
       return editingServer.outputs.map(o => ({ name: o.name, type: o.type, resolution: o.resolution, frameRate: o.frameRate }));
     }
     // Default: 1 DP output for new server pairs
+    // Use nextPairNumber for initial name (user can change via name field)
+    const defaultName = editingServer ? editingServer.name.replace(/[AB]$/, '').trim() : `MEDIA ${nextPairNumber}`;
     return [{
-      name: `MEDIA 1A.1`,
+      name: `${defaultName} A.1`,
       type: 'DP',
       resolution: { width: 1920, height: 1080 },
       frameRate: 59.94
@@ -548,13 +609,6 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
   
   // Track which outputs have custom resolution
   const [customResolutions, setCustomResolutions] = useState<{[key: number]: boolean}>({});
-  
-  // Get the next server number for display purposes
-  const { activeProject } = useProjectStore();
-  const oldStore = useProductionStore();
-  const mediaServers = activeProject?.mediaServers || oldStore.mediaServers;
-  const nextPairNumber = editingServer?.pairNumber || 
-    (mediaServers.length > 0 ? Math.max(...mediaServers.map(s => s.pairNumber)) + 1 : 1);
 
   // Common resolutions
   const COMMON_RESOLUTIONS = [
@@ -587,7 +641,7 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
     }
     const outputNum = outputs.length + 1;
     setOutputs([...outputs, { 
-      name: `MEDIA ${nextPairNumber}A.${outputNum}`, 
+      name: `${name} A.${outputNum}`, 
       type: 'DP',
       resolution: { width: 1920, height: 1080 },
       frameRate: 59.94
@@ -607,7 +661,7 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
     const outputNum = outputs.length + 1;
     setOutputs([...outputs, { 
       ...outputToDuplicate,
-      name: `MEDIA ${nextPairNumber}A.${outputNum}`
+      name: `${name} A.${outputNum}`
     }]);
   };
 
@@ -617,7 +671,7 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(platform, outputs as any, note);
+    onSave(name, platform, outputs as any, note);
   };
 
   if (!isOpen) return null;
@@ -628,14 +682,31 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-av-border sticky top-0 bg-av-surface z-10">
             <h2 className="text-2xl font-bold text-av-text">
-              {editingServer ? `Edit Media ${editingServer.pairNumber} Pair` : `Add Media ${nextPairNumber} Pair`}
+              {editingServer ? `Edit ${name} Pair` : `Add Server Pair ${nextPairNumber}`}
             </h2>
             <p className="text-sm text-av-text-muted mt-1">
-              Creates matching Main ({nextPairNumber}A) and Backup ({nextPairNumber}B) servers
+              Creates matching Main ({name} A) and Backup ({name} B) servers
             </p>
           </div>
 
           <div className="p-6 space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-av-text mb-2">
+                Name *
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="input-field w-full"
+                placeholder="MEDIA 1"
+                required
+              />
+              <p className="text-xs text-av-text-muted mt-1">
+                Base name for the pair. A and B suffixes will be added automatically.
+              </p>
+            </div>
+            
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
                 Platform *
@@ -656,7 +727,7 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
                 <div>
                   <h3 className="text-lg font-semibold text-av-text">Outputs</h3>
                   <p className="text-xs text-av-text-muted mt-1">
-                    Will be named MEDIA {nextPairNumber}A.1, {nextPairNumber}A.2, etc. (and matching B outputs)
+                    Will be named {name} A.1, {name} A.2, etc. (and matching B outputs)
                   </p>
                 </div>
                 <button

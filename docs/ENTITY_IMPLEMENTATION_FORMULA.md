@@ -442,6 +442,60 @@ curl -X POST http://localhost:3010/api/entity-name \
 **Cause:** Spread operator transforms objects incorrectly  
 **Fix:** Use explicit field lists (Rule #6 in PROJECT_RULES.md)
 
+### Issue: Field name mismatch between API and TypeScript
+**Symptom:** `Cannot read properties of null (reading 'length')` or similar errors  
+**Cause:** Database field name differs from TypeScript interface (e.g., `outputs_data` vs `outputs`)  
+**Fix:** Add normalization helper in API route:
+```typescript
+function normalizeEntity(entity: any) {
+  const camelCased = toCamelCase(entity);
+  return {
+    ...camelCased,
+    outputs: camelCased.outputsData || [], // Transform field name
+    outputsData: undefined // Remove database field name
+  };
+}
+// Apply to all route responses: .map(normalizeEntity)
+```
+
+### Issue: No real-time updates between browser tabs
+**Symptom:** Creating entity in tab A doesn't show in tab B until refresh  
+**Cause:** Entity page component not subscribed to WebSocket events  
+**Fix:**
+1. Add entity type to `useProductionEvents.ts` EntityEvent interface
+2. Import and use `useProductionEvents` hook in component:
+```typescript
+import { useProductionEvents } from '@/hooks/useProductionEvents';
+
+// Inside component:
+const productionId = activeProject?.production?.id || oldStore.production?.id;
+
+useProductionEvents({
+  productionId,
+  onEntityCreated: useCallback((event) => {
+    if (event.entityType === 'yourEntityType') {
+      // Update local state or Zustand store
+    }
+  }, [dependencies]),
+  onEntityUpdated: useCallback((event) => { /* ... */ }, []),
+  onEntityDeleted: useCallback((event) => { /* ... */ }, [])
+});
+```
+
+### Issue: React "unique key prop" warning
+**Cause:** Using array index as key in `.map()` → `key={idx}`  
+**Fix:** Use stable unique identifier:
+```typescript
+// ❌ BAD - index not stable
+{items.map((item, idx) => <div key={idx}>...
+
+// ✅ GOOD - uuid is stable
+{items.map((item) => <div key={item.uuid}>...
+
+// ✅ GOOD - composite key if no uuid
+{items.map((item) => <div key={`${item.serverId}-${item.outputId}`}>...
+```
+
 ### Issue: WebSocket updates don't show
 **Cause:** Wrong event name or missing entityType filter  
 **Fix:** Use generic events (`entity:created`) with `entityType` payload field
@@ -464,12 +518,16 @@ Before marking implementation complete, verify:
 - [ ] API routes use `:uuid` parameters
 - [ ] Frontend store uses `.uuid` for all operations
 - [ ] No spread operators in API calls
+- [ ] Database field names match TypeScript interfaces (or add normalization helper)
+- [ ] Component uses `useProductionEvents` hook with entityType handlers
+- [ ] All `.map()` calls use stable keys (not array index)
 - [ ] WebSocket events use generic names + entityType
 - [ ] toCamelCase/toSnakeCase used correctly
 - [ ] Created automated test script
 - [ ] All tests pass
 - [ ] Works in both dev and after server restart
 - [ ] Real-time updates work across browser tabs
+- [ ] No React warnings in console
 
 ---
 

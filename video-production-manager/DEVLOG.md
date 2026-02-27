@@ -1,5 +1,118 @@
 # Development Log - Video Production Manager
 
+## February 27, 2026 - Media Servers: Real-time Sync + UX Improvements
+
+### Problem Path
+1. **Initial Issue**: Media server creation crash - `outputs.length` on null
+2. **Root Cause**: Field name mismatch (`outputs_data` vs `outputs`)
+3. **After Fix**: New pairs didn't appear in other browser tabs until refresh
+4. **Additional Issues**: React key prop warning, non-editable names, inconsistent output naming
+
+### Investigation & Solutions
+
+**Issue 1: Field Name Mismatch (Outputs Crash)**
+- Database stores: `outputs_data` (Json) → API camelCase → `outputsData`
+- TypeScript expects: `outputs` (Output[])
+- **Solution**: Added `normalizeMediaServer()` helper in API routes
+  - Transforms `outputs_data` → `outputs` on all responses
+  - Ensures `outputs` defaults to `[]` (never null)
+  - Applied to GET, POST, PUT routes + WebSocket broadcasts
+
+**Issue 2: No Real-time Updates Between Browsers**
+- **Root Cause**: [MediaServers.tsx](video-production-manager/src/pages/MediaServers.tsx) didn't subscribe to WebSocket events
+- Other entity pages (Computers, Cameras, CCUs) use `useProductionEvents` hook
+- **Solution**: 
+  1. Added `'mediaServer'` to EntityEvent type in [useProductionEvents.ts](video-production-manager/src/hooks/useProductionEvents.ts)
+  2. Imported and configured WebSocket handlers in MediaServers component
+  3. Added handlers for `entity:created`, `entity:updated`, `entity:deleted`
+  4. Updates flow directly to Zustand store → all tabs sync instantly
+
+**Issue 3: React Key Prop Warning**
+- **Location**: Layer output assignments map used `key={idx}` (array index)
+- **Problem**: Indices aren't stable when list changes → React warnings
+- **Solution**: Changed to `key={${assignment.serverId}-${assignment.outputId}}` (stable unique identifier)
+
+**Issue 4: Non-Editable Server Names**
+- **User Request**: "Make the name of the server pair editable but preloaded automatically"
+- **Default Formula**: `MEDIA [1, 2, 3...]` progressively numbered
+- **Solution**:
+  - Added `name` field to ServerPairModal with default `MEDIA ${nextPairNumber}`
+  - User can customize before saving or keep default
+  - Updated `addMediaServerPair()` signature: `(name, platform, outputs, note)`
+  - Names applied as: `${name} A` / `${name} B` for main/backup
+
+**Issue 5: Output Naming Convention**
+- **User Request**: "Append 'A' or 'B' respectively to the names of the outputs"
+- **Previous**: Outputs named `MEDIA 1A.1`, `MEDIA 1B.1` (hardcoded pattern)
+- **Solution**: 
+  - Outputs now use user's custom name: `${name} A.1`, `${name} B.1`
+  - Automatically updated when user changes name field
+  - Applied in `handleAddOutput()`, `handleDuplicateOutput()`, and initial state
+
+### Testing Performed
+✅ Created server pair - appears instantly in all open browser tabs  
+✅ Updated server pair - changes sync immediately  
+✅ Deleted server pair - removal syncs across tabs  
+✅ Custom names work correctly (e.g., "SERVER X" → "SERVER X A", "SERVER X B")  
+✅ Output names follow custom base name + A/B suffix  
+✅ No React key warnings in console  
+✅ `outputs` field always array, never null
+
+### Code Changes Summary
+- [media-servers.ts](video-production-manager/api/src/routes/media-servers.ts): Added field normalization helper
+- [useProductionEvents.ts](video-production-manager/src/hooks/useProductionEvents.ts): Added 'mediaServer' to event types
+- [MediaServers.tsx](video-production-manager/src/pages/MediaServers.tsx): 
+  - Added WebSocket event handlers
+  - Fixed React key prop (index → unique ID)
+  - Added editable name field to modal
+  - Updated output naming convention
+- [useProjectStore.ts](video-production-manager/src/hooks/useProjectStore.ts): Updated `addMediaServerPair()` to accept name parameter
+
+---
+
+## February 27, 2026 - Media Server Frontend Crash Fix (Field Name Mismatch)
+
+### Problem
+Frontend crashed on browser refresh with error:
+```
+MediaServers.tsx:213 Uncaught TypeError: Cannot read properties of null (reading 'length')
+at pair.main.outputs.length
+```
+
+### Root Cause
+Field name mismatch between database schema and TypeScript interface:
+- Database field: `outputs_data` (Json) → camelCased to `outputsData`  
+- TypeScript interface: expects `outputs` (Output[])
+- Frontend code accessed `pair.main.outputs.length` but received `outputsData` from API
+
+### Solution
+Added field normalization in [media-servers.ts](api/src/routes/media-servers.ts):
+
+```typescript
+// Helper function transforms database → frontend format
+function normalizeMediaServer(server: any) {
+  const camelCased = toCamelCase(server);
+  return {
+    ...camelCased,
+    outputs: camelCased.outputsData || [], // Ensure always array
+    outputsData: undefined // Remove database field name
+  };
+}
+```
+
+Applied normalization to all routes:
+- GET `/production/:productionId` → `.map(normalizeMediaServer)`
+- POST `/` → `normalizeMediaServer(mediaServer)` 
+- PUT `/:uuid` → `normalizeMediaServer(mediaServer)`
+- WebSocket broadcasts → `normalizeMediaServer(mediaServer)`
+
+### Testing
+✅ API returns `outputs` field (not `outputsData`)  
+✅ Default value: empty array `[]` (never null)  
+✅ Frontend can safely access `.outputs.length`
+
+---
+
 ## February 27, 2026 - Media Server UUID Fix (500 Error Resolution)
 
 ### Problem

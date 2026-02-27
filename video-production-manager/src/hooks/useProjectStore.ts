@@ -1481,7 +1481,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().recordChange('create', 'mediaServer', newServer.id, newServer);
   },
   
-  addMediaServerPair: async (platform: string, outputs: any[], note?: string) => {
+  addMediaServerPair: async (name: string, platform: string, outputs: any[], note?: string) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
@@ -1491,21 +1491,21 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     
     const mainServer = {
       id: `${nextPairNumber}A`,
-      name: `Media ${nextPairNumber}A`,
+      name: `${name} A`,
       pairNumber: nextPairNumber,
       isBackup: false,
       platform,
-      outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}A-OUT${i + 1}`, name: `MEDIA ${nextPairNumber}A.${i + 1}` })),
+      outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}A-OUT${i + 1}`, name: `${name} A.${i + 1}` })),
       note
     };
     
     const backupServer = {
       id: `${nextPairNumber}B`,
-      name: `Media ${nextPairNumber}B`,
+      name: `${name} B`,
       pairNumber: nextPairNumber,
       isBackup: true,
       platform,
-      outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}B-OUT${i + 1}`, name: `MEDIA ${nextPairNumber}B.${i + 1}` })),
+      outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}B-OUT${i + 1}`, name: `${name} B.${i + 1}` })),
       note
     };
     
