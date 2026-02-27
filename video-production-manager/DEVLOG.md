@@ -1,5 +1,41 @@
 # Development Log - Video Production Manager
 
+## February 27, 2026 - Media Server UUID Fix (500 Error Resolution)
+
+### Problem
+Media server creation failed with 500 Internal Server Error. API logs showed:
+```
+❌ Error creating mediaServer: PrismaClientValidationError: 
+Argument `uuid` is missing.
+```
+
+### Root Cause
+During schema drift cleanup (to prevent migration crashes), the `@default(dbgenerated("gen_random_uuid()"))` directive was accidentally removed from `media_servers.uuid` field.
+
+**Schema Comparison:**
+```prisma
+// ❌ BROKEN (media_servers)
+uuid String @id
+
+// ✅ CORRECT (all other entities)
+uuid String @id @default(dbgenerated("gen_random_uuid()"))
+```
+
+### Solution
+1. Added `@default(dbgenerated("gen_random_uuid()"))` to media_servers.uuid
+2. Ran `npx prisma db push` to apply to database
+3. Restarted API server to load new Prisma client
+
+### Testing
+✅ Created automated test: `api/scripts/test-media-servers.sh`  
+✅ Manual API tests: 201 Created with auto-generated UUIDs  
+✅ Servers persist in database correctly
+
+### Documentation
+Created `/docs/ENTITY_IMPLEMENTATION_FORMULA.md` - Complete repeatable pattern for adding new entity pages.
+
+---
+
 ## February 26, 2026 - Media Server Creation Fix (Spread Operator Bug)
 
 ### Root Cause Discovery 🔍

@@ -171,10 +171,10 @@ model media_servers {
   created_at       DateTime    @default(now())
   updated_at       DateTime
   version          Int         @default(1)
-  field_versions   Json?
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
+  field_versions   Json?
   productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
 
   @@index([production_id])
