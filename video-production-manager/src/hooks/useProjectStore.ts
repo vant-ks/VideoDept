@@ -1650,6 +1650,43 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     }
   },
   
+  deleteMediaServerPair: async (pairNumber: number) => {
+    const { activeProject } = get();
+    if (!activeProject) return;
+    
+    // Find both servers in the pair
+    const mainServer = activeProject.mediaServers.find(s => s.pairNumber === pairNumber && !s.isBackup);
+    const backupServer = activeProject.mediaServers.find(s => s.pairNumber === pairNumber && s.isBackup);
+    
+    if (!mainServer || !backupServer) {
+      console.error('❌ Media server pair not found:', pairNumber);
+      return;
+    }
+    
+    // Optimistic update - remove both from state immediately
+    const originalServers = activeProject.mediaServers;
+    get().updateActiveProject({
+      mediaServers: activeProject.mediaServers.filter(s => s.pairNumber !== pairNumber)
+    });
+    
+    try {
+      // Delete both servers via API
+      await Promise.all([
+        apiClient.delete(`/media-servers/${mainServer.uuid}`),
+        apiClient.delete(`/media-servers/${backupServer.uuid}`)
+      ]);
+      
+      console.log('✅ Media server pair deleted from database:', pairNumber);
+    } catch (error) {
+      console.error('❌ Failed to delete media server pair:', error);
+      // Revert optimistic update on error
+      get().updateActiveProject({
+        mediaServers: originalServers
+      });
+      throw error;
+    }
+  },
+  
   // ===== MEDIA SERVER LAYER CRUD =====
   addMediaServerLayer: (layer) => {
     const { activeProject } = get();

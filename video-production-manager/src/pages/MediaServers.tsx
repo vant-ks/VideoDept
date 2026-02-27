@@ -63,7 +63,7 @@ export default function MediaServers() {
   // Use project store CRUD if activeProject exists, otherwise use old store
   const addMediaServerPair = activeProject ? projectStore.addMediaServerPair : oldStore.addMediaServerPair;
   const updateMediaServer = activeProject ? projectStore.updateMediaServer : oldStore.updateMediaServer;
-  const deleteMediaServerPair = oldStore.deleteMediaServerPair; // Keep old for now - needs refactor
+  const deleteMediaServerPair = activeProject ? projectStore.deleteMediaServerPair : oldStore.deleteMediaServerPair;
   const addMediaServerLayer = activeProject ? projectStore.addMediaServerLayer : oldStore.addMediaServerLayer;
   const updateMediaServerLayer = activeProject ? projectStore.updateMediaServerLayer : oldStore.updateMediaServerLayer;
   const deleteMediaServerLayer = activeProject ? projectStore.deleteMediaServerLayer : oldStore.deleteMediaServerLayer;
@@ -223,11 +223,13 @@ export default function MediaServers() {
                         onClick={() => {
                           // Duplicate the server pair by opening modal with duplicated data
                           const nextPairNum = Math.max(...mediaServers.map(s => s.pairNumber)) + 1;
+                          // Extract base name from existing server (strip " A" or " B" suffix)
+                          const baseName = pair.main.name.replace(/\s+[AB]$/, '').trim();
                           setEditingServer({
                             ...pair.main,
                             pairNumber: nextPairNum,
                             id: `${nextPairNum}A`,
-                            name: `Media ${nextPairNum}A`
+                            name: baseName // Use base name without A/B - modal will handle it
                           });
                           setIsDuplicating(true);
                           setIsServerModalOpen(true);
@@ -535,6 +537,7 @@ export default function MediaServers() {
             setIsDuplicating(false);
           }}
           editingServer={editingServer}
+          isDuplicating={isDuplicating}
         />
       )}
 
@@ -573,9 +576,10 @@ interface ServerPairModalProps {
   onClose: () => void;
   onSave: (name: string, platform: string, outputs: MediaServerOutput[], note?: string) => void;
   editingServer: MediaServer | null;
+  isDuplicating?: boolean;
 }
 
-function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairModalProps) {
+function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating }: ServerPairModalProps) {
   // Get the next server number for default name
   const { activeProject } = useProjectStore();
   const oldStore = useProductionStore();
@@ -584,22 +588,28 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
     (mediaServers.length > 0 ? Math.max(...mediaServers.map(s => s.pairNumber)) + 1 : 1);
   
   const [name, setName] = useState(() => {
-    if (editingServer) {
-      // Extract base name without A/B suffix for editing
-      return editingServer.name.replace(/[AB]$/, '').trim();
+    if (editingServer && !isDuplicating) {
+      // Editing existing - extract base name without A/B suffix
+      return editingServer.name.replace(/\s+[AB]$/, '').trim();
     }
+    // New or duplicating - suggest next pair number
     return `MEDIA ${nextPairNumber}`;
   });
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
   const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
     if (editingServer?.outputs) {
-      return editingServer.outputs.map(o => ({ name: o.name, type: o.type, resolution: o.resolution, frameRate: o.frameRate }));
+      // Strip A/B suffix from output names when loading for editing
+      return editingServer.outputs.map(o => ({ 
+        name: o.name.replace(/\s+[AB](\.\d+)$/, '$1'), // Remove " A" or " B" before ".1", ".2", etc.
+        type: o.type, 
+        resolution: o.resolution, 
+        frameRate: o.frameRate 
+      }));
     }
     // Default: 1 DP output for new server pairs
-    // Use nextPairNumber for initial name (user can change via name field)
-    const defaultName = editingServer ? editingServer.name.replace(/[AB]$/, '').trim() : `MEDIA ${nextPairNumber}`;
+    // Use name for initial default
     return [{
-      name: `${defaultName} A.1`,
+      name: `${name}.1`, // Server name + numbering (no A/B)
       type: 'DP',
       resolution: { width: 1920, height: 1080 },
       frameRate: 59.94
@@ -609,6 +619,19 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
   
   // Track which outputs have custom resolution
   const [customResolutions, setCustomResolutions] = useState<{[key: number]: boolean}>({});
+  
+  // Helper functions for A/B suffix handling
+  // Strip " A" or " B" suffix from output names (preserves the ".1", ".2" numbering)
+  const stripABSuffix = (name: string): string => {
+    return name.replace(/\s+[AB](\.\d+)$/, '$1');
+  };
+  
+  // Append " A" suffix to output name (before the ".1", ".2" numbering)
+  const appendASuffix = (name: string): string => {
+    // If name already has A or B, strip it first
+    const stripped = stripABSuffix(name);
+    return stripped.replace(/(\.\d+)$/, ' A$1');
+  };
 
   // Common resolutions
   const COMMON_RESOLUTIONS = [
@@ -641,7 +664,7 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
     }
     const outputNum = outputs.length + 1;
     setOutputs([...outputs, { 
-      name: `${name} A.${outputNum}`, 
+      name: `${name}.${outputNum}`, // Server name + numbering (no A/B)
       type: 'DP',
       resolution: { width: 1920, height: 1080 },
       frameRate: 59.94
@@ -661,7 +684,7 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
     const outputNum = outputs.length + 1;
     setOutputs([...outputs, { 
       ...outputToDuplicate,
-      name: `${name} A.${outputNum}`
+      name: `${name}.${outputNum}` // Server name + numbering (no A/B)
     }]);
   };
 
@@ -671,7 +694,13 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(name, platform, outputs as any, note);
+    // Append A/B suffix to output names before saving
+    const outputsWithSuffixA = outputs.map((o, i) => ({
+      ...o,
+      // Insert " A" or " B" before the last "." (before the number)
+      name: o.name.replace(/(\.\d+)$/, ' A$1')
+    }));
+    onSave(name, platform, outputsWithSuffixA as any, note);
   };
 
   if (!isOpen) return null;
@@ -750,12 +779,14 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer }: ServerPairM
                         {/* Row 1: Name, Type, Duplicate, Delete */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-av-text-muted mb-1">Name</label>
+                            <label className="block text-xs font-medium text-av-text-muted mb-1">
+                              Name <span className="text-xs">(A/B will be appended automatically)</span>
+                            </label>
                             <input
                               type="text"
                               value={output.name}
                               onChange={(e) => handleUpdateOutput(index, { name: e.target.value })}
-                              placeholder={`MEDIA ${nextPairNumber}A.${index + 1}`}
+                              placeholder={`${name}.${index + 1}`}
                               className="input-field w-full"
                             />
                           </div>
