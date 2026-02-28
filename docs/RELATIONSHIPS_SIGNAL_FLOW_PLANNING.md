@@ -22,7 +22,8 @@ BaseEntity (TypeScript interface)
   │     ├── Computer (equipment: laptop, desktop)
   │     ├── Media Server (equipment: media servers)
   │     ├── Camera (equipment: camera bodies)
-  │     └── Camera Switcher (equipment: camera control/switching)
+  │     ├── CCU (equipment: camera control units)
+  │     └── Camera Switcher (equipment: camera feed switcher, NOT vision switcher)
   |
   ├── Sends (Destination category)
   │     ├── Monitor (equipment: displays)
@@ -38,7 +39,8 @@ BaseEntity (TypeScript interface)
 ```
 
 **Database Reality:**
-- Each category = Separate table: `sources`, `sends`, `cameras`, `camera_switchers`, `media_servers`, etc.
+- Each category = Separate table: `computers`, `media_servers`, `cameras`, `ccus`, `camera_switchers`, `sends`, etc.
+- `sources` is a **parent label only** — each child entity has its own dedicated table
 - No shared base table
 - Relationships via foreign keys, not inheritance
 
@@ -94,11 +96,11 @@ BaseEntity (TypeScript interface)
 ]
 
 // Entity Categories (from equipment_specs.category):
-type EquipmentCategory = 'COMPUTER' | 'MEDIA_SERVER' | 'CAMERA' | 'CAMERA_SWITCHER' 
+type EquipmentCategory = 'COMPUTER' | 'MEDIA_SERVER' | 'CAMERA' | 'CCU' | 'CAMERA_SWITCHER'
   | 'SWITCHER' | 'ROUTER' | 'LED_PROCESSOR' | 'CONVERTER'
   | 'MONITOR' | 'RECORDER' | 'PROJECTOR' | 'LED_TILE';
 // Functional Categorization (Signal Path Roles):
-// - SOURCES: computer, media_server, camera, camera_switcher (generate signals)
+// - SOURCES: computer, media_server, camera, ccu, camera_switcher (generate signals)
 // - SIGNAL_FLOW: switcher, router, led_processor, converter (route/process signals)
 // - SENDS: monitor, recorder, projector, led_tile (receive/display signals)
 //
@@ -157,6 +159,7 @@ model sources {
   - Computer → computerType (from settings)
   - Media Server → software (from settings)
   - Camera → reference to equipment_specs
+  - CCU → reference to equipment_specs
   - Camera Switcher → reference to equipment_specs
 
 #### Output Architecture (DECISION MADE)
@@ -164,8 +167,9 @@ model sources {
 **Universal I/O Pattern: Direct + Optional Card-Based**
 
 **Core Principle:**
-- **EVERY device has direct I/O** (at minimum for IP control, reference, multiviewer)
-- **Card-based I/O is OPTIONAL** and admin-configurable
+- **EVERY device has direct I/O** (at minimum for IP control, reference, primary outputs)
+- **Card-based I/O capability is defined at the equipment_specs level** — if a device references the equipment library, its card-based I/O configuration is inherited from there
+- **Exceptions (no equipment_specs required):** Computers and Media Servers are configured directly by the user without admin/equipment-library involvement — they may not exist in the equipment library at all
 - Enables modular expansion and custom configurations
 
 **I/O Structure:**
@@ -176,10 +180,10 @@ model sources {
    - Tables: `{entity}_outputs`, `{entity}_inputs`
    - Simple relationship: device → direct I/O
 
-2. **Card-Based I/O** (optional, admin-enabled)
+2. **Card-Based I/O** (optional, defined per equipment type)
    - Removable expansion cards
-   - Admin can enable/disable card capability per device
-   - Used by: media servers, switchers, LED processors, some routers
+   - **For equipment-library devices** (cameras, CCUs, switchers, routers, LED processors, converters): card capability is defined in `equipment_specs` — users cannot override this
+   - **For non-library devices** (computers, media servers): user defines I/O directly, no admin privilege required
    - Hierarchy: device → cards → card I/O
    - Tables: `{entity}_cards` → `{entity}_card_outputs` / `{entity}_card_inputs`
 
@@ -354,8 +358,8 @@ All connections follow the pattern: `OUTPUT → CABLE → INPUT`
 1. **Sources** (signal generators)
    - Primarily: OUTPUTS
    - Optional: INPUTS (for loop-through)
-   - Examples: computers, media servers, cameras, camera switchers
-   - Tables: `source_outputs`, `source_inputs` (optional)
+   - Examples: computers, media servers, cameras, CCUs, camera switchers
+   - Tables: `{entity}_outputs` per child type (e.g. `camera_outputs`, `ccu_outputs`)
 
 2. **Sends** (signal receivers/displays)
    - Primarily: INPUTS
@@ -774,7 +778,7 @@ Sample presets to seed the EDID library:
 
 ### Phase 2: Signal Flow Outputs & Inputs
 - [x] **DECIDED:** Use separate tables per device type (Option A)
-- [x] **DECIDED:** All devices have direct I/O, card-based is optional/admin-enabled
+- [x] **DECIDED:** All devices have direct I/O; card-based I/O capability defined at equipment_specs level
 - [x] **DECIDED:** EDID system on all signal flow device inputs
 - [ ] Create paired input/output tables for each signal flow device:
   - `switcher_inputs` + `switcher_outputs`
@@ -785,14 +789,16 @@ Sample presets to seed the EDID library:
   - `edid_mode` (inherit | custom | preset)
   - `edid_preset_uuid` (FK → edid_presets)
   - `edid_connector`, `edid_h_res`, `edid_v_res`, `edid_rate` (override values)
-- [ ] Add device setting: `card_io_enabled` (Boolean, default false)
-- [ ] Create card management tables when card I/O enabled:
+- [ ] Add `card_io_enabled` + card configuration to `equipment_specs` (admin-managed equipment library)
+  - When a device references equipment_specs, card capability is read from there
+  - No per-device-instance card toggle — capability comes from equipment definition
+- [ ] Create card management tables when device's equipment_specs declares card I/O:
   - `{entity}_cards` (parent)
   - `{entity}_card_outputs` / `{entity}_card_inputs` (children)
+- [ ] Computers & Media Servers: user defines I/O directly (no equipment_specs required, no admin privilege)
 - [ ] Implement output duplication for signal flow devices (direct & card-based)
 - [ ] Implement input duplication for signal flow devices (direct & card-based)
 - [ ] Add drag-and-drop capability to move inputs/outputs between devices of same type
-- [ ] Admin UI to enable/disable card-based I/O per device
 
 ### Phase 3: Sends & Inputs Structure
 - [x] **DECIDED:** Inputs inherit format from connected output
@@ -896,9 +902,10 @@ productions
     │
     ├── edid_presets (admin-managed EDID library)
     │
-    ├── sources (children: computers, media_servers, cameras, camera_switchers)
-    │   ├── → equipment_specs (optional FK)
-    │   └── → source_outputs (1:many, connector + format defined here)
+    ├── sources [parent label] (children: computers, media_servers, cameras, ccus, camera_switchers)
+    │   ├── → equipment_specs (optional FK — required for cameras, CCUs, camera switchers; optional for computers & media servers)
+    │   │       └── card_io_enabled + card_config defined here for equipment-library devices
+    │   └── → {entity}_outputs (1:many, connector + format defined here)
     │
     ├── signal_flow (children: switchers, routers, led_processors, converters)
     │   ├── → equipment_specs (optional FK)
@@ -957,18 +964,22 @@ productions
 
 **Date:** February 28, 2026  
 **Decision:** Entity categorization clarified:  
-- **Sources:** computer, media server, camera, camera switcher  
-- **Signal Flow:** switcher, router, led processor, converter  
-- **Sends:** monitor, recorder, projector, LED tile  
+- **Sources** _(parent label, each is its own table)_: Computer, Media Server, Camera, CCU, Camera Switcher  
+  - Note: Camera Switcher = device that switches between camera feeds (NOT a vision switcher)  
+  - Note: CCU = Camera Control Unit (rack unit for camera exposure/color control)  
+- **Signal Flow:** Switcher (Vision Switcher), Router, LED Processor, Converter  
+- **Sends:** Monitor, Recorder, Projector, LED Tile  
 **Rationale:** Reflects actual signal path roles in production workflow
 
 **Date:** February 28, 2026  
 **Decision:** Output Architecture - Direct I/O vs Card-Based  
 **Details:**
-- Direct I/O: computers, cameras, camera switchers, routers, converters
-- Card-Based: media servers, switchers, LED processors, streaming devices
+- Card-based I/O capability is defined at the `equipment_specs` level for all equipment-library devices
+- Equipment-library devices (cameras, CCUs, camera switchers, switchers, routers, LED processors, converters): card config comes from equipment_specs
+- Non-library devices (computers, media servers): user defines I/O directly, no admin privilege or equipment_specs entry required
+- Devices that support card-based I/O: media servers, switchers, LED processors, streaming devices (and any equipment_specs entry that declares card support)
 - All outputs have: connector, h_res, v_res, rate, id, uuid
-**Rationale:** Matches real-world equipment configurations
+**Rationale:** Equipment library is the source of truth for physical device capabilities. Computers and media servers are production-specific and don't require a library entry.
 
 **Date:** February 28, 2026  
 **Decision:** UX Requirements for Outputs and Entity Creation  
@@ -1008,14 +1019,15 @@ productions
 **Rationale:** Reflects physical reality of production environments. Cable management is critical for troubleshooting.
 
 **Date:** February 28, 2026  
-**Decision:** Universal Direct I/O + Optional Card-Based I/O  
+**Decision:** Universal Direct I/O + Equipment-Level Card-Based I/O  
 **Details:**
 - ALL devices have direct I/O (minimum for control, reference, primary outputs)
-- Card-based I/O is OPTIONAL and ADMIN-CONFIGURABLE per device
+- Card-based I/O capability is defined at the `equipment_specs` level by admins
+- When a production device references `equipment_specs`, card config is inherited from the equipment definition
+- **Exception — Computers & Media Servers:** Not required to have an equipment_specs entry; users define their I/O directly with no admin privilege required
 - Cards are children of devices: device → cards → card I/O
-- Admin can enable/disable card capability in device settings
-- Both direct and card-based I/O use same property schema
-**Rationale:** Flexible architecture supports both simple devices (cameras, monitors) and complex modular devices (switchers, media servers). Admin control prevents UI complexity for simple setups.
+- Both direct and card-based I/O use the same property schema
+**Rationale:** Equipment library is the authoritative source for what a physical device is capable of. Computers and media servers are often production-specific configurations that don't map cleanly to a single library entry, so they bypass this constraint.
 
 **Date:** February 28, 2026  
 **Decision:** Input Format Inheritance (Option A)  
@@ -1030,5 +1042,5 @@ productions
 ---
 
 **Status:** Planning complete - All major architecture decisions made!  
-**Updated:** February 28, 2026 - Added EDID architecture, corrected entity hierarchy (CCU→Camera Switcher, Server→Media Server), added Streaming to card-based I/O, fixed proposed diagram (signal flow devices correctly separated from sends)  
+**Updated:** February 28, 2026 - Added EDID architecture, corrected entity hierarchy (CCU restored, Camera Switcher added as separate entity, Server→Media Server), added Streaming to card-based I/O, fixed proposed diagram (signal flow devices correctly separated from sends), card-based I/O now defined at equipment_specs level (computers & media servers exempt)  
 **Next Action:** Phase 2 implementation — signal flow device input/output tables + EDID fields
