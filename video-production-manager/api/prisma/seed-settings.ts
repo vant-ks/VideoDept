@@ -28,21 +28,26 @@ async function seedSettings() {
   }
   console.log(`✓ Seeded ${connectorTypes.length} connector types`);
 
-  // Source Types (current values from store)
-  const sourceTypes = ['LAPTOP', 'CAM', 'SERVER', 'PLAYBACK', 'GRAPHICS', 'PTZ', 'ROBO', 'OTHER'];
+  // Computer Types (specific to computers - NOT generic equipment categories!)
+  const computerTypes = [
+    'Laptop - PC MISC', 'Laptop - PC GFX', 'Laptop - PC WIDE',
+    'Laptop - MAC MISC', 'Laptop - MAC GFX',
+    'Desktop - PC MISC', 'Desktop - PC GFX', 'Desktop - PC SERVER',
+    'Desktop - MAC MISC', 'Desktop - MAC GFX', 'Desktop - MAC SERVER'
+  ];
   
-  for (let i = 0; i < sourceTypes.length; i++) {
+  for (let i = 0; i < computerTypes.length; i++) {
     await prisma.source_types.upsert({
-      where: { name: sourceTypes[i] },
+      where: { name: computerTypes[i] },
       create: {
-        name: sourceTypes[i],
+        name: computerTypes[i],
         sort_order: i,
         is_active: true
       },
       update: {}
     });
   }
-  console.log(`✓ Seeded ${sourceTypes.length} source types`);
+  console.log(`✓ Seeded ${computerTypes.length} computer types (source_types table)`);
 
   // Frame Rates (current values from store)
   const frameRates = ['60', '59.94', '50', '30', '29.97', '25', '24', '23.98'];

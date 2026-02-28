@@ -1,5 +1,147 @@
 # Development Log - Video Production Manager
 
+## February 27, 2026 - Media Servers: Drag-to-Reorder + No-Optimistic-Update Architecture
+
+### Feature Overview
+Implemented drag-and-drop reordering for media server pairs with a no-optimistic-update pattern to prevent race conditions and ensure database consistency.
+
+### Requirements
+1. **Drag-to-Reorder**: Users can drag server pair cards to reorder them
+2. **Sequential Numbering**: First listed pair is always #1, second is always #2, etc.
+3. **Single Source of Truth**: Database determines order, UI reflects database state
+
+### Implementation Path
+
+**Phase 1: HTML5 Drag API**
+- Component: [MediaServers.tsx](video-production-manager/src/pages/MediaServers.tsx)
+- Implementation:
+  - Added `draggable={true}` to server pair cards
+  - Handlers: `onDragStart`, `onDragOver`, `onDrop`, `onDragEnd`
+  - `draggedPairNumber` state tracks which pair is being dragged
+  - `onDrop`: Updates pairNumber for both main + backup servers via API
+  - API: `PUT /api/media-servers/:id` with `{ pairNumber }` payload
+
+**Phase 2: No-Optimistic-Update Pattern**
+- **Decision**: Avoid optimistic UI updates to prevent race conditions
+- **Pattern**: Database refetch after every mutation
+- **Why**: With WebSocket sync + concurrent editing, optimistic updates can create inconsistencies
+- **Implementation**:
+  - After drag-drop mutation: `await fetchMediaServers()`
+  - WebSocket broadcasts trigger same refetch in other tabs
+  - Result: All clients stay in sync with database as single source of truth
+
+**Phase 3: WebSocket Race Condition Protection**
+- **Problem**: Drag operation triggers WebSocket update → refetch → disrupts ongoing drag
+- **Solution**: Added `isDragInProgress` state
+  - Set `true` in `onDragStart`, `false` in `onDragEnd`
+  - WebSocket handlers check: `if (isDragInProgress) return;`
+  - Prevents external updates from interfering with user's drag operation
+  - Once drag completes, normal WebSocket sync resumes
+
+### Bug Discovery: Pair Numbering Mismatch
+
+**Initial Bug**
+- Created 4th server pair
+- Modal showed "Add Server 5 Pair" (expected behavior)
+- After creation, modal showed "Add Server Pair #5" for next pair (incorrect - only 4 pairs exist)
+
+**First Fix Attempt** 
+- Changed pair calculation from `Math.max(pairNumbers) + 1` to counting complete pairs
+- Logic: Count pairs with exactly 2 servers (main + backup)
+- **Result**: Made it worse - modal now showed "Pair #2" when 4 pairs visible
+
+**Debug Investigation**
+- Added console.log to both main page and modal
+- Main page: `12 total servers, 4 serverPairs displayed, pairNumbers: [1,2,3,4]`
+- Modal: `12 total servers, allPairNumbers: [1,3,4,4,2,2,3,3,1,1,2,2], completePairsCount: 1`
+
+**Root Cause: Duplicate Servers**
+- Expected: 8 servers (4 pairs × 2 servers)
+- Actual: 12 servers (duplicates from development testing)
+- Distribution:
+  - Pair 1: 3 servers (1 extra)
+  - Pair 2: 4 servers (2 extra)
+  - Pair 3: 3 servers (1 extra)
+  - Pair 4: 2 servers (correct)
+- Main page's grouping logic handled duplicates (overwrites with last server for each role)
+- Modal's counting logic failed (only Pair 4 had exactly 2 servers → calculated "next = 2")
+
+### Final Solution: Prop Passing Over Recalculation
+
+**The Fix**
+- **Main page** calculates `serverPairs.length + 1` from filtered complete pairs
+- **Modal** receives this value as `nextPairNumber` prop
+- **No recalculation** in modal - uses prop directly: `editingServer?.pairNumber || nextPairNumber || 1`
+
+**Code Changes**
+1. Interface: Added `nextPairNumber?: number` to `ServerPairModalProps`
+2. Invocation: `<ServerPairModal nextPairNumber={serverPairs.length + 1} />`
+3. Modal: Uses prop instead of recalculating from raw `mediaServers`
+
+**Result**: Single source of truth for pair numbering calculation
+
+### Cleanup: Duplicate Server Removal
+
+**Created**: [scripts/cleanup-duplicate-servers.ts](video-production-manager/scripts/cleanup-duplicate-servers.ts)
+
+**Strategy**:
+- Group servers by `pairNumber` and `role` (main/backup)
+- Keep most recent server (by `updatedAt`) for each role
+- Delete older duplicates
+- Verification: Ensures each pair has exactly 1 main + 1 backup
+
+**Expected Result**: 12 servers → 8 servers (4 clean pairs)
+
+### Architectural Learnings
+
+**1. No-Optimistic-Update Pattern**
+- **When to use**: WebSocket-synced entities with concurrent editing
+- **Benefits**: 
+  - Prevents race conditions between optimistic update and WebSocket broadcast
+  - Database is always single source of truth
+  - All clients guaranteed consistent state
+- **Trade-off**: Slightly slower UI (wait for database response)
+- **Implementation**: Refetch after mutations, let database determine state
+
+**2. Prop Passing for Calculated Values**
+- **Problem**: Two components calculating same value from different data can get different results
+- **Cause**: Data inconsistencies (duplicates, race conditions, stale state)
+- **Solution**: Calculate once where data is cleanest, pass as prop
+- **Example**: Main page's `serverPairs` filters duplicates → modal receives clean count
+
+**3. WebSocket + Drag-and-Drop Pattern**
+- **Challenge**: External updates during user interaction
+- **Solution**: Add interaction state lock (`isDragInProgress`)
+- **Implementation**: WebSocket handlers check lock before applying updates
+- **Result**: User interaction completes without interference, then sync resumes
+
+**4. HTML5 Drag API Best Practices**
+- Use semantic state: `draggedPairNumber` not generic `draggedItem`
+- Track interaction lifecycle: `onDragStart` → `onDragEnd` (clears state even if drop fails)
+- Prevent default on `onDragOver` to allow drop
+- Update database in `onDrop`, not in drag handlers
+
+### Files Modified
+- [video-production-manager/src/pages/MediaServers.tsx](video-production-manager/src/pages/MediaServers.tsx): Drag implementation + prop passing fix
+- [video-production-manager/scripts/cleanup-duplicate-servers.ts](video-production-manager/scripts/cleanup-duplicate-servers.ts): Duplicate removal script
+
+### Testing Checklist
+- ✅ Drag-and-drop reordering works
+- ✅ Sequential numbering maintained after reorder
+- ✅ No-optimistic-update pattern prevents race conditions
+- ✅ WebSocket lock prevents interference during drag
+- ✅ Modal shows correct next pair number
+- ⏳ Cleanup script ready to execute
+- ⏳ Post-cleanup testing needed
+
+### Development Notes
+- Duplicate servers accumulated during migration and early development
+- With no-optimistic-update pattern, duplicates won't happen in production
+- Each mutation refetches from database → consistency guaranteed
+- User confirmed: will never have unpaired servers (always create in pairs)
+
+---
+
 ## February 27, 2026 - Media Servers: Real-time Sync + UX Improvements
 
 ### Problem Path

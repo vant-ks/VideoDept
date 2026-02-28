@@ -803,6 +803,297 @@ When implementing new entity pages, verify:
 
 ---
 
+## 🔗 RELATIONSHIP ARCHITECTURE - Cross-Entity References
+
+**Updated:** February 28, 2026  
+**Context:** Establishing patterns for signal flow and inter-entity connections
+
+### The Dual-Storage Principle
+
+When entities reference other entities (e.g., camera → CCU, source → router input), VideoDept uses **both UUID and ID** for optimal database integrity and user experience.
+
+### Architecture Decision
+
+```
+DATABASE RELATIONSHIPS → Use uuid (foreign keys, Prisma relations)
+USER DISPLAY & QUERIES → Store both uuid AND id (redundant but performant)
+```
+
+### Why Both Fields?
+
+#### UUID Foreign Key Benefits:
+- ✅ **Stable relationships**: Survives user ID changes (e.g., "CAM 1" → "CAM 5")
+- ✅ **Database integrity**: Prisma enforces referential integrity
+- ✅ **Cascading deletes**: Works correctly with `onDelete: Cascade`
+- ✅ **Fast joins**: Indexed UUID lookups are efficient
+
+#### Display ID Storage Benefits:
+- ✅ **No joins needed**: UI can show "SRC 1 → RTR 3 IN2" without querying related tables
+- ✅ **User communication**: Easy to reference in logs, error messages, UI
+- ✅ **Performance**: Reduces database load for display operations
+- ✅ **Sorting/filtering**: Can sort by user-friendly ID without joins
+
+### Database Schema Pattern
+
+```prisma
+model cameras {
+  uuid         String   @id  // Primary key
+  id           String        // User-friendly display ID (e.g., "CAM 1")
+  ccu_uuid     String?       // FK for Prisma relationship
+  ccu_id       String?       // Display field (redundant storage)
+  
+  ccus         ccus?    @relation(fields: [ccu_uuid], references: [uuid])
+  
+  @@index([ccu_uuid])  // Index the FK for performance
+}
+
+model connections {
+  uuid              String   @id
+  
+  // Source side - dual storage
+  source_uuid       String?  // For FK relationship & updates
+  source_id         String?  // For display "SRC 1"
+  source_output_id  String?  // Output identifier "OUT 2"
+  
+  // Destination side - dual storage
+  destination_type  String   // "router" | "switcher" | etc.
+  destination_uuid  String?  // For FK relationship
+  destination_id    String?  // For display "RTR 1"
+  
+  sources           sources? @relation(fields: [source_uuid], references: [uuid])
+  
+  @@index([source_uuid])
+}
+```
+
+### Signal Flow Example
+
+When connecting a media server output to a router input:
+
+```typescript
+// Connection object
+{
+  uuid: "abc-123-def",  // Backend generates
+  
+  // Source (Media Server)
+  sourceType: "media-server",
+  sourceUuid: "ms-uuid-here",      // For database relationship
+  sourceId: "MEDIA 1A",             // For UI display
+  sourceOutputId: "OUT 2",          // Which output
+  
+  // Destination (Router)
+  destinationType: "router",
+  destinationUuid: "rtr-uuid-here", // For database relationship
+  destinationId: "RTR 1",           // For UI display
+  destinationInputId: "IN 3",       // Which input
+  
+  // Connection details
+  signalFormat: {
+    hRes: 1920,
+    vRes: 1080,
+    rate: 59.94
+  },
+  
+  note: "Program feed"
+}
+```
+
+### Frontend Display Pattern
+
+```typescript
+// Efficient display without joins
+const ConnectionCard = ({ connection }) => (
+  <Card>
+    {/* No database query needed - all display data stored */}
+    <div>
+      {connection.sourceId} {connection.sourceOutputId} 
+      → 
+      {connection.destinationId} {connection.destinationInputId}
+    </div>
+    
+    <div className="text-muted">
+      {connection.signalFormat.hRes}×{connection.signalFormat.vRes} 
+      @ {connection.signalFormat.rate}Hz
+    </div>
+  </Card>
+);
+
+// Update/delete operations use UUID
+const handleDisconnect = async (connection) => {
+  await api.deleteConnection(connection.uuid);  // Use UUID for mutation
+};
+
+const handleUpdateFormat = async (connection, newFormat) => {
+  await api.updateConnection(connection.uuid, { // Use UUID for mutation
+    signalFormat: newFormat
+  });
+};
+```
+
+### Update Propagation Rules
+
+When a user renames an entity (e.g., "CAM 1" → "CAM 5"), the system must update redundant ID storage:
+
+```typescript
+// API route: PUT /api/cameras/:uuid
+router.put('/:uuid', async (req, res) => {
+  const { uuid } = req.params;
+  const { id: newId, ...otherUpdates } = req.body;
+  
+  await prisma.$transaction(async (tx) => {
+    // 1. Update the camera itself
+    await tx.cameras.update({
+      where: { uuid },
+      data: { id: newId, ...otherUpdates }
+    });
+    
+    // 2. Update all references to this camera's ID
+    await tx.connections.updateMany({
+      where: { source_uuid: uuid, source_type: 'camera' },
+      data: { source_id: newId }  // Update redundant storage
+    });
+    
+    // 3. Update any CCU references
+    await tx.ccus.updateMany({
+      where: { camera_uuid: uuid },
+      data: { camera_id: newId }
+    });
+  });
+  
+  // Broadcast update via WebSocket
+  io.to(productionId).emit('entity:updated', {
+    entityType: 'camera',
+    entity: updatedCamera
+  });
+});
+```
+
+### ⚠️ CRITICAL RULES
+
+#### When Creating Relationships:
+- ✅ **ALWAYS** store both `xxx_uuid` (for FK) and `xxx_id` (for display)
+- ✅ **ALWAYS** use `xxx_uuid` for Prisma `@relation(fields:)`
+- ✅ **ALWAYS** add index on `xxx_uuid` foreign key fields
+- ❌ **NEVER** use `xxx_id` alone for relationships (can't enforce integrity)
+
+#### When Updating Entities:
+- ✅ **ALWAYS** use UUID for the WHERE clause
+- ✅ **IF** updating `id` field, propagate to all tables storing `xxx_id`
+- ✅ **USE** database transactions for multi-table updates
+- ✅ **BROADCAST** single WebSocket event after transaction commits
+
+#### When Displaying Relationships:
+- ✅ **USE** stored `xxx_id` fields for display (no joins needed)
+- ✅ **USE** UUID for click actions (edit, delete, navigate)
+- ❌ **NEVER** display UUID to users (show user-friendly ID)
+
+### Database Migration Pattern
+
+When adding a new relationship field to existing table:
+
+```sql
+-- Step 1: Add both UUID and ID fields
+ALTER TABLE connections 
+  ADD COLUMN intermediate_uuid VARCHAR,
+  ADD COLUMN intermediate_id VARCHAR,
+  ADD COLUMN intermediate_type VARCHAR;
+
+-- Step 2: Add foreign key constraint
+ALTER TABLE connections
+  ADD CONSTRAINT fk_intermediate_router
+  FOREIGN KEY (intermediate_uuid) 
+  REFERENCES routers(uuid)
+  ON DELETE SET NULL;
+
+-- Step 3: Add index for performance
+CREATE INDEX idx_connections_intermediate_uuid 
+  ON connections(intermediate_uuid);
+
+-- Step 4: Backfill data for existing records (if needed)
+UPDATE connections c
+SET 
+  intermediate_uuid = r.uuid,
+  intermediate_id = r.id,
+  intermediate_type = 'router'
+FROM routers r
+WHERE c.intermediate_legacy_id = r.id;
+```
+
+### Testing Checklist
+
+When implementing cross-entity relationships:
+
+- [ ] Database schema has both `xxx_uuid` (FK) and `xxx_id` (display)
+- [ ] Prisma relation uses `xxx_uuid` field
+- [ ] Index created on `xxx_uuid` field
+- [ ] Create operation stores both UUID and ID
+- [ ] Update operation on source entity propagates to `xxx_id` fields
+- [ ] Delete operation correctly cascades or nullifies
+- [ ] UI displays `xxx_id` without database joins
+- [ ] Update/delete buttons use `xxx_uuid`
+- [ ] WebSocket broadcasts trigger UI refresh
+- [ ] ID rename propagates to all referencing tables
+
+### Performance Considerations
+
+**Why redundant storage is acceptable:**
+
+1. **Query Speed**: `SELECT * FROM connections` shows full display data without 3+ joins
+2. **UI Responsiveness**: No waiting for related entity lookups
+3. **Database Load**: Fewer joins = less CPU on database server
+4. **Scalability**: Read-heavy workload benefits from denormalization
+5. **Storage Cost**: VARCHAR(50) × 2 per relation is negligible vs. query overhead
+
+**Trade-off accepted:**
+- Extra ~50 bytes per relationship record
+- Update logic must maintain consistency
+- Database transactions ensure atomicity
+
+### Signal Flow Implementation Guidance
+
+For the upcoming signal flow features, apply this pattern:
+
+```typescript
+// Source outputs
+interface SourceOutput {
+  uuid: string;          // Generated by backend
+  id: string;            // "OUT 1", "OUT 2", etc.
+  sourceUuid: string;    // Parent source FK
+  sourceId: string;      // "SRC 1" (redundant)
+  connector: string;     // "HDMI", "SDI", etc.
+  signalFormat: Format;  // Resolution, rate, etc.
+}
+
+// Router inputs
+interface RouterInput {
+  uuid: string;
+  id: string;            // "IN 1", "IN 2", etc.
+  routerUuid: string;    // Parent router FK
+  routerId: string;      // "RTR 1" (redundant)
+  connectedTo?: {
+    outputUuid: string;  // Connected output FK
+    outputId: string;    // "SRC 1 OUT 2" (redundant)
+    sourceUuid: string;  // Ultimate source FK
+    sourceId: string;    // "SRC 1" (redundant)
+  };
+}
+
+// Display component - no joins needed
+<RouterCard router={router}>
+  {router.inputs.map(input => (
+    <div>
+      {input.id}: 
+      {input.connectedTo 
+        ? `${input.connectedTo.sourceId} ${input.connectedTo.outputId}`
+        : 'Not connected'
+      }
+    </div>
+  ))}
+</RouterCard>
+```
+
+---
+
 ## 🎯 SUCCESS CRITERIA
 
 **This standard is successful when:**
@@ -814,18 +1105,23 @@ When implementing new entity pages, verify:
 5. ✅ Zero circular bug reports ("we fixed this before")
 6. ✅ Validation script passes on all commits
 7. ✅ New AI agents can generate correct code from this doc alone
+8. ✅ **Cross-entity relationships use dual storage (UUID + ID)**
+9. ✅ **Signal flow connections display without joins**
+10. ✅ **ID renames propagate to all referencing tables**
 
 ---
 
 ## 📚 REFERENCES
 
+- [Prisma Schema](../video-production-manager/api/prisma/schema.prisma) - cameras (line 12), ccus (line 43), connections (line 296)
 - [PROJECT_RULES.md](../video-production-manager/docs/PROJECT_RULES.md#data-flow-architecture---critical-patterns) - Lines 369-600 (Data Flow Architecture)
-- [DATA_FLOW_ANALYSIS.md](../docs/architecture-decisions/DATA_FLOW_ANALYSIS.md) - Detailed flow analysis
-- [DEVLOG.md](../video-production-manager/DEVLOG.md) - Feb 12 camera sync fix (Bug 3.2)
+- [DATA_FLOW_ANALYSIS.md](../docs/architecture-decisions/DATA_FLOW_ANALYSIS.md) - Detailed flow analysis  
+- [DATABASE_FIRST_ARCHITECTURE.md](../docs/architecture-decisions/DATABASE_FIRST_ARCHITECTURE.md) - Railway PostgreSQL as primary storage
+- [DEVLOG.md](../video-production-manager/DEVLOG.md) - Feb 12 camera sync fix (Bug 3.2), Feb 27 relationship patterns
 - [caseConverter.ts](../video-production-manager/api/src/utils/caseConverter.ts) - Transform functions
 
 ---
 
-**Last Updated:** February 21, 2026  
-**Next Review:** When adding new entity types or experiencing sync issues  
+**Last Updated:** February 28, 2026 (Added Relationship Architecture section)  
+**Next Review:** When adding new entity types, relationships, or experiencing sync issues  
 **Enforcement:** MANDATORY for all new code, migration required for existing code

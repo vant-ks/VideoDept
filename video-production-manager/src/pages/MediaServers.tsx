@@ -694,6 +694,7 @@ export default function MediaServers() {
       {isServerModalOpen && (
         <ServerPairModal
           isOpen={isServerModalOpen}
+          nextPairNumber={serverPairs.length + 1}
           onClose={() => {
             setIsServerModalOpen(false);
             setEditingServer(null);
@@ -763,15 +764,13 @@ interface ServerPairModalProps {
   onSave: (platform: string, outputs: MediaServerOutput[], note?: string) => void;
   editingServer: MediaServer | null;
   isDuplicating?: boolean;
+  nextPairNumber?: number;
 }
 
-function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating }: ServerPairModalProps) {
-  // Get the next server number for displaying Server ID
-  const { activeProject } = useProjectStore();
-  const oldStore = useProductionStore();
-  const mediaServers = activeProject?.mediaServers || oldStore.mediaServers;
-  const pairNumber = editingServer?.pairNumber || 
-    (mediaServers.length > 0 ? Math.max(...mediaServers.map(s => s.pairNumber)) + 1 : 1);
+function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating, nextPairNumber }: ServerPairModalProps) {
+  // Use the pairNumber passed from parent (which uses the same logic as main page display)
+  // or fall back to the editingServer's pairNumber
+  const pairNumber = editingServer?.pairNumber || nextPairNumber || 1;
   
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
   const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
