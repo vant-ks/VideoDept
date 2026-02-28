@@ -166,7 +166,7 @@ export default function Cameras() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (action: 'close' | 'duplicate' = 'close') => {
     const newErrors: string[] = [];
     if (!formData.id?.trim()) newErrors.push('ID is required');
     if (!formData.name?.trim()) newErrors.push('Name is required');
@@ -240,7 +240,28 @@ export default function Cameras() {
         addCamera(newCamera);
       }
       
-      setIsModalOpen(false);
+      if (action === 'duplicate') {
+        // Generate new ID for duplicate
+        const existingIds = localCameras.map(c => c.id);
+        const baseId = formData.id?.replace(/\s*\d+$/, '') || 'CAM';
+        let counter = 1;
+        let newId = `${baseId} ${counter}`;
+        while (existingIds.includes(newId)) {
+          counter++;
+          newId = `${baseId} ${counter}`;
+        }
+        
+        // Keep modal open with duplicated data
+        setFormData({
+          ...formData,
+          id: newId,
+          name: `${formData.name} (Copy)` as string,
+        });
+        setEditingCamera(null);
+        setErrors([]);
+        // Don't close modal
+      } else {
+        setIsModalOpen(false);
       setFormData({
         id: '',
         name: '',
@@ -254,8 +275,9 @@ export default function Cameras() {
         ccuId: '',
         note: '',
       });
-      setEditingCamera(null);
-      setErrors([]);
+        setEditingCamera(null);
+        setErrors([]);
+      }
     } catch (error: any) {
       console.error('❌ Failed to save camera:', error);
       alert(error.message || 'Failed to save camera. Please try again.');
@@ -447,7 +469,7 @@ export default function Cameras() {
               </button>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="p-6 space-y-6">
+            <form onSubmit={(e) => { e.preventDefault(); handleSave('close'); }} className="p-6 space-y-6">
               {errors.length > 0 && (
                 <div className="bg-av-danger/10 border border-av-danger rounded-md p-3">
                   {errors.map((err, i) => (
@@ -695,8 +717,19 @@ export default function Cameras() {
               </div>
               
               <div className="flex gap-3 pt-4">
-                <button type="submit" className="btn-primary flex-1">
-                  {editingCamera ? 'Update' : 'Add'} Camera
+                <button 
+                  type="button" 
+                  onClick={() => handleSave('close')} 
+                  className="btn-primary flex-1"
+                >
+                  Save & Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSave('duplicate')}
+                  className="btn-secondary flex-1"
+                >
+                  Save & Duplicate
                 </button>
                 <button
                   type="button"

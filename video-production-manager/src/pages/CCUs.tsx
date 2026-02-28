@@ -144,7 +144,7 @@ export default function CCUs() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (action: 'close' | 'duplicate' = 'close') => {
     const newErrors: string[] = [];
     if (!formData.manufacturer?.trim()) newErrors.push('Manufacturer is required');
     if (!formData.model?.trim()) newErrors.push('Model is required');
@@ -169,8 +169,24 @@ export default function CCUs() {
         // Create new CCU via API
         await ccusAPI.createCCU(productionId!, ccuData);
       }
-      setIsModalOpen(false);
-      setFormData({ manufacturer: '', model: '', outputs: [] });
+      
+      if (action === 'duplicate') {
+        // Generate new ID for duplicate
+        const newId = generateId();
+        setFormData({
+          ...formData,
+          id: newId,
+          name: newId,
+        });
+        setEditingCCU(null);
+        setErrors([]);
+        // Don't close modal
+      } else {
+        setIsModalOpen(false);
+        setFormData({ manufacturer: '', model: '', outputs: [] });
+        setEditingCCU(null);
+        setErrors([]);
+      }
     } catch (error) {
       console.error('Failed to save CCU:', error);
       setErrors(['Failed to save CCU. Please try again.']);
@@ -315,7 +331,7 @@ export default function CCUs() {
               </button>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="p-6 space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSave('close'); }} className="p-6 space-y-4">
               {errors.length > 0 && (
                 <div className="bg-av-danger/10 border border-av-danger rounded-md p-3">
                   {errors.map((err, i) => (
@@ -392,8 +408,19 @@ export default function CCUs() {
               )}
               
               <div className="flex gap-3 pt-4">
-                <button type="submit" className="btn-primary flex-1">
-                  {editingCCU ? 'Update' : 'Add'} CCU
+                <button 
+                  type="button" 
+                  onClick={() => handleSave('close')} 
+                  className="btn-primary flex-1"
+                >
+                  Save & Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSave('duplicate')}
+                  className="btn-secondary flex-1"
+                >
+                  Save & Duplicate
                 </button>
                 <button
                   type="button"

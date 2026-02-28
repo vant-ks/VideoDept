@@ -723,6 +723,40 @@ export default function MediaServers() {
             setEditingServer(null);
             setIsDuplicating(false);
           }}
+          onSaveAndDuplicate={(platform, outputs, note) => {
+            // Save current pair first
+            if (editingServer && !isDuplicating) {
+              // Update both main and backup
+              const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
+              if (pair) {
+                const outputsWithB = outputs.map((o, i) => ({
+                  ...o,
+                  id: `${pair.backup.id}-OUT${i + 1}`,
+                  name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B')
+                }));
+                const serverName = `Server ${pair.main.pairNumber}`;
+                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note });
+                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note });
+              }
+            } else {
+              addMediaServerPair(platform, outputs, note);
+            }
+            
+            // Prepare duplicate: create new pair with next number
+            const nextPairNum = serverPairs.length + 1;
+            setEditingServer({
+              id: `Server${nextPairNum}A`,
+              name: `Server ${nextPairNum} A`,
+              pairNumber: nextPairNum,
+              platform,
+              outputs: [], // Reset outputs for new pair
+              note: note || '',
+              type: 'SERVER',
+              category: 'SOURCE'
+            } as MediaServer);
+            setIsDuplicating(true);
+            // Keep modal open
+          }}
           editingServer={editingServer}
           isDuplicating={isDuplicating}
         />
@@ -762,12 +796,13 @@ interface ServerPairModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (platform: string, outputs: MediaServerOutput[], note?: string) => void;
+  onSaveAndDuplicate?: (platform: string, outputs: MediaServerOutput[], note?: string) => void;
   editingServer: MediaServer | null;
   isDuplicating?: boolean;
   nextPairNumber?: number;
 }
 
-function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating, nextPairNumber }: ServerPairModalProps) {
+function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingServer, isDuplicating, nextPairNumber }: ServerPairModalProps) {
   // Use the pairNumber passed from parent (which uses the same logic as main page display)
   // or fall back to the editingServer's pairNumber
   const pairNumber = editingServer?.pairNumber || nextPairNumber || 1;
@@ -1093,11 +1128,22 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
           </div>
 
           <div className="p-6 border-t border-av-border flex justify-end gap-3 sticky bottom-0 bg-av-surface">
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancel
+            <button 
+              type="button" 
+              onClick={(e) => handleSubmit(e as any, 'close')} 
+              className="btn-primary flex-1"
+            >
+              Save & Close
             </button>
-            <button type="submit" className="btn-primary">
-              {editingServer ? 'Update Pair' : 'Create Pair'}
+            <button 
+              type="button" 
+              onClick={(e) => handleSubmit(e as any, 'duplicate')} 
+              className="btn-secondary flex-1"
+            >
+              Save & Duplicate
+            </button>
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">
+              Cancel
             </button>
           </div>
         </form>
