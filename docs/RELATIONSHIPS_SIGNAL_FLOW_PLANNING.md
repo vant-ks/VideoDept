@@ -20,9 +20,9 @@ BaseEntity (TypeScript interface)
   |
   ├── Sources (Production category)
   │     ├── Computer (equipment: laptop, desktop)
-  │     ├── Server (equipment: media servers)
+  │     ├── Media Server (equipment: media servers)
   │     ├── Camera (equipment: camera bodies)
-  │     └── CCU (equipment: camera control units)
+  │     └── Camera Switcher (equipment: camera control/switching)
   |
   ├── Sends (Destination category)
   │     ├── Monitor (equipment: displays)
@@ -38,7 +38,7 @@ BaseEntity (TypeScript interface)
 ```
 
 **Database Reality:**
-- Each category = Separate table: `sources`, `sends`, `cameras`, `ccus`, `media_servers`, etc.
+- Each category = Separate table: `sources`, `sends`, `cameras`, `camera_switchers`, `media_servers`, etc.
 - No shared base table
 - Relationships via foreign keys, not inheritance
 
@@ -94,11 +94,11 @@ BaseEntity (TypeScript interface)
 ]
 
 // Entity Categories (from equipment_specs.category):
-type EquipmentCategory = 'COMPUTER' | 'SERVER' | 'CAMERA' | 'CCU' 
+type EquipmentCategory = 'COMPUTER' | 'MEDIA_SERVER' | 'CAMERA' | 'CAMERA_SWITCHER' 
   | 'SWITCHER' | 'ROUTER' | 'LED_PROCESSOR' | 'CONVERTER'
   | 'MONITOR' | 'RECORDER' | 'PROJECTOR' | 'LED_TILE';
 // Functional Categorization (Signal Path Roles):
-// - SOURCES: computer, server, camera, ccu (generate signals)
+// - SOURCES: computer, media_server, camera, camera_switcher (generate signals)
 // - SIGNAL_FLOW: switcher, router, led_processor, converter (route/process signals)
 // - SENDS: monitor, recorder, projector, led_tile (receive/display signals)
 //
@@ -157,7 +157,7 @@ model sources {
   - Computer → computerType (from settings)
   - Media Server → software (from settings)
   - Camera → reference to equipment_specs
-  - CCU → reference to equipment_specs
+  - Camera Switcher → reference to equipment_specs
 
 #### Output Architecture (DECISION MADE)
 
@@ -354,7 +354,7 @@ All connections follow the pattern: `OUTPUT → CABLE → INPUT`
 1. **Sources** (signal generators)
    - Primarily: OUTPUTS
    - Optional: INPUTS (for loop-through)
-   - Examples: computers, cameras, CCUs
+   - Examples: computers, media servers, cameras, camera switchers
    - Tables: `source_outputs`, `source_inputs` (optional)
 
 2. **Sends** (signal receivers/displays)
@@ -615,7 +615,154 @@ model connection_hops {
 
 ---
 
-## 📋 IMPLEMENTATION PRIORITIES
+## �️ EDID ARCHITECTURE (DECISION MADE)
+
+### What is an EDID?
+
+**EDID (Extended Display Identification Data)** is a metadata standard that inputs use to advertise their capabilities to the connected output device. In production environments, EDIDs are used to control what resolution, frame rate, and connector type a source outputs to a particular destination.
+
+### Where EDIDs Live
+
+- **Signal Flow Device Inputs** — each input has an EDID definition
+- **Send Device Inputs** — each input has an EDID definition
+- _(Source outputs do NOT have EDIDs — they generate signal, inputs receive it)_
+
+### EDID Definition Options (per input)
+
+Each input offers two ways to define its EDID:
+
+**Option A: Custom User-Defined EDID**
+- User manually enters: resolution (h_res × v_res), frame rate, connector type
+- Stored directly on the input record
+- Maximum flexibility for non-standard configurations
+
+**Option B: Select from EDID Library**
+- Admin-maintained table of named EDID presets (e.g. "1080p60 HDMI", "4K30 SDI")
+- User picks from a list; all properties auto-populated from the preset
+- `edid_preset_uuid` stored on the input record (dual storage with resolved values)
+
+### EDID Schema (on every input record)
+
+```typescript
+model {entity}_inputs {
+  uuid              String  @id
+  // ... existing fields ...
+
+  // EDID configuration
+  edid_mode         String  @default("inherit")  // "inherit" | "custom" | "preset"
+  edid_preset_uuid  String?                       // FK → edid_presets.uuid (when mode = "preset")
+  edid_connector    String?                       // Connector type override (HDMI, SDI, DP, etc.)
+  edid_h_res        Int?                          // Override horizontal resolution
+  edid_v_res        Int?                          // Override vertical resolution
+  edid_rate         Float?                        // Override frame rate
+
+  edid_presets      edid_presets? @relation(fields: [edid_preset_uuid], references: [uuid])
+}
+
+model edid_presets {
+  uuid        String   @id
+  name        String                // e.g. "1080p60 HDMI", "4K30 SDI"
+  connector   String                // HDMI | SDI | DP | FIBER | USB-C | etc.
+  h_res       Int
+  v_res       Int
+  rate        Float
+  note        String?
+  created_at  DateTime @default(now())
+}
+```
+
+### EDID Resolution Chain (Signal Tracing)
+
+When `edid_mode = "inherit"`, the system traces the connection chain **back to the source** to determine the effective format for that input:
+
+```
+Source Output (defines format: connector, h_res, v_res, rate)
+  → Cable
+    → Signal Flow Device Input (EDID: inherit → reads from source output)
+      → [internal processing]
+      → Signal Flow Device Output (may convert format)
+        → Cable
+          → Send Device Input (EDID: inherit → reads from upstream output)
+```
+
+**Trace logic:**
+1. Look at the input's connected output (`from_output_uuid`)
+2. Read that output's `connector`, `h_res`, `v_res`, `rate`
+3. If the upstream output belongs to a signal flow device, it may have a different format than what entered the device (conversion happened internally)
+4. Follow chain until source output is reached
+5. Populate inherited EDID values for display purposes (stored as resolved cache, refreshed on connection change)
+
+### Connection Validation Rules
+
+When a connection is created (`from_output_uuid → to_input_uuid`), apply these checks:
+
+**Rule 1: Connector Compatibility**
+- The output's `connector` type must be compatible with the input's defined connector
+- Hard block (error) if connectors are physically incompatible (e.g. SDI output → HDMI input)
+- Warn (soft warning) if adapters are typically required (e.g. DP → HDMI)
+- Define a compatibility matrix in settings or constants
+
+**Rule 2: Resolution Validity**
+- If the input has a custom or preset EDID, the source output's resolution must match or be within the input's accepted range
+- Warn if formats differ (e.g. source outputs 4K but input EDID is 1080p) — the device may scale, but user should be aware
+
+**Rule 3: Frame Rate Match**
+- If the input specifies a frame rate via EDID, the connection should match
+- Warn on mismatch (e.g. source outputs 59.94 but input EDID is 50)
+
+**Rule 4: Signal Format Chain Continuity**
+- On multi-hop paths, validate format at each hop
+- If a signal flow device's output format differs from its input format (conversion), flag this in the signal path UI so operators know where conversions occur
+
+**Validation Response Pattern:**
+```typescript
+type ConnectionValidationResult = {
+  valid: boolean;
+  errors: ConnectionError[];    // Hard blocks — prevent connection
+  warnings: ConnectionWarning[]; // Soft warnings — allow but inform
+}
+
+type ConnectionError = {
+  code: 'CONNECTOR_INCOMPATIBLE' | 'FORMAT_MISMATCH_HARD';
+  message: string;
+  from: { uuid: string; id: string; connector: string; format: string };
+  to:   { uuid: string; id: string; connector: string; format: string };
+}
+
+type ConnectionWarning = {
+  code: 'CONNECTOR_ADAPTER_NEEDED' | 'RESOLUTION_MISMATCH' | 'FRAMERATE_MISMATCH' | 'FORMAT_CONVERSION_PRESENT';
+  message: string;
+}
+```
+
+### EDID Presets Table (Admin-Managed)
+
+Sample presets to seed the EDID library:
+
+| Name | Connector | Resolution | Frame Rate |
+|---|---|---|---|
+| 1080p60 HDMI | HDMI | 1920×1080 | 60 |
+| 1080p59.94 HDMI | HDMI | 1920×1080 | 59.94 |
+| 1080i59.94 SDI | SDI | 1920×1080i | 59.94 |
+| 1080p50 SDI | SDI | 1920×1080 | 50 |
+| 4K30 HDMI | HDMI | 3840×2160 | 30 |
+| 4K60 DP | DP | 3840×2160 | 60 |
+| 1080p60 NDI | NDI | 1920×1080 | 60 |
+
+**Date:** February 28, 2026  
+**Decision:** EDID system for signal flow and send device inputs  
+**Details:**
+- Every input on a signal flow or send device has an EDID configuration
+- Three modes: `inherit` (trace from source), `custom` (manual override), `preset` (from EDID library)
+- Admin manages EDID preset library (name + connector + resolution + frame rate)
+- Connection creation triggers validation: connector compatibility, resolution match, frame rate match
+- Validation: hard errors block connection; soft warnings allow but inform
+- Multi-hop format trace follows the full signal chain back to source output
+**Rationale:** Reflects real-world AV production workflow. EDIDs are critical for ensuring signals are accepted by receiving devices. Validation prevents misconfigured signal paths.
+
+---
+
+## �📋 IMPLEMENTATION PRIORITIES
 
 ### Phase 1: Foundation (Sources & Outputs)
 - [ ] Ensure `source_outputs` table fully functional for direct I/O
@@ -628,11 +775,16 @@ model connection_hops {
 ### Phase 2: Signal Flow Outputs & Inputs
 - [x] **DECIDED:** Use separate tables per device type (Option A)
 - [x] **DECIDED:** All devices have direct I/O, card-based is optional/admin-enabled
+- [x] **DECIDED:** EDID system on all signal flow device inputs
 - [ ] Create paired input/output tables for each signal flow device:
   - `switcher_inputs` + `switcher_outputs`
   - `router_inputs` + `router_outputs`
   - `converter_inputs` + `converter_outputs`
   - `led_processor_inputs` + `led_processor_outputs`
+- [ ] Add EDID fields to all signal flow device input tables:
+  - `edid_mode` (inherit | custom | preset)
+  - `edid_preset_uuid` (FK → edid_presets)
+  - `edid_connector`, `edid_h_res`, `edid_v_res`, `edid_rate` (override values)
 - [ ] Add device setting: `card_io_enabled` (Boolean, default false)
 - [ ] Create card management tables when card I/O enabled:
   - `{entity}_cards` (parent)
@@ -644,7 +796,8 @@ model connection_hops {
 
 ### Phase 3: Sends & Inputs Structure
 - [x] **DECIDED:** Inputs inherit format from connected output
-- [ ] Create `send_inputs` table (mirror `source_outputs` pattern)
+- [x] **DECIDED:** EDID system on all send device inputs
+- [ ] Create `send_inputs` table (mirror `source_outputs` pattern) with EDID fields
 - [ ] Add optional `send_outputs` table (for loop-through capability)
 - [ ] Add CRUD API for send inputs and optional outputs
 - [ ] Update sends UI to manage inputs and outputs
@@ -654,18 +807,25 @@ model connection_hops {
 
 ### Phase 4: Connections & Cables
 - [x] **DECIDED:** Connections are always OUTPUT → CABLE → INPUT
+- [x] **DECIDED:** Connection creation triggers EDID validation (connector + format compatibility)
+- [ ] Create `edid_presets` table (admin-managed EDID library, seed with common presets)
 - [ ] Simplify connections table:
   - `from_output_uuid` + `from_output_id` (dual storage)
   - `cable_uuid` + `cable_id` (dual storage, optional for now)
   - `to_input_uuid` + `to_input_id` (dual storage)
   - Remove polymorphic FK complexity
+- [ ] Implement connection validation service:
+  - Hard error: connector incompatibility (e.g. SDI → HDMI)
+  - Soft warning: resolution mismatch, frame rate mismatch
+  - Soft warning: adapter required (e.g. DP → HDMI)
+  - Format chain trace: walk multi-hop path back to source
 - [ ] Create `cables` table (cable types, lengths - to be implemented later)
 - [ ] Multi-hop paths = multiple connection records (not single record with hops)
 - [ ] Add CRUD API for connections
 - [ ] Test cascade deletes (when device deleted, connections should handle gracefully)
 - [ ] Add validation: output can only connect to one input at a time
 - [ ] Add conflict detection: input already has connection from another output
-- [ ] Format inheritance: when connection made, input format auto-updates from output
+- [ ] Format inheritance: when connection made, input EDID (if inherit mode) auto-resolves from source
 
 ### Phase 5: Signal Flow UI
 - [ ] Visualize source → destination paths
@@ -692,6 +852,11 @@ model connection_hops {
 7. What's the maximum number of hops we expect in a signal path?
 8. ~~Should connections be bidirectional (can sends output to other sends)?~~ **ANSWERED:** Yes, via loop-through outputs on sends
 9. ~~How do we handle format conversion along the signal path?~~ **ANSWERED:** Conversion happens inside device, affects outputs not inputs
+
+### EDID & Format Validation
+16. ~~Should inputs have EDID definitions?~~ **ANSWERED:** Yes, on all signal flow and send device inputs (3 modes: inherit, custom, preset)
+17. ~~How does format follow the signal chain?~~ **ANSWERED:** Trace connection chain back to source output for inherited format
+18. ~~Should connector type be validated on connection creation?~~ **ANSWERED:** Yes — hard errors for incompatible connectors, soft warnings for mismatched formats/frame rates
 
 ### Cables (Future Implementation)
 10. What cable types do we need to track? (HDMI, SDI, DisplayPort, Fiber, etc.)
@@ -729,24 +894,28 @@ productions
     ↓
     ├── equipment_specs (equipment library)
     │
-    ├── sources
-    │   ├── → equipment_specs (optional FK)
-    │   └── → source_outputs (1:many)
+    ├── edid_presets (admin-managed EDID library)
     │
-    ├── sends (broken into subtypes?)
-    │   ├── routers
-    │   ├── switchers
-    │   ├── led_processors
-    │   └── projectors
-    │   │
+    ├── sources (children: computers, media_servers, cameras, camera_switchers)
     │   ├── → equipment_specs (optional FK)
-    │   └── → send_inputs (1:many)
+    │   └── → source_outputs (1:many, connector + format defined here)
     │
-    └── connections
-        ├── → sources (strong FK)
-        ├── → source_outputs (reference)
-        ├── → [destination entity] (FK pattern TBD)
-        └── → connection_hops (multi-hop paths)
+    ├── signal_flow (children: switchers, routers, led_processors, converters)
+    │   ├── → equipment_specs (optional FK)
+    │   ├── → {entity}_inputs (1:many, each input has EDID config)
+    │   │       └── → edid_presets (optional FK via edid_preset_uuid)
+    │   └── → {entity}_outputs (1:many, connector + format defined here)
+    │
+    ├── sends (children: monitors, recorders, projectors, led_tiles)
+    │   ├── → equipment_specs (optional FK)
+    │   └── → send_inputs (1:many, each input has EDID config)
+    │           └── → edid_presets (optional FK via edid_preset_uuid)
+    │
+    └── connections (OUTPUT → CABLE → INPUT)
+        ├── from_output_uuid → any device output
+        ├── cable_uuid → cables (optional)
+        ├── to_input_uuid → any device input
+        └── [validation: connector + format compatibility checked on create]
 ```
 
 ---
@@ -788,7 +957,7 @@ productions
 
 **Date:** February 28, 2026  
 **Decision:** Entity categorization clarified:  
-- **Sources:** computer, server, camera, ccu  
+- **Sources:** computer, media server, camera, camera switcher  
 - **Signal Flow:** switcher, router, led processor, converter  
 - **Sends:** monitor, recorder, projector, LED tile  
 **Rationale:** Reflects actual signal path roles in production workflow
@@ -796,8 +965,8 @@ productions
 **Date:** February 28, 2026  
 **Decision:** Output Architecture - Direct I/O vs Card-Based  
 **Details:**
-- Direct I/O: computers, cameras, CCUs, routers, converters
-- Card-Based: media servers, switchers, LED processors
+- Direct I/O: computers, cameras, camera switchers, routers, converters
+- Card-Based: media servers, switchers, LED processors, streaming devices
 - All outputs have: connector, h_res, v_res, rate, id, uuid
 **Rationale:** Matches real-world equipment configurations
 
@@ -861,4 +1030,5 @@ productions
 ---
 
 **Status:** Planning complete - All major architecture decisions made!  
-**Next Action:** Begin Phase 1 implementation (source outputs + duplication UX)
+**Updated:** February 28, 2026 - Added EDID architecture, corrected entity hierarchy (CCU→Camera Switcher, Server→Media Server), added Streaming to card-based I/O, fixed proposed diagram (signal flow devices correctly separated from sends)  
+**Next Action:** Phase 2 implementation — signal flow device input/output tables + EDID fields
