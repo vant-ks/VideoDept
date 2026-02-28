@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Copy } from 'lucide-react';
 import type { Source, ConnectorType, SourceType } from '@/types';
 import { SourceService } from '@/services';
 import { useProductionStore } from '@/hooks/useStore';
@@ -431,6 +431,23 @@ export function SourceFormModal({
                         <option key={type} value={type}>{type}</option>
                       ))}
                     </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextId = `out-${(formData.outputs || []).length + 1}`;
+                        const duplicatedOutput = { 
+                          ...output, 
+                          id: nextId,
+                          // Preserve the format properties from the output being duplicated
+                        };
+                        const newOutputs = [...(formData.outputs || []), duplicatedOutput];
+                        setFormData({ ...formData, outputs: newOutputs });
+                      }}
+                      className="p-2 text-av-accent hover:bg-av-accent/10 rounded"
+                      title="Duplicate this output"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
                     {(formData.outputs || []).length > 1 && (
                       <button
                         type="button"
@@ -439,6 +456,7 @@ export function SourceFormModal({
                           setFormData({ ...formData, outputs: newOutputs });
                         }}
                         className="p-2 text-av-danger hover:bg-av-danger/10 rounded"
+                        title="Remove this output"
                       >
                         <X className="w-4 h-4" />
                       </button>

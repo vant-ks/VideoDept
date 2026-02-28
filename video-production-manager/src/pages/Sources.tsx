@@ -191,6 +191,74 @@ export const Sources: React.FC = () => {
     }
   };
 
+  const handleSaveAndDuplicate = async (source: Source) => {
+    if (!productionId) {
+      alert('No production selected');
+      return;
+    }
+
+    try {
+      // First, save the current source
+      if (editingSource) {
+        // Update existing source
+        const result = await sourcesAPI.updateSource(editingSource.uuid, {
+          ...source,
+          version: editingSource.version,
+        });
+        
+        // Check for conflict
+        if ('error' in result) {
+          setConflictData({
+            source: editingSource,
+            currentVersion: result.currentVersion,
+            clientVersion: result.clientVersion,
+          });
+          return;
+        }
+        
+        // Success - update local state
+        setSources(prev => prev.map(s => s.uuid === result.uuid ? result : s));
+      } else {
+        // Create new source
+        console.log('💾 Creating new source via Save & Duplicate with id:', source.id);
+        const newSource = await sourcesAPI.createSource({
+          id: source.id,
+          type: source.type,
+          name: source.name,
+          hRes: source.hRes,
+          vRes: source.vRes,
+          rate: source.rate,
+          outputs: source.outputs,
+          note: source.note,
+          productionId,
+        });
+        console.log('✅ Source created successfully:', { id: newSource.id, name: newSource.name });
+        
+        // Optimistic update
+        setSources(prev => [...prev, newSource]);
+      }
+      
+      // Now prepare a duplicate for the next entry
+      const newId = SourceService.generateId([...sources, source]); // Include just-saved source
+      
+      // Create duplicate template without UUID (so it's treated as new)
+      const duplicateTemplate = {
+        ...source,
+        uuid: undefined,
+        id: newId,
+        name: `${source.name} (Copy)`,
+      } as Source;
+      
+      // Set the duplicate as the editing source, keeping modal open
+      setEditingSource(duplicateTemplate);
+      // Modal stays open with the duplicate pre-populated
+      
+    } catch (error) {
+      console.error('Failed to save and duplicate source:', error);
+      alert('Failed to save source. Please try again.');
+    }
+  };
+
   const handleDelete = async (uuid: string) => {
     if (!confirm('Are you sure you want to delete this source?')) return;
 
@@ -456,6 +524,7 @@ export const Sources: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSave}
+        onSaveAndDuplicate={handleSaveAndDuplicate}
         existingSources={sources}
         editingSource={editingSource}
       />
