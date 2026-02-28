@@ -6,6 +6,7 @@ import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
+import { getCurrentUserId } from '@/utils/userUtils';
 import type { MediaServer, MediaServerOutput, MediaServerLayer } from '@/types';
 import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
 
@@ -163,25 +164,48 @@ export default function MediaServers() {
     
     if (draggedIdx !== null && dragOverIdx !== null && draggedIdx !== dragOverIdx) {
       console.log(`🎯 Drag: Moving pair from index ${draggedIdx} to ${dragOverIdx}`);
+      console.log('🔒 Drag locked - no optimistic updates, waiting for API');
       
-      // Reorder the pairs
-      const reorderedPairs = [...serverPairs];
+      // Capture immutable snapshot of current order BEFORE any changes
+      const originalPairs = serverPairs.map((pair, idx) => ({
+        displayIndex: idx + 1,
+        pairNumber: pair.main.pairNumber,
+        mainUuid: pair.main.uuid,
+        mainVersion: pair.main.version,
+        backupUuid: pair.backup.uuid,
+        backupVersion: pair.backup.version,
+        mainId: pair.main.id,
+        backupId: pair.backup.id
+      }));
+      
+      // Calculate new order from the snapshot
+      const reorderedPairs = [...originalPairs];
       const [draggedPair] = reorderedPairs.splice(draggedIdx, 1);
       reorderedPairs.splice(dragOverIdx, 0, draggedPair);
       
-      console.log('📊 Reordered pairs:', reorderedPairs.map((p, i) => 
-        `[${i}] ${p.main.id}/${p.backup.id} OldPair:${p.main.pairNumber} → NewPair:${i + 1}`
+      console.log('📊 Desired final order:', reorderedPairs.map((p, i) => 
+        `[${i + 1}] ${p.mainId}/${p.backupId} (was pair ${p.pairNumber})`
       ));
       
-      // Build list of updates needed
-      const updates: Array<{server: MediaServer, newPairNumber: number}> = [];
-      reorderedPairs.forEach((pair, idx) => {
-        const newPairNumber = idx + 1;
-        if (pair.main.pairNumber !== newPairNumber) {
-          updates.push({ server: pair.main, newPairNumber });
-        }
-        if (pair.backup.pairNumber !== newPairNumber) {
-          updates.push({ server: pair.backup, newPairNumber });
+      // Build list of updates based on difference from original
+      const updates: Array<{uuid: string, id: string, oldPairNumber: number, newPairNumber: number, version: number}> = [];
+      reorderedPairs.forEach((pair, newIndex) => {
+        const newPairNumber = newIndex + 1;
+        if (pair.pairNumber !== newPairNumber) {
+          updates.push({
+            uuid: pair.mainUuid,
+            id: pair.mainId,
+            oldPairNumber: pair.pairNumber,
+            newPairNumber: newPairNumber,
+            version: pair.mainVersion
+          });
+          updates.push({
+            uuid: pair.backupUuid,
+            id: pair.backupId,
+            oldPairNumber: pair.pairNumber,
+            newPairNumber: newPairNumber,
+            version: pair.backupVersion
+          });
         }
       });
       
@@ -191,59 +215,53 @@ export default function MediaServers() {
         return;
       }
       
-      console.log(`📦 Will update ${updates.length} server(s)`);
-      updates.forEach(u => console.log(`  ${u.server.id}: ${u.server.pairNumber} → ${u.newPairNumber}`));
+      console.log(`📝 Sending ${updates.length} update(s) to API:`);
+      updates.forEach(u => console.log(`  ${u.id}: pair ${u.oldPairNumber} → ${u.newPairNumber}`));
       
-      // Apply ONE optimistic update for all servers at once
-      if (activeProject) {
-        const updatedServers = activeProject.mediaServers.map(server => {
-          const update = updates.find(u => u.server.uuid === server.uuid);
-          if (update) {
-            return { ...server, pairNumber: update.newPairNumber };
-          }
-          return server;
-        });
+      // NO OPTIMISTIC UPDATES - Send directly to API
+      const { userId, userName } = getCurrentUserId();
+      
+      try {
+        const apiCalls = updates.map(({ uuid, id, newPairNumber, version }) => 
+          apiClient.put(`/media-servers/${uuid}`, {
+            pairNumber: newPairNumber,
+            version: version,
+            userId,
+            userName
+          }).then(() => {
+            console.log(`✅ API success: ${id} → pair ${newPairNumber}`);
+            return { success: true, serverId: id };
+          }).catch((error) => {
+            const status = error.response?.status;
+            console.error(`❌ API failed: ${id} (${status || 'network error'})`);
+            return { success: false, serverId: id, error, status };
+          })
+        );
         
-        projectStore.updateActiveProject({ mediaServers: updatedServers });
-        console.log('✨ Optimistic update applied to local state');
-      }
-      
-      // Now make raw API calls WITHOUT touching local state
-      // (the WebSocket will handle syncing any conflicts)
-      const getUserInfo = () => ({ userId: 'user-' + Math.random().toString(36).substr(2, 9), userName: 'User' });
-      const { userId, userName } = getUserInfo();
-      
-      const apiCalls = updates.map(({ server, newPairNumber }) => 
-        apiClient.put(`/media-servers/${server.uuid}`, {
-          pairNumber: newPairNumber,
-          version: server.version,
-          userId,
-          userName
-        }).then(() => {
-          console.log(`✅ API: ${server.id} → pair ${newPairNumber}`);
-          return { success: true, serverId: server.id };
-        }).catch((error) => {
-          console.error(`❌ API: ${server.id} failed:`, error.response?.status || error.message);
-          return { success: false, serverId: server.id, error };
-        })
-      );
-      
-      const results = await Promise.all(apiCalls);
-      const successes = results.filter(r => r.success).length;
-      const failures = results.filter(r => !r.success).length;
-      
-      if (failures > 0) {
-        console.warn(`⚠️ ${failures}/${results.length} API call(s) failed`);
-        console.log('🔄 WebSocket will sync correct state from database');
-      } else {
-        console.log(`✅ All ${successes} API call(s) succeeded`);
-      }
-      
-      // Wait for WebSocket events to settle, then unlock
-      setTimeout(() => {
+        const results = await Promise.all(apiCalls);
+        const successes = results.filter(r => r.success).length;
+        const failures = results.filter(r => !r.success).length;
+        
+        if (failures > 0) {
+          console.warn(`⚠️ ${failures}/${updates.length} API call(s) failed`);
+        } else {
+          console.log(`✅ All ${successes} API call(s) succeeded`);
+        }
+        
+        // Refetch fresh data from database as single source of truth
+        if (activeProject) {
+          console.log('🔄 Fetching fresh data from API...');
+          await projectStore.loadProject(activeProject.id);
+          console.log('✅ Fresh data loaded from database');
+        }
+        
+      } catch (error) {
+        console.error('❌ Unexpected error during drag update:', error);
+      } finally {
+        // Always unlock drag after operation completes
         console.log('🔓 Unlocking drag');
         setIsDragInProgress(false);
-      }, 500);
+      }
     } else {
       console.log('🚫 Drag cancelled');
       setIsDragInProgress(false);
