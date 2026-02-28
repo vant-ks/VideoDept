@@ -1481,7 +1481,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().recordChange('create', 'mediaServer', newServer.id, newServer);
   },
   
-  addMediaServerPair: async (name: string, platform: string, outputs: any[], note?: string) => {
+  addMediaServerPair: async (platform: string, outputs: any[], note?: string) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
@@ -1491,21 +1491,25 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     
     const mainServer = {
       id: `${nextPairNumber}A`,
-      name: `${name} A`,
+      name: `Server ${nextPairNumber} A`,
       pairNumber: nextPairNumber,
       isBackup: false,
       platform,
-      outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}A-OUT${i + 1}`, name: `${name} A.${i + 1}` })),
+      outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}A-OUT${i + 1}` })),
       note
     };
     
     const backupServer = {
       id: `${nextPairNumber}B`,
-      name: `${name} B`,
+      name: `Server ${nextPairNumber} B`,
       pairNumber: nextPairNumber,
       isBackup: true,
       platform,
-      outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}B-OUT${i + 1}`, name: `${name} B.${i + 1}` })),
+      outputs: outputs.map((o, i) => ({
+        ...o,
+        id: `${nextPairNumber}B-OUT${i + 1}`,
+        name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B') // Replace " A" with " B", keep role with space
+      })),
       note
     };
     
@@ -1603,12 +1607,17 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       });
       
       console.log('✅ Media server updated in database:', id);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Failed to update media server:', error);
-      // Revert optimistic update on error
-      get().updateActiveProject({
-        mediaServers: activeProject.mediaServers.map(s => s.id === id ? originalServer : s)
-      });
+      
+      // Don't revert on version conflicts (409) - WebSocket will sync correct state
+      if (error?.response?.status !== 409) {
+        // Revert optimistic update on other errors
+        get().updateActiveProject({
+          mediaServers: activeProject.mediaServers.map(s => s.id === id ? originalServer : s)
+        });
+      }
+      
       throw error;
     }
   },

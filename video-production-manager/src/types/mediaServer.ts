@@ -1,7 +1,7 @@
 export interface MediaServer {
   id: string;
-  name: string; // e.g., "Media Server 1A", "Media Server 1B"
-  pairNumber: number; // 1, 2, 3, etc.
+  name: string; // e.g., "Server 1 A", "Server 1 B" (auto-generated from pairNumber)
+  pairNumber: number; // 1, 2, 3, etc. (auto-assigned, user can drag-reorder)
   isBackup: boolean; // false for A, true for B
   platform: string; // e.g., "Resolume Arena", "Disguise", "Watchout", "Ventuz", etc.
   outputs: MediaServerOutput[];
@@ -10,7 +10,8 @@ export interface MediaServer {
 
 export interface MediaServerOutput {
   id: string;
-  name: string;
+  name: string; // Base name (e.g., "MEDIA 1")
+  role?: string; // Role description (e.g., "LED L", "LED R", "Projection")
   type: 'HDMI' | 'SDI' | 'DP' | 'FIBER' | 'NDI';
   resolution?: {
     width: number;

@@ -1,10 +1,47 @@
 # 🚨 STOP - Read Before Creating Migrations
 
-**This project has experienced 3+ crashes from improper migration handling.**
+**Last Updated:** February 27, 2026
 
-## ⛔ MANDATORY: Read This Before Running ANY Migration
+**This project has experienced MULTIPLE VS Code crashes from `prisma migrate dev`.**
 
-**If you're about to run `prisma migrate dev` or modify this folder, STOP and follow these steps:**
+---
+
+## ✅ RECOMMENDED: Use `prisma db push` for Local Development
+
+**DO NOT use `prisma migrate dev` for local schema changes. It crashes VS Code.**
+
+```bash
+# CORRECT approach for local development:
+# 1. Edit schema.prisma
+# 2. Validate
+npx prisma validate
+
+# 3. Push to database (no migration file, no crashes)
+npx prisma db push
+
+# 4. Restart dev server to load new Prisma Client
+pkill -9 -f 'tsx watch' && sleep 2 && cd ../../ && npm run dev
+```
+
+**Why:**
+- ✅ No VS Code crashes (bypasses schema-engine)
+- ✅ Fast (70ms vs 30+ seconds)
+- ✅ Perfect for iterative development
+- ✅ No migration file clutter during WIP
+
+**Create migrations ONLY for production deployment:**
+```bash
+# When feature is complete and ready to deploy:
+npx prisma migrate dev --name feature_name
+git add prisma/migrations/
+git commit -m "feat: add feature_name"
+```
+
+See [DB_DEVELOPMENT_LESSONS.md](../../../docs/DB_DEVELOPMENT_LESSONS.md) for full context.
+
+---
+
+## ⚠️ IF YOU MUST CREATE MIGRATIONS (Production Only)
 
 ---
 

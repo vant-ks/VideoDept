@@ -1,10 +1,11 @@
 // @ts-nocheck
 import React, { useState, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy } from 'lucide-react';
+import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy, GripVertical } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
+import { apiClient } from '@/services';
 import type { MediaServer, MediaServerOutput, MediaServerLayer } from '@/types';
 import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
 
@@ -18,6 +19,17 @@ export default function MediaServers() {
   
   // Get production ID for WebSocket events
   const productionId = activeProject?.production?.id || oldStore.production?.id;
+  
+  // State declarations - MUST be before useProductionEvents to avoid initialization errors
+  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+  const [isLayerModalOpen, setIsLayerModalOpen] = useState(false);
+  const [editingServer, setEditingServer] = useState<MediaServer | null>(null);
+  const [editingLayer, setEditingLayer] = useState<MediaServerLayer | null>(null);
+  const [activeTab, setActiveTab] = useState<'servers' | 'layers' | 'layermap'>('servers');
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isDragInProgress, setIsDragInProgress] = useState(false);
   
   // Real-time event subscriptions
   useProductionEvents({
@@ -39,15 +51,31 @@ export default function MediaServers() {
     onEntityUpdated: useCallback((event) => {
       if (event.entityType === 'mediaServer') {
         console.log('🔔 Media server updated by', event.userName);
+        
+        // Ignore WebSocket updates during active drag to prevent intermediate state issues
+        if (isDragInProgress) {
+          console.log('🚀 Ignoring WebSocket update during drag');
+          return;
+        }
+        
         if (activeProject) {
           projectStore.updateActiveProject({
-            mediaServers: (activeProject.mediaServers || []).map(s =>
-              s.uuid === event.entity.uuid ? event.entity : s
-            )
+            mediaServers: (activeProject.mediaServers || []).map(s => {
+              // Only apply update if it's for this server and has a newer or equal version
+              if (s.uuid === event.entity.uuid) {
+                // If no version info or incoming version is newer, apply the update
+                if (!s.version || !event.entity.version || event.entity.version >= s.version) {
+                  return event.entity;
+                }
+                // Otherwise keep existing (newer) data
+                return s;
+              }
+              return s;
+            })
           });
         }
       }
-    }, [activeProject, projectStore]),
+    }, [activeProject, projectStore, isDragInProgress]),
     onEntityDeleted: useCallback((event) => {
       if (event.entityType === 'mediaServer') {
         console.log('🔔 Media server deleted by', event.userName);
@@ -68,13 +96,6 @@ export default function MediaServers() {
   const updateMediaServerLayer = activeProject ? projectStore.updateMediaServerLayer : oldStore.updateMediaServerLayer;
   const deleteMediaServerLayer = activeProject ? projectStore.deleteMediaServerLayer : oldStore.deleteMediaServerLayer;
   
-  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
-  const [isLayerModalOpen, setIsLayerModalOpen] = useState(false);
-  const [editingServer, setEditingServer] = useState<MediaServer | null>(null);
-  const [editingLayer, setEditingLayer] = useState<MediaServerLayer | null>(null);
-  const [activeTab, setActiveTab] = useState<'servers' | 'layers' | 'layermap'>('servers');
-  const [isDuplicating, setIsDuplicating] = useState(false);
-
   // Group servers by pair
   const serverPairs = React.useMemo(() => {
     const pairs: { [key: number]: { main: MediaServer; backup: MediaServer } } = {};
@@ -88,7 +109,11 @@ export default function MediaServers() {
         pairs[server.pairNumber].main = server;
       }
     });
-    return Object.values(pairs).filter(pair => pair.main && pair.backup);
+    // Sort by pairNumber to ensure consistent ordering
+    return Object.entries(pairs)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([_, pair]) => pair)
+      .filter(pair => pair.main && pair.backup);
   }, [mediaServers]);
 
   const handleAddServerPair = () => {
@@ -115,6 +140,118 @@ export default function MediaServers() {
     if (confirm(`Delete Media Server ${pairNumber}A and ${pairNumber}B?`)) {
       deleteMediaServerPair(pairNumber);
     }
+  };
+
+  const handleDragStart = (index: number) => {
+    console.log(`🎬 Drag started: Pair at index ${index} (pairNumber: ${serverPairs[index]?.main.pairNumber})`);
+    setDraggedIndex(index);
+    setIsDragInProgress(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragEnd = async () => {
+    const draggedIdx = draggedIndex;
+    const dragOverIdx = dragOverIndex;
+    
+    // Clear visual state immediately
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    
+    if (draggedIdx !== null && dragOverIdx !== null && draggedIdx !== dragOverIdx) {
+      console.log(`🎯 Drag: Moving pair from index ${draggedIdx} to ${dragOverIdx}`);
+      
+      // Reorder the pairs
+      const reorderedPairs = [...serverPairs];
+      const [draggedPair] = reorderedPairs.splice(draggedIdx, 1);
+      reorderedPairs.splice(dragOverIdx, 0, draggedPair);
+      
+      console.log('📊 Reordered pairs:', reorderedPairs.map((p, i) => 
+        `[${i}] ${p.main.id}/${p.backup.id} OldPair:${p.main.pairNumber} → NewPair:${i + 1}`
+      ));
+      
+      // Build list of updates needed
+      const updates: Array<{server: MediaServer, newPairNumber: number}> = [];
+      reorderedPairs.forEach((pair, idx) => {
+        const newPairNumber = idx + 1;
+        if (pair.main.pairNumber !== newPairNumber) {
+          updates.push({ server: pair.main, newPairNumber });
+        }
+        if (pair.backup.pairNumber !== newPairNumber) {
+          updates.push({ server: pair.backup, newPairNumber });
+        }
+      });
+      
+      if (updates.length === 0) {
+        console.log('🚫 No updates needed');
+        setIsDragInProgress(false);
+        return;
+      }
+      
+      console.log(`📦 Will update ${updates.length} server(s)`);
+      updates.forEach(u => console.log(`  ${u.server.id}: ${u.server.pairNumber} → ${u.newPairNumber}`));
+      
+      // Apply ONE optimistic update for all servers at once
+      if (activeProject) {
+        const updatedServers = activeProject.mediaServers.map(server => {
+          const update = updates.find(u => u.server.uuid === server.uuid);
+          if (update) {
+            return { ...server, pairNumber: update.newPairNumber };
+          }
+          return server;
+        });
+        
+        projectStore.updateActiveProject({ mediaServers: updatedServers });
+        console.log('✨ Optimistic update applied to local state');
+      }
+      
+      // Now make raw API calls WITHOUT touching local state
+      // (the WebSocket will handle syncing any conflicts)
+      const getUserInfo = () => ({ userId: 'user-' + Math.random().toString(36).substr(2, 9), userName: 'User' });
+      const { userId, userName } = getUserInfo();
+      
+      const apiCalls = updates.map(({ server, newPairNumber }) => 
+        apiClient.put(`/media-servers/${server.uuid}`, {
+          pairNumber: newPairNumber,
+          version: server.version,
+          userId,
+          userName
+        }).then(() => {
+          console.log(`✅ API: ${server.id} → pair ${newPairNumber}`);
+          return { success: true, serverId: server.id };
+        }).catch((error) => {
+          console.error(`❌ API: ${server.id} failed:`, error.response?.status || error.message);
+          return { success: false, serverId: server.id, error };
+        })
+      );
+      
+      const results = await Promise.all(apiCalls);
+      const successes = results.filter(r => r.success).length;
+      const failures = results.filter(r => !r.success).length;
+      
+      if (failures > 0) {
+        console.warn(`⚠️ ${failures}/${results.length} API call(s) failed`);
+        console.log('🔄 WebSocket will sync correct state from database');
+      } else {
+        console.log(`✅ All ${successes} API call(s) succeeded`);
+      }
+      
+      // Wait for WebSocket events to settle, then unlock
+      setTimeout(() => {
+        console.log('🔓 Unlocking drag');
+        setIsDragInProgress(false);
+      }, 500);
+    } else {
+      console.log('🚫 Drag cancelled');
+      setIsDragInProgress(false);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
   };
 
   const handleDeleteLayer = (id: string) => {
@@ -198,15 +335,35 @@ export default function MediaServers() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {serverPairs.map((pair) => (
-                <Card key={pair.main.pairNumber} className="p-6 hover:border-av-accent/30 transition-colors">
+              {serverPairs.map((pair, index) => (
+                <Card 
+                  key={pair.main.pairNumber} 
+                  className={`p-6 transition-all ${
+                    draggedIndex === index 
+                      ? 'opacity-50 scale-95' 
+                      : dragOverIndex === index 
+                      ? 'border-av-accent border-2' 
+                      : 'hover:border-av-accent/30'
+                  }`}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onDragLeave={handleDragLeave}
+                >
                   {/* Pair Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-4">
+                      <button 
+                        className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-accent transition-colors"
+                        title="Drag to reorder"
+                      >
+                        <GripVertical className="w-5 h-5" />
+                      </button>
                       <Server className="w-6 h-6 text-av-accent" />
                       <div>
                         <h3 className="text-xl font-semibold text-av-text">
-                          Media {pair.main.pairNumber} (A/B Pair)
+                          Server {index + 1} (A/B Pair)
                         </h3>
                         <p className="text-sm text-av-text-muted">{pair.main.platform}</p>
                       </div>
@@ -223,13 +380,10 @@ export default function MediaServers() {
                         onClick={() => {
                           // Duplicate the server pair by opening modal with duplicated data
                           const nextPairNum = Math.max(...mediaServers.map(s => s.pairNumber)) + 1;
-                          // Extract base name from existing server (strip " A" or " B" suffix)
-                          const baseName = pair.main.name.replace(/\s+[AB]$/, '').trim();
                           setEditingServer({
                             ...pair.main,
                             pairNumber: nextPairNum,
-                            id: `${nextPairNum}A`,
-                            name: baseName // Use base name without A/B - modal will handle it
+                            id: `${nextPairNum}A`
                           });
                           setIsDuplicating(true);
                           setIsServerModalOpen(true);
@@ -254,7 +408,9 @@ export default function MediaServers() {
                     {/* Main Server */}
                     <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-av-text">{pair.main.name}</h4>
+                        <h4 className="font-semibold text-av-text">
+                          Server {index + 1} A{pair.main.role ? ` (${pair.main.role})` : ''}
+                        </h4>
                         <Badge variant="success">Main</Badge>
                       </div>
                       {pair.main.outputs.length > 0 && (
@@ -264,8 +420,8 @@ export default function MediaServers() {
                             {pair.main.outputs.length} Output{pair.main.outputs.length !== 1 ? 's' : ''}
                           </p>
                           <div className="space-y-1">
-                            {pair.main.outputs.map((output) => (
-                              <div key={output.id} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between">
+                            {pair.main.outputs.map((output, idx) => (
+                              <div key={`${pair.main.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between">
                                 <span className="text-av-text">{output.name}</span>
                                 <Badge>{output.type}</Badge>
                               </div>
@@ -278,7 +434,9 @@ export default function MediaServers() {
                     {/* Backup Server */}
                     <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-av-text">{pair.backup.name}</h4>
+                        <h4 className="font-semibold text-av-text">
+                          Server {index + 1} B{pair.backup.role ? ` (${pair.backup.role})` : ''}
+                        </h4>
                         <Badge variant="warning">Backup</Badge>
                       </div>
                       {pair.backup.outputs.length > 0 && (
@@ -288,8 +446,8 @@ export default function MediaServers() {
                             {pair.backup.outputs.length} Output{pair.backup.outputs.length !== 1 ? 's' : ''}
                           </p>
                           <div className="space-y-1">
-                            {pair.backup.outputs.map((output) => (
-                              <div key={output.id} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between">
+                            {pair.backup.outputs.map((output, idx) => (
+                              <div key={`${pair.backup.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between">
                                 <span className="text-av-text">{output.name}</span>
                                 <Badge>{output.type}</Badge>
                               </div>
@@ -417,7 +575,9 @@ export default function MediaServers() {
                           {pair.main.outputs.map((output) => (
                             <div key={output.id} className="w-32 flex-shrink-0">
                               <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center">
-                                <div className="text-xs font-semibold text-av-text truncate">{pair.main.name}</div>
+                                <div className="text-xs font-semibold text-av-text truncate">
+                                  Server {pair.main.pairNumber}
+                                </div>
                                 <div className="text-xs text-av-text-muted truncate mt-1">{output.name}</div>
                                 <Badge className="mt-1 text-xs">{output.type}</Badge>
                               </div>
@@ -521,16 +681,24 @@ export default function MediaServers() {
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSave={(name, platform, outputs, note) => {
+          onSave={(platform, outputs, note) => {
             if (editingServer && !isDuplicating) {
               // Update both main and backup
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
-                updateMediaServer(pair.main.id, { name: `${name} A`, platform, outputs, note });
-                updateMediaServer(pair.backup.id, { name: `${name} B`, platform, outputs, note });
+                // The outputs array from modal already has " A (Role)" format
+                // We need to create a " B (Role)" version for the backup server
+                const outputsWithB = outputs.map((o, i) => ({
+                  ...o,
+                  id: `${pair.backup.id}-OUT${i + 1}`, // Generate unique ID for backup outputs
+                  name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B') // Replace " A" with " B", keep role with space
+                }));
+                const serverName = `Server ${pair.main.pairNumber}`;
+                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note });
+                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note });
               }
             } else {
-              addMediaServerPair(name, platform, outputs, note);
+              addMediaServerPair(platform, outputs, note);
             }
             setIsServerModalOpen(false);
             setEditingServer(null);
@@ -574,42 +742,38 @@ export default function MediaServers() {
 interface ServerPairModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, platform: string, outputs: MediaServerOutput[], note?: string) => void;
+  onSave: (platform: string, outputs: MediaServerOutput[], note?: string) => void;
   editingServer: MediaServer | null;
   isDuplicating?: boolean;
 }
 
 function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating }: ServerPairModalProps) {
-  // Get the next server number for default name
+  // Get the next server number for displaying Server ID
   const { activeProject } = useProjectStore();
   const oldStore = useProductionStore();
   const mediaServers = activeProject?.mediaServers || oldStore.mediaServers;
-  const nextPairNumber = editingServer?.pairNumber || 
+  const pairNumber = editingServer?.pairNumber || 
     (mediaServers.length > 0 ? Math.max(...mediaServers.map(s => s.pairNumber)) + 1 : 1);
   
-  const [name, setName] = useState(() => {
-    if (editingServer && !isDuplicating) {
-      // Editing existing - extract base name without A/B suffix
-      return editingServer.name.replace(/\s+[AB]$/, '').trim();
-    }
-    // New or duplicating - suggest next pair number
-    return `MEDIA ${nextPairNumber}`;
-  });
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
   const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
     if (editingServer?.outputs) {
-      // Strip A/B suffix from output names when loading for editing
-      return editingServer.outputs.map(o => ({ 
-        name: o.name.replace(/\s+[AB](\.\d+)$/, '$1'), // Remove " A" or " B" before ".1", ".2", etc.
-        type: o.type, 
-        resolution: o.resolution, 
-        frameRate: o.frameRate 
-      }));
+      // Strip A/B suffix and (Role) from output names when loading for editing
+      return editingServer.outputs.map(o => {
+        const nameWithoutSuffix = o.name.replace(/\s+[AB]\s*\([^)]*\)$/, '') || o.name.replace(/\s+[AB]$/, '');
+        return {
+          name: nameWithoutSuffix,
+          role: o.role,
+          type: o.type, 
+          resolution: o.resolution, 
+          frameRate: o.frameRate 
+        };
+      });
     }
     // Default: 1 DP output for new server pairs
-    // Use name for initial default
     return [{
-      name: `${name}.1`, // Server name + numbering (no A/B)
+      name: 'MEDIA 1',
+      role: '',
       type: 'DP',
       resolution: { width: 1920, height: 1080 },
       frameRate: 59.94
@@ -621,16 +785,14 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
   const [customResolutions, setCustomResolutions] = useState<{[key: number]: boolean}>({});
   
   // Helper functions for A/B suffix handling
-  // Strip " A" or " B" suffix from output names (preserves the ".1", ".2" numbering)
   const stripABSuffix = (name: string): string => {
-    return name.replace(/\s+[AB](\.\d+)$/, '$1');
+    return name.replace(/\s+[AB]$/, '');
   };
   
-  // Append " A" suffix to output name (before the ".1", ".2" numbering)
   const appendASuffix = (name: string): string => {
     // If name already has A or B, strip it first
     const stripped = stripABSuffix(name);
-    return stripped.replace(/(\.\d+)$/, ' A$1');
+    return `${stripped} A`;
   };
 
   // Common resolutions
@@ -664,7 +826,8 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
     }
     const outputNum = outputs.length + 1;
     setOutputs([...outputs, { 
-      name: `${name}.${outputNum}`, // Server name + numbering (no A/B)
+      name: `MEDIA ${outputNum}`,
+      role: '',
       type: 'DP',
       resolution: { width: 1920, height: 1080 },
       frameRate: 59.94
@@ -684,7 +847,7 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
     const outputNum = outputs.length + 1;
     setOutputs([...outputs, { 
       ...outputToDuplicate,
-      name: `${name}.${outputNum}` // Server name + numbering (no A/B)
+      name: `MEDIA ${outputNum}`
     }]);
   };
 
@@ -694,13 +857,12 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Append A/B suffix to output names before saving
-    const outputsWithSuffixA = outputs.map((o, i) => ({
+    // Format outputs with A/B suffix and role in parentheses
+    const outputsWithFormatting = outputs.map((o) => ({
       ...o,
-      // Insert " A" or " B" before the last "." (before the number)
-      name: o.name.replace(/(\.\d+)$/, ' A$1')
+      name: o.role ? `${o.name} A (${o.role})` : `${o.name} A`
     }));
-    onSave(name, platform, outputsWithSuffixA as any, note);
+    onSave(platform, outputsWithFormatting as any, note);
   };
 
   if (!isOpen) return null;
@@ -711,31 +873,14 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-av-border sticky top-0 bg-av-surface z-10">
             <h2 className="text-2xl font-bold text-av-text">
-              {editingServer ? `Edit ${name} Pair` : `Add Server Pair ${nextPairNumber}`}
+              {editingServer ? `Edit Server ${pairNumber} Pair` : `Add Server ${pairNumber} Pair`}
             </h2>
             <p className="text-sm text-av-text-muted mt-1">
-              Creates matching Main ({name} A) and Backup ({name} B) servers
+              Server ID: {pairNumber} (Drag to reorder servers)
             </p>
           </div>
 
           <div className="p-6 space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                Name *
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input-field w-full"
-                placeholder="MEDIA 1"
-                required
-              />
-              <p className="text-xs text-av-text-muted mt-1">
-                Base name for the pair. A and B suffixes will be added automatically.
-              </p>
-            </div>
-            
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
                 Platform *
@@ -756,7 +901,7 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
                 <div>
                   <h3 className="text-lg font-semibold text-av-text">Outputs</h3>
                   <p className="text-xs text-av-text-muted mt-1">
-                    Will be named {name} A.1, {name} A.2, etc. (and matching B outputs)
+                    Output names will be formatted as: OutputName A (Role) / OutputName B (Role)
                   </p>
                 </div>
                 <button
@@ -776,17 +921,28 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
                   return (
                     <Card key={index} className="p-4">
                       <div className="space-y-3">
-                        {/* Row 1: Name, Type, Duplicate, Delete */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        {/* Row 1: Name, Role, Type, Duplicate, Delete */}
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-av-text-muted mb-1">
-                              Name <span className="text-xs">(A/B will be appended automatically)</span>
+                              Output Name *
                             </label>
                             <input
                               type="text"
                               value={output.name}
                               onChange={(e) => handleUpdateOutput(index, { name: e.target.value })}
-                              placeholder={`${name}.${index + 1}`}
+                              placeholder="MEDIA 1"
+                              className="input-field w-full"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-av-text-muted mb-1">Role</label>
+                            <input
+                              type="text"
+                              value={output.role || ''}
+                              onChange={(e) => handleUpdateOutput(index, { role: e.target.value })}
+                              placeholder="LED L, LED R, etc."
                               className="input-field w-full"
                             />
                           </div>

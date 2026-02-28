@@ -8,11 +8,34 @@ This document contains **project-specific** rules and conventions for this codeb
 
 ---
 
-## 🚨 CRITICAL WARNING: Migration Safety
+## 🚨 CRITICAL: Database Schema Changes
 
-**Before ANY database migration work, read this:** [../../_Utilities/MIGRATION_CRASH_PREVENTION_RULE.md](../../_Utilities/MIGRATION_CRASH_PREVENTION_RULE.md)
+**Last Updated:** February 27, 2026
 
-**This project has crashed 3+ times from migration errors. If Prisma asks to "reset schema", STOP immediately - it's a red flag for schema-database mismatch.**
+### ✅ REQUIRED: Use `prisma db push` for Local Development
+
+**DO NOT use `prisma migrate dev` for local schema changes. It crashes VS Code (Exit Code 137).**
+
+```bash
+# CORRECT approach:
+cd api
+npx prisma validate        # Check syntax
+npm run db:push            # Apply to database (70ms, no crashes)
+# Restart dev server to load new Prisma Client
+```
+
+**Create migrations ONLY for production deployment:**
+```bash
+# When feature is complete and ready to deploy:
+npx prisma migrate dev --name feature_name
+git add prisma/migrations/
+git commit -m "feat: add feature_name"
+```
+
+**Documentation:**
+- [MIGRATION_CRASH_PREVENTION_RULE.md](../../_Utilities/MIGRATION_CRASH_PREVENTION_RULE.md) - Full protocol
+- [DB_DEVELOPMENT_LESSONS.md](../../docs/DB_DEVELOPMENT_LESSONS.md) - Historical context
+- [migrations/README_MIGRATION_SAFETY.md](../api/prisma/migrations/README_MIGRATION_SAFETY.md) - Quick reference
 
 ---
 
@@ -35,9 +58,10 @@ This document contains **project-specific** rules and conventions for this codeb
    - See: [Multi-User Conflict Handling](#multi-user-conflict-handling---critical-patterns)
    - Covers: Clock skew, Prisma validation errors, race conditions
 
-4. **SCHEMA DRIVES SEED** → Never add seed data before Prisma migration. Schema → Migration → Seed → Types → Routes.
+4. **SCHEMA DRIVES SEED** → Never add seed data before database sync. Schema → `db:push` → Seed → Types → Routes.
    - See: [Seed Data Integrity](#seed-data-integrity---critical-patterns)
    - Covers: Missing fields, silent Prisma drops, undefined values
+   - Development: Use `npm run db:push` to sync schema changes
 
 5. **FETCH ALL ENTITIES** → Loading production must fetch ALL related data (checklist, sources, sends, cameras, CCUs) in BOTH cached and fresh paths.
    - See: [Production Loading - Dual Path Pattern](#production-loading---dual-path-pattern)

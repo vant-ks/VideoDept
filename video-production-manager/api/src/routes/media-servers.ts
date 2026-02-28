@@ -98,17 +98,26 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     const { uuid } = req.params;
     const { version: clientVersion, userId, userName, outputs, ...updates } = req.body;
     
+    console.log('📥 PUT request body:', {
+      uuid,
+      updates,
+      clientVersion,
+      hasOutputs: outputs !== undefined
+    });
+    
     // Get current version for conflict detection
     const current = await prisma.media_servers.findUnique({
       where: { uuid }
     });
     
     if (!current) {
+      console.log('❌ MediaServer not found:', uuid);
       return res.status(404).json({ error: 'MediaServer not found' });
     }
     
     // Check for version conflict
     if (clientVersion !== undefined && current.version !== clientVersion) {
+      console.log('⚠️ Version conflict:', { current: current.version, client: clientVersion });
       return res.status(409).json({
         error: 'Version conflict',
         message: 'This mediaServer has been modified by another user. Please refresh and try again.',
@@ -117,11 +126,17 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       });
     }
     
+    // Convert camelCase to snake_case for database
+    const snakeCaseUpdates = toSnakeCase(updates);
+    console.log('🔄 Converted updates:', snakeCaseUpdates);
+    
     // Prepare update data - transform outputs → outputs_data if present
-    const updateData: any = { ...updates, version: current.version + 1 };
+    const updateData: any = { ...snakeCaseUpdates, version: current.version + 1 };
     if (outputs !== undefined) {
       updateData.outputs_data = outputs;
     }
+    
+    console.log('💾 Updating with data:', updateData);
     
     // Update with incremented version
     const mediaServer = await prisma.media_servers.update({
@@ -155,8 +170,16 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     
     res.json(normalizeMediaServer(mediaServer));
   } catch (error) {
-    console.error('Error updating mediaServer:', error);
-    res.status(500).json({ error: 'Failed to update mediaServer' });
+    console.error('❌ Error updating mediaServer:', error);
+    console.error('❌ Error details:', {
+      uuid: req.params.uuid,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    res.status(500).json({ 
+      error: 'Failed to update mediaServer',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 

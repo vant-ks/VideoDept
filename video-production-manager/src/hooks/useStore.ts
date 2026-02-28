@@ -578,21 +578,25 @@ export const useProductionStore = create<ProductionStore>()(
         
         const mainServer: MediaServer = {
           id: `${nextPairNumber}A`,
-          name: `Media ${nextPairNumber}A`,
+          name: `Server ${nextPairNumber} A`,
           pairNumber: nextPairNumber,
           isBackup: false,
           platform,
-          outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}A-OUT${i + 1}`, name: `MEDIA ${nextPairNumber}A.${i + 1}` })),
+          outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}A-OUT${i + 1}` })),
           note
         };
         
         const backupServer: MediaServer = {
           id: `${nextPairNumber}B`,
-          name: `Media ${nextPairNumber}B`,
+          name: `Server ${nextPairNumber} B`,
           pairNumber: nextPairNumber,
           isBackup: true,
           platform,
-          outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}B-OUT${i + 1}`, name: `MEDIA ${nextPairNumber}B.${i + 1}` })),
+          outputs: outputs.map((o, i) => ({
+            ...o,
+            id: `${nextPairNumber}B-OUT${i + 1}`,
+            name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => ` B${role || ''}`) // Replace " A" with " B", keep role
+          })),
           note
         };
         
