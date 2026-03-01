@@ -198,11 +198,14 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     // Calculate changes
     const changes = calculateDiff(currentCCU, finalUpdateData);
 
+    // Convert to snake_case for Prisma (front-end sends camelCase)
+    const finalSnakeCaseData = toSnakeCase(finalUpdateData);
+
     // Update CCU with version increment and metadata
     const ccu = await prisma.ccus.update({
       where: { uuid: req.params.uuid },
       data: {
-        ...finalUpdateData,
+        ...finalSnakeCaseData,
         field_versions: finalFieldVersions,
         updated_at: new Date(),
         ...prepareVersionedUpdate(lastModifiedBy || userId)

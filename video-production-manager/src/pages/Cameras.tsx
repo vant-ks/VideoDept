@@ -32,11 +32,10 @@ export default function Cameras() {
   // Local CCU list for the form dropdown — fetched from API on mount
   const [localCCUs, setLocalCCUs] = useState<any[]>(ccus);
   
-  // Sync local state when store cameras change (on initial load)
-  useEffect(() => {
-    setLocalCameras(cameras);
-  }, [cameras]);
-  
+  // NOTE: Do NOT sync localCameras from store on every change — the store
+  // sync overwrites WebSocket and optimistic updates. API fetch on mount is
+  // the single source of truth for localCameras.
+
   // Get production ID for WebSocket subscription
   const productionId = activeProject?.production?.id || oldStore.production?.id;
   
@@ -75,12 +74,15 @@ export default function Cameras() {
     }, [activeProject, updateCamera]),
     onEntityDeleted: useCallback((event) => {
       if (event.entityType === 'camera') {
-        console.log('🔔 Camera deleted by', event.userName);
-        setLocalCameras(prev => prev.filter(c => c.id !== event.entityId));
-        // Also update project store
-        if (activeProject) {
-          deleteCamera(event.entityId);
-        }
+        console.log('🔔 Camera deleted by', event.userName, '| uuid:', event.entityId);
+        // entityId from server is the UUID — filter by uuid not display id
+        setLocalCameras(prev => {
+          const deletedCamera = prev.find(c => (c as any).uuid === event.entityId);
+          if (deletedCamera && activeProject) {
+            deleteCamera(deletedCamera.id); // store uses display id
+          }
+          return prev.filter(c => (c as any).uuid !== event.entityId);
+        });
       }
     }, [activeProject, deleteCamera])
   });
@@ -227,7 +229,14 @@ export default function Cameras() {
           alert(`Version conflict: ${result.message}\nPlease refresh and try again.`);
           return;
         }
-        // State will be updated via WebSocket entity:updated event
+        // Optimistic local state update (WebSocket will also fire and dedup)
+        setLocalCameras(prev => prev.map(c =>
+          (c as any).uuid === (editingCamera as any).uuid ? result : c
+        ));
+        // Also update project store
+        if (activeProject) {
+          updateCamera(result.id, result);
+        }
       } else {
         // Create new camera via API
         console.log('💾 Creating new camera with id:', finalFormData.id);
@@ -312,7 +321,8 @@ export default function Cameras() {
     if (confirm('Are you sure you want to delete this camera?')) {
       try {
         await camerasAPI.deleteCamera(id);
-        // State update handled by WebSocket entity:deleted event
+        // Optimistic: remove immediately (WS entity:deleted will also fire)
+        setLocalCameras(prev => prev.filter(c => (c as any).uuid !== id));
       } catch (error: any) {
         console.error('❌ Failed to delete camera:', error);
         alert(error.message || 'Failed to delete camera. Please try again.');
