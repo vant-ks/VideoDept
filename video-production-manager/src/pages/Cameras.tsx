@@ -400,7 +400,7 @@ export default function Cameras() {
             const ccuName = getCCUName(camera.ccuId);
             
             return (
-              <Card key={camera.id} className="p-6 hover:border-av-accent/30 transition-colors">
+              <Card key={(camera as any).uuid || camera.id} className="p-6 hover:border-av-accent/30 transition-colors">
                 <div className="grid grid-cols-3 gap-6 items-center">
                   {/* Left 1/3: ID and Name */}
                   <div className="flex items-center gap-12">

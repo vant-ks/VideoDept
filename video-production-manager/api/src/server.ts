@@ -249,6 +249,7 @@ app.get('/api/server/discover', async (req: Request, res: Response) => {
 import productionsRouter from './routes/productions';
 import equipmentRouter from './routes/equipment';
 import computersRouter from './routes/computers';
+import sourcesRouter from './routes/sources';
 import sendsRouter from './routes/sends';
 import camerasRouter from './routes/cameras';
 import ccusRouter from './routes/ccus';
@@ -272,6 +273,7 @@ import adminRouter from './routes/admin';
 app.use('/api/productions', productionsRouter);
 app.use('/api/equipment', equipmentRouter);
 app.use('/api/computers', computersRouter);
+app.use('/api/sources', sourcesRouter);
 app.use('/api/sends', sendsRouter);
 app.use('/api/cameras', camerasRouter);
 app.use('/api/ccus', ccusRouter);
