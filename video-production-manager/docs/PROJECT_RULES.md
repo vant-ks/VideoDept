@@ -99,6 +99,7 @@ git commit -m "feat: add feature_name"
    - See: [Data Flow Architecture](#data-flow-architecture---critical-patterns)
    - Covers: BigInt serialization, DateTime handling, snake_case ↔ camelCase
    - **SERVER-SIDE TRANSFORMATION CONTRACT**: API always sends camelCase (via toCamelCase), frontend always receives camelCase
+   - **⛔ API ROUTE HANDLERS**: Every POST/PUT handler MUST call `toSnakeCase(inputData)` BEFORE passing to Prisma. Never pass raw camelCase req.body fields to Prisma `data:{}`. Reference implementation: `api/src/routes/cameras.ts` POST handler. This has caused 500 errors multiple times.
 
 2. **CACHE IS NOT TRUTH** → Always verify cached data with API. Database is source of truth.
    - See: [IndexedDB Cache Management](#indexeddb-cache-management---critical-patterns)
@@ -146,6 +147,7 @@ git commit -m "feat: add feature_name"
    - Frontend: Create without uuid, receive it from API response
    - Foreign Keys: Always reference uuid (immune to id changes)
    - **PATTERN**: User can rename "SRC 1" → "SRC A" anytime, uuid stays same, all references remain valid
+   - **⛔ PAGE COMPONENTS**: When calling `update*()/delete*()` API hooks, ALWAYS pass `entity.uuid` (NOT `entity.id`). Pattern: `updateCCU((editingCCU as any).uuid, data)`. The `.id` field is a user-editable display label, never a DB key. API routes do `findUnique({ where: { uuid } })` — passing `.id` returns 404/500.
    - **MIGRATION**: ONE table at a time, track progress in DEVLOG.md to prevent crashes
 
 11. **ALWAYS USE PRE-MIGRATION SAFETY CHECKS** → Run `npm run db:migrate:check` before EVERY migration to prevent VS Code crashes.
@@ -191,6 +193,8 @@ git commit -m "feat: add feature_name"
 - 🔥 **"Prisma needs reset/drift detected" → Schema changed without migration, check git history then run db:reset (#12, #13)**
 - 🔥 **"Migration hangs >30s" → Kill prisma processes, verify no zombie schema-engines (#13)**
 - 🔥 **"We need to reset the 'public' schema" → STOP IMMEDIATELY, schema-database mismatch (#13)**
+- 🔥 **"500 on POST/PUT to /api/{entity}" → Route handler missing `toSnakeCase()` before Prisma. Check `cameras.ts` POST as reference (#1)**
+- 🔥 **"404 not found / Cannot update or delete entity" → Frontend passing display `.id` instead of `.uuid` to API hook. Fix: `(entity as any).uuid` (#10)**
 
 **Before writing ANY code that touches data:**
 1. **Is this a database migration?** → READ PILLAR #13 first, NEVER skip pre-migration checks
@@ -200,9 +204,11 @@ git commit -m "feat: add feature_name"
 5. Does this set timestamps? → Only on server, never client
 6. Does this load production? → Fetch ALL entities in parallel
 7. Does this delete/update entity? → API call + cache update + WebSocket broadcast
+8. **Writing a POST/PUT API route handler?** → Call `toSnakeCase(inputData)` BEFORE Prisma. See `cameras.ts` POST. (#1)
+9. **Calling update/delete from a page component?** → Use `(entity as any).uuid` not `entity.id`. (#10)
 
 **Before committing:**
-8. **Check for zombie Prisma processes:** `ps aux | grep -E '(prisma|schema-engine)' | grep -v grep` (expected: no results)
+10. **Check for zombie Prisma processes:** `ps aux | grep -E '(prisma|schema-engine)' | grep -v grep` (expected: no results)
 
 ### Self-Audit Commands
 
