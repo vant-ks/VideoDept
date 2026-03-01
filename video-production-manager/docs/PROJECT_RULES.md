@@ -206,9 +206,10 @@ git commit -m "feat: add feature_name"
 7. Does this delete/update entity? → API call + cache update + WebSocket broadcast
 8. **Writing a POST/PUT API route handler?** → Call `toSnakeCase(inputData)` BEFORE Prisma. See `cameras.ts` POST. (#1)
 9. **Calling update/delete from a page component?** → Use `(entity as any).uuid` not `entity.id`. (#10)
+10. **Starting a multi-step task?** → Write a DEVLOG.md checkpoint entry BEFORE the first subtask and AFTER each one. Pattern: `### [Subtask] — IN PROGRESS` → `✅ COMPLETE`. Crash recovery depends on this.
 
 **Before committing:**
-10. **Check for zombie Prisma processes:** `ps aux | grep -E '(prisma|schema-engine)' | grep -v grep` (expected: no results)
+11. **Check for zombie Prisma processes:** `ps aux | grep -E '(prisma|schema-engine)' | grep -v grep` (expected: no results)
 
 ### Self-Audit Commands
 
