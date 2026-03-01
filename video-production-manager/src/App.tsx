@@ -16,6 +16,7 @@ import Records from '@/pages/Records';
 import Streams from '@/pages/Streams';
 import MediaServers from '@/pages/MediaServers';
 import CCUs from '@/pages/CCUs';
+import Monitors from '@/pages/Monitors';
 import Equipment from '@/pages/Equipment';
 import Settings from '@/pages/Settings';
 import Logs from '@/pages/Logs';
@@ -176,7 +177,7 @@ const App: React.FC = () => {
       case 'projection':
         return <Screens />;
       case 'monitors':
-        return <Screens />;
+        return <Monitors />;
       case 'vision-switcher':
         return <VisionSwitcher />;
       case 'cam-switcher':

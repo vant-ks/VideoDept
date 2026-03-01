@@ -372,6 +372,7 @@ export interface Computer {
 // ============================================================================
 
 export interface Send {
+  uuid?: string;
   id: string;
   type: SendType;
   name: string;
@@ -382,6 +383,9 @@ export interface Send {
   note?: string;
   secondaryDevice?: string;
   output: ConnectorType;
+  outputConnector?: string;
+  equipmentUuid?: string;
+  version?: number;
 }
 
 export type SendType = 

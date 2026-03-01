@@ -3,6 +3,7 @@ import { apiClient } from '@/services/apiClient';
 import type { Send } from '@/types';
 
 interface CreateSendInput {
+  id?: string;
   productionId: string;
   userId?: string;
   userName?: string;
@@ -12,10 +13,16 @@ interface CreateSendInput {
   vRes: number;
   rate: number;
   note?: string;
+  equipmentUuid?: string;
+  secondaryDevice?: string;
+  outputConnector?: string;
 }
 
 interface UpdateSendInput extends Partial<CreateSendInput> {
   version?: number;
+  equipmentUuid?: string;
+  secondaryDevice?: string;
+  outputConnector?: string;
 }
 
 interface ConflictError {
@@ -56,6 +63,7 @@ export function useSendsAPI() {
     try {
       const { userId, userName } = getUserInfo();
       const requestData = {
+        id: input.id,
         productionId: input.productionId,
         name: input.name,
         type: input.type,
@@ -63,6 +71,9 @@ export function useSendsAPI() {
         vRes: input.vRes,
         rate: input.rate,
         note: input.note,
+        equipmentUuid: input.equipmentUuid,
+        secondaryDevice: input.secondaryDevice,
+        outputConnector: input.outputConnector,
         userId,
         userName,
       };
@@ -93,6 +104,9 @@ export function useSendsAPI() {
         vRes: input.vRes,
         rate: input.rate,
         note: input.note,
+        equipmentUuid: input.equipmentUuid,
+        secondaryDevice: input.secondaryDevice,
+        outputConnector: input.outputConnector,
         version: input.version,
         userId,
         userName,
