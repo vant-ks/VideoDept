@@ -5,6 +5,18 @@ import crypto from 'crypto';
 
 const router = Router();
 
+// Map frontend ioArchitecture values to DB enum values
+const toIoArchitectureEnum = (value: string | undefined): 'DIRECT' | 'CARD_BASED' => {
+  if (!value) return 'DIRECT';
+  const map: Record<string, 'DIRECT' | 'CARD_BASED'> = {
+    direct: 'DIRECT',
+    'card-based': 'CARD_BASED',
+    DIRECT: 'DIRECT',
+    CARD_BASED: 'CARD_BASED'
+  };
+  return map[value] ?? 'DIRECT';
+};
+
 // GET all equipment specs
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -69,7 +81,7 @@ router.post('/', async (req: Request, res: Response) => {
         category: snakeCaseData.category,
         manufacturer: snakeCaseData.manufacturer,
         model: snakeCaseData.model,
-        io_architecture: snakeCaseData.io_architecture,
+        io_architecture: toIoArchitectureEnum(snakeCaseData.io_architecture),
         card_slots: snakeCaseData.card_slots,
         format_by_io: snakeCaseData.format_by_io,
         is_secondary_device: snakeCaseData.is_secondary_device,
@@ -103,7 +115,7 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       category: snakeCaseData.category,
       manufacturer: snakeCaseData.manufacturer,
       model: snakeCaseData.model,
-      io_architecture: snakeCaseData.io_architecture,
+      io_architecture: toIoArchitectureEnum(snakeCaseData.io_architecture),
       card_slots: snakeCaseData.card_slots,
       format_by_io: snakeCaseData.format_by_io,
       is_secondary_device: snakeCaseData.is_secondary_device,
