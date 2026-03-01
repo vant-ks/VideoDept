@@ -3,10 +3,18 @@ import { apiClient } from '@/services/apiClient';
 import type { CCU } from '@/types';
 
 interface CreateCCUInput {
+  id?: string;
   productionId: string;
   userId?: string;
   userName?: string;
   name: string;
+  manufacturer?: string;
+  model?: string;
+  formatMode?: string;
+  fiberInput?: string;
+  referenceInput?: string;
+  outputs?: any[];
+  equipmentUuid?: string;
   note?: string;
 }
 
@@ -52,8 +60,16 @@ export function useCCUsAPI() {
     try {
       const { userId, userName } = getUserInfo();
       const requestData = {
+        id: input.id,
         productionId: input.productionId,
         name: input.name,
+        manufacturer: input.manufacturer,
+        model: input.model,
+        formatMode: input.formatMode,
+        fiberInput: input.fiberInput,
+        referenceInput: input.referenceInput,
+        outputs: input.outputs,
+        equipmentUuid: input.equipmentUuid,
         note: input.note,
         userId,
         userName,
@@ -80,6 +96,13 @@ export function useCCUsAPI() {
       const requestData = {
         productionId: input.productionId,
         name: input.name,
+        manufacturer: input.manufacturer,
+        model: input.model,
+        formatMode: input.formatMode,
+        fiberInput: input.fiberInput,
+        referenceInput: input.referenceInput,
+        outputs: input.outputs,
+        equipmentUuid: input.equipmentUuid,
         note: input.note,
         version: input.version,
         userId,

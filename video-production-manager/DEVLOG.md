@@ -1,5 +1,161 @@
 # Development Log - Video Production Manager
 
+## March 1, 2026 (Session 2) - Crash Recovery: Revert schema drift + commit staged fixes
+
+### Branch: `feature/cameras-ccus`
+
+### What Happened
+Previous session added `sort_order Int @default(0)` to the `ccus` model and attempted `prisma migrate dev --name add_sort_order_to_ccus`. Prisma detected schema drift (indexes/FKs in the DB not recorded in migration history) and prompted to **reset the entire public schema** (destroy all data). Session was killed before confirming.
+
+### Recovery Actions
+1. **Reverted** `sort_order` from `schema.prisma` — schema now matches DB again
+2. **Committed** the CCU/Camera bug fixes that were ready but unstaged at crash time:
+   - `CCUs.tsx`: removed faulty store-sync `useEffect`, added version-conflict error handling, added optimistic state update after successful edit
+   - `Cameras.tsx`: fixed stale ID bug in duplicate flow (include new camera's ID in the existing-ID set before generating the duplicate ID)
+3. **Documented** schema drift issue in `TODO_CAMERAS_CCUS.md` with resolution steps
+
+### Known Issue: Schema Drift
+The `ccus` table is missing `sort_order`. Before adding it:
+- Investigate drift with `prisma migrate status`
+- Get explicit user approval before any `migrate dev` or `db push`
+- See `TODO_CAMERAS_CCUS.md` → "Schema Drift Issue" section
+
+---
+
+## March 1, 2026 - Cameras & CCUs Feature Branch (Phases 1–8 + Bug Fixes)
+
+### Branch: `feature/cameras-ccus`
+### Commits: `10e92ac`, `f181573`, `582719b`
+
+### Overview
+Implemented full Cameras and CCUs CRUD pages with API integration, WebSocket sync, and form overhauls. Fixed two recurring systemic bugs (documented in PROJECT_RULES.md Rules #1 and #10).
+
+---
+
+### Implementation Phases
+
+**Phase 1 — Fix CCU API Call Signatures**
+- `useCCUsAPI.ts` was calling hooks with wrong argument counts (positional mismatch)
+- Fixed all create/update/delete hook call sites
+
+**Phase 2 — Expand `CreateCCUInput` Type**
+- `CreateCCUInput` was minimal; added all DB fields: `id`, `manufacturer`, `model`, `formatMode`, `fiberInput`, `referenceInput`, `outputs`, `equipmentUuid`
+- Corresponding fields added to create/update requestData
+
+**Phase 3 — Fetch on Mount (Both Pages)**
+- `CCUs.tsx` and `Cameras.tsx` were showing empty state on load
+- Added `useEffect` fetch calls to `useCCUsAPI.fetchCCUs()` and `useCamerasAPI.fetchCameras()` on mount
+
+**Phase 4 — Remove Double State Updates (Cameras)**
+- `Cameras.tsx` was calling both the API hook AND a Zustand store update
+- Removed store calls; WebSocket broadcast is the single source of truth for state
+
+**Phase 5 — `equipmentUuid` Tracking in Camera Form**
+- Camera form model selection now resolves and stores `equipmentUuid` from selected Equipment record
+- `Camera` interface in `types/index.ts` updated with `equipmentUuid?: string`
+
+**Phase 6 — CCU Form Overhaul**
+- Added `CCUFormFields` local interface to CCUs.tsx
+- Equipment model select resolves `equipmentUuid` on change
+- Added `formatMode` selector (HD/4K/Other) and `notes` textarea to modal form
+
+**Phase 7 — CCU FK Resolution + Camera Count Badges**
+- `cameras.ts` POST/PUT: Lookup `ccu_uuid` from user-provided `ccu_id` via DB query (cameras reference CCUs by ID in the form but routes need UUID)
+- CCUs page fetches cameras on mount and shows count badge on each CCU card
+- `Cameras.tsx` uses `localCCUs` state from API (not Zustand store) for CCU dropdown
+
+**Phase 8 — WebSocket Completeness for CCUs DELETE**
+- `ccus.ts` DELETE route was missing `broadcastEntity('entity:deleted', ...)` — deleted CCUs weren't syncing across tabs
+- Removed redundant `deleteCCU(id)` Zustand store call from `Cameras.tsx`
+
+---
+
+### Bug Fixes (Post-Phase Deployment)
+
+#### Bug 1: 500 Error on CCU Create/Duplicate
+
+**Symptom:** `POST /api/ccus` → 500 Internal Server Error, `Failed to create CCU`
+
+**Root Cause:** `ccus.ts` POST handler passed `ccuData` (camelCase, e.g. `formatMode`, `equipmentUuid`) directly into `prisma.ccus.create({ data: ccuData })`. Prisma only accepts snake_case field names (e.g. `format_mode`, `equipment_uuid`).
+
+**Fix:** Added `const snakeCaseData = toSnakeCase(ccuData)` before Prisma call. Added null-coalescing loop to convert empty strings to `null`.
+
+**Why It Happened:** Rule #1 (TRANSFORMS ARE TRUTH) existed but didn't explicitly mandate that **route handlers** call `toSnakeCase` on input before Prisma. `cameras.ts` was the correct reference implementation but new routes don't inherently follow it.
+
+**Rule Updated:** PROJECT_RULES.md Rule #1 now has explicit bullet: "⛔ API ROUTE HANDLERS: Every POST/PUT handler MUST call `toSnakeCase(inputData)` BEFORE Prisma."
+
+---
+
+#### Bug 2: Edit/Delete Fails for CCUs (404/Not Found)
+
+**Symptom:** `handleEdit` and `handleDelete` on CCUs page silently failed or returned 404.
+
+**Root Cause:** `CCUs.tsx` called `updateCCU(editingCCU.id, ...)` passing the display ID (e.g. `"CCU 1"`). The API route does `prisma.ccus.findUnique({ where: { uuid: ... } })` — it looks up by UUID, not by display ID. Passing the display string never matches.
+
+**Background:** A "large-scale UUID changeover" was done in late February 2026, establishing that all entities have `uuid` (immutable DB primary key) AND `id` (user-editable display label). API routes use `/:uuid`. This pattern was implemented in routes but **not documented** in PROJECT_RULES.md, so it wasn't followed when new page components were written.
+
+**Fix:** Changed all `update*(entity.id, ...)` and `delete*(entity.id)` calls in `CCUs.tsx` and `Cameras.tsx` to use `(entity as any).uuid`.
+
+**Why It Happened:** Rule #10 (UUID AS PRIMARY KEY, ID AS DISPLAY) covered WebSocket and FK usage, but omitted the explicit mandate for page components calling API hooks.
+
+**Rule Updated:** PROJECT_RULES.md Rule #10 now has explicit bullet: "⛔ PAGE COMPONENTS: When calling update*()/delete*() API hooks, ALWAYS pass `entity.uuid` (NOT `entity.id`)."
+
+---
+
+### Architectural Notes
+
+**Dual-Key Entity System (Established Feb 22, 2026):**
+- Every entity has `uuid` (DB `@id`, auto-generated, immutable) and `id` (display label, user-editable)
+- DB routes: `PUT /api/entities/:uuid`, `DELETE /api/entities/:uuid`
+- Frontend: `(entity as any).uuid` required in update/delete hook calls
+- WebSocket broadcasts use `uuid` as `entityId` (immune to `.id` renames)
+
+**toSnakeCase Route Handler Contract (Established March 1, 2026):**
+- All API POST/PUT handlers must call `toSnakeCase(inputData)` before any `prisma.*.create/update`
+- Reference implementation: `api/src/routes/cameras.ts` POST handler
+- Failure mode: 500 "Invalid invocation" — Prisma rejects camelCase field names
+
+---
+
+### Fix equipmentUuid FK (spec.id → spec.uuid) — ✅ COMPLETE
+**Cause:** Both `CCUs.tsx` `handleModelChange` and `Cameras.tsx` model select were setting `equipmentUuid: spec?.id` (the user-editable display ID) instead of `spec?.uuid` (the actual FK primary key). Prisma's FK constraint on `equipment_uuid` references `equipment_specs.uuid`, so passing a display ID caused a FK constraint violation → 500 on every create/save when a model was selected from the dropdown.  
+**Files:** `src/pages/CCUs.tsx` line 186, `src/pages/Cameras.tsx` line 569  
+**Fix:** `spec?.id` → `spec?.uuid` in both locations.
+
+---
+
+### ✅ Audit & Fix Sends + Signal Flow Routes/Pages — COMPLETE
+
+**Scope:** sends, records, streams, led-screens, projection-screens, routers, vision-switchers, cam-switchers, cable-snakes — routes + hooks + pages
+
+**All Fixed:**
+
+**Routes - POST `productionId` → `production_id` (5 routes):**
+- vision-switchers.ts, streams.ts, records.ts, led-screens.ts, projection-screens.ts ✅
+
+**Routes - POST `validateProductionExists` guard (8 routes):**
+- routers, vision-switchers, cam-switchers, cable-snakes, streams, records, led-screens, projection-screens ✅
+
+**Routes - PUT `toSnakeCase(updates)` + `updated_at: new Date()` + `toCamelCase` response/WS (6 routes):**
+- routers, vision-switchers, streams, records, led-screens, projection-screens ✅
+
+**Routes - sends.ts PUT double-response dead code removed:** ✅
+
+**Routes - cam-switchers.ts, cable-snakes.ts PUT `updated_at: new Date()` added:** ✅
+
+**Hook interfaces - `uuid: string` added to Router, CableSnake, Stream:** ✅
+
+**Pages - Routers.tsx UUID fix + WebSocket subscription:** ✅
+- `editingId` → `editingUuid`, delete/update pass `.uuid` not `.id`, `key={router.uuid}`
+
+**Pages - Snakes.tsx full API wiring:** ✅
+- Replaced local-only state with `useCableSnakeAPI` + `useProductionEvents`
+
+**Pages - Streams.tsx old-store source replaced:** ✅
+- Replaced `oldStore.sends.filter(type=STREAM)` with `streamsAPI.fetchStreams(productionId)` + `useProductionEvents`
+
+---
+
 ## February 27, 2026 - Media Servers: Drag-to-Reorder + No-Optimistic-Update Architecture
 
 ### Feature Overview

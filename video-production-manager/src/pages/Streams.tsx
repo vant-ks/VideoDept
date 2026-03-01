@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
-import { useStreamAPI } from '@/hooks/useStreamAPI';
+import { useStreamAPI, type Stream } from '@/hooks/useStreamAPI';
+import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { Radio, Plus } from 'lucide-react';
-import type { Send } from '@/types';
 
 export default function Streams() {
   const oldStore = useProductionStore();
@@ -12,22 +12,53 @@ export default function Streams() {
   const productionId = activeProject?.production?.id || oldStore.production?.id;
   const streamsAPI = useStreamAPI();
   
-  const sends = useProductionStore(state => state.sends);
-  const [streams, setStreams] = useState<Send[]>(sends.filter(s => s.type === 'STREAM'));
+  const [streams, setStreams] = useState<Stream[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '' });
 
   useEffect(() => {
-    setStreams(sends.filter(s => s.type === 'STREAM'));
-  }, [sends]);
+    if (productionId && oldStore.isConnected) {
+      streamsAPI.fetchStreams(productionId)
+        .then(setStreams)
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
+
+  // Real-time WebSocket updates
+  useProductionEvents({
+    productionId,
+    onEntityCreated: useCallback((event) => {
+      if (event.entityType === 'stream') {
+        setStreams(prev => {
+          if (prev.some(s => s.uuid === event.entity.uuid)) return prev;
+          return [...prev, event.entity];
+        });
+      }
+    }, []),
+    onEntityUpdated: useCallback((event) => {
+      if (event.entityType === 'stream') {
+        setStreams(prev => prev.map(s => s.uuid === event.entity.uuid ? event.entity : s));
+      }
+    }, []),
+    onEntityDeleted: useCallback((event) => {
+      if (event.entityType === 'stream') {
+        setStreams(prev => prev.filter(s => s.uuid !== event.entityId));
+      }
+    }, [])
+  });
 
   const handleSubmit = async () => {
     if (!formData.name || !productionId) return;
     
     try {
-      await streamsAPI.createStream({
+      const newStream = await streamsAPI.createStream({
         productionId,
         name: formData.name
+      });
+      // WebSocket will sync; optimistically add as fallback
+      setStreams(prev => {
+        if (prev.some(s => s.uuid === newStream.uuid)) return prev;
+        return [...prev, newStream];
       });
       setIsModalOpen(false);
       setFormData({ name: '' });
@@ -62,43 +93,18 @@ export default function Streams() {
       ) : (
         <div className="grid gap-4">
           {streams.map((stream) => (
-            <Card key={stream.id} className="p-6">
+            <Card key={stream.uuid} className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
+                    <Radio className="w-6 h-6 text-av-accent" />
                     <h3 className="text-lg font-semibold text-av-text">{stream.name}</h3>
                     <Badge variant="default">STREAM</Badge>
-                    <Badge>{stream.output}</Badge>
                   </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-av-text-muted">ID:</span>
-                      <span className="text-av-text ml-2">{stream.id}</span>
-                    </div>
-                    {stream.hRes && stream.vRes && (
-                      <div>
-                        <span className="text-av-text-muted">Resolution:</span>
-                        <span className="text-av-text ml-2">{stream.hRes}x{stream.vRes}</span>
-                      </div>
-                    )}
-                    <div>
-                      <span className="text-av-text-muted">Frame Rate:</span>
-                      <span className="text-av-text ml-2">{stream.rate}</span>
-                    </div>
-                    {stream.secondaryDevice && (
-                      <div>
-                        <span className="text-av-text-muted">Device:</span>
-                        <span className="text-av-text ml-2">{stream.secondaryDevice}</span>
-                      </div>
-                    )}
+                  <div className="text-sm">
+                    <span className="text-av-text-muted">ID:</span>
+                    <span className="text-av-text ml-2">{stream.id}</span>
                   </div>
-                  
-                  {stream.note && (
-                    <p className="text-sm text-av-text-muted mt-2">
-                      <span className="font-medium">Note:</span> {stream.note}
-                    </p>
-                  )}
                 </div>
                 
                 <div className="flex gap-2">

@@ -128,10 +128,11 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     const changes = calculateDiff(currentSend, updateData);
 
     // Update send with version increment and metadata
+    const snakeCaseUpdateData = toSnakeCase(updateData);
     const send = await prisma.sends.update({
       where: { uuid: req.params.uuid },
       data: {
-        ...updateData,
+        ...snakeCaseUpdateData,
         updated_at: new Date(),
         ...prepareVersionedUpdate(lastModifiedBy || userId)
       }
@@ -159,16 +160,7 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       data: toCamelCase(send)
     });
 
-    res.json(toCamelCase(send));    // Broadcast event to production room
-    io.to(`production:${currentSend.production_id}`).emit('entity:updated', {
-      entityType: 'send',
-      entity: send,
-      changes,
-      userId,
-      userName
-    });
-
-    res.json(send);
+    res.json(toCamelCase(send));
   } catch (error: any) {
     console.error('Failed to update send:', error);
     res.status(500).json({ error: 'Failed to update send' });

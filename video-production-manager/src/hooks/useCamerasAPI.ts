@@ -20,6 +20,7 @@ interface CreateCameraInput {
   hasJib?: boolean;
   ccuId?: string;
   smpteCableLength?: number;
+  equipmentUuid?: string;
   note?: string;
 }
 
@@ -80,6 +81,7 @@ export function useCamerasAPI() {
         hasJib: input.hasJib,
         ccuId: input.ccuId,
         smpteCableLength: input.smpteCableLength,
+        equipmentUuid: input.equipmentUuid,
         note: input.note,
         userId,
         userName,
@@ -118,6 +120,7 @@ export function useCamerasAPI() {
         hasJib: input.hasJib,
         ccuId: input.ccuId,
         smpteCableLength: input.smpteCableLength,
+        equipmentUuid: input.equipmentUuid,
         note: input.note,
         version: input.version,
         userId,

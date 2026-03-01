@@ -69,9 +69,19 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
     
+    // Convert camelCase to snake_case for database (same pattern as cameras route)
+    const snakeCaseData = toSnakeCase(ccuData);
+
+    // Convert empty strings to null for optional fields
+    Object.keys(snakeCaseData).forEach(key => {
+      if (snakeCaseData[key] === '') {
+        snakeCaseData[key] = null;
+      }
+    });
+
     const ccu = await prisma.ccus.create({
       data: {
-        ...ccuData,
+        ...snakeCaseData,
         production_id: productionId,
         last_modified_by: lastModifiedBy || userId || null,
         updated_at: new Date(),
@@ -188,11 +198,14 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     // Calculate changes
     const changes = calculateDiff(currentCCU, finalUpdateData);
 
+    // Convert to snake_case for Prisma (front-end sends camelCase)
+    const finalSnakeCaseData = toSnakeCase(finalUpdateData);
+
     // Update CCU with version increment and metadata
     const ccu = await prisma.ccus.update({
       where: { uuid: req.params.uuid },
       data: {
-        ...finalUpdateData,
+        ...finalSnakeCaseData,
         field_versions: finalFieldVersions,
         updated_at: new Date(),
         ...prepareVersionedUpdate(lastModifiedBy || userId)
@@ -246,6 +259,14 @@ router.delete('/:uuid', async (req: Request, res: Response) => {
     await prisma.ccus.update({
       where: { uuid: req.params.uuid },
       data: { is_deleted: true, version: { increment: 1 } }
+    });
+
+    // Broadcast deletion via WebSocket before event recording
+    io.to(`production:${currentCCU.production_id}`).emit('entity:deleted', {
+      entityType: 'ccu',
+      entityId: currentCCU.id,
+      userId: userId || 'system',
+      userName: userName || 'System'
     });
 
     // Record DELETE event

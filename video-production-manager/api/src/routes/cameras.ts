@@ -78,6 +78,16 @@ router.post('/', async (req: Request, res: Response) => {
         snakeCaseData[key] = null;
       }
     });
+
+    // If a CCU is assigned (by id), look up its uuid so we can persist both FK columns
+    if (snakeCaseData.ccu_id) {
+      const linkedCCU = await prisma.ccus.findFirst({
+        where: { id: snakeCaseData.ccu_id, is_deleted: false }
+      });
+      if (linkedCCU) {
+        snakeCaseData.ccu_uuid = linkedCCU.uuid;
+      }
+    }
     
     const camera = await prisma.cameras.create({
       data: {
@@ -200,6 +210,19 @@ router.put('/:uuid', async (req: Request, res: Response) => {
 
     // Convert final update data to snake_case for database
     const finalSnakeCaseData = toSnakeCase(finalUpdateData);
+
+    // If CCU assignment changed, resolve the new ccu_uuid
+    if (finalSnakeCaseData.ccu_id) {
+      const linkedCCU = await prisma.ccus.findFirst({
+        where: { id: finalSnakeCaseData.ccu_id, is_deleted: false }
+      });
+      if (linkedCCU) {
+        finalSnakeCaseData.ccu_uuid = linkedCCU.uuid;
+      }
+    } else if ('ccu_id' in finalSnakeCaseData && !finalSnakeCaseData.ccu_id) {
+      // Explicitly clearing CCU assignment
+      finalSnakeCaseData.ccu_uuid = null;
+    }
 
     // Update camera with version increment and metadata
     const camera = await prisma.cameras.update({

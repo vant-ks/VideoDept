@@ -431,15 +431,15 @@ export const Sources: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {filteredSources.map((source) => {
-            // Check if this ID is duplicated
-            const isDuplicateId = filteredSources.filter(s => s.id === source.id).length > 1;
+            // Check if this ID is duplicated across ALL sources (not just filtered view)
+            const isDuplicateId = sources.filter(s => s.id === source.id && s.uuid !== source.uuid).length > 0;
             
             return (
-            <Card key={source.uuid} className="p-6 hover:border-av-accent/30 transition-colors">
+            <Card key={source.uuid} className={`p-6 hover:border-av-accent/30 transition-colors ${isDuplicateId ? 'border-red-500/50 bg-red-900/5' : ''}`}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
-                    <h3 className="text-lg font-semibold text-av-text">{source.name}</h3>
+                    <h3 className={`text-lg font-semibold ${isDuplicateId ? 'text-red-500' : 'text-av-text'}`}>{source.name}</h3>
                     <Badge>{source.type}</Badge>
                     {source.outputs.map((output, idx) => (
                       <Badge key={output.id}>{output.connector}{source.outputs.length > 1 ? ` ${idx + 1}` : ''}</Badge>

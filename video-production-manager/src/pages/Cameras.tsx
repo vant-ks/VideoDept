@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Video, Link as LinkIcon, Copy } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Plus, Edit2, Trash2, Video, Link as LinkIcon, Copy, GripVertical } from 'lucide-react';
 import { Card, Badge, EmptyState } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useCamerasAPI } from '@/hooks/useCamerasAPI';
+import { useCCUsAPI } from '@/hooks/useCCUsAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
+import { apiClient } from '@/services';
+import { getCurrentUserId } from '@/utils/userUtils';
 import type { Camera } from '@/types';
 
 export default function Cameras() {
@@ -14,6 +17,7 @@ export default function Cameras() {
   const oldStore = useProductionStore();
   const equipmentLib = useEquipmentLibrary();
   const camerasAPI = useCamerasAPI();
+  const ccusAPI = useCCUsAPI();
   
   // Extract store values FIRST (before using them)
   const cameras = activeProject?.cameras || oldStore.cameras;
@@ -27,12 +31,18 @@ export default function Cameras() {
   
   // Local state for cameras
   const [localCameras, setLocalCameras] = useState<Camera[]>(cameras);
+  // Local CCU list for the form dropdown — fetched from API on mount
+  const [localCCUs, setLocalCCUs] = useState<any[]>(ccus);
+
+  // Drag-to-reorder state
+  const isDragInProgress = useRef(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   
-  // Sync local state when store cameras change (on initial load)
-  useEffect(() => {
-    setLocalCameras(cameras);
-  }, [cameras]);
-  
+  // NOTE: Do NOT sync localCameras from store on every change — the store
+  // sync overwrites WebSocket and optimistic updates. API fetch on mount is
+  // the single source of truth for localCameras.
+
   // Get production ID for WebSocket subscription
   const productionId = activeProject?.production?.id || oldStore.production?.id;
   
@@ -41,10 +51,11 @@ export default function Cameras() {
     productionId,
     onEntityCreated: useCallback((event) => {
       if (event.entityType === 'camera') {
+        if (isDragInProgress.current) return;
         console.log('🔔 Camera created by', event.userName, '| Camera:', event.entity.id);
         setLocalCameras(prev => {
-          // Avoid duplicates using ID
-          if (prev.some(c => c.id === event.entity.id)) {
+          // Avoid duplicates using uuid (immutable PK)
+          if (prev.some(c => (c as any).uuid === event.entity.uuid)) {
             console.log('⚠️ Duplicate detected - skipping add');
             return prev;
           }
@@ -52,16 +63,17 @@ export default function Cameras() {
           return [...prev, event.entity];
         });
         // Also update project store
-        if (activeProject && !cameras.some(c => c.id === event.entity.id)) {
+        if (activeProject && !cameras.some(c => (c as any).uuid === event.entity.uuid)) {
           addCamera(event.entity);
         }
       }
     }, [activeProject, cameras, addCamera]),
     onEntityUpdated: useCallback((event) => {
       if (event.entityType === 'camera') {
+        if (isDragInProgress.current) return;
         console.log('🔔 Camera updated by', event.userName);
         setLocalCameras(prev => prev.map(c => 
-          c.id === event.entity.id ? event.entity : c
+          (c as any).uuid === event.entity.uuid ? event.entity : c
         ));
         // Also update project store
         if (activeProject) {
@@ -71,12 +83,15 @@ export default function Cameras() {
     }, [activeProject, updateCamera]),
     onEntityDeleted: useCallback((event) => {
       if (event.entityType === 'camera') {
-        console.log('🔔 Camera deleted by', event.userName);
-        setLocalCameras(prev => prev.filter(c => c.id !== event.entityId));
-        // Also update project store
-        if (activeProject) {
-          deleteCamera(event.entityId);
-        }
+        console.log('🔔 Camera deleted by', event.userName, '| uuid:', event.entityId);
+        // entityId from server is the UUID — filter by uuid not display id
+        setLocalCameras(prev => {
+          const deletedCamera = prev.find(c => (c as any).uuid === event.entityId);
+          if (deletedCamera && activeProject) {
+            deleteCamera(deletedCamera.id); // store uses display id
+          }
+          return prev.filter(c => (c as any).uuid !== event.entityId);
+        });
       }
     }, [activeProject, deleteCamera])
   });
@@ -87,7 +102,37 @@ export default function Cameras() {
       equipmentLib.fetchFromAPI();
     }
   }, []);
+
+  // Fetch cameras from API on mount
+  useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      camerasAPI.fetchCameras(productionId)
+        .then(data => setLocalCameras(data))
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
+
+  // Fetch CCUs from API on mount so dropdown is always fresh from DB
+  useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      ccusAPI.fetchCCUs(productionId)
+        .then(data => setLocalCCUs(data))
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
   
+  // Cameras sorted by CAM number for display (non-CAM IDs sort after)
+  const sortedCameras = useMemo(() => {
+    return [...localCameras].sort((a, b) => {
+      const aMatch = a.id.match(/^CAM\s*(\d+)$/i);
+      const bMatch = b.id.match(/^CAM\s*(\d+)$/i);
+      const aNum = aMatch ? parseInt(aMatch[1], 10) : Infinity;
+      const bNum = bMatch ? parseInt(bMatch[1], 10) : Infinity;
+      if (aNum !== bNum) return aNum - bNum;
+      return a.id.localeCompare(b.id);
+    });
+  }, [localCameras]);
+
   // Get camera equipment specs - recompute when equipmentSpecs changes
   const cameraSpecs = useMemo(() => 
     equipmentSpecs.filter(spec => spec.category === 'CAMERA'),
@@ -160,7 +205,25 @@ export default function Cameras() {
   };
 
   const handleEdit = (camera: Camera) => {
-    setFormData(camera);
+    let editFormData: Partial<Camera> = { ...camera };
+
+    // The DB stores model as a combined "Manufacturer Model" string (no separate manufacturer column).
+    // Try to parse it back into separate manufacturer + model fields by matching against equipment specs.
+    if (!camera.manufacturer && camera.model && cameraSpecs.length > 0) {
+      const matchingSpec = cameraSpecs.find(spec =>
+        camera.model === `${spec.manufacturer} ${spec.model}`
+      );
+      if (matchingSpec) {
+        editFormData = {
+          ...editFormData,
+          manufacturer: matchingSpec.manufacturer,
+          model: matchingSpec.model,
+          equipmentUuid: (matchingSpec as any).uuid,
+        };
+      }
+    }
+
+    setFormData(editFormData);
     setEditingCamera(camera);
     setErrors([]);
     setIsModalOpen(true);
@@ -185,17 +248,25 @@ export default function Cameras() {
     // Inherit format mode from CCU if connected
     let finalFormData = { ...formData };
     if (formData.ccuId) {
-      const connectedCCU = ccus.find(c => c.id === formData.ccuId);
-      if (connectedCCU && connectedCCU.formatMode) {
-        finalFormData.formatMode = connectedCCU.formatMode;
+      const connectedCCU = localCCUs.find((c: any) => c.id === formData.ccuId);
+      if (connectedCCU && (connectedCCU as any).formatMode) {
+        finalFormData.formatMode = (connectedCCU as any).formatMode;
       }
     }
 
     try {
+      let newCamera: Camera | undefined = undefined;
+
       if (editingCamera) {
-        // Update existing camera via API
-        const result = await camerasAPI.updateCamera(editingCamera.id, {
+        // Combine manufacturer and model into single model field for database (same as create path)
+        const combinedModel = finalFormData.manufacturer && finalFormData.model
+          ? `${finalFormData.manufacturer} ${finalFormData.model}`
+          : finalFormData.model || '';
+
+        // Update existing camera via API — pass uuid (PK) not display id
+        const result = await camerasAPI.updateCamera((editingCamera as any).uuid || editingCamera.id, {
           ...finalFormData,
+          model: combinedModel,
           productionId,
           version: editingCamera.version,
         });
@@ -205,9 +276,14 @@ export default function Cameras() {
           alert(`Version conflict: ${result.message}\nPlease refresh and try again.`);
           return;
         }
-        
-        // Success - update local state
-        updateCamera(result.id, result);
+        // Optimistic local state update (WebSocket will also fire and dedup)
+        setLocalCameras(prev => prev.map(c =>
+          (c as any).uuid === (editingCamera as any).uuid ? result : c
+        ));
+        // Also update project store
+        if (activeProject) {
+          updateCamera(result.id, result);
+        }
       } else {
         // Create new camera via API
         console.log('💾 Creating new camera with id:', finalFormData.id);
@@ -217,7 +293,7 @@ export default function Cameras() {
           ? `${finalFormData.manufacturer} ${finalFormData.model}`
           : finalFormData.model || '';
         
-        const newCamera = await camerasAPI.createCamera({
+        const newCamera_result = await camerasAPI.createCamera({
           id: finalFormData.id as string,
           name: finalFormData.name as string,
           model: combinedModel,
@@ -230,19 +306,29 @@ export default function Cameras() {
           hasJib: finalFormData.hasJib,
           ccuId: finalFormData.ccuId,
           smpteCableLength: finalFormData.smpteCableLength,
+          equipmentUuid: finalFormData.equipmentUuid,
           note: finalFormData.note,
           productionId,
         });
+        newCamera = newCamera_result;
         console.log('✅ Camera created successfully:', { id: newCamera.id });
         
-        // Optimistic update - add immediately so UI is responsive
-        // WebSocket handler will detect duplicate and skip if already present
-        addCamera(newCamera);
+        // Optimistic local state update
+        // WebSocket handler will dedup by uuid if it fires before this resolves
+        setLocalCameras(prev => {
+          if (newCamera && prev.some(c => (c as any).uuid === (newCamera as any).uuid)) return prev;
+          return newCamera ? [...prev, newCamera] : prev;
+        });
       }
       
       if (action === 'duplicate') {
         // Generate new ID for duplicate
-        const existingIds = localCameras.map(c => c.id);
+        // newCamera.id was just added to state (when creating); when editing, current id is in formData
+        // localCameras state hasn't updated yet (React batches), so include the new camera id explicitly
+        const justCreatedId = newCamera?.id;
+        const existingIds = justCreatedId
+          ? [...localCameras.map(c => c.id), justCreatedId]
+          : localCameras.map(c => c.id);
         const baseId = formData.id?.replace(/\s*\d+$/, '') || 'CAM';
         let counter = 1;
         let newId = `${baseId} ${counter}`;
@@ -288,7 +374,8 @@ export default function Cameras() {
     if (confirm('Are you sure you want to delete this camera?')) {
       try {
         await camerasAPI.deleteCamera(id);
-        deleteCamera(id);
+        // Optimistic: remove immediately (WS entity:deleted will also fire)
+        setLocalCameras(prev => prev.filter(c => (c as any).uuid !== id));
       } catch (error: any) {
         console.error('❌ Failed to delete camera:', error);
         alert(error.message || 'Failed to delete camera. Please try again.');
@@ -305,6 +392,78 @@ export default function Cameras() {
       .filter(n => !isNaN(n));
     const maxNumber = camNumbers.length > 0 ? Math.max(...camNumbers) : 0;
     return `CAM ${maxNumber + 1}`;
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+    isDragInProgress.current = true;
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = async () => {
+    const draggedIdx = draggedIndex;
+    const dragOverIdx = dragOverIndex;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    if (draggedIdx === null || dragOverIdx === null || draggedIdx === dragOverIdx) {
+      isDragInProgress.current = false;
+      return;
+    }
+
+    // Snapshot current sorted order before changes
+    const snapshot = sortedCameras.map(cam => ({
+      uuid: (cam as any).uuid as string,
+      oldId: cam.id,
+      version: ((cam as any).version ?? 1) as number,
+    }));
+
+    // Compute new order after drag
+    const reordered = [...snapshot];
+    const [dragged] = reordered.splice(draggedIdx, 1);
+    reordered.splice(dragOverIdx, 0, dragged);
+
+    // Renumber all as CAM 1, CAM 2, ... — only send updates for cameras that changed
+    const updates = reordered
+      .map((cam, i) => ({ ...cam, newId: `CAM ${i + 1}` }))
+      .filter(u => u.oldId !== u.newId);
+
+    if (updates.length === 0) {
+      isDragInProgress.current = false;
+      return;
+    }
+
+    const { userId, userName } = getCurrentUserId();
+    try {
+      await Promise.all(
+        updates.map(u =>
+          apiClient.put(`/cameras/${u.uuid}`, {
+            id: u.newId,
+            version: u.version,
+            userId,
+            userName,
+          })
+        )
+      );
+      // Refetch fresh state from DB as single source of truth
+      if (productionId) {
+        const fresh = await camerasAPI.fetchCameras(productionId);
+        setLocalCameras(fresh);
+      }
+    } catch (err) {
+      console.error('❌ Drag renumber failed:', err);
+      alert('Failed to renumber cameras. Please refresh the page.');
+    } finally {
+      isDragInProgress.current = false;
+    }
   };
 
   const calculateZoom = (distance: number): number => {
@@ -331,8 +490,8 @@ export default function Cameras() {
 
   const getCCUName = (ccuId?: string) => {
     if (!ccuId) return null;
-    const ccu = ccus.find(c => c.id === ccuId);
-    return ccu?.name;
+    const ccu = localCCUs.find((c: any) => c.id === ccuId);
+    return (ccu as any)?.name;
   };
 
   return (
@@ -359,15 +518,27 @@ export default function Cameras() {
         />
       ) : (
         <div className="space-y-3">
-          {localCameras.map((camera) => {
+          {sortedCameras.map((camera, index) => {
             const supportBadges = getSupportBadges(camera);
             const ccuName = getCCUName(camera.ccuId);
             
             return (
-              <Card key={camera.id} className="p-6 hover:border-av-accent/30 transition-colors">
+              <Card
+                key={(camera as any).uuid || camera.id}
+                className={`p-6 transition-colors select-none
+                  ${dragOverIndex === index ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
+                  ${draggedIndex === index ? 'opacity-40' : ''}
+                `}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                onDragLeave={handleDragLeave}
+              >
                 <div className="grid grid-cols-3 gap-6 items-center">
-                  {/* Left 1/3: ID and Name */}
-                  <div className="flex items-center gap-12">
+                  {/* Left 1/3: Drag handle, ID and Name */}
+                  <div className="flex items-center gap-3">
+                    <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
                     <span className="text-sm text-av-text">{camera.id}</span>
                     <h3 className="text-lg font-semibold text-av-text">{camera.name}</h3>
                   </div>
@@ -430,7 +601,7 @@ export default function Cameras() {
                         <Copy className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(camera.id)}
+                        onClick={() => handleDelete((camera as any).uuid || camera.id)}
                         className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
                         title="Delete"
                       >
@@ -521,7 +692,7 @@ export default function Cameras() {
                       value={formData.manufacturer || ''}
                       onChange={(e) => {
                         const manufacturer = e.target.value;
-                        setFormData({ ...formData, manufacturer, model: '' });
+                        setFormData({ ...formData, manufacturer, model: '', equipmentUuid: undefined });
                       }}
                       className="input-field w-full"
                     >
@@ -537,7 +708,13 @@ export default function Cameras() {
                     </label>
                     <select
                       value={formData.model || ''}
-                      onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                      onChange={(e) => {
+                        const selectedModel = e.target.value;
+                        const spec = cameraSpecs.find(
+                          s => s.manufacturer === formData.manufacturer && s.model === selectedModel
+                        );
+                        setFormData({ ...formData, model: selectedModel, equipmentUuid: spec?.uuid });
+                      }}
                       className="input-field w-full"
                       disabled={!formData.manufacturer}
                     >
@@ -567,23 +744,23 @@ export default function Cameras() {
                       value={formData.ccuId || ''}
                       onChange={(e) => {
                         const selectedCCUId = e.target.value;
-                        const selectedCCU = ccus.find(c => c.id === selectedCCUId);
+                        const selectedCCU = localCCUs.find((c: any) => c.id === selectedCCUId);
                         setFormData({
                           ...formData,
                           ccuId: selectedCCUId,
-                          formatMode: selectedCCU?.formatMode || formData.formatMode,
+                          formatMode: (selectedCCU as any)?.formatMode || formData.formatMode,
                         });
                       }}
                       className="input-field w-full"
                     >
                       <option value="">No CCU connection</option>
-                      {ccus.map(ccu => (
+                      {localCCUs.map((ccu: any) => (
                         <option key={ccu.id} value={ccu.id}>
                           {ccu.name} ({ccu.id})
                         </option>
                       ))}
                     </select>
-                    {ccus.length === 0 && (
+                    {localCCUs.length === 0 && (
                       <p className="text-xs text-av-text-muted mt-1">
                         No CCUs available. Add CCUs first.
                       </p>

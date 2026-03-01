@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { apiClient } from '@/services/apiClient';
 
 export interface Router {
+  uuid: string;
   id: string;
   productionId: string;
   name: string;
