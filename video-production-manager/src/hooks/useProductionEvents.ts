@@ -3,6 +3,9 @@ import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
 
+/** Access the shared WebSocket singleton outside of useProductionEvents */
+export function getSocket(): Socket | null { return socket; }
+
 interface EntityEvent {
   entityType: 'source' | 'send' | 'camera' | 'ccu' | 'checklist-item' | 'connection' | 'router' | 'stream' | 'mediaServer';
   entity?: any;

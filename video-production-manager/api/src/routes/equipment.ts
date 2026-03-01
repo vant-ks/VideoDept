@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../server';
+import { io } from '../server';
 import { toSnakeCase } from '../utils/caseConverter';
 import crypto from 'crypto';
 
@@ -96,6 +97,8 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     res.status(201).json(equipment);
+    // Broadcast to all connected clients — equipment is global, not production-scoped
+    io.emit('equipment:updated', { action: 'created', equipment });
   } catch (error: any) {
     console.error('Error creating equipment:', error);
     res.status(500).json({ error: 'Failed to create equipment' });
@@ -244,6 +247,7 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     }
 
     res.json(equipment);
+    io.emit('equipment:updated', { action: 'updated', equipment });
   } catch (error: any) {
     console.error('Error updating equipment:', error);
     res.status(500).json({ error: 'Failed to update equipment' });
@@ -262,6 +266,7 @@ router.delete('/:uuid', async (req: Request, res: Response) => {
     });
 
     res.json({ success: true, message: 'Equipment deleted' });
+    io.emit('equipment:updated', { action: 'deleted', equipmentUuid: req.params.uuid });
   } catch (error: any) {
     console.error('Error deleting equipment:', error);
     res.status(500).json({ error: 'Failed to delete equipment' });

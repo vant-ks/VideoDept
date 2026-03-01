@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit2, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
+import { getSocket } from '@/hooks/useProductionEvents';
+import { io as socketIO } from 'socket.io-client';
 import { apiClient } from '@/services';
 import EquipmentFormModal from '@/components/EquipmentFormModal';
 import type { EquipmentSpec, IOPort, EquipmentCard } from '@/types';
@@ -32,6 +34,33 @@ export default function Equipment() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Live-sync: re-fetch from API when another client adds/updates/deletes equipment
+  useEffect(() => {
+    const handleEquipmentUpdated = () => {
+      equipmentLib.fetchFromAPI();
+    };
+
+    // Prefer the shared singleton socket (already connected); fall back to own connection
+    const sharedSocket = getSocket();
+    let ownSocket: ReturnType<typeof socketIO> | null = null;
+
+    if (sharedSocket) {
+      sharedSocket.on('equipment:updated', handleEquipmentUpdated);
+    } else {
+      const apiUrl = (localStorage.getItem('api_server_url') || import.meta.env.VITE_API_URL || 'http://localhost:3010').replace(/\/api\/?$/, '');
+      ownSocket = socketIO(apiUrl, { transports: ['websocket', 'polling'] });
+      ownSocket.on('equipment:updated', handleEquipmentUpdated);
+    }
+
+    return () => {
+      sharedSocket?.off('equipment:updated', handleEquipmentUpdated);
+      if (ownSocket) {
+        ownSocket.off('equipment:updated', handleEquipmentUpdated);
+        ownSocket.disconnect();
+      }
+    };
+  }, []);
 
   const filteredSpecs = equipmentSpecs.filter(spec => {
     const matchesCategory = selectedCategory === 'all' || spec.category === selectedCategory;
