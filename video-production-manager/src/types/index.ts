@@ -348,6 +348,7 @@ export interface Camera {
   // CCU connection
   ccuId?: string; // Connected CCU ID
   smpteCableLength?: number; // SMPTE Fiber cable length in feet/meters
+  equipmentUuid?: string; // FK to equipment_specs.uuid
   note?: string;
 }
 

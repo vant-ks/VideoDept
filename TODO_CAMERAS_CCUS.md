@@ -11,28 +11,29 @@ Cameras and CCUs already have API routes and WebSocket broadcasts wired up, but 
 
 ---
 
-## Phase 1 — Fix Broken API Call Signatures (CCUs)
+## Phase 1 — Fix Broken API Call Signatures (CCUs) ✅
 
 The `CCUs.tsx` page is calling `useCCUsAPI` hooks with the **wrong number of arguments**, passing `productionId` as an extra leading arg that doesn't exist in the hook signatures. This silently mis-routes data.
 
-- [ ] **`CCUs.tsx` — Fix `createCCU` call**
-  - Current: `ccusAPI.createCCU(productionId!, ccuData)`
-  - Fix: `ccusAPI.createCCU({ ...ccuData, productionId })`
-- [ ] **`CCUs.tsx` — Fix `updateCCU` call**
-  - Current: `ccusAPI.updateCCU(productionId!, editingCCU.id, formData)`
-  - Fix: `ccusAPI.updateCCU(editingCCU.id, { ...formData, productionId })`
-- [ ] **`CCUs.tsx` — Fix `deleteCCU` call**
-  - Current: `ccusAPI.deleteCCU(productionId!, id)`
-  - Fix: `ccusAPI.deleteCCU(id)`
-- [ ] **Test:** Save a CCU and confirm it persists in DB (not just Zustand)
+- [x] **`CCUs.tsx` — Fix `createCCU` call**
+  - Was: `ccusAPI.createCCU(productionId!, ccuData)`
+  - Fixed: explicit field list with `productionId: productionId!`
+- [x] **`CCUs.tsx` — Fix `updateCCU` call**
+  - Was: `ccusAPI.updateCCU(productionId!, editingCCU.id, formData)`
+  - Fixed: `ccusAPI.updateCCU(editingCCU.id, { ...formData, productionId })`
+- [x] **`CCUs.tsx` — Fix `deleteCCU` call**
+  - Was: `ccusAPI.deleteCCU(productionId!, id)`
+  - Fixed: `ccusAPI.deleteCCU(id)`
+- [x] **Test:** Save a CCU and confirm it persists in DB (not just Zustand)
 
 ---
 
-## Phase 2 — Expand `useCCUsAPI` Input Types
+## Phase 2 — Expand `useCCUsAPI` Input Types ✅
 
 `CreateCCUInput` only has `name` and `note`. The DB `ccus` table has many more fields that the form already collects but can't persist.
 
-- [ ] **`useCCUsAPI.ts` — Expand `CreateCCUInput`** to include:
+- [x] **`useCCUsAPI.ts` — Expand `CreateCCUInput`** to include:
+  - `id?: string`
   - `manufacturer?: string`
   - `model?: string`
   - `formatMode?: string`
@@ -40,62 +41,40 @@ The `CCUs.tsx` page is calling `useCCUsAPI` hooks with the **wrong number of arg
   - `referenceInput?: string`
   - `outputs?: any[]`
   - `equipmentUuid?: string`
-- [ ] **`useCCUsAPI.ts` — Update `createCCU` requestData** to pass all new fields through to the API
-- [ ] **`useCCUsAPI.ts` — Update `updateCCU` requestData** to include all new fields
+- [x] **`useCCUsAPI.ts` — Update `createCCU` requestData** to pass all new fields through to the API
+- [x] **`useCCUsAPI.ts` — Update `updateCCU` requestData** to include all new fields
 
 ---
 
-## Phase 3 — Fetch From API on Mount (Both Pages)
+## Phase 3 — Fetch From API on Mount (Both Pages) ✅
 
 Both Camera and CCU pages currently rely on the Zustand store for initial data. They should load directly from the DB on mount (like the Computers page does with `fetchSources(productionId)`).
 
-- [ ] **`Cameras.tsx` — Add fetch on mount**
-  ```tsx
-  useEffect(() => {
-    if (productionId && oldStore.isConnected) {
-      camerasAPI.fetchCameras(productionId)
-        .then(data => setLocalCameras(data))
-        .catch(console.error);
-    }
-  }, [productionId, oldStore.isConnected]);
-  ```
-- [ ] **`CCUs.tsx` — Add fetch on mount**
-  ```tsx
-  useEffect(() => {
-    if (productionId && oldStore.isConnected) {
-      ccusAPI.fetchCCUs(productionId)
-        .then(data => setLocalCCUs(data))
-        .catch(console.error);
-    }
-  }, [productionId, oldStore.isConnected]);
-  ```
+- [x] **`Cameras.tsx` — Add fetch on mount**
+- [x] **`CCUs.tsx` — Add fetch on mount**
 
 ---
 
-## Phase 4 — Remove Double State Updates (Cameras)
+## Phase 4 — Remove Double State Updates (Cameras) ✅
 
-After saving, `Cameras.tsx` calls both the API AND manually calls `addCamera(newCamera)` / `updateCamera(result.id, result)`. This causes a race condition with the WebSocket event that also updates state. The WebSocket duplicate-detection code catches *some* of this, but it's fragile.
+After saving, `Cameras.tsx` calls both the API AND manually calls `addCamera(newCamera)` / `updateCamera(result.id, result)`. This causes a race condition with the WebSocket event that also updates state.
 
-- [ ] **`Cameras.tsx` — After `createCamera()`: remove `addCamera(newCamera)` call**
-  - Use optimistic local state update (`setLocalCameras(prev => [...prev, newCamera])`) OR let WebSocket handle it exclusively (Computers pattern)
-- [ ] **`Cameras.tsx` — After `updateCamera()`: remove `updateCamera(result.id, result)` call**
-  - Let WebSocket `entity:updated` event handle the state update
-- [ ] **Verify:** WebSocket events update `localCameras` state correctly without duplication
+- [x] **`Cameras.tsx` — After `createCamera()`: replaced `addCamera(newCamera)` with `setLocalCameras(prev => ...)` optimistic update**
+- [x] **`Cameras.tsx` — After `updateCamera()`: removed `updateCamera(result.id, result)` call — WebSocket handles state**
+- [x] **Verify:** WebSocket events update `localCameras` state correctly without duplication
 
 ---
 
-## Phase 5 — Equipment Spec Picker (Camera Form)
+## Phase 5 — Equipment Spec Picker (Camera Form) ✅
 
-The `cameras` table has an `equipment_uuid` FK to `equipment_specs`. The Camera form should let users pick a camera body from the equipment library, auto-populating manufacturer/model.
+The `cameras` table has an `equipment_uuid` FK to `equipment_specs`. The Camera form now captures the equipment spec UUID when a model is selected.
 
-Reference: How `SourceFormModal` selects a computer type from `equipmentSpecs` filtered to `category === 'COMPUTER'`.
-
-- [ ] **`Cameras.tsx` form — Add Equipment Spec dropdown**
-  - Filter `equipmentSpecs` where `category === 'CAMERA'`
-  - On select: auto-fill `manufacturer`, `model` from the spec
-  - Store `equipmentUuid` in formData
-- [ ] **`useCamerasAPI.ts` — Add `equipmentUuid?: string` to `CreateCameraInput`**
-- [ ] **`useCamerasAPI.ts` — Pass `equipment_uuid` through in requestData** (camelCase → snake_case conversion already handles this if named correctly)
+- [x] **`Cameras.tsx` form — When model is selected, store `equipmentUuid` from matching spec (`spec.id`)**
+  - Model select onChange now calls `cameraSpecs.find(s => s.manufacturer === ... && s.model === ...)` and stores `spec.id` as `equipmentUuid`
+  - Manufacturer onChange now clears `equipmentUuid` when manufacturer changes
+- [x] **`useCamerasAPI.ts` — Added `equipmentUuid?: string` to `CreateCameraInput`**
+- [x] **`useCamerasAPI.ts` — Pass `equipmentUuid` through in both `createCamera` and `updateCamera` requestData**
+- [x] **`types/index.ts` — Added `equipmentUuid?: string` to `Camera` interface**
 - [ ] **Test:** Select a camera body from equipment list, save, confirm `equipment_uuid` is in DB
 
 ---

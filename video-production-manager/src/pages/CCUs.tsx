@@ -36,6 +36,15 @@ export default function CCUs() {
       equipmentLib.fetchFromAPI();
     }
   }, []);
+
+  // Fetch CCUs from API on mount
+  useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      ccusAPI.fetchCCUs(productionId)
+        .then(data => setLocalCCUs(data))
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
   
   // Handle real-time WebSocket updates
   useProductionEvents({
@@ -157,17 +166,24 @@ export default function CCUs() {
     try {
       if (editingCCU) {
         // Update existing CCU via API
-        await ccusAPI.updateCCU(productionId!, editingCCU.id, formData);
+        await ccusAPI.updateCCU(editingCCU.id, { ...formData, productionId });
       } else {
         // Auto-generate ID and name
         const newId = generateId();
-        const ccuData = {
-          ...formData,
+        // Create new CCU via API — explicit fields, no spreads to API layer
+        await ccusAPI.createCCU({
           id: newId,
-          name: newId, // Use ID as name (e.g., "CCU 1")
-        } as CCU;
-        // Create new CCU via API
-        await ccusAPI.createCCU(productionId!, ccuData);
+          productionId: productionId!,
+          name: newId,
+          manufacturer: formData.manufacturer,
+          model: formData.model,
+          formatMode: formData.formatMode,
+          fiberInput: (formData as any).fiberInput,
+          referenceInput: (formData as any).referenceInput,
+          outputs: formData.outputs,
+          equipmentUuid: (formData as any).equipmentUuid,
+          note: formData.note,
+        });
       }
       
       if (action === 'duplicate') {
@@ -196,7 +212,7 @@ export default function CCUs() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this CCU?')) {
       try {
-        await ccusAPI.deleteCCU(productionId!, id);
+        await ccusAPI.deleteCCU(id);
       } catch (error) {
         console.error('Failed to delete CCU:', error);
         alert('Failed to delete CCU. Please try again.');

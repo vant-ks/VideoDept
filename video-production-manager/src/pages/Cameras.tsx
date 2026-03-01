@@ -87,6 +87,15 @@ export default function Cameras() {
       equipmentLib.fetchFromAPI();
     }
   }, []);
+
+  // Fetch cameras from API on mount
+  useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      camerasAPI.fetchCameras(productionId)
+        .then(data => setLocalCameras(data))
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
   
   // Get camera equipment specs - recompute when equipmentSpecs changes
   const cameraSpecs = useMemo(() => 
@@ -205,9 +214,7 @@ export default function Cameras() {
           alert(`Version conflict: ${result.message}\nPlease refresh and try again.`);
           return;
         }
-        
-        // Success - update local state
-        updateCamera(result.id, result);
+        // State will be updated via WebSocket entity:updated event
       } else {
         // Create new camera via API
         console.log('💾 Creating new camera with id:', finalFormData.id);
@@ -230,14 +237,18 @@ export default function Cameras() {
           hasJib: finalFormData.hasJib,
           ccuId: finalFormData.ccuId,
           smpteCableLength: finalFormData.smpteCableLength,
+          equipmentUuid: finalFormData.equipmentUuid,
           note: finalFormData.note,
           productionId,
         });
         console.log('✅ Camera created successfully:', { id: newCamera.id });
         
-        // Optimistic update - add immediately so UI is responsive
+        // Optimistic local state update
         // WebSocket handler will detect duplicate and skip if already present
-        addCamera(newCamera);
+        setLocalCameras(prev => {
+          if (prev.some(c => c.id === newCamera.id)) return prev;
+          return [...prev, newCamera];
+        });
       }
       
       if (action === 'duplicate') {
@@ -521,7 +532,7 @@ export default function Cameras() {
                       value={formData.manufacturer || ''}
                       onChange={(e) => {
                         const manufacturer = e.target.value;
-                        setFormData({ ...formData, manufacturer, model: '' });
+                        setFormData({ ...formData, manufacturer, model: '', equipmentUuid: undefined });
                       }}
                       className="input-field w-full"
                     >
@@ -537,7 +548,13 @@ export default function Cameras() {
                     </label>
                     <select
                       value={formData.model || ''}
-                      onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                      onChange={(e) => {
+                        const selectedModel = e.target.value;
+                        const spec = cameraSpecs.find(
+                          s => s.manufacturer === formData.manufacturer && s.model === selectedModel
+                        );
+                        setFormData({ ...formData, model: selectedModel, equipmentUuid: spec?.id });
+                      }}
                       className="input-field w-full"
                       disabled={!formData.manufacturer}
                     >
