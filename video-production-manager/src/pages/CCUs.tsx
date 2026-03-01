@@ -513,7 +513,7 @@ export default function CCUs() {
                 {/* Left 1/3: Drag handle and ID */}
                 <div className="flex items-center gap-3">
                   <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
-                  <h3 className="text-lg font-semibold text-av-text">{ccu.id}</h3>
+                  <h3 className={`text-lg font-semibold ${linkedCameras.length === 0 ? 'text-av-warning' : 'text-av-text'}`}>{ccu.id}</h3>
                 </div>
                 
                 {/* Middle 1/3: Badges */}
@@ -529,7 +529,7 @@ export default function CCUs() {
                 
                 {/* Right 1/3: Format Mode and Action Buttons */}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-av-text">
+                  <span className={`text-sm ${linkedCameras.length === 0 ? 'text-av-warning' : 'text-av-text'}`}>
                     {(ccu as any).formatMode || 'N/A'}
                   </span>
                   
