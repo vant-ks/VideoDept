@@ -8,7 +8,57 @@ This document contains **project-specific** rules and conventions for this codeb
 
 ---
 
-## 🚨 CRITICAL: Database Schema Changes
+## �️ CRITICAL: Entity Terminology & Naming
+
+**Last Updated:** February 28, 2026
+
+**AI agents MUST use these terms correctly. "Sources" is a parent category, NOT a specific entity.**
+
+### The Hierarchy
+
+```
+Sources  (parent category — UI grouping, NOT a DB table)
+  ├── Computers     → DB table: `sources`       (legacy table name, UI calls it "Computers")
+  └── Media Servers → DB table: `media_servers`
+
+Sends    (parent category — UI grouping, NOT a DB table)
+  ├── LED Screens        → DB table: `led_screens`
+  ├── Projection Screens → DB table: `projection_screens`
+  ├── Monitors           → DB table: `sends` (type = MONITOR)
+  ├── Records            → DB table: `records`
+  └── Streams            → DB table: `streams`
+
+Signal Flow  (parent category — UI grouping, NOT a DB table)
+  ├── Vision Switchers  → DB table: `vision_switchers`
+  ├── Cam Switchers     → DB table: `cam_switchers`
+  ├── Routers           → DB table: `routers`
+  └── Cable Snakes      → DB table: `cable_snakes`
+
+Camera System  (parent category)
+  ├── Cameras → DB table: `cameras`
+  └── CCUs    → DB table: `ccus`
+```
+
+### Rules for AI Agents
+
+1. **NEVER say "sources" when you mean "computers"** — the `sources` DB table stores Computers
+2. **"Sources" in conversation = the parent category** (encompasses Computers + Media Servers + Cameras + CCUs)
+3. **"Computers" = the specific entity type** stored in the `sources` DB table
+4. **The `sources` table name is a legacy artifact** — it was not yet renamed to `computers` in the DB
+5. **When referring to the DB model by table name**, always clarify: "`sources` table (UI: Computers)"
+
+### Correct vs Incorrect Usage
+
+| ❌ WRONG | ✅ CORRECT |
+|---|---|
+| "sources and media servers already done" | "computers and media servers already done" |
+| "the sources model has equipment_uuid" | "the computers entity (`sources` table) has equipment_uuid" |
+| "Sources page" (meaning Computers UI) | "Computers page" |
+| "adding a source record" (meaning a Computer) | "adding a computer record" |
+
+---
+
+## �🚨 CRITICAL: Database Schema Changes
 
 **Last Updated:** February 27, 2026
 

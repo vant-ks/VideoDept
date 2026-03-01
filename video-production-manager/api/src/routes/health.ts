@@ -61,7 +61,7 @@ router.get('/health/diagnostics', async (req, res) => {
     ] = await Promise.all([
       prisma.productions.count(),
       prisma.checklist_items.count(),
-      prisma.sources.count(),
+      prisma.computers.count(),
       prisma.sends.count(),
     ]);
     
@@ -82,7 +82,7 @@ router.get('/health/diagnostics', async (req, res) => {
         tables: {
           productions: productionCount,
           checklist_items: checklistItemCount,
-          sources: sourceCount,
+          computers: sourceCount,
           sends: sendCount,
         },
       },
