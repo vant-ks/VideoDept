@@ -219,8 +219,9 @@ export default function CCUs() {
 
     try {
       if (editingCCU) {
-        // Update existing CCU — explicit fields, no spreads (Rule #6)
-        await ccusAPI.updateCCU(editingCCU.id, {
+        // Update existing CCU — pass uuid (PK) not display id
+        const uuid = (editingCCU as any).uuid;
+        await ccusAPI.updateCCU(uuid, {
           productionId,
           name: formData.name,
           manufacturer: formData.manufacturer,
@@ -275,10 +276,11 @@ export default function CCUs() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (uuid: string) => {
     if (confirm('Are you sure you want to delete this CCU?')) {
       try {
-        await ccusAPI.deleteCCU(id);
+        await ccusAPI.deleteCCU(uuid);
+        // State update handled by WebSocket entity:deleted event
       } catch (error) {
         console.error('Failed to delete CCU:', error);
         alert('Failed to delete CCU. Please try again.');
@@ -389,7 +391,7 @@ export default function CCUs() {
                       <Copy className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(ccu.id)}
+                      onClick={() => handleDelete((ccu as any).uuid || ccu.id)}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
                       title="Delete"
                     >

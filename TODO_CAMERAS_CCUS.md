@@ -121,6 +121,19 @@ Currently Camera/CCU use API hooks (`useCamerasAPI`, `useCCUsAPI`) rather than `
 
 ---
 
+## 🐛 Bug Fixes Applied (2026-03-01)
+
+### Bug 1 — 500 on CCU Create/Duplicate
+**Root cause:** `ccus.ts` POST handler spread `ccuData` (camelCase) directly into Prisma without `toSnakeCase()`. Fields like `equipmentUuid`, `formatMode`, `fiberInput` are unknown to Prisma in camelCase → 500.
+**Fix:** Added `toSnakeCase(ccuData)` + empty-string-to-null loop in POST handler (matching cameras.ts pattern).
+
+### Bug 2 — Edit/Delete CCU Fails (Wrong Identifier)
+**Root cause:** `updateCCU(editingCCU.id, ...)` and `deleteCCU(ccu.id)` pass the display ID ("CCU 1") to the route which does `findUnique({ where: { uuid: ... } })` — display ID is not the PK.
+**Fix:** `CCUs.tsx` now passes `(editingCCU as any).uuid` to `updateCCU` and `(ccu as any).uuid || ccu.id` to `deleteCCU`.
+**Also fixed proactively in Cameras.tsx** — same pattern (camera editing/deletion also passed display ID).
+
+---
+
 ## Phase 10 — Integration Testing Checklist
 
 - [ ] Add a Camera → it appears in the list and persists after page refresh
@@ -130,8 +143,9 @@ Currently Camera/CCU use API hooks (`useCamerasAPI`, `useCCUsAPI`) rather than `
 - [ ] Select an equipment spec when creating Camera → manufacturer/model auto-filled, `equipment_uuid` saved in DB
 - [ ] Assign a CCU to a Camera → `ccu_id` and `ccu_uuid` saved in DB
 - [ ] Camera inherits CCU's format mode when CCU is assigned ✅ (already implemented)
-- [ ] Add a CCU → persists in DB (Phase 1 fix verification)
-- [ ] Edit a CCU → persists in DB 
+- [ ] Add a CCU → persists in DB
+- [ ] Edit a CCU → persists in DB
+- [ ] Delete a CCU → disappears in all browsers
 - [ ] Select an equipment spec when creating CCU → auto-fills fields
 - [ ] CCU card shows count of linked cameras
 - [ ] All tests pass in both local dev AND production (Railway)

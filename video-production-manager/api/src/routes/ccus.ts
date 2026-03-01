@@ -69,9 +69,19 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
     
+    // Convert camelCase to snake_case for database (same pattern as cameras route)
+    const snakeCaseData = toSnakeCase(ccuData);
+
+    // Convert empty strings to null for optional fields
+    Object.keys(snakeCaseData).forEach(key => {
+      if (snakeCaseData[key] === '') {
+        snakeCaseData[key] = null;
+      }
+    });
+
     const ccu = await prisma.ccus.create({
       data: {
-        ...ccuData,
+        ...snakeCaseData,
         production_id: productionId,
         last_modified_by: lastModifiedBy || userId || null,
         updated_at: new Date(),

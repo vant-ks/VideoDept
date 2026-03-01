@@ -215,8 +215,8 @@ export default function Cameras() {
 
     try {
       if (editingCamera) {
-        // Update existing camera via API
-        const result = await camerasAPI.updateCamera(editingCamera.id, {
+        // Update existing camera via API — pass uuid (PK) not display id
+        const result = await camerasAPI.updateCamera((editingCamera as any).uuid || editingCamera.id, {
           ...finalFormData,
           productionId,
           version: editingCamera.version,
@@ -454,7 +454,7 @@ export default function Cameras() {
                         <Copy className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(camera.id)}
+                        onClick={() => handleDelete((camera as any).uuid || camera.id)}
                         className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
                         title="Delete"
                       >
