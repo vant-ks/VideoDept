@@ -4,6 +4,7 @@ import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { validateProductionExists } from '../utils/validation-helpers';
 
 const router = Router();
 
@@ -31,6 +32,19 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, productionId, ...cableSnakeData } = req.body;
+    
+    // VALIDATION: Verify production exists in database
+    try {
+      await validateProductionExists(productionId);
+    } catch (validationError: any) {
+      console.error('❌ Production validation failed:', validationError.message);
+      return res.status(400).json({ 
+        error: validationError.message,
+        code: 'PRODUCTION_NOT_FOUND',
+        productionId 
+      });
+    }
+    
     const snakeCaseData = toSnakeCase(cableSnakeData);
     
     const cableSnake = await prisma.cable_snakes.create({
@@ -99,6 +113,7 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       where: { uuid },
       data: {
         ...snakeCaseUpdates,
+        updated_at: new Date(),
         version: current.version + 1
       }
     });

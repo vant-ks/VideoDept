@@ -4,6 +4,7 @@ import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { validateProductionExists } from '../utils/validation-helpers';
 
 const router = Router();
 
@@ -31,12 +32,25 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, productionId, ...ledScreenData } = req.body;
+    
+    // VALIDATION: Verify production exists in database
+    try {
+      await validateProductionExists(productionId);
+    } catch (validationError: any) {
+      console.error('❌ Production validation failed:', validationError.message);
+      return res.status(400).json({ 
+        error: validationError.message,
+        code: 'PRODUCTION_NOT_FOUND',
+        productionId 
+      });
+    }
+    
     const snakeCaseData = toSnakeCase(ledScreenData);
     
     const ledScreen = await prisma.led_screens.create({
       data: {
         ...snakeCaseData,
-        productionId,
+        production_id: productionId,
         version: 1
       }
     });
@@ -73,6 +87,7 @@ router.put('/:uuid', async (req: Request, res: Response) => {
   try {
     const { uuid } = req.params;
     const { version: clientVersion, userId, userName, ...updates } = req.body;
+    const snakeCaseUpdates = toSnakeCase(updates);
     
     // Get current version for conflict detection
     const current = await prisma.led_screens.findUnique({
@@ -97,7 +112,8 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     const ledScreen = await prisma.led_screens.update({
       where: { uuid },
       data: {
-        ...updates,
+        ...snakeCaseUpdates,
+        updated_at: new Date(),
         version: current.version + 1
       }
     });
@@ -121,12 +137,12 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     // Broadcast to production room
     io.to(`production:${ledScreen.production_id}`).emit('entity:updated', {
       entityType: 'ledScreen',
-      entity: ledScreen,
+      entity: toCamelCase(ledScreen),
       userId,
       userName
     });
     
-    res.json(ledScreen);
+    res.json(toCamelCase(ledScreen));
   } catch (error) {
     console.error('Error updating ledScreen:', error);
     res.status(500).json({ error: 'Failed to update ledScreen' });

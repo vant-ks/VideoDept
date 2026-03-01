@@ -102,6 +102,38 @@ Implemented full Cameras and CCUs CRUD pages with API integration, WebSocket syn
 
 ---
 
+### ✅ Audit & Fix Sends + Signal Flow Routes/Pages — COMPLETE
+
+**Scope:** sends, records, streams, led-screens, projection-screens, routers, vision-switchers, cam-switchers, cable-snakes — routes + hooks + pages
+
+**All Fixed:**
+
+**Routes - POST `productionId` → `production_id` (5 routes):**
+- vision-switchers.ts, streams.ts, records.ts, led-screens.ts, projection-screens.ts ✅
+
+**Routes - POST `validateProductionExists` guard (8 routes):**
+- routers, vision-switchers, cam-switchers, cable-snakes, streams, records, led-screens, projection-screens ✅
+
+**Routes - PUT `toSnakeCase(updates)` + `updated_at: new Date()` + `toCamelCase` response/WS (6 routes):**
+- routers, vision-switchers, streams, records, led-screens, projection-screens ✅
+
+**Routes - sends.ts PUT double-response dead code removed:** ✅
+
+**Routes - cam-switchers.ts, cable-snakes.ts PUT `updated_at: new Date()` added:** ✅
+
+**Hook interfaces - `uuid: string` added to Router, CableSnake, Stream:** ✅
+
+**Pages - Routers.tsx UUID fix + WebSocket subscription:** ✅
+- `editingId` → `editingUuid`, delete/update pass `.uuid` not `.id`, `key={router.uuid}`
+
+**Pages - Snakes.tsx full API wiring:** ✅
+- Replaced local-only state with `useCableSnakeAPI` + `useProductionEvents`
+
+**Pages - Streams.tsx old-store source replaced:** ✅
+- Replaced `oldStore.sends.filter(type=STREAM)` with `streamsAPI.fetchStreams(productionId)` + `useProductionEvents`
+
+---
+
 ## February 27, 2026 - Media Servers: Drag-to-Reorder + No-Optimistic-Update Architecture
 
 ### Feature Overview

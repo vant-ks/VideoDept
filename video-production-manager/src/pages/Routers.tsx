@@ -1,9 +1,10 @@
 import { Card, EmptyState } from '@/components/ui';
 import { Share2, Plus, Edit2, Trash2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useRouterAPI, type Router } from '@/hooks/useRouterAPI';
+import { useProductionEvents } from '@/hooks/useProductionEvents';
 
 export default function Routers() {
   const oldStore = useProductionStore();
@@ -13,7 +14,8 @@ export default function Routers() {
   
   const [routers, setRouters] = useState<Router[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingUuid, setEditingUuid] = useState<string | null>(null);
+  const [editingVersion, setEditingVersion] = useState<number | undefined>(undefined);
   const [formData, setFormData] = useState({ name: '' });
 
   useEffect(() => {
@@ -24,24 +26,50 @@ export default function Routers() {
     }
   }, [productionId, oldStore.isConnected]);
 
+  // Real-time WebSocket updates
+  useProductionEvents({
+    productionId,
+    onEntityCreated: useCallback((event) => {
+      if (event.entityType === 'router') {
+        setRouters(prev => {
+          if (prev.some(r => r.uuid === event.entity.uuid)) return prev;
+          return [...prev, event.entity];
+        });
+      }
+    }, []),
+    onEntityUpdated: useCallback((event) => {
+      if (event.entityType === 'router') {
+        setRouters(prev => prev.map(r => r.uuid === event.entity.uuid ? event.entity : r));
+      }
+    }, []),
+    onEntityDeleted: useCallback((event) => {
+      if (event.entityType === 'router') {
+        setRouters(prev => prev.filter(r => r.uuid !== event.entityId));
+      }
+    }, [])
+  });
+
   const handleAdd = () => {
-    setEditingId(null);
+    setEditingUuid(null);
+    setEditingVersion(undefined);
     setFormData({ name: '' });
     setIsModalOpen(true);
   };
 
   const handleEdit = (router: Router) => {
-    setEditingId(router.id);
+    setEditingUuid(router.uuid);
+    setEditingVersion(router.version);
     setFormData({ name: router.name });
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (uuid: string) => {
     if (!confirm('Delete this router?')) return;
     
     try {
-      await routersAPI.deleteRouter(id);
-      setRouters(routers.filter(r => r.id !== id));
+      await routersAPI.deleteRouter(uuid);
+      // WebSocket will update state; optimistically remove as fallback
+      setRouters(prev => prev.filter(r => r.uuid !== uuid));
     } catch (error) {
       console.error('Failed to delete router:', error);
       alert('Failed to delete router. Please try again.');
@@ -52,22 +80,28 @@ export default function Routers() {
     if (!formData.name || !productionId) return;
     
     try {
-      if (editingId) {
-        const updated = await routersAPI.updateRouter(editingId, { 
+      if (editingUuid) {
+        const updated = await routersAPI.updateRouter(editingUuid, { 
           productionId,
-          name: formData.name 
+          name: formData.name,
+          version: editingVersion
         });
         if ('error' in updated) {
           alert('Version conflict. Please refresh and try again.');
           return;
         }
-        setRouters(routers.map(r => r.id === editingId ? updated : r));
+        // WebSocket will sync; optimistically update as fallback
+        setRouters(prev => prev.map(r => r.uuid === editingUuid ? updated : r));
       } else {
         const newRouter = await routersAPI.createRouter({
           productionId,
           name: formData.name
         });
-        setRouters([...routers, newRouter]);
+        // WebSocket will sync; optimistically add as fallback
+        setRouters(prev => {
+          if (prev.some(r => r.uuid === newRouter.uuid)) return prev;
+          return [...prev, newRouter];
+        });
       }
       setIsModalOpen(false);
       setFormData({ name: '' });
@@ -102,7 +136,7 @@ export default function Routers() {
       ) : (
         <div className="grid gap-4">
           {routers.map((router) => (
-            <Card key={router.id} className="p-6">
+            <Card key={router.uuid} className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <Share2 className="w-6 h-6 text-av-accent" />
@@ -116,7 +150,7 @@ export default function Routers() {
                     <Edit2 className="w-4 h-4" />
                     Edit
                   </button>
-                  <button onClick={() => handleDelete(router.id)} className="btn-ghost text-sm text-av-danger">Delete</button>
+                  <button onClick={() => handleDelete(router.uuid)} className="btn-ghost text-sm text-av-danger">Delete</button>
                 </div>
               </div>
             </Card>
@@ -128,7 +162,7 @@ export default function Routers() {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsModalOpen(false)}>
           <div className="bg-av-cardBg rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-av-text mb-4">{editingId ? 'Edit' : 'Add'} Router</h2>
+            <h2 className="text-xl font-bold text-av-text mb-4">{editingUuid ? 'Edit' : 'Add'} Router</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-av-text mb-2">Name</label>
