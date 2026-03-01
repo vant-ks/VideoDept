@@ -3,6 +3,7 @@ import { Plus, Edit2, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
+import { apiClient } from '@/services';
 import EquipmentFormModal from '@/components/EquipmentFormModal';
 import type { EquipmentSpec, IOPort, EquipmentCard } from '@/types';
 
@@ -126,17 +127,26 @@ export default function Equipment() {
     setIsModalOpen(true);
   };
 
-  const handleSaveEquipment = (equipment: Omit<EquipmentSpec, 'id'>) => {
-    if (editingSpec) {
-      // Update existing
-      updateEquipmentSpec(editingSpec.id, equipment);
-    } else {
-      // Add new
-      const newEquipment: EquipmentSpec = {
-        ...equipment,
-        id: `${equipment.category}-${Date.now()}`
-      };
-      addEquipmentSpec(newEquipment);
+  const handleSaveEquipment = async (equipment: Omit<EquipmentSpec, 'id'>) => {
+    try {
+      if (editingSpec) {
+        // Update existing — use uuid (DB primary key) if available
+        const uuid = (editingSpec as any).uuid || editingSpec.id;
+        await apiClient.updateEquipment(uuid, equipment);
+      } else {
+        // Add new — persist to DB
+        await apiClient.createEquipment(equipment);
+      }
+      // Re-sync the store from DB so the new/updated item appears correctly
+      await equipmentLib.fetchFromAPI();
+    } catch (error) {
+      console.error('Failed to save equipment to API:', error);
+      // Fallback: update local store only so UI still reflects the change
+      if (editingSpec) {
+        updateEquipmentSpec(editingSpec.id, equipment);
+      } else {
+        addEquipmentSpec({ ...equipment, id: `${equipment.category}-${Date.now()}` });
+      }
     }
     setIsModalOpen(false);
     setEditingSpec(null);
