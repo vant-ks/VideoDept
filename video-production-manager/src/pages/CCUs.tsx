@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Plus, Edit2, Trash2, Copy } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
@@ -41,10 +41,9 @@ export default function CCUs() {
   // Cameras fetched to show count badges on CCU cards
   const [allCameras, setAllCameras] = useState<any[]>([]);
   
-  // Sync local state when store CCUs change (on initial load)
-  useEffect(() => {
-    setLocalCCUs(storeCCUs);
-  }, [storeCCUs]);
+  // NOTE: Do NOT sync localCCUs from store on every change — the store
+  // sync overwrites WebSocket and optimistic updates. API fetch on mount is
+  // the single source of truth for localCCUs.
   
   // Get production ID for WebSocket subscription
   const productionId = activeProject?.production?.id || oldStore.production?.id;
@@ -221,7 +220,7 @@ export default function CCUs() {
       if (editingCCU) {
         // Update existing CCU — pass uuid (PK) not display id
         const uuid = (editingCCU as any).uuid;
-        await ccusAPI.updateCCU(uuid, {
+        const result = await ccusAPI.updateCCU(uuid, {
           productionId,
           name: formData.name,
           manufacturer: formData.manufacturer,
@@ -234,6 +233,15 @@ export default function CCUs() {
           note: formData.note,
           version: formData.version,
         });
+        // Check for version conflict
+        if ('error' in result) {
+          setErrors([`Save conflict: ${(result as any).message || 'CCU was modified by another user. Please refresh.'}`]);
+          return;
+        }
+        // Optimistic local state update (WebSocket will also fire and dedup)
+        setLocalCCUs(prev => prev.map(c =>
+          (c as any).uuid === uuid ? result : c
+        ));
       } else {
         // Auto-generate ID and name
         const newId = generateId();

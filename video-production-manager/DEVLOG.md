@@ -1,5 +1,27 @@
 # Development Log - Video Production Manager
 
+## March 1, 2026 (Session 2) - Crash Recovery: Revert schema drift + commit staged fixes
+
+### Branch: `feature/cameras-ccus`
+
+### What Happened
+Previous session added `sort_order Int @default(0)` to the `ccus` model and attempted `prisma migrate dev --name add_sort_order_to_ccus`. Prisma detected schema drift (indexes/FKs in the DB not recorded in migration history) and prompted to **reset the entire public schema** (destroy all data). Session was killed before confirming.
+
+### Recovery Actions
+1. **Reverted** `sort_order` from `schema.prisma` — schema now matches DB again
+2. **Committed** the CCU/Camera bug fixes that were ready but unstaged at crash time:
+   - `CCUs.tsx`: removed faulty store-sync `useEffect`, added version-conflict error handling, added optimistic state update after successful edit
+   - `Cameras.tsx`: fixed stale ID bug in duplicate flow (include new camera's ID in the existing-ID set before generating the duplicate ID)
+3. **Documented** schema drift issue in `TODO_CAMERAS_CCUS.md` with resolution steps
+
+### Known Issue: Schema Drift
+The `ccus` table is missing `sort_order`. Before adding it:
+- Investigate drift with `prisma migrate status`
+- Get explicit user approval before any `migrate dev` or `db push`
+- See `TODO_CAMERAS_CCUS.md` → "Schema Drift Issue" section
+
+---
+
 ## March 1, 2026 - Cameras & CCUs Feature Branch (Phases 1–8 + Bug Fixes)
 
 ### Branch: `feature/cameras-ccus`

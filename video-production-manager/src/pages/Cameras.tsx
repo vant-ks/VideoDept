@@ -275,7 +275,9 @@ export default function Cameras() {
       
       if (action === 'duplicate') {
         // Generate new ID for duplicate
-        const existingIds = localCameras.map(c => c.id);
+        // Include newCamera.id in the set because localCameras state hasn't
+        // updated in this closure yet (React batches setLocalCameras calls)
+        const existingIds = [...localCameras.map(c => c.id), newCamera.id];
         const baseId = formData.id?.replace(/\s*\d+$/, '') || 'CAM';
         let counter = 1;
         let newId = `${baseId} ${counter}`;

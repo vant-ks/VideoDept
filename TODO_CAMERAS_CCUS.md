@@ -112,6 +112,26 @@ Same pattern as Phase 5 but for CCUs.
 
 ---
 
+## ⚠️ Schema Drift Issue (DO NOT MIGRATE WITHOUT REVIEWING THIS)
+
+**Status:** Unresolved — needs dedicated session
+
+**What happened (2026-03-01):** The previous session added `sort_order Int @default(0)` to the `ccus` model in `schema.prisma` and attempted `prisma migrate dev --name add_sort_order_to_ccus`. Prisma detected **schema drift** — indexes and FKs exist in the database that don't exist in migration history — and prompted to reset the entire `public` schema (destroying all data). The session was killed before confirming.
+
+**Current state:**
+- `sort_order` was removed from `schema.prisma` (reverted to match DB)
+- The `ccus` table does NOT have a `sort_order` column
+- The underlying schema drift condition still exists (predates this incident)
+
+**To add `sort_order` to ccus safely:**
+1. Investigate the drift: `npx prisma migrate status` — identify which DB objects are not in migration history
+2. Decide: create a baseline migration or use `prisma db push` (dev only, no migration file)
+3. Get explicit user approval before running any `prisma migrate dev` or `prisma db push`
+4. Test on local DB first, verify no data loss
+5. Only then apply to production via Railway
+
+---
+
 ## Phase 9 — `apiClient.ts` Camera/CCU Methods (Optional Cleanup)
 
 Currently Camera/CCU use API hooks (`useCamerasAPI`, `useCCUsAPI`) rather than `apiClient` direct methods. This is fine functionally, but for consistency with how Equipment works:
