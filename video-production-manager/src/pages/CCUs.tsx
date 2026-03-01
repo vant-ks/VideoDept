@@ -99,6 +99,12 @@ export default function CCUs() {
           return [...prev, event.entity];
         });
       }
+      if (event.entityType === 'camera') {
+        setAllCameras(prev => {
+          if (prev.some(c => c.uuid === event.entity.uuid)) return prev;
+          return [...prev, event.entity];
+        });
+      }
     }, []),
     onEntityUpdated: useCallback((event) => {
       if (event.entityType === 'ccu') {
@@ -108,11 +114,21 @@ export default function CCUs() {
           prev.map(c => c.id === event.entity.id ? event.entity : c)
         );
       }
+      if (event.entityType === 'camera') {
+        // Camera ccuId may have changed — update allCameras so badge colours react
+        setAllCameras(prev =>
+          prev.map(c => c.uuid === event.entity.uuid ? event.entity : c)
+        );
+      }
     }, []),
     onEntityDeleted: useCallback((event) => {
       if (event.entityType === 'ccu') {
         console.log('🔔 CCU deleted by', event.userName, '| CCU:', event.entityId);
         setLocalCCUs(prev => prev.filter(c => c.id !== event.entityId));
+      }
+      if (event.entityType === 'camera') {
+        setAllCameras(prev => prev.filter(c => c.uuid !== event.entityId));
+      }
       }
     }, [])
   });
