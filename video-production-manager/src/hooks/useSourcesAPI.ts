@@ -42,7 +42,7 @@ export function useSourcesAPI() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await apiClient.get<any[]>(`/sources/production/${productionId}`);
+      const data = await apiClient.get<any[]>(`/computers/production/${productionId}`);
       // API already returns outputs in correct format
       return data;
     } catch (err: any) {
@@ -76,7 +76,7 @@ export function useSourcesAPI() {
         userName,
       };
       
-      const data = await apiClient.post<any>('/sources', requestData);
+      const data = await apiClient.post<any>('/computers', requestData);
       
       // API already returns outputs in correct format
       return data;
@@ -98,7 +98,7 @@ export function useSourcesAPI() {
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      const data = await apiClient.put<any>(`/sources/${uuid}`, {
+      const data = await apiClient.put<any>(`/computers/${uuid}`, {
         ...input,
         userId,
         userName,
@@ -124,7 +124,7 @@ export function useSourcesAPI() {
     setError(null);
     try {
       const { userId, userName } = getUserInfo();
-      await apiClient.delete(`/sources/${uuid}`, {
+      await apiClient.delete(`/computers/${uuid}`, {
         data: { userId, userName }
       });
     } catch (err: any) {

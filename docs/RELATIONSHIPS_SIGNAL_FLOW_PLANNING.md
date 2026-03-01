@@ -19,8 +19,8 @@
 BaseEntity (TypeScript interface)
   |
   ├── Sources (Production category)
-  │     ├── Computer (equipment: laptop, desktop)
-  │     ├── Server (equipment: media servers)
+  │     ├── Computer (equipment: laptop, desktop — selected from equipment library by category)
+  │     ├── Media Server (equipment: PC-based media server — computer type chosen from equipment library)
   │     ├── Camera (equipment: camera bodies)
   │     └── CCU (equipment: camera control units)
   |
@@ -31,14 +31,16 @@ BaseEntity (TypeScript interface)
   │     └── LED Tile (equipment: LED walls)
   |
   └── Signal Flow (Routing category)
-        ├── Switcher (equipment: video switchers)
+        ├── Switcher (equipment: vision switchers)
         ├── Router (equipment: routers/matrices)
         ├── LED Processor (equipment: LED processors)
-        └── Converter (equipment: signal converters)
+        ├── Converter (equipment: signal converters)
+        └── Camera Switcher (equipment: camera feed switchers)
 ```
 
 **Database Reality:**
-- Each category = Separate table: `sources`, `sends`, `cameras`, `ccus`, `media_servers`, etc.
+- Each category = Separate table: `computers`, `media_servers`, `cameras`, `ccus`, `sends`, etc.
+- `sources` and `signal_flow` are **parent labels only** — each child entity has its own dedicated table
 - No shared base table
 - Relationships via foreign keys, not inheritance
 
@@ -81,25 +83,28 @@ BaseEntity (TypeScript interface)
 
 #### Current Implementation
 ```typescript
-// Database: source_types table (settings) - WRONG DATA CURRENTLY
-// Current (incorrect): ['LAPTOP', 'CAM', 'SERVER', 'PLAYBACK', 'GRAPHICS', 'PTZ', 'ROBO', 'OTHER']
-// These are equipment categories, NOT computer types!
-
-// Correct Computer Types (from settings.ts restore-defaults):
+// Database: source_types table (settings) - SUPERSEDED
+// Computer types are now equipment_specs entries with category = 'COMPUTER'
+// No settings dropdown needed — user picks from equipment library filtered by COMPUTER category
+//
+// Equipment entries for computer types (seeded into equipment_specs):
+// category: COMPUTER
 [
   'Laptop - PC MISC', 'Laptop - PC GFX', 'Laptop - PC WIDE',
   'Laptop - MAC MISC', 'Laptop - MAC GFX',
   'Desktop - PC MISC', 'Desktop - PC GFX', 'Desktop - PC SERVER',
   'Desktop - MAC MISC', 'Desktop - MAC GFX', 'Desktop - MAC SERVER'
 ]
+// category: MEDIA_SERVER (also seeded into equipment_specs)
+// 'PC - Media Server' — base entry; Media Server modal has dropdown to choose computer type
 
 // Entity Categories (from equipment_specs.category):
-type EquipmentCategory = 'COMPUTER' | 'SERVER' | 'CAMERA' | 'CCU' 
-  | 'SWITCHER' | 'ROUTER' | 'LED_PROCESSOR' | 'CONVERTER'
+type EquipmentCategory = 'COMPUTER' | 'MEDIA_SERVER' | 'CAMERA' | 'CCU'
+  | 'SWITCHER' | 'ROUTER' | 'LED_PROCESSOR' | 'CONVERTER' | 'CAMERA_SWITCHER'
   | 'MONITOR' | 'RECORDER' | 'PROJECTOR' | 'LED_TILE';
 // Functional Categorization (Signal Path Roles):
-// - SOURCES: computer, server, camera, ccu (generate signals)
-// - SIGNAL_FLOW: switcher, router, led_processor, converter (route/process signals)
+// - SOURCES: COMPUTER, MEDIA_SERVER, CAMERA, CCU (generate signals)
+// - SIGNAL_FLOW: SWITCHER, ROUTER, LED_PROCESSOR, CONVERTER, CAMERA_SWITCHER (route/process signals)
 // - SENDS: monitor, recorder, projector, led_tile (receive/display signals)
 //
 // Note: Equipment can have loop-through ports (source device with send capability,
@@ -154,8 +159,8 @@ model sources {
   - Example: Computer source → Equipment (manufacturer: "Apple", model: "MacBook Pro")
 
 - [ ] **Category-Specific Types** (PARTIAL)
-  - Computer → computerType (from settings)
-  - Media Server → software (from settings)
+  - Computer → **selected from equipment library** (category = COMPUTER, replaces settings dropdown)
+  - Media Server → **PC - Media Server** entry in equipment library; modal dropdown lets user choose underlying computer type
   - Camera → reference to equipment_specs
   - CCU → reference to equipment_specs
 
@@ -164,8 +169,9 @@ model sources {
 **Universal I/O Pattern: Direct + Optional Card-Based**
 
 **Core Principle:**
-- **EVERY device has direct I/O** (at minimum for IP control, reference, multiviewer)
-- **Card-based I/O is OPTIONAL** and admin-configurable
+- **EVERY device has direct I/O** (at minimum for IP control, reference, primary outputs)
+- **Card-based I/O capability is defined at the equipment_specs level** — if a device references the equipment library, its card-based I/O configuration is inherited from there
+- **Computers and Media Servers:** Have equipment_specs entries (seeded by type), but their specific I/O (outputs, connectors, formats) is configured per-production by the user — the equipment entry provides the type/category, not a predefined port layout
 - Enables modular expansion and custom configurations
 
 **I/O Structure:**
@@ -176,10 +182,10 @@ model sources {
    - Tables: `{entity}_outputs`, `{entity}_inputs`
    - Simple relationship: device → direct I/O
 
-2. **Card-Based I/O** (optional, admin-enabled)
+2. **Card-Based I/O** (optional, defined per equipment type)
    - Removable expansion cards
-   - Admin can enable/disable card capability per device
-   - Used by: media servers, switchers, LED processors, some routers
+   - **For equipment-library devices** (cameras, CCUs, camera switchers, switchers, routers, LED processors, converters): card capability is fully defined in `equipment_specs`
+   - **For computers and media servers:** equipment entry defines the type; user configures actual I/O per production instance. Card config (if applicable) still comes from equipment_specs but user-defined outputs are added on top
    - Hierarchy: device → cards → card I/O
    - Tables: `{entity}_cards` → `{entity}_card_outputs` / `{entity}_card_inputs`
 
@@ -354,8 +360,8 @@ All connections follow the pattern: `OUTPUT → CABLE → INPUT`
 1. **Sources** (signal generators)
    - Primarily: OUTPUTS
    - Optional: INPUTS (for loop-through)
-   - Examples: computers, cameras, CCUs
-   - Tables: `source_outputs`, `source_inputs` (optional)
+   - Examples: computers, media servers, cameras, CCUs
+   - Tables: `{entity}_outputs` per child type (e.g. `camera_outputs`, `ccu_outputs`)
 
 2. **Sends** (signal receivers/displays)
    - Primarily: INPUTS
@@ -365,12 +371,13 @@ All connections follow the pattern: `OUTPUT → CABLE → INPUT`
 
 3. **Signal Flow Devices** (signal processors/routers)
    - Have: BOTH inputs AND outputs
-   - Examples: switchers, routers, converters, LED processors
+   - Examples: switchers, routers, converters, LED processors, camera switchers
    - Tables: 
      - `switcher_inputs` + `switcher_outputs`
      - `router_inputs` + `router_outputs`
      - `converter_inputs` + `converter_outputs`
      - `led_processor_inputs` + `led_processor_outputs`
+     - `camera_switcher_inputs` + `camera_switcher_outputs`
 
 **Signal Path Example:**
 ```
@@ -615,36 +622,197 @@ model connection_hops {
 
 ---
 
-## 📋 IMPLEMENTATION PRIORITIES
+## �️ EDID ARCHITECTURE (DECISION MADE)
+
+### What is an EDID?
+
+**EDID (Extended Display Identification Data)** is a metadata standard that inputs use to advertise their capabilities to the connected output device. In production environments, EDIDs are used to control what resolution, frame rate, and connector type a source outputs to a particular destination.
+
+### Where EDIDs Live
+
+- **Signal Flow Device Inputs** — each input has an EDID definition
+- **Send Device Inputs** — each input has an EDID definition
+- _(Source outputs do NOT have EDIDs — they generate signal, inputs receive it)_
+
+### EDID Definition Options (per input)
+
+Each input offers two ways to define its EDID:
+
+**Option A: Custom User-Defined EDID**
+- User manually enters: resolution (h_res × v_res), frame rate, connector type
+- Stored directly on the input record
+- Maximum flexibility for non-standard configurations
+
+**Option B: Select from EDID Library**
+- Admin-maintained table of named EDID presets (e.g. "1080p60 HDMI", "4K30 SDI")
+- User picks from a list; all properties auto-populated from the preset
+- `edid_preset_uuid` stored on the input record (dual storage with resolved values)
+
+### EDID Schema (on every input record)
+
+```typescript
+model {entity}_inputs {
+  uuid              String  @id
+  // ... existing fields ...
+
+  // EDID configuration
+  edid_mode         String  @default("inherit")  // "inherit" | "custom" | "preset"
+  edid_preset_uuid  String?                       // FK → edid_presets.uuid (when mode = "preset")
+  edid_connector    String?                       // Connector type override (HDMI, SDI, DP, etc.)
+  edid_h_res        Int?                          // Override horizontal resolution
+  edid_v_res        Int?                          // Override vertical resolution
+  edid_rate         Float?                        // Override frame rate
+
+  edid_presets      edid_presets? @relation(fields: [edid_preset_uuid], references: [uuid])
+}
+
+model edid_presets {
+  uuid        String   @id
+  name        String                // e.g. "1080p60 HDMI", "4K30 SDI"
+  connector   String                // HDMI | SDI | DP | FIBER | USB-C | etc.
+  h_res       Int
+  v_res       Int
+  rate        Float
+  note        String?
+  created_at  DateTime @default(now())
+}
+```
+
+### EDID Resolution Chain (Signal Tracing)
+
+When `edid_mode = "inherit"`, the system traces the connection chain **back to the source** to determine the effective format for that input:
+
+```
+Source Output (defines format: connector, h_res, v_res, rate)
+  → Cable
+    → Signal Flow Device Input (EDID: inherit → reads from source output)
+      → [internal processing]
+      → Signal Flow Device Output (may convert format)
+        → Cable
+          → Send Device Input (EDID: inherit → reads from upstream output)
+```
+
+**Trace logic:**
+1. Look at the input's connected output (`from_output_uuid`)
+2. Read that output's `connector`, `h_res`, `v_res`, `rate`
+3. If the upstream output belongs to a signal flow device, it may have a different format than what entered the device (conversion happened internally)
+4. Follow chain until source output is reached
+5. Populate inherited EDID values for display purposes (stored as resolved cache, refreshed on connection change)
+
+### Connection Validation Rules
+
+When a connection is created (`from_output_uuid → to_input_uuid`), apply these checks:
+
+**Rule 1: Connector Compatibility**
+- The output's `connector` type must be compatible with the input's defined connector
+- Hard block (error) if connectors are physically incompatible (e.g. SDI output → HDMI input)
+- Warn (soft warning) if adapters are typically required (e.g. DP → HDMI)
+- Define a compatibility matrix in settings or constants
+
+**Rule 2: Resolution Validity**
+- If the input has a custom or preset EDID, the source output's resolution must match or be within the input's accepted range
+- Warn if formats differ (e.g. source outputs 4K but input EDID is 1080p) — the device may scale, but user should be aware
+
+**Rule 3: Frame Rate Match**
+- If the input specifies a frame rate via EDID, the connection should match
+- Warn on mismatch (e.g. source outputs 59.94 but input EDID is 50)
+
+**Rule 4: Signal Format Chain Continuity**
+- On multi-hop paths, validate format at each hop
+- If a signal flow device's output format differs from its input format (conversion), flag this in the signal path UI so operators know where conversions occur
+
+**Validation Response Pattern:**
+```typescript
+type ConnectionValidationResult = {
+  valid: boolean;
+  errors: ConnectionError[];    // Hard blocks — prevent connection
+  warnings: ConnectionWarning[]; // Soft warnings — allow but inform
+}
+
+type ConnectionError = {
+  code: 'CONNECTOR_INCOMPATIBLE' | 'FORMAT_MISMATCH_HARD';
+  message: string;
+  from: { uuid: string; id: string; connector: string; format: string };
+  to:   { uuid: string; id: string; connector: string; format: string };
+}
+
+type ConnectionWarning = {
+  code: 'CONNECTOR_ADAPTER_NEEDED' | 'RESOLUTION_MISMATCH' | 'FRAMERATE_MISMATCH' | 'FORMAT_CONVERSION_PRESENT';
+  message: string;
+}
+```
+
+### EDID Presets Table (Admin-Managed)
+
+Sample presets to seed the EDID library:
+
+| Name | Connector | Resolution | Frame Rate |
+|---|---|---|---|
+| 1080p60 HDMI | HDMI | 1920×1080 | 60 |
+| 1080p59.94 HDMI | HDMI | 1920×1080 | 59.94 |
+| 1080i59.94 SDI | SDI | 1920×1080i | 59.94 |
+| 1080p50 SDI | SDI | 1920×1080 | 50 |
+| 4K30 HDMI | HDMI | 3840×2160 | 30 |
+| 4K60 DP | DP | 3840×2160 | 60 |
+| 1080p60 NDI | NDI | 1920×1080 | 60 |
+
+**Date:** February 28, 2026  
+**Decision:** EDID system for signal flow and send device inputs  
+**Details:**
+- Every input on a signal flow or send device has an EDID configuration
+- Three modes: `inherit` (trace from source), `custom` (manual override), `preset` (from EDID library)
+- Admin manages EDID preset library (name + connector + resolution + frame rate)
+- Connection creation triggers validation: connector compatibility, resolution match, frame rate match
+- Validation: hard errors block connection; soft warnings allow but inform
+- Multi-hop format trace follows the full signal chain back to source output
+**Rationale:** Reflects real-world AV production workflow. EDIDs are critical for ensuring signals are accepted by receiving devices. Validation prevents misconfigured signal paths.
+
+---
+
+## �📋 IMPLEMENTATION PRIORITIES
 
 ### Phase 1: Foundation (Sources & Outputs)
+- [ ] Seed `equipment_specs` with all computer types (category = COMPUTER):
+  - Laptop: PC MISC, PC GFX, PC WIDE, MAC MISC, MAC GFX
+  - Desktop: PC MISC, PC GFX, PC SERVER, MAC MISC, MAC GFX, MAC SERVER
+- [ ] Add 'PC - Media Server' to `equipment_specs` (category = MEDIA_SERVER)
+- [ ] Remove `source_types` / computerTypes settings dropdown (replaced by equipment library)
+- [ ] Update Computer source modal: dropdown picks from equipment library filtered by COMPUTER
+- [ ] Update Media Server modal: dropdown to choose computer type from equipment library
 - [ ] Ensure `source_outputs` table fully functional for direct I/O
-- [ ] Add card-based output support for media servers
-- [ ] Implement output duplication feature (UX)
-- [ ] Add "Save & Duplicate" for source creation forms
+- [ ] Implement output duplication feature (UX) ✅ (completed)
+- [ ] Add "Save & Duplicate" for source creation forms ✅ (completed)
 - [ ] Test connections from sources
-- [ ] Decide on source-to-equipment relationship pattern
 
 ### Phase 2: Signal Flow Outputs & Inputs
 - [x] **DECIDED:** Use separate tables per device type (Option A)
-- [x] **DECIDED:** All devices have direct I/O, card-based is optional/admin-enabled
+- [x] **DECIDED:** All devices have direct I/O; card-based I/O capability defined at equipment_specs level
+- [x] **DECIDED:** EDID system on all signal flow device inputs
 - [ ] Create paired input/output tables for each signal flow device:
   - `switcher_inputs` + `switcher_outputs`
   - `router_inputs` + `router_outputs`
   - `converter_inputs` + `converter_outputs`
   - `led_processor_inputs` + `led_processor_outputs`
-- [ ] Add device setting: `card_io_enabled` (Boolean, default false)
-- [ ] Create card management tables when card I/O enabled:
+  - `camera_switcher_inputs` + `camera_switcher_outputs`
+- [ ] Add EDID fields to all signal flow device input tables:
+  - `edid_mode` (inherit | custom | preset)
+  - `edid_preset_uuid` (FK → edid_presets)
+  - `edid_connector`, `edid_h_res`, `edid_v_res`, `edid_rate` (override values)
+- [ ] Add `card_io_enabled` + card configuration to `equipment_specs` (admin-managed equipment library)
+  - When a device references equipment_specs, card capability is read from there
+  - No per-device-instance card toggle — capability comes from equipment definition
+- [ ] Create card management tables when device's equipment_specs declares card I/O:
   - `{entity}_cards` (parent)
   - `{entity}_card_outputs` / `{entity}_card_inputs` (children)
+- [ ] Computers & Media Servers: equipment entry defines type; user configures specific I/O (outputs/connectors) per production instance
 - [ ] Implement output duplication for signal flow devices (direct & card-based)
 - [ ] Implement input duplication for signal flow devices (direct & card-based)
 - [ ] Add drag-and-drop capability to move inputs/outputs between devices of same type
-- [ ] Admin UI to enable/disable card-based I/O per device
 
 ### Phase 3: Sends & Inputs Structure
 - [x] **DECIDED:** Inputs inherit format from connected output
-- [ ] Create `send_inputs` table (mirror `source_outputs` pattern)
+- [x] **DECIDED:** EDID system on all send device inputs
+- [ ] Create `send_inputs` table (mirror `source_outputs` pattern) with EDID fields
 - [ ] Add optional `send_outputs` table (for loop-through capability)
 - [ ] Add CRUD API for send inputs and optional outputs
 - [ ] Update sends UI to manage inputs and outputs
@@ -654,18 +822,25 @@ model connection_hops {
 
 ### Phase 4: Connections & Cables
 - [x] **DECIDED:** Connections are always OUTPUT → CABLE → INPUT
+- [x] **DECIDED:** Connection creation triggers EDID validation (connector + format compatibility)
+- [ ] Create `edid_presets` table (admin-managed EDID library, seed with common presets)
 - [ ] Simplify connections table:
   - `from_output_uuid` + `from_output_id` (dual storage)
   - `cable_uuid` + `cable_id` (dual storage, optional for now)
   - `to_input_uuid` + `to_input_id` (dual storage)
   - Remove polymorphic FK complexity
+- [ ] Implement connection validation service:
+  - Hard error: connector incompatibility (e.g. SDI → HDMI)
+  - Soft warning: resolution mismatch, frame rate mismatch
+  - Soft warning: adapter required (e.g. DP → HDMI)
+  - Format chain trace: walk multi-hop path back to source
 - [ ] Create `cables` table (cable types, lengths - to be implemented later)
 - [ ] Multi-hop paths = multiple connection records (not single record with hops)
 - [ ] Add CRUD API for connections
 - [ ] Test cascade deletes (when device deleted, connections should handle gracefully)
 - [ ] Add validation: output can only connect to one input at a time
 - [ ] Add conflict detection: input already has connection from another output
-- [ ] Format inheritance: when connection made, input format auto-updates from output
+- [ ] Format inheritance: when connection made, input EDID (if inherit mode) auto-resolves from source
 
 ### Phase 5: Signal Flow UI
 - [ ] Visualize source → destination paths
@@ -692,6 +867,11 @@ model connection_hops {
 7. What's the maximum number of hops we expect in a signal path?
 8. ~~Should connections be bidirectional (can sends output to other sends)?~~ **ANSWERED:** Yes, via loop-through outputs on sends
 9. ~~How do we handle format conversion along the signal path?~~ **ANSWERED:** Conversion happens inside device, affects outputs not inputs
+
+### EDID & Format Validation
+16. ~~Should inputs have EDID definitions?~~ **ANSWERED:** Yes, on all signal flow and send device inputs (3 modes: inherit, custom, preset)
+17. ~~How does format follow the signal chain?~~ **ANSWERED:** Trace connection chain back to source output for inherited format
+18. ~~Should connector type be validated on connection creation?~~ **ANSWERED:** Yes — hard errors for incompatible connectors, soft warnings for mismatched formats/frame rates
 
 ### Cables (Future Implementation)
 10. What cable types do we need to track? (HDMI, SDI, DisplayPort, Fiber, etc.)
@@ -729,24 +909,31 @@ productions
     ↓
     ├── equipment_specs (equipment library)
     │
-    ├── sources
-    │   ├── → equipment_specs (optional FK)
-    │   └── → source_outputs (1:many)
+    ├── edid_presets (admin-managed EDID library)
     │
-    ├── sends (broken into subtypes?)
-    │   ├── routers
-    │   ├── switchers
-    │   ├── led_processors
-    │   └── projectors
-    │   │
-    │   ├── → equipment_specs (optional FK)
-    │   └── → send_inputs (1:many)
+    ├── sources [parent label] (children: computers, media_servers, cameras, ccus)
+    │   ├── → equipment_specs (FK — all source children have entries in equipment library)
+    │   │       └── COMPUTER entries seeded: Laptop/Desktop × PC/MAC × MISC/GFX/WIDE/SERVER
+    │   │       └── MEDIA_SERVER entry: 'PC - Media Server' + computer type dropdown in modal
+    │   │       └── card_io_enabled + card_config defined here for cameras/CCUs
+    │   └── → {entity}_outputs (1:many — user-configured per production for computers/media servers)
     │
-    └── connections
-        ├── → sources (strong FK)
-        ├── → source_outputs (reference)
-        ├── → [destination entity] (FK pattern TBD)
-        └── → connection_hops (multi-hop paths)
+    ├── signal_flow [parent label] (children: switchers, routers, led_processors, converters, camera_switchers)
+    │   ├── → equipment_specs (FK — card config inherited from here)
+    │   ├── → {entity}_inputs (1:many, each input has EDID config)
+    │   │       └── → edid_presets (optional FK via edid_preset_uuid)
+    │   └── → {entity}_outputs (1:many, connector + format defined here)
+    │
+    ├── sends (children: monitors, recorders, projectors, led_tiles)
+    │   ├── → equipment_specs (optional FK)
+    │   └── → send_inputs (1:many, each input has EDID config)
+    │           └── → edid_presets (optional FK via edid_preset_uuid)
+    │
+    └── connections (OUTPUT → CABLE → INPUT)
+        ├── from_output_uuid → any device output
+        ├── cable_uuid → cables (optional)
+        ├── to_input_uuid → any device input
+        └── [validation: connector + format compatibility checked on create]
 ```
 
 ---
@@ -783,23 +970,34 @@ productions
 **Rationale:** Single Table Per Entity pattern is simpler, more flexible, and avoids polymorphic complexity in Prisma
 
 **Date:** February 28, 2026  
-**Decision:** Fixed Computer Types seed data (was using equipment categories by mistake)  
-**Rationale:** Computer Types should be specific like "Laptop - PC GFX", not generic like "LAPTOP". Settings restored to defaults.
+**Decision:** Computer types and Media Server moved from settings dropdown to equipment_specs library  
+**Details:**
+- All computer types seeded as `equipment_specs` entries with category = COMPUTER:
+  - Laptop × {PC MISC, PC GFX, PC WIDE, MAC MISC, MAC GFX}
+  - Desktop × {PC MISC, PC GFX, PC SERVER, MAC MISC, MAC GFX, MAC SERVER}
+- 'PC - Media Server' added as equipment entry with category = MEDIA_SERVER
+- Computer source modal: user selects type from equipment library (filtered by COMPUTER) — no settings dropdown
+- Media Server modal: dropdown to choose underlying computer type from equipment library
+- Settings `computerTypes` / `source_types` dropdown removed
+- Equipment entries define the type/category; user still configures specific I/O per production instance
+**Rationale:** Centralises device definitions in one place. Richer data model (manufacturer, specs, card config) vs a plain string dropdown.
 
 **Date:** February 28, 2026  
 **Decision:** Entity categorization clarified:  
-- **Sources:** computer, server, camera, ccu  
-- **Signal Flow:** switcher, router, led processor, converter  
-- **Sends:** monitor, recorder, projector, LED tile  
-**Rationale:** Reflects actual signal path roles in production workflow
+- **Sources** _(parent label, each is its own table)_: Computer, Media Server, Camera, CCU  
+- **Signal Flow** _(parent label, each is its own table)_: Switcher (Vision Switcher), Router, LED Processor, Converter, Camera Switcher  
+- **Sends:** Monitor, Recorder, Projector, LED Tile  
+**Rationale:** Reflects actual signal path roles in production workflow. Camera Switcher routes/switches camera feeds — it belongs in Signal Flow, not Sources.
 
 **Date:** February 28, 2026  
 **Decision:** Output Architecture - Direct I/O vs Card-Based  
 **Details:**
-- Direct I/O: computers, cameras, CCUs, routers, converters
-- Card-Based: media servers, switchers, LED processors
+- Card-based I/O capability is defined at the `equipment_specs` level for all equipment-library devices
+- All devices have equipment_specs entries; card config is inherited from there
+- Computers & media servers: equipment entry defines type/category; user configures actual I/O (outputs, connectors, formats) per production instance
+- Devices that support card-based I/O: media servers, switchers, LED processors, streaming devices (declared in equipment_specs)
 - All outputs have: connector, h_res, v_res, rate, id, uuid
-**Rationale:** Matches real-world equipment configurations
+**Rationale:** Equipment library is the single source of truth for device capabilities.
 
 **Date:** February 28, 2026  
 **Decision:** UX Requirements for Outputs and Entity Creation  
@@ -839,14 +1037,15 @@ productions
 **Rationale:** Reflects physical reality of production environments. Cable management is critical for troubleshooting.
 
 **Date:** February 28, 2026  
-**Decision:** Universal Direct I/O + Optional Card-Based I/O  
+**Decision:** Universal Direct I/O + Equipment-Level Card-Based I/O  
 **Details:**
 - ALL devices have direct I/O (minimum for control, reference, primary outputs)
-- Card-based I/O is OPTIONAL and ADMIN-CONFIGURABLE per device
+- Card-based I/O capability is defined at the `equipment_specs` level
+- All production devices reference equipment_specs; card config flows from the equipment definition
+- Computers & Media Servers have seeded equipment entries (type/category only); their specific I/O is configured per-production by the user
 - Cards are children of devices: device → cards → card I/O
-- Admin can enable/disable card capability in device settings
-- Both direct and card-based I/O use same property schema
-**Rationale:** Flexible architecture supports both simple devices (cameras, monitors) and complex modular devices (switchers, media servers). Admin control prevents UI complexity for simple setups.
+- Both direct and card-based I/O use the same property schema
+**Rationale:** Equipment library is the single source of truth for device capabilities. Computer/media server outputs vary by production build, so the equipment entry defines type while the user configures I/O.
 
 **Date:** February 28, 2026  
 **Decision:** Input Format Inheritance (Option A)  
@@ -861,4 +1060,5 @@ productions
 ---
 
 **Status:** Planning complete - All major architecture decisions made!  
-**Next Action:** Begin Phase 1 implementation (source outputs + duplication UX)
+**Updated:** February 28, 2026 - Added EDID architecture; Camera Switcher correctly placed in Signal Flow; Sources = Computer, Media Server, Camera, CCU; computer types + PC - Media Server moved to equipment_specs library (replaces settings dropdown); card-based I/O defined at equipment_specs level  
+**Next Action:** Phase 2 implementation — signal flow device input/output tables + EDID fields

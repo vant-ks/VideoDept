@@ -22,7 +22,7 @@ export class ApiClient {
           config.headers.Authorization = `Bearer ${token}`;
         }
         // Debug logging for POST requests
-        if (config.method === 'post' && config.url?.includes('/sources')) {
+        if (config.method === 'post' && config.url?.includes('/computers')) {
           console.log('📤 ApiClient POST interceptor - URL:', config.url);
           console.log('📤 ApiClient POST interceptor - Data:', JSON.stringify(config.data, null, 2));
         }
@@ -192,19 +192,19 @@ export class ApiClient {
   }
 
   async getSource(id: string) {
-    return this.get(`/sources/${id}`);
+    return this.get(`/computers/${id}`);
   }
 
   async createSource(data: any) {
-    return this.post('/sources', data);
+    return this.post('/computers', data);
   }
 
   async updateSource(id: string, data: any) {
-    return this.put(`/sources/${id}`, data);
+    return this.put(`/computers/${id}`, data);
   }
 
   async deleteSource(id: string) {
-    return this.delete(`/sources/${id}`);
+    return this.delete(`/computers/${id}`);
   }
 
   // Sends

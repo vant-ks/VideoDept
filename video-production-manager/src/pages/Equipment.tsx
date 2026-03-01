@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit2, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
+import { getSocket } from '@/hooks/useProductionEvents';
+import { io as socketIO } from 'socket.io-client';
+import { apiClient } from '@/services';
 import EquipmentFormModal from '@/components/EquipmentFormModal';
 import type { EquipmentSpec, IOPort, EquipmentCard } from '@/types';
 
@@ -23,7 +26,7 @@ export default function Equipment() {
   const [editingEquipment, setEditingEquipment] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSpec, setEditingSpec] = useState<EquipmentSpec | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'camera' | 'ccu' | 'switcher' | 'router' | 'led-processor' | 'led-tile' | 'projector' | 'recorder' | 'monitor' | 'converter'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'CAMERA' | 'CCU' | 'CAM_SWITCHER' | 'VISION_SWITCHER' | 'ROUTER' | 'LED_PROCESSOR' | 'LED_TILE' | 'PROJECTOR' | 'RECORDER' | 'MONITOR' | 'CONVERTER' | 'COMPUTER' | 'CABLE_SNAKE' | 'STREAM_ENCODER'>('all');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [collapsedEquipment, setCollapsedEquipment] = useState<Set<string>>(() => {
     // Start with all collapsed
@@ -31,6 +34,33 @@ export default function Equipment() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Live-sync: re-fetch from API when another client adds/updates/deletes equipment
+  useEffect(() => {
+    const handleEquipmentUpdated = () => {
+      equipmentLib.fetchFromAPI();
+    };
+
+    // Prefer the shared singleton socket (already connected); fall back to own connection
+    const sharedSocket = getSocket();
+    let ownSocket: ReturnType<typeof socketIO> | null = null;
+
+    if (sharedSocket) {
+      sharedSocket.on('equipment:updated', handleEquipmentUpdated);
+    } else {
+      const apiUrl = (localStorage.getItem('api_server_url') || import.meta.env.VITE_API_URL || 'http://localhost:3010').replace(/\/api\/?$/, '');
+      ownSocket = socketIO(apiUrl, { transports: ['websocket', 'polling'] });
+      ownSocket.on('equipment:updated', handleEquipmentUpdated);
+    }
+
+    return () => {
+      sharedSocket?.off('equipment:updated', handleEquipmentUpdated);
+      if (ownSocket) {
+        ownSocket.off('equipment:updated', handleEquipmentUpdated);
+        ownSocket.disconnect();
+      }
+    };
+  }, []);
 
   const filteredSpecs = equipmentSpecs.filter(spec => {
     const matchesCategory = selectedCategory === 'all' || spec.category === selectedCategory;
@@ -77,32 +107,40 @@ export default function Equipment() {
 
   const getCategoryLabel = (category: string) => {
     const labels: Record<string, string> = {
-      camera: 'Camera',
-      ccu: 'CCU',
-      switcher: 'Switcher',
-      router: 'Router',
-      'led-processor': 'LED Processor',
-      'led-tile': 'LED Tile',
-      projector: 'Projector',
-      recorder: 'Recorder',
-      monitor: 'Monitor',
-      converter: 'Converter'
+      CAMERA: 'Camera',
+      CCU: 'CCU',
+      CAM_SWITCHER: 'Camera Switcher',
+      VISION_SWITCHER: 'Vision Switcher',
+      ROUTER: 'Router',
+      LED_PROCESSOR: 'LED Processor',
+      LED_TILE: 'LED Tile',
+      PROJECTOR: 'Projector',
+      RECORDER: 'Recorder',
+      MONITOR: 'Monitor',
+      CONVERTER: 'Converter',
+      COMPUTER: 'Computer',
+      CABLE_SNAKE: 'Cable Snake',
+      STREAM_ENCODER: 'Stream Encoder',
     };
     return labels[category] || category;
   };
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      camera: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      ccu: 'bg-green-500/20 text-green-400 border-green-500/30',
-      switcher: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-      router: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-      'led-processor': 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-      'led-tile': 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-      projector: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-      recorder: 'bg-red-500/20 text-red-400 border-red-500/30',
-      monitor: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
-      converter: 'bg-teal-500/20 text-teal-400 border-teal-500/30'
+      CAMERA: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      CCU: 'bg-green-500/20 text-green-400 border-green-500/30',
+      CAM_SWITCHER: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+      VISION_SWITCHER: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+      ROUTER: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+      LED_PROCESSOR: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+      LED_TILE: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+      PROJECTOR: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+      RECORDER: 'bg-red-500/20 text-red-400 border-red-500/30',
+      MONITOR: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
+      CONVERTER: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+      COMPUTER: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+      CABLE_SNAKE: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      STREAM_ENCODER: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
     };
     return colors[category] || 'bg-av-surface-light text-av-text border-av-border';
   };
@@ -118,20 +156,41 @@ export default function Equipment() {
     setIsModalOpen(true);
   };
 
-  const handleSaveEquipment = (equipment: Omit<EquipmentSpec, 'id'>) => {
-    if (editingSpec) {
-      // Update existing
-      updateEquipmentSpec(editingSpec.id, equipment);
-    } else {
-      // Add new
-      const newEquipment: EquipmentSpec = {
-        ...equipment,
-        id: `${equipment.category}-${Date.now()}`
-      };
-      addEquipmentSpec(newEquipment);
+  const handleSaveEquipment = async (equipment: Omit<EquipmentSpec, 'id'>) => {
+    try {
+      if (editingSpec) {
+        // Update existing — use uuid (DB primary key) if available
+        const uuid = (editingSpec as any).uuid || editingSpec.id;
+        await apiClient.updateEquipment(uuid, equipment);
+      } else {
+        // Add new — persist to DB
+        await apiClient.createEquipment(equipment);
+      }
+      // Re-sync the store from DB so the new/updated item appears correctly
+      await equipmentLib.fetchFromAPI();
+    } catch (error) {
+      console.error('Failed to save equipment to API:', error);
+      // Fallback: update local store only so UI still reflects the change
+      if (editingSpec) {
+        updateEquipmentSpec(editingSpec.id, equipment);
+      } else {
+        addEquipmentSpec({ ...equipment, id: `${equipment.category}-${Date.now()}` });
+      }
     }
     setIsModalOpen(false);
     setEditingSpec(null);
+  };
+
+  // Helper: update local store immediately AND persist full spec to API (fire-and-forget)
+  const applyEquipmentUpdate = (specId: string, updates: Partial<EquipmentSpec>) => {
+    const spec = equipmentSpecs.find(s => s.id === specId);
+    if (!spec) return;
+    updateEquipmentSpec(specId, updates);
+    const merged = { ...spec, ...updates };
+    const uuid = (merged as any).uuid || merged.id;
+    apiClient.updateEquipment(uuid, merged).catch((err) =>
+      console.error('Failed to persist equipment update:', err)
+    );
   };
 
   // Add new I/O port (for direct I/O equipment)
@@ -146,7 +205,7 @@ export default function Equipment() {
     };
 
     const currentPorts = spec[ioType] || [];
-    updateEquipmentSpec(specId, { [ioType]: [...currentPorts, newPort] });
+    applyEquipmentUpdate(specId, { [ioType]: [...currentPorts, newPort] });
   };
 
   // Remove I/O port
@@ -155,7 +214,7 @@ export default function Equipment() {
     if (!spec) return;
 
     const currentPorts = spec[ioType] || [];
-    updateEquipmentSpec(specId, { [ioType]: currentPorts.filter(p => p.id !== portId) });
+    applyEquipmentUpdate(specId, { [ioType]: currentPorts.filter(p => p.id !== portId) });
   };
 
   // Update I/O port
@@ -167,7 +226,7 @@ export default function Equipment() {
     const updatedPorts = currentPorts.map(port => 
       port.id === portId ? { ...port, ...updates } : port
     );
-    updateEquipmentSpec(specId, { [ioType]: updatedPorts });
+    applyEquipmentUpdate(specId, { [ioType]: updatedPorts });
   };
 
   // Add card to card-based equipment
@@ -187,7 +246,7 @@ export default function Equipment() {
       outputs: []
     };
 
-    updateEquipmentSpec(specId, { cards: [...currentCards, newCard] });
+    applyEquipmentUpdate(specId, { cards: [...currentCards, newCard] });
   };
 
   // Remove card
@@ -196,7 +255,7 @@ export default function Equipment() {
     if (!spec) return;
 
     const currentCards = spec.cards || [];
-    updateEquipmentSpec(specId, { cards: currentCards.filter(c => c.id !== cardId) });
+    applyEquipmentUpdate(specId, { cards: currentCards.filter(c => c.id !== cardId) });
   };
 
   // Update card
@@ -208,7 +267,7 @@ export default function Equipment() {
     const updatedCards = currentCards.map(card => 
       card.id === cardId ? { ...card, ...updates } : card
     );
-    updateEquipmentSpec(specId, { cards: updatedCards });
+    applyEquipmentUpdate(specId, { cards: updatedCards });
   };
 
   // Add I/O to card
@@ -318,16 +377,20 @@ export default function Equipment() {
             className="input-field w-48"
           >
             <option value="all">All Equipment</option>
-            <option value="camera">Cameras</option>
-            <option value="ccu">CCUs</option>
-            <option value="switcher">Switchers</option>
-            <option value="router">Routers</option>
-            <option value="led-processor">LED Processors</option>
-            <option value="led-tile">LED Tiles</option>
-            <option value="projector">Projectors</option>
-            <option value="recorder">Recorders</option>
-            <option value="monitor">Monitors</option>
-            <option value="converter">Converters</option>
+            <option value="COMPUTER">Computers</option>
+            <option value="CAMERA">Cameras</option>
+            <option value="CCU">CCUs</option>
+            <option value="CAM_SWITCHER">Camera Switchers</option>
+            <option value="VISION_SWITCHER">Vision Switchers</option>
+            <option value="ROUTER">Routers</option>
+            <option value="LED_PROCESSOR">LED Processors</option>
+            <option value="LED_TILE">LED Tiles</option>
+            <option value="PROJECTOR">Projectors</option>
+            <option value="RECORDER">Recorders</option>
+            <option value="MONITOR">Monitors</option>
+            <option value="CONVERTER">Converters</option>
+            <option value="CABLE_SNAKE">Cable Snakes</option>
+            <option value="STREAM_ENCODER">Stream Encoders</option>
           </select>
         </div>
       </Card>

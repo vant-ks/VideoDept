@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Copy } from 'lucide-react';
 import type { Source, ConnectorType, SourceType } from '@/types';
 import { SourceService } from '@/services';
 import { useProductionStore } from '@/hooks/useStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 
 interface SourceFormModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface SourceFormModalProps {
   existingSources: Source[];
   editingSource?: Source | null;
   typeFieldLabel?: string; // Optional label for the Type field (e.g., "Computer Type" for Computers page)
+  entityLabel?: string; // Optional label for the entity (e.g., "Computer" for Computers page) — used in modal title
 }
 
 // Resolution presets
@@ -40,18 +42,26 @@ export function SourceFormModal({
   onSaveAndDuplicate,
   existingSources,
   editingSource,
-  typeFieldLabel = 'Type' // Default to 'Type', can be overridden (e.g., 'Computer Type')
+  typeFieldLabel = 'Type', // Default to 'Type', can be overridden (e.g., 'Computer Type')
+  entityLabel = 'Source' // Default to 'Source', can be overridden (e.g., 'Computer')
 }: SourceFormModalProps) {
-  const connectorTypes = useProductionStore(state => state.connectorTypes) || [];
-  const sourceTypes = useProductionStore(state => state.sourceTypes) || [];
+  const equipmentLibConnectorTypes = useEquipmentLibrary(state => state.connectorTypes);
+  const oldStoreConnectorTypes = useProductionStore(state => state.connectorTypes) || [];
+  const connectorTypes = equipmentLibConnectorTypes.length > 0 ? equipmentLibConnectorTypes : oldStoreConnectorTypes;
   const sends = useProductionStore(state => state.sends);
-  const equipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const oldStoreEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const equipmentLibSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
+  // Prefer the equipment library store (kept in sync by Equipment page) over the old store
+  const equipmentSpecs = equipmentLibSpecs.length > 0 ? equipmentLibSpecs : oldStoreEquipmentSpecs;
   
   // Filter equipment that can be used as secondary devices
   const secondaryDeviceOptions = equipmentSpecs.filter(spec => spec.isSecondaryDevice);
   
-  // Get default type from sourceTypes array (fallback to first default if empty)
-  const defaultType = sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop - PC MISC';
+  // Computer type options come from equipment library (COMPUTER category)
+  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'COMPUTER');
+  
+  // Get default type — first computer equipment model, with fallback
+  const defaultType = computerEquipment.length > 0 ? computerEquipment[0].model : 'Laptop - PC MISC';
   
   const [formData, setFormData] = useState<Partial<Source>>({
     id: '',
@@ -87,7 +97,7 @@ export function SourceFormModal({
       // Ensure outputs array exists for backwards compatibility
       const sourceWithOutputs = {
         ...editingSource,
-        type: editingSource.type || (sourceTypes.length > 0 ? sourceTypes[0] : defaultType),
+        type: editingSource.type || defaultType,
         outputs: editingSource.outputs || [{ id: 'out-1', connector: 'HDMI' as ConnectorType }]
       };
       setFormData(sourceWithOutputs);
@@ -125,7 +135,7 @@ export function SourceFormModal({
       setIsCustomResolution(false);
       setSelectedFrameRate('59.94');
     }
-  }, [isOpen, editingSource, existingSources, sourceTypes, defaultType]);
+  }, [isOpen, editingSource, existingSources, defaultType]);
 
   const handleResolutionPresetChange = (presetKey: string) => {
     setSelectedPreset(presetKey);
@@ -272,7 +282,7 @@ export function SourceFormModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-av-border">
           <h2 className="text-2xl font-bold text-av-text">
-            {editingSource ? 'Edit Source' : 'Add New Source'}
+            {editingSource ? `Edit ${entityLabel}` : `Add New ${entityLabel}`}
           </h2>
           <button
             onClick={handleClose}
@@ -327,9 +337,12 @@ export function SourceFormModal({
                 className="input-field w-full"
                 required
               >
-                {sourceTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                {computerEquipment.map(spec => (
+                  <option key={spec.id} value={spec.model}>{spec.manufacturer} {spec.model}</option>
                 ))}
+                {computerEquipment.length === 0 && (
+                  <option value="Laptop - PC MISC">Laptop - PC MISC</option>
+                )}
               </select>
             </div>
           </div>
@@ -431,6 +444,23 @@ export function SourceFormModal({
                         <option key={type} value={type}>{type}</option>
                       ))}
                     </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextId = `out-${(formData.outputs || []).length + 1}`;
+                        const duplicatedOutput = { 
+                          ...output, 
+                          id: nextId,
+                          // Preserve the format properties from the output being duplicated
+                        };
+                        const newOutputs = [...(formData.outputs || []), duplicatedOutput];
+                        setFormData({ ...formData, outputs: newOutputs });
+                      }}
+                      className="p-2 text-av-accent hover:bg-av-accent/10 rounded"
+                      title="Duplicate this output"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
                     {(formData.outputs || []).length > 1 && (
                       <button
                         type="button"
@@ -439,6 +469,7 @@ export function SourceFormModal({
                           setFormData({ ...formData, outputs: newOutputs });
                         }}
                         className="p-2 text-av-danger hover:bg-av-danger/10 rounded"
+                        title="Remove this output"
                       >
                         <X className="w-4 h-4" />
                       </button>

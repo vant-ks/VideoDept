@@ -177,6 +177,7 @@ export interface MediaServer extends BaseEntity {
   category: 'Media Servers';
   categoryMember: 'source';
   software: string; // From Settings group (like Computer Type)
+  computerType?: string; // Hardware computer type from Equipment library (COMPUTER category)
   ioMode: 'direct'; // Media servers use direct I/O
   outputs: Output[]; // Max 8 direct outputs
 }

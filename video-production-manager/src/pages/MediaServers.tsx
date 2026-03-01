@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy, GripVertical } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
@@ -700,7 +701,7 @@ export default function MediaServers() {
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSave={(platform, outputs, note) => {
+          onSave={(platform, outputs, note, computerType) => {
             if (editingServer && !isDuplicating) {
               // Update both main and backup
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
@@ -713,15 +714,49 @@ export default function MediaServers() {
                   name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B') // Replace " A" with " B", keep role with space
                 }));
                 const serverName = `Server ${pair.main.pairNumber}`;
-                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note });
-                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note });
+                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
+                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note, computerType });
               }
             } else {
-              addMediaServerPair(platform, outputs, note);
+              addMediaServerPair(platform, outputs, note, computerType);
             }
             setIsServerModalOpen(false);
             setEditingServer(null);
             setIsDuplicating(false);
+          }}
+          onSaveAndDuplicate={(platform, outputs, note, computerType) => {
+            // Save current pair first
+            if (editingServer && !isDuplicating) {
+              // Update both main and backup
+              const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
+              if (pair) {
+                const outputsWithB = outputs.map((o, i) => ({
+                  ...o,
+                  id: `${pair.backup.id}-OUT${i + 1}`,
+                  name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B')
+                }));
+                const serverName = `Server ${pair.main.pairNumber}`;
+                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
+                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note, computerType });
+              }
+            } else {
+              addMediaServerPair(platform, outputs, note, computerType);
+            }
+            
+            // Prepare duplicate: create new pair with next number
+            const nextPairNum = serverPairs.length + 1;
+            setEditingServer({
+              id: `Server${nextPairNum}A`,
+              name: `Server ${nextPairNum} A`,
+              pairNumber: nextPairNum,
+              platform,
+              outputs: [], // Reset outputs for new pair
+              note: note || '',
+              type: 'SERVER',
+              category: 'SOURCE'
+            } as MediaServer);
+            setIsDuplicating(true);
+            // Keep modal open
           }}
           editingServer={editingServer}
           isDuplicating={isDuplicating}
@@ -761,18 +796,25 @@ export default function MediaServers() {
 interface ServerPairModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (platform: string, outputs: MediaServerOutput[], note?: string) => void;
+  onSave: (platform: string, outputs: MediaServerOutput[], note?: string, computerType?: string) => void;
+  onSaveAndDuplicate?: (platform: string, outputs: MediaServerOutput[], note?: string, computerType?: string) => void;
   editingServer: MediaServer | null;
   isDuplicating?: boolean;
   nextPairNumber?: number;
 }
 
-function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating, nextPairNumber }: ServerPairModalProps) {
+function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingServer, isDuplicating, nextPairNumber }: ServerPairModalProps) {
   // Use the pairNumber passed from parent (which uses the same logic as main page display)
   // or fall back to the editingServer's pairNumber
   const pairNumber = editingServer?.pairNumber || nextPairNumber || 1;
   
+  const oldStoreEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const equipmentLibSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
+  const equipmentSpecs = equipmentLibSpecs.length > 0 ? equipmentLibSpecs : oldStoreEquipmentSpecs;
+  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'COMPUTER');
+  
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
+  const [computerType, setComputerType] = useState(editingServer?.computerType || '');
   const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
     if (editingServer?.outputs) {
       // Strip A/B suffix and (Role) from output names when loading for editing
@@ -879,7 +921,7 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
       ...o,
       name: o.role ? `${o.name} A (${o.role})` : `${o.name} A`
     }));
-    onSave(platform, outputsWithFormatting as any, note);
+    onSave(platform, outputsWithFormatting as any, note, computerType);
   };
 
   if (!isOpen) return null;
@@ -898,7 +940,8 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
           </div>
 
           <div className="p-6 space-y-6">
-            <div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
               <label className="block text-sm font-medium text-av-text mb-2">
                 Platform *
               </label>
@@ -911,6 +954,23 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">
+                  Computer Type
+                </label>
+                <select
+                  value={computerType}
+                  onChange={(e) => setComputerType(e.target.value)}
+                  className="input-field w-full"
+                >
+                  <option value="">Select computer type...</option>
+                  {computerEquipment.map(spec => (
+                    <option key={spec.id} value={spec.model}>{spec.manufacturer} {spec.model}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>
@@ -1093,11 +1153,22 @@ function ServerPairModal({ isOpen, onClose, onSave, editingServer, isDuplicating
           </div>
 
           <div className="p-6 border-t border-av-border flex justify-end gap-3 sticky bottom-0 bg-av-surface">
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancel
+            <button 
+              type="button" 
+              onClick={(e) => handleSubmit(e as any, 'close')} 
+              className="btn-primary flex-1"
+            >
+              Save & Close
             </button>
-            <button type="submit" className="btn-primary">
-              {editingServer ? 'Update Pair' : 'Create Pair'}
+            <button 
+              type="button" 
+              onClick={(e) => handleSubmit(e as any, 'duplicate')} 
+              className="btn-secondary flex-1"
+            >
+              Save & Duplicate
+            </button>
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">
+              Cancel
             </button>
           </div>
         </form>

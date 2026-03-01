@@ -14,7 +14,7 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
   const { resolutions = [], frameRates = [] } = useProductionStore();
   
   const [formData, setFormData] = useState<Partial<EquipmentSpec>>({
-    category: 'ccu',
+    category: 'COMPUTER',
     manufacturer: '',
     model: '',
     ioArchitecture: 'direct',
@@ -37,7 +37,7 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
   useEffect(() => {
     if (editingEquipment) {
       setFormData({
-        category: editingEquipment.category || 'ccu',
+        category: editingEquipment.category || 'COMPUTER',
         manufacturer: editingEquipment.manufacturer || '',
         model: editingEquipment.model || '',
         ioArchitecture: editingEquipment.ioArchitecture || 'direct',
@@ -63,7 +63,7 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
     } else {
       // Reset to defaults when adding new equipment
       setFormData({
-        category: 'ccu',
+        category: 'COMPUTER',
         manufacturer: '',
         model: '',
         ioArchitecture: 'direct',
@@ -102,16 +102,20 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
   };
 
   const categories = [
-    { value: 'camera', label: 'Camera' },
-    { value: 'ccu', label: 'CCU' },
-    { value: 'switcher', label: 'Switcher' },
-    { value: 'router', label: 'Router' },
-    { value: 'led-processor', label: 'LED Processor' },
-    { value: 'led-tile', label: 'LED Tile' },
-    { value: 'projector', label: 'Projector' },
-    { value: 'recorder', label: 'Recorder' },
-    { value: 'monitor', label: 'Monitor' },
-    { value: 'converter', label: 'Converter' }
+    { value: 'COMPUTER', label: 'Computer' },
+    { value: 'CAMERA', label: 'Camera' },
+    { value: 'CCU', label: 'CCU' },
+    { value: 'CAM_SWITCHER', label: 'Camera Switcher' },
+    { value: 'VISION_SWITCHER', label: 'Vision Switcher' },
+    { value: 'ROUTER', label: 'Router' },
+    { value: 'LED_PROCESSOR', label: 'LED Processor' },
+    { value: 'LED_TILE', label: 'LED Tile' },
+    { value: 'PROJECTOR', label: 'Projector' },
+    { value: 'RECORDER', label: 'Recorder' },
+    { value: 'MONITOR', label: 'Monitor' },
+    { value: 'CONVERTER', label: 'Converter' },
+    { value: 'CABLE_SNAKE', label: 'Cable Snake' },
+    { value: 'STREAM_ENCODER', label: 'Stream Encoder' },
   ];
 
   return (

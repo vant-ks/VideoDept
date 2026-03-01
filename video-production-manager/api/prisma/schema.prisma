@@ -35,11 +35,14 @@ model cameras {
   is_deleted         Boolean     @default(false)
   last_modified_by   String?
   synced_at          DateTime?
-  ccus               ccus?       @relation(fields: [ccu_uuid], references: [uuid])
-  productions        productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid     String?
+  ccus               ccus?            @relation(fields: [ccu_uuid], references: [uuid])
+  productions        productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs    equipment_specs? @relation("CameraEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([ccu_uuid])
   @@index([production_id])
+  @@index([equipment_uuid], map: "cameras_equipment_uuid_idx")
 }
 
 model ccus {
@@ -61,10 +64,13 @@ model ccus {
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
+  equipment_uuid   String?
   cameras          cameras[]
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("CCUEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
+  @@index([equipment_uuid], map: "ccus_equipment_uuid_idx")
 }
 
 model cable_snakes {
@@ -82,9 +88,12 @@ model cable_snakes {
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("CableSnakeEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
+  @@index([equipment_uuid], map: "cable_snakes_equipment_uuid_idx")
 }
 
 model cam_switchers {
@@ -104,9 +113,12 @@ model cam_switchers {
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("CamSwitcherEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
+  @@index([equipment_uuid], map: "cam_switchers_equipment_uuid_idx")
 }
 
 model vision_switchers {
@@ -127,9 +139,12 @@ model vision_switchers {
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("VisionSwitcherEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
+  @@index([equipment_uuid], map: "vision_switchers_equipment_uuid_idx")
 }
 
 model led_screens {
@@ -150,9 +165,12 @@ model led_screens {
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("LedScreenEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
+  @@index([equipment_uuid], map: "led_screens_equipment_uuid_idx")
 }
 
 model media_servers {
@@ -175,10 +193,13 @@ model media_servers {
   last_modified_by String?
   synced_at        DateTime?
   field_versions   Json?
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("MediaServerEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
   @@index([production_id, pair_number])
+  @@index([equipment_uuid], map: "media_servers_equipment_uuid_idx")
 }
 
 model projection_screens {
@@ -199,9 +220,12 @@ model projection_screens {
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("ProjectionScreenEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
+  @@index([equipment_uuid], map: "projection_screens_equipment_uuid_idx")
 }
 
 model records {
@@ -220,9 +244,12 @@ model records {
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("RecordEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
+  @@index([equipment_uuid], map: "records_equipment_uuid_idx")
 }
 
 model routers {
@@ -242,9 +269,12 @@ model routers {
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("RouterEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
+  @@index([equipment_uuid], map: "routers_equipment_uuid_idx")
 }
 
 model streams {
@@ -263,9 +293,12 @@ model streams {
   is_deleted       Boolean     @default(false)
   last_modified_by String?
   synced_at        DateTime?
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("StreamEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id])
+  @@index([equipment_uuid], map: "streams_equipment_uuid_idx")
 }
 
 model checklist_items {
@@ -315,7 +348,7 @@ model connections {
   last_modified_by    String?
   synced_at           DateTime?
   productions         productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
-  sources             sources?    @relation(fields: [source_uuid], references: [uuid])
+  computers           computers?  @relation(fields: [source_uuid], references: [uuid])
 
   @@index([production_id])
   @@index([source_uuid])
@@ -403,6 +436,19 @@ model equipment_specs {
   is_deleted          Boolean              @default(false)
   equipment_cards     equipment_cards[]
   equipment_io_ports  equipment_io_ports[]
+  computers           computers[]          @relation("ComputerEquipment")
+  media_servers       media_servers[]      @relation("MediaServerEquipment")
+  cameras             cameras[]            @relation("CameraEquipment")
+  ccus                ccus[]               @relation("CCUEquipment")
+  cable_snakes        cable_snakes[]       @relation("CableSnakeEquipment")
+  cam_switchers       cam_switchers[]      @relation("CamSwitcherEquipment")
+  vision_switchers    vision_switchers[]   @relation("VisionSwitcherEquipment")
+  led_screens         led_screens[]        @relation("LedScreenEquipment")
+  projection_screens  projection_screens[] @relation("ProjectionScreenEquipment")
+  records             records[]            @relation("RecordEquipment")
+  routers             routers[]            @relation("RouterEquipment")
+  streams             streams[]            @relation("StreamEquipment")
+  sends               sends[]              @relation("SendEquipment")
 
   @@index([category, is_deleted])
   @@index([is_secondary_device])
@@ -491,7 +537,7 @@ model productions {
   records            records[]
   routers            routers[]
   sends              sends[]
-  sources            sources[]
+  computers          computers[]
   streams            streams[]
   vision_switchers   vision_switchers[]
 
@@ -529,10 +575,13 @@ model sends {
   synced_at        DateTime?
   last_modified_by String?
   is_deleted       Boolean     @default(false)
-  productions      productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_uuid   String?
+  productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs  equipment_specs? @relation("SendEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id, is_deleted])
   @@index([type])
+  @@index([equipment_uuid], map: "sends_equipment_uuid_idx")
 }
 
 model server_registry {
@@ -570,7 +619,7 @@ model source_outputs {
   standard     String?
   created_at   DateTime @default(now())
   version      Int      @default(1)
-  sources      sources  @relation(fields: [source_uuid], references: [uuid], onDelete: Cascade)
+  computers    computers  @relation(fields: [source_uuid], references: [uuid], onDelete: Cascade)
 
   @@index([source_uuid])
 }
@@ -586,7 +635,7 @@ model source_types {
   @@index([sort_order, is_active])
 }
 
-model sources {
+model computers {
   uuid                   String           @id @default(dbgenerated("gen_random_uuid()"))
   id                     String
   production_id          String
@@ -608,13 +657,17 @@ model sources {
   synced_at              DateTime?
   last_modified_by       String?
   is_deleted             Boolean          @default(false)
+  equipment_uuid         String?
   connections            connections[]
   source_outputs         source_outputs[]
   productions            productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  equipment_specs        equipment_specs? @relation("ComputerEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
 
   @@index([production_id, is_deleted])
   @@index([category], map: "sources_category_idx")
   @@index([type], map: "sources_type_idx")
+  @@index([equipment_uuid], map: "sources_equipment_uuid_idx")
+  @@map("sources")
 }
 
 model sync_conflicts {
@@ -665,6 +718,9 @@ enum EquipmentCategory {
   RECORDER
   MONITOR
   CONVERTER
+  COMPUTER
+  CABLE_SNAKE
+  STREAM_ENCODER
 }
 
 enum EventOperation {
