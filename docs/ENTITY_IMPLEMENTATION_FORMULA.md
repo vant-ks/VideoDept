@@ -88,6 +88,7 @@ import { io } from '../server';
 import { recordEvent } from '../services/eventService';
 import { EventType, EventOperation } from '@prisma/client';
 import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
+import { validateProductionExists } from '../utils/validation-helpers';
 
 const router = Router();
 
@@ -115,6 +116,18 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { userId, userName, productionId, ...entityData } = req.body;
+
+    // VALIDATION: Verify production exists
+    try {
+      await validateProductionExists(productionId);
+    } catch (validationError: any) {
+      return res.status(400).json({ 
+        error: validationError.message,
+        code: 'PRODUCTION_NOT_FOUND',
+        productionId 
+      });
+    }
+
     const snakeCaseData = toSnakeCase(entityData);
     
     // DO NOT include 'uuid' - database generates it
@@ -181,7 +194,7 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     const entity = await prisma.entity_name.update({
       where: { uuid },
       data: {
-        ...toSnakeCase(updates),
+        ...toSnakeCase(updates),   // ← ALWAYS toSnakeCase! Frontend sends camelCase
         updated_at: new Date(),
         version: current.version + 1
       }
@@ -217,7 +230,7 @@ router.delete('/:uuid', async (req: Request, res: Response) => {
     
     io.to(`production:${entity.production_id}`).emit('entity:deleted', {
       entityType: 'entityName',
-      entityId: uuid,
+      entityId: uuid,    // ← Send UUID (the route param), NOT entity.id (display ID)
       entity: toCamelCase(entity)
     });
     
@@ -237,6 +250,9 @@ export default router;
 - ✅ NEVER include `uuid` in create data (database generates)
 - ✅ NEVER use spread operators (`...mainServer`) - explicit fields only
 - ✅ Use `uuid` for all routes (`:uuid` not `:id`)
+- ✅ POST must include `validateProductionExists(productionId)` guard
+- ✅ PUT: ALWAYS `toSnakeCase(updates)` — even complex routes with field versioning
+- ✅ DELETE: `entityId` in WS event = UUID (route param) NOT display id
 - ✅ WebSocket events: `entity:created/updated/deleted` (generic)
 - ✅ Payload includes `entityType` to identify which entity
 
@@ -380,25 +396,68 @@ socket.on('entity:deleted', (data: { entityType: string; entityId: string }) => 
 ### 4.1 Create Page Component
 **File:** `video-production-manager/src/pages/EntityName.tsx`
 
-Follow existing patterns from:
-- `Cameras.tsx` - Complex forms with related entities
-- `Sources.tsx` - Tabbed interface patterns
-- `CCUs.tsx` - Simple list/form patterns
+**Reference implementation:** `Routers.tsx` or `Snakes.tsx` (cleanest examples)
 
-**Key Patterns:**
+**KEY ARCHITECTURE RULES FOR PAGES:**
 ```typescript
-// Use uuid for all operations
-const handleEdit = (entity: EntityName) => {
-  setEditingId(entity.uuid);  // NOT entity.id!
-};
+// ✅ CORRECT: Fetch from API on mount, WS for real-time, optimistic for instant UI
+const [entities, setEntities] = useState<Entity[]>([]);
 
-// Use uuid for finding items
-const entity = entityNames.find(e => e.uuid === editingId);
+useEffect(() => {
+  if (productionId && oldStore.isConnected) {
+    entityAPI.fetchEntities(productionId).then(setEntities).catch(console.error);
+  }
+}, [productionId, oldStore.isConnected]);
 
-// Use uuid for updates/deletes
-await updateEntityName(entity.uuid, updates);
-await deleteEntityName(entity.uuid);
+// ❌ WRONG — NEVER add a store-sync effect. It overwrites WS + optimistic updates:
+// useEffect(() => setEntities(storeEntities), [storeEntities]);  ← BUG!
 ```
+
+**WS handlers must use UUID for dedup and delete:**
+```typescript
+useProductionEvents({
+  productionId,
+  onEntityCreated: useCallback((event) => {
+    if (event.entityType === 'entityName') {
+      setEntities(prev => {
+        if (prev.some(e => e.uuid === event.entity.uuid)) return prev; // dedup by UUID
+        return [...prev, event.entity];
+      });
+    }
+  }, []),
+  onEntityUpdated: useCallback((event) => {
+    if (event.entityType === 'entityName') {
+      setEntities(prev => prev.map(e => e.uuid === event.entity.uuid ? event.entity : e));
+    }
+  }, []),
+  onEntityDeleted: useCallback((event) => {
+    if (event.entityType === 'entityName') {
+      // event.entityId is UUID from DELETE route — filter by uuid NOT display id!
+      setEntities(prev => prev.filter(e => e.uuid !== event.entityId));
+    }
+  }, [])
+});
+```
+
+**After API calls, update state immediately (don't rely solely on WS):**
+```typescript
+// After create:
+const newEntity = await entityAPI.createEntity({...});
+setEntities(prev => prev.some(e => e.uuid === newEntity.uuid) ? prev : [...prev, newEntity]);
+
+// After update:
+const updated = await entityAPI.updateEntity(entity.uuid, {...});
+setEntities(prev => prev.map(e => e.uuid === entity.uuid ? updated : e));
+
+// After delete:
+await entityAPI.deleteEntity(entity.uuid);
+setEntities(prev => prev.filter(e => e.uuid !== entity.uuid));
+```
+
+Follow existing patterns from:
+- `Routers.tsx` — clean minimal reference
+- `Snakes.tsx` — same pattern, recently fixed
+- `CCUs.tsx` — complex form with related entities
 
 ---
 
@@ -536,11 +595,13 @@ Before marking implementation complete, verify:
 When adding a new entity, you touch exactly these files:
 
 1. ✅ `api/prisma/schema.prisma` - Add model
-2. ✅ `api/src/routes/entity-name.ts` - Create routes
+2. ✅ `api/src/routes/entity-name.ts` - Create routes (with validateProductionExists + toSnakeCase + toCamelCase)
 3. ✅ `api/src/server.ts` - Register routes
-4. ✅ `src/hooks/useProjectStore.ts` - Add state & actions
-5. ✅ `src/pages/EntityName.tsx` - Create UI
+4. ✅ `src/hooks/useEntityNameAPI.ts` - API hook (fetch/create/update/delete, all explicit fields)
+5. ✅ `src/pages/EntityName.tsx` - Page UI (API fetch on mount + useProductionEvents WS + optimistic updates)
 6. ✅ `src/App.tsx` - Add route
 7. ✅ `api/scripts/test-entity-name.sh` - Create test
+
+**Reference page template:** `Routers.tsx` — ~160 lines, clean minimal implementation of all patterns
 
 **That's it!** Follow this pattern and entity pages work reliably every time.
