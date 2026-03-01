@@ -1,5 +1,5 @@
 import { Card, EmptyState } from '@/components/ui';
-import { Cable, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Cable, Plus, Edit2, Trash2, AlertCircle } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -133,14 +133,22 @@ export default function Snakes() {
         />
       ) : (
         <div className="grid gap-4">
-          {snakes.map((snake) => (
-            <Card key={snake.uuid} className="p-6">
+          {snakes.map((snake) => {
+            const isDuplicateId = snakes.filter(s => s.id === snake.id && s.uuid !== snake.uuid).length > 0;
+            return (
+            <Card key={snake.uuid} className={`p-6 ${isDuplicateId ? 'border-red-500/50 bg-red-900/5' : ''}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <Cable className="w-6 h-6 text-av-purple" />
                   <div>
-                    <h3 className="text-lg font-semibold text-av-text">{snake.name}</h3>
-                    <p className="text-sm text-av-text-muted">ID: {snake.id}</p>
+                    <h3 className={`text-lg font-semibold ${isDuplicateId ? 'text-red-500' : 'text-av-text'}`}>{snake.name}</h3>
+                    <p className={`text-sm ${isDuplicateId ? 'text-red-500 font-bold' : 'text-av-text-muted'}`}>ID: {snake.id}</p>
+                    {isDuplicateId && (
+                      <div className="flex items-center gap-1 mt-1 text-xs text-red-500">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Duplicate ID — another snake shares this ID.</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -152,7 +160,8 @@ export default function Snakes() {
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 

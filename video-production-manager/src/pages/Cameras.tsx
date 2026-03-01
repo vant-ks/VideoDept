@@ -205,7 +205,25 @@ export default function Cameras() {
   };
 
   const handleEdit = (camera: Camera) => {
-    setFormData(camera);
+    let editFormData: Partial<Camera> = { ...camera };
+
+    // The DB stores model as a combined "Manufacturer Model" string (no separate manufacturer column).
+    // Try to parse it back into separate manufacturer + model fields by matching against equipment specs.
+    if (!camera.manufacturer && camera.model && cameraSpecs.length > 0) {
+      const matchingSpec = cameraSpecs.find(spec =>
+        camera.model === `${spec.manufacturer} ${spec.model}`
+      );
+      if (matchingSpec) {
+        editFormData = {
+          ...editFormData,
+          manufacturer: matchingSpec.manufacturer,
+          model: matchingSpec.model,
+          equipmentUuid: (matchingSpec as any).uuid,
+        };
+      }
+    }
+
+    setFormData(editFormData);
     setEditingCamera(camera);
     setErrors([]);
     setIsModalOpen(true);
@@ -240,9 +258,15 @@ export default function Cameras() {
       let newCamera: Camera | undefined = undefined;
 
       if (editingCamera) {
+        // Combine manufacturer and model into single model field for database (same as create path)
+        const combinedModel = finalFormData.manufacturer && finalFormData.model
+          ? `${finalFormData.manufacturer} ${finalFormData.model}`
+          : finalFormData.model || '';
+
         // Update existing camera via API — pass uuid (PK) not display id
         const result = await camerasAPI.updateCamera((editingCamera as any).uuid || editingCamera.id, {
           ...finalFormData,
+          model: combinedModel,
           productionId,
           version: editingCamera.version,
         });

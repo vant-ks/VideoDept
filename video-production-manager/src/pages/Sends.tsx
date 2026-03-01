@@ -43,8 +43,8 @@ export const Sends: React.FC = () => {
       if (event.entityType === 'send') {
         console.log('🔔 Send created by', event.userName);
         setSends(prev => {
-          // Avoid duplicates
-          if (prev.some(s => s.id === event.entity.id)) return prev;
+          // Avoid duplicates — use uuid (immutable PK), NOT display id
+          if (prev.some(s => (s as any).uuid === event.entity.uuid)) return prev;
           return [...prev, event.entity];
         });
       }
@@ -390,20 +390,31 @@ export const Sends: React.FC = () => {
             )
           ) : (
             <div className="space-y-3">
-              {filteredSends.map((send) => (
-                <Card key={send.id} className="p-6 hover:border-av-accent/30 transition-colors">
+              {filteredSends.map((send) => {
+                // Check for duplicate display ID across ALL sends (not just filtered view)
+                const isDuplicateId = sends.filter(s => s.id === send.id && (s as any).uuid !== (send as any).uuid).length > 0;
+
+                return (
+                <Card key={(send as any).uuid || send.id} className={`p-6 transition-colors ${isDuplicateId ? 'border-red-500/50 bg-red-900/5 hover:border-red-500/70' : 'hover:border-av-accent/30'}`}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-lg font-semibold text-av-text">{send.name}</h3>
+                        <h3 className={`text-lg font-semibold ${isDuplicateId ? 'text-red-500' : 'text-av-text'}`}>{send.name}</h3>
                         <Badge>{send.type}</Badge>
                         <Badge>{send.output}</Badge>
                       </div>
-                      
+
+                      {isDuplicateId && (
+                        <div className="flex items-center gap-2 mb-3 text-sm text-red-500 bg-red-900/10 border border-red-500/30 rounded-md p-2">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                          <span>Duplicate ID — another send with ID <span className="font-mono font-bold">{send.id}</span> already exists. Edit to assign a unique ID.</span>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                         <div>
                           <span className="text-av-text-muted">ID:</span>
-                          <span className="text-av-text ml-2">{send.id}</span>
+                          <span className={`ml-2 ${isDuplicateId ? 'text-red-500 font-bold' : 'text-av-text'}`}>{send.id}</span>
                         </div>
                         {send.hRes && send.vRes && (
                           <div>
@@ -461,7 +472,8 @@ export const Sends: React.FC = () => {
                     </div>
                   </div>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
 

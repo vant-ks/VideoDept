@@ -1,5 +1,5 @@
 import { Card, EmptyState } from '@/components/ui';
-import { Share2, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Share2, Plus, Edit2, Trash2, AlertCircle } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -135,14 +135,22 @@ export default function Routers() {
         />
       ) : (
         <div className="grid gap-4">
-          {routers.map((router) => (
-            <Card key={router.uuid} className="p-6">
+          {routers.map((router) => {
+            const isDuplicateId = routers.filter(r => r.id === router.id && r.uuid !== router.uuid).length > 0;
+            return (
+            <Card key={router.uuid} className={`p-6 ${isDuplicateId ? 'border-red-500/50 bg-red-900/5' : ''}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <Share2 className="w-6 h-6 text-av-accent" />
                   <div>
-                    <h3 className="text-lg font-semibold text-av-text">{router.name}</h3>
-                    <p className="text-sm text-av-text-muted">ID: {router.id}</p>
+                    <h3 className={`text-lg font-semibold ${isDuplicateId ? 'text-red-500' : 'text-av-text'}`}>{router.name}</h3>
+                    <p className={`text-sm ${isDuplicateId ? 'text-red-500 font-bold' : 'text-av-text-muted'}`}>ID: {router.id}</p>
+                    {isDuplicateId && (
+                      <div className="flex items-center gap-1 mt-1 text-xs text-red-500">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Duplicate ID — another router shares this ID.</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -154,7 +162,8 @@ export default function Routers() {
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
