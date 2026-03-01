@@ -26,13 +26,6 @@ export default function Settings() {
   const removeConnectorType = equipmentLibrary.removeConnectorType || oldStore.removeConnectorType;
   const reorderConnectorTypes = equipmentLibrary.reorderConnectorTypes || oldStore.reorderConnectorTypes;
   
-  // Source types are global app settings, not production-specific
-  const sourceTypes = oldStore.sourceTypes || [];
-  const addSourceType = oldStore.addSourceType;
-  const removeSourceType = oldStore.removeSourceType;
-  const reorderSourceTypes = oldStore.reorderSourceTypes;
-  const restoreDefaultSourceTypes = oldStore.restoreDefaultSourceTypes;
-  
   const frameRates = (Array.isArray(equipmentLibrary.frameRates) && equipmentLibrary.frameRates.length > 0) ? equipmentLibrary.frameRates : (oldStore.frameRates || []);
   const addFrameRate = equipmentLibrary.addFrameRate || oldStore.addFrameRate;
   const removeFrameRate = equipmentLibrary.removeFrameRate || oldStore.removeFrameRate;
@@ -53,9 +46,6 @@ export default function Settings() {
   const [newConnector, setNewConnector] = useState('');
   const [connectorError, setConnectorError] = useState('');
   
-  const [newSourceType, setNewSourceType] = useState('');
-  const [typeError, setTypeError] = useState('');
-  
   const [newFrameRate, setNewFrameRate] = useState('');
   const [frameRateError, setFrameRateError] = useState('');
   
@@ -63,7 +53,6 @@ export default function Settings() {
   const [resolutionError, setResolutionError] = useState('');
   
   const [draggedConnectorIndex, setDraggedConnectorIndex] = useState<number | null>(null);
-  const [draggedTypeIndex, setDraggedTypeIndex] = useState<number | null>(null);
   const [draggedFrameRateIndex, setDraggedFrameRateIndex] = useState<number | null>(null);
   const [draggedResolutionIndex, setDraggedResolutionIndex] = useState<number | null>(null);
   
@@ -100,14 +89,6 @@ export default function Settings() {
       try {
         const apiUrl = getApiUrl();
         
-        // Fetch source types
-        const sourceTypesRes = await fetch(`${apiUrl}/settings/source-types`);
-        if (sourceTypesRes.ok) {
-          const types = await sourceTypesRes.json();
-          // Update Zustand store for offline cache
-          oldStore.setSourceTypes?.(types);
-        }
-        
         // Fetch connector types
         const connectorTypesRes = await fetch(`${apiUrl}/settings/connector-types`);
         if (connectorTypesRes.ok) {
@@ -140,17 +121,6 @@ export default function Settings() {
   useEffect(() => {
     if (!socket || !isConnected) return;
     
-    // Source types updates
-    const handleSourceTypesUpdated = (data: any) => {
-      console.log('Settings: Received source-types update via WebSocket:', data);
-      // Refetch from API to get latest data
-      const apiUrl = getApiUrl();
-      fetch(`${apiUrl}/settings/source-types`)
-        .then(res => res.json())
-        .then(types => oldStore.setSourceTypes?.(types))
-        .catch(err => console.error('Failed to refetch source types:', err));
-    };
-    
     // Connector types updates
     const handleConnectorTypesUpdated = (data: any) => {
       console.log('Settings: Received connector-types update via WebSocket:', data);
@@ -181,13 +151,11 @@ export default function Settings() {
         .catch(err => console.error('Failed to refetch resolutions:', err));
     };
     
-    socket.on('settings:source-types-updated', handleSourceTypesUpdated);
     socket.on('settings:connector-types-updated', handleConnectorTypesUpdated);
     socket.on('settings:frame-rates-updated', handleFrameRatesUpdated);
     socket.on('settings:resolution-presets-updated', handleResolutionsUpdated);
     
     return () => {
-      socket.off('settings:source-types-updated', handleSourceTypesUpdated);
       socket.off('settings:connector-types-updated', handleConnectorTypesUpdated);
       socket.off('settings:frame-rates-updated', handleFrameRatesUpdated);
       socket.off('settings:resolution-presets-updated', handleResolutionsUpdated);
@@ -305,80 +273,6 @@ export default function Settings() {
     }
   };
 
-  const handleAddSourceType = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newSourceType.trim()) {
-      setTypeError('Source type cannot be empty');
-      return;
-    }
-    
-    const trimmedType = newSourceType.trim();
-    
-    if (sourceTypes.includes(trimmedType)) {
-      setTypeError('This source type already exists');
-      return;
-    }
-    
-    try {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/settings/source-types`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmedType })
-      });
-      
-      if (!response.ok) throw new Error('Failed to add source type');
-      
-      // Optimistic update - will be confirmed by WebSocket
-      addSourceType(trimmedType);
-      setNewSourceType('');
-      setTypeError('');
-    } catch (error) {
-      console.error('Failed to add source type:', error);
-      setTypeError('Failed to add source type');
-    }
-  };
-
-  const handleRemoveSourceType = async (type: string) => {
-    if (confirm(`Remove "${type}"? This will permanently delete it.`)) {
-      try {
-        const apiUrl = getApiUrl();
-        const response = await fetch(`${apiUrl}/settings/source-types/${encodeURIComponent(type)}`, {
-          method: 'DELETE'
-        });
-        
-        if (!response.ok) throw new Error('Failed to remove source type');
-        
-        // Optimistic update - will be confirmed by WebSocket
-        removeSourceType(type);
-      } catch (error) {
-        console.error('Failed to remove source type:', error);
-        alert('Failed to remove source type');
-      }
-    }
-  };
-
-  const handleRestoreDefaultSourceTypes = async () => {
-    if (confirm('Restore default source types? This will replace all current types with the original 11 defaults.')) {
-      try {
-        const apiUrl = getApiUrl();
-        const response = await fetch(`${apiUrl}/settings/source-types/restore-defaults`, {
-          method: 'POST'
-        });
-        
-        if (!response.ok) throw new Error('Failed to restore defaults');
-        
-        const types = await response.json();
-        // Update Zustand store - will also be confirmed by WebSocket
-        oldStore.setSourceTypes?.(types);
-      } catch (error) {
-        console.error('Failed to restore default source types:', error);
-        alert('Failed to restore defaults');
-      }
-    }
-  };
-
   // Drag and drop handlers for connectors
   const handleConnectorDragStart = (index: number) => {
     setDraggedConnectorIndex(index);
@@ -413,42 +307,6 @@ export default function Settings() {
       }
     }
     setDraggedConnectorIndex(null);
-  };
-
-  // Drag and drop handlers for source types
-  const handleTypeDragStart = (index: number) => {
-    setDraggedTypeIndex(index);
-  };
-
-  const handleTypeDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedTypeIndex === null || draggedTypeIndex === index) return;
-
-    const newTypes = [...sourceTypes];
-    const draggedItem = newTypes[draggedTypeIndex];
-    newTypes.splice(draggedTypeIndex, 1);
-    newTypes.splice(index, 0, draggedItem);
-
-    reorderSourceTypes(newTypes);
-    setDraggedTypeIndex(index);
-  };
-
-  const handleTypeDragEnd = async () => {
-    if (draggedTypeIndex !== null) {
-      try {
-        const apiUrl = getApiUrl();
-        const response = await fetch(`${apiUrl}/settings/source-types/reorder`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ types: sourceTypes })
-        });
-        
-        if (!response.ok) throw new Error('Failed to reorder source types');
-      } catch (error) {
-        console.error('Failed to reorder source types:', error);
-      }
-    }
-    setDraggedTypeIndex(null);
   };
 
   // Drag and drop handlers for frame rates
@@ -986,107 +844,6 @@ export default function Settings() {
                   </div>
                 ))}
               </div>
-            </div>
-          </>
-        )}
-      </Card>
-
-      {/* Computer Types Section (formerly Source Types) */}
-      <Card className="p-6">
-        <button 
-          onClick={() => toggleSection('types')}
-          className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
-        >
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold text-av-text">Computer Types</h2>
-            {!canEditEquipmentSettings && (
-              <span className="text-xs text-av-warning px-2 py-1 bg-av-warning/10 rounded">Read-only</span>
-            )}
-          </div>
-          {expandedSections.includes('types') ? (
-            <ChevronDown className="w-5 h-5 text-av-text-muted" />
-          ) : (
-            <ChevronRight className="w-5 h-5 text-av-text-muted" />
-          )}
-        </button>
-        
-        {expandedSections.includes('types') && (
-          <>
-            {/* Add Computer Type Form */}
-            {canEditEquipmentSettings && (
-              <form onSubmit={handleAddSourceType} className="mb-6">
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      value={newSourceType}
-                      onChange={(e) => {
-                        setNewSourceType(e.target.value);
-                        setTypeError('');
-                      }}
-                      placeholder="Enter computer type (e.g., Laptop - PC GFX, Laptop - MAC GFX)"
-                      className="input-field w-full"
-                    />
-                    {typeError && (
-                      <p className="text-sm text-av-danger mt-1">{typeError}</p>
-                    )}
-                  </div>
-                  <button type="submit" className="btn-primary flex items-center gap-2">
-                    <Plus className="w-4 h-4" />
-                    Add Type
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Restore Defaults Button */}
-            {canEditEquipmentSettings && (
-              <div className="mb-4">
-                <button 
-                  onClick={handleRestoreDefaultSourceTypes}
-                  className="btn-secondary text-sm flex items-center gap-2"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Restore Defaults
-                </button>
-              </div>
-            )}
-
-            {/* Computer Type List */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-av-text-muted mb-3">
-                Active Types ({sourceTypes.length}){canEditEquipmentSettings && ' - Drag to reorder'}
-              </h3>
-              {sourceTypes.length === 0 ? (
-                <div className="text-center py-8 text-av-text-muted">
-                  No computer types configured
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {sourceTypes.map((type, index) => (
-                    <div
-                      key={type}
-                      draggable={canEditEquipmentSettings}
-                      onDragStart={() => canEditEquipmentSettings && handleTypeDragStart(index)}
-                      onDragOver={(e) => canEditEquipmentSettings && handleTypeDragOver(e, index)}
-                      onDragEnd={canEditEquipmentSettings ? handleTypeDragEnd : undefined}
-                      className={`flex items-center gap-2 bg-av-surface-light p-3 rounded-md border border-av-border transition-colors hover:border-av-accent/30 ${canEditEquipmentSettings ? 'cursor-move' : ''}`}
-                    >
-                      {canEditEquipmentSettings && <GripVertical className="w-4 h-4 text-av-text-muted" />}
-                      <span className="text-av-text flex-1">{type}</span>
-                      {canEditEquipmentSettings && (
-                        <button
-                          onClick={() => handleRemoveSourceType(type)}
-                          className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger transition-colors"
-                          title="Delete type"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </>
         )}

@@ -700,7 +700,7 @@ export default function MediaServers() {
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSave={(platform, outputs, note) => {
+          onSave={(platform, outputs, note, computerType) => {
             if (editingServer && !isDuplicating) {
               // Update both main and backup
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
@@ -713,17 +713,17 @@ export default function MediaServers() {
                   name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B') // Replace " A" with " B", keep role with space
                 }));
                 const serverName = `Server ${pair.main.pairNumber}`;
-                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note });
-                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note });
+                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
+                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note, computerType });
               }
             } else {
-              addMediaServerPair(platform, outputs, note);
+              addMediaServerPair(platform, outputs, note, computerType);
             }
             setIsServerModalOpen(false);
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSaveAndDuplicate={(platform, outputs, note) => {
+          onSaveAndDuplicate={(platform, outputs, note, computerType) => {
             // Save current pair first
             if (editingServer && !isDuplicating) {
               // Update both main and backup
@@ -735,11 +735,11 @@ export default function MediaServers() {
                   name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B')
                 }));
                 const serverName = `Server ${pair.main.pairNumber}`;
-                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note });
-                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note });
+                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
+                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note, computerType });
               }
             } else {
-              addMediaServerPair(platform, outputs, note);
+              addMediaServerPair(platform, outputs, note, computerType);
             }
             
             // Prepare duplicate: create new pair with next number
@@ -795,8 +795,8 @@ export default function MediaServers() {
 interface ServerPairModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (platform: string, outputs: MediaServerOutput[], note?: string) => void;
-  onSaveAndDuplicate?: (platform: string, outputs: MediaServerOutput[], note?: string) => void;
+  onSave: (platform: string, outputs: MediaServerOutput[], note?: string, computerType?: string) => void;
+  onSaveAndDuplicate?: (platform: string, outputs: MediaServerOutput[], note?: string, computerType?: string) => void;
   editingServer: MediaServer | null;
   isDuplicating?: boolean;
   nextPairNumber?: number;
@@ -807,7 +807,11 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   // or fall back to the editingServer's pairNumber
   const pairNumber = editingServer?.pairNumber || nextPairNumber || 1;
   
+  const equipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'COMPUTER');
+  
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
+  const [computerType, setComputerType] = useState(editingServer?.computerType || '');
   const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
     if (editingServer?.outputs) {
       // Strip A/B suffix and (Role) from output names when loading for editing
@@ -914,7 +918,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
       ...o,
       name: o.role ? `${o.name} A (${o.role})` : `${o.name} A`
     }));
-    onSave(platform, outputsWithFormatting as any, note);
+    onSave(platform, outputsWithFormatting as any, note, computerType);
   };
 
   if (!isOpen) return null;
@@ -933,7 +937,8 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
           </div>
 
           <div className="p-6 space-y-6">
-            <div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
               <label className="block text-sm font-medium text-av-text mb-2">
                 Platform *
               </label>
@@ -946,6 +951,23 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">
+                  Computer Type
+                </label>
+                <select
+                  value={computerType}
+                  onChange={(e) => setComputerType(e.target.value)}
+                  className="input-field w-full"
+                >
+                  <option value="">Select computer type...</option>
+                  {computerEquipment.map(spec => (
+                    <option key={spec.id} value={spec.model}>{spec.manufacturer} {spec.model}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>

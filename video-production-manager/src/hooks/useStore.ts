@@ -110,7 +110,7 @@ interface ProductionStore {
   removeEquipmentSpec: (id: string) => void | Promise<void>;
   
   // Media Server Actions
-  addMediaServerPair: (platform: string, outputs: any[], note?: string) => void;
+  addMediaServerPair: (platform: string, outputs: any[], note?: string, computerType?: string) => void;
   updateMediaServer: (id: string, server: Partial<MediaServer>) => void;
   deleteMediaServerPair: (pairNumber: number) => void;
   
@@ -571,7 +571,7 @@ export const useProductionStore = create<ProductionStore>()(
       })),
       
       // Media Server Actions
-      addMediaServerPair: (platform, outputs, note) => set((state) => {
+      addMediaServerPair: (platform, outputs, note, computerType) => set((state) => {
         // Find the next pair number
         const existingPairs = state.mediaServers.map(s => s.pairNumber);
         const nextPairNumber = existingPairs.length > 0 ? Math.max(...existingPairs) + 1 : 1;
@@ -582,6 +582,7 @@ export const useProductionStore = create<ProductionStore>()(
           pairNumber: nextPairNumber,
           isBackup: false,
           platform,
+          computerType,
           outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}A-OUT${i + 1}` })),
           note
         };
@@ -592,6 +593,7 @@ export const useProductionStore = create<ProductionStore>()(
           pairNumber: nextPairNumber,
           isBackup: true,
           platform,
+          computerType,
           outputs: outputs.map((o, i) => ({
             ...o,
             id: `${nextPairNumber}B-OUT${i + 1}`,

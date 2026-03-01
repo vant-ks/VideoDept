@@ -43,15 +43,17 @@ export function SourceFormModal({
   typeFieldLabel = 'Type' // Default to 'Type', can be overridden (e.g., 'Computer Type')
 }: SourceFormModalProps) {
   const connectorTypes = useProductionStore(state => state.connectorTypes) || [];
-  const sourceTypes = useProductionStore(state => state.sourceTypes) || [];
   const sends = useProductionStore(state => state.sends);
   const equipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
   
   // Filter equipment that can be used as secondary devices
   const secondaryDeviceOptions = equipmentSpecs.filter(spec => spec.isSecondaryDevice);
   
-  // Get default type from sourceTypes array (fallback to first default if empty)
-  const defaultType = sourceTypes.length > 0 ? sourceTypes[0] : 'Laptop - PC MISC';
+  // Computer type options come from equipment library (COMPUTER category)
+  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'COMPUTER');
+  
+  // Get default type — first computer equipment model, with fallback
+  const defaultType = computerEquipment.length > 0 ? computerEquipment[0].model : 'Laptop - PC MISC';
   
   const [formData, setFormData] = useState<Partial<Source>>({
     id: '',
@@ -87,7 +89,7 @@ export function SourceFormModal({
       // Ensure outputs array exists for backwards compatibility
       const sourceWithOutputs = {
         ...editingSource,
-        type: editingSource.type || (sourceTypes.length > 0 ? sourceTypes[0] : defaultType),
+        type: editingSource.type || defaultType,
         outputs: editingSource.outputs || [{ id: 'out-1', connector: 'HDMI' as ConnectorType }]
       };
       setFormData(sourceWithOutputs);
@@ -327,9 +329,12 @@ export function SourceFormModal({
                 className="input-field w-full"
                 required
               >
-                {sourceTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                {computerEquipment.map(spec => (
+                  <option key={spec.id} value={spec.model}>{spec.manufacturer} {spec.model}</option>
                 ))}
+                {computerEquipment.length === 0 && (
+                  <option value="Laptop - PC MISC">Laptop - PC MISC</option>
+                )}
               </select>
             </div>
           </div>
