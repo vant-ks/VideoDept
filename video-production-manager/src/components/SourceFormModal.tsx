@@ -3,6 +3,7 @@ import { X, Plus, Copy } from 'lucide-react';
 import type { Source, ConnectorType, SourceType } from '@/types';
 import { SourceService } from '@/services';
 import { useProductionStore } from '@/hooks/useStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 
 interface SourceFormModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface SourceFormModalProps {
   existingSources: Source[];
   editingSource?: Source | null;
   typeFieldLabel?: string; // Optional label for the Type field (e.g., "Computer Type" for Computers page)
+  entityLabel?: string; // Optional label for the entity (e.g., "Computer" for Computers page) — used in modal title
 }
 
 // Resolution presets
@@ -40,11 +42,15 @@ export function SourceFormModal({
   onSaveAndDuplicate,
   existingSources,
   editingSource,
-  typeFieldLabel = 'Type' // Default to 'Type', can be overridden (e.g., 'Computer Type')
+  typeFieldLabel = 'Type', // Default to 'Type', can be overridden (e.g., 'Computer Type')
+  entityLabel = 'Source' // Default to 'Source', can be overridden (e.g., 'Computer')
 }: SourceFormModalProps) {
   const connectorTypes = useProductionStore(state => state.connectorTypes) || [];
   const sends = useProductionStore(state => state.sends);
-  const equipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const oldStoreEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const equipmentLibSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
+  // Prefer the equipment library store (kept in sync by Equipment page) over the old store
+  const equipmentSpecs = equipmentLibSpecs.length > 0 ? equipmentLibSpecs : oldStoreEquipmentSpecs;
   
   // Filter equipment that can be used as secondary devices
   const secondaryDeviceOptions = equipmentSpecs.filter(spec => spec.isSecondaryDevice);
@@ -274,7 +280,7 @@ export function SourceFormModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-av-border">
           <h2 className="text-2xl font-bold text-av-text">
-            {editingSource ? 'Edit Source' : 'Add New Source'}
+            {editingSource ? `Edit ${entityLabel}` : `Add New ${entityLabel}`}
           </h2>
           <button
             onClick={handleClose}

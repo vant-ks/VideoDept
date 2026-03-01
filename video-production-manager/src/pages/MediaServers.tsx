@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy, GripVertical } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
@@ -807,7 +808,9 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   // or fall back to the editingServer's pairNumber
   const pairNumber = editingServer?.pairNumber || nextPairNumber || 1;
   
-  const equipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const oldStoreEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const equipmentLibSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
+  const equipmentSpecs = equipmentLibSpecs.length > 0 ? equipmentLibSpecs : oldStoreEquipmentSpecs;
   const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'COMPUTER');
   
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);

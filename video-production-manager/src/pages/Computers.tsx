@@ -394,6 +394,7 @@ export const Computers: React.FC = () => {
         existingSources={sources}
         editingSource={editingSource}
         typeFieldLabel="Computer Type"
+        entityLabel="Computer"
       />
     </div>
   );
