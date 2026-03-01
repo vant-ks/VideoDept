@@ -127,7 +127,7 @@ export function SourceFormModal({
       setIsCustomResolution(false);
       setSelectedFrameRate('59.94');
     }
-  }, [isOpen, editingSource, existingSources, sourceTypes, defaultType]);
+  }, [isOpen, editingSource, existingSources, defaultType]);
 
   const handleResolutionPresetChange = (presetKey: string) => {
     setSelectedPreset(presetKey);
