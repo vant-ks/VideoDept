@@ -539,7 +539,7 @@ export default function Cameras() {
                   {/* Left 1/3: Drag handle, ID and Name */}
                   <div className="flex items-center gap-3">
                     <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
-                    <span className="text-sm text-av-text font-mono">{camera.id}</span>
+                    <span className="text-sm text-av-text">{camera.id}</span>
                     <h3 className="text-lg font-semibold text-av-text">{camera.name}</h3>
                   </div>
                   

@@ -407,7 +407,7 @@ export const Sends: React.FC = () => {
                       {isDuplicateId && (
                         <div className="flex items-center gap-2 mb-3 text-sm text-red-500 bg-red-900/10 border border-red-500/30 rounded-md p-2">
                           <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                          <span>Duplicate ID — another send with ID <span className="font-mono font-bold">{send.id}</span> already exists. Edit to assign a unique ID.</span>
+                          <span>Duplicate ID — another send with ID <span className="font-bold">{send.id}</span> already exists. Edit to assign a unique ID.</span>
                         </div>
                       )}
 

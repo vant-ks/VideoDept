@@ -510,11 +510,10 @@ export default function CCUs() {
               onDragLeave={handleDragLeave}
             >
               <div className="grid grid-cols-3 gap-6 items-center">
-                {/* Left 1/3: Drag handle, ID and Name */}
+                {/* Left 1/3: Drag handle and ID */}
                 <div className="flex items-center gap-3">
                   <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
-                  <span className="text-sm text-av-text font-mono">{ccu.id}</span>
-                  <h3 className="text-lg font-semibold text-av-text">{ccu.name}</h3>
+                  <h3 className="text-lg font-semibold text-av-text">{ccu.id}</h3>
                 </div>
                 
                 {/* Middle 1/3: Badges */}
@@ -738,7 +737,7 @@ export default function CCUs() {
                             }}
                             className="rounded border-av-border"
                           />
-                          <span className="text-sm text-av-text font-mono">{cam.id}</span>
+                          <span className="text-sm text-av-text">{cam.id}</span>
                           {cam.name && cam.name !== cam.id && (
                             <span className="text-sm text-av-text-muted">{cam.name}</span>
                           )}
