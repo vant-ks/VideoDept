@@ -45,7 +45,9 @@ export function SourceFormModal({
   typeFieldLabel = 'Type', // Default to 'Type', can be overridden (e.g., 'Computer Type')
   entityLabel = 'Source' // Default to 'Source', can be overridden (e.g., 'Computer')
 }: SourceFormModalProps) {
-  const connectorTypes = useProductionStore(state => state.connectorTypes) || [];
+  const equipmentLibConnectorTypes = useEquipmentLibrary(state => state.connectorTypes);
+  const oldStoreConnectorTypes = useProductionStore(state => state.connectorTypes) || [];
+  const connectorTypes = equipmentLibConnectorTypes.length > 0 ? equipmentLibConnectorTypes : oldStoreConnectorTypes;
   const sends = useProductionStore(state => state.sends);
   const oldStoreEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
   const equipmentLibSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
