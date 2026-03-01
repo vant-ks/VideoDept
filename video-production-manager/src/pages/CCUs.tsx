@@ -129,7 +129,6 @@ export default function CCUs() {
       if (event.entityType === 'camera') {
         setAllCameras(prev => prev.filter(c => c.uuid !== event.entityId));
       }
-      }
     }, [])
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
