@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, Edit2, Trash2, Copy } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, GripVertical } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -7,6 +7,8 @@ import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useCCUsAPI } from '@/hooks/useCCUsAPI';
 import { useCamerasAPI } from '@/hooks/useCamerasAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
+import { apiClient } from '@/services';
+import { getCurrentUserId } from '@/utils/userUtils';
 import type { CCU } from '@/types';
 
 // Local form state type — tracks all fields the CCU modal collects
@@ -40,6 +42,14 @@ export default function CCUs() {
   const [localCCUs, setLocalCCUs] = useState<CCU[]>(storeCCUs);
   // Cameras fetched to show count badges on CCU cards
   const [allCameras, setAllCameras] = useState<any[]>([]);
+
+  // Drag-to-reorder state
+  const isDragInProgress = useRef(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Camera assignment state for modal — uuids of cameras linked to the CCU being edited/created
+  const [selectedCameraUuids, setSelectedCameraUuids] = useState<string[]>([]);
   
   // NOTE: Do NOT sync localCCUs from store on every change — the store
   // sync overwrites WebSocket and optimistic updates. API fetch on mount is
@@ -78,6 +88,7 @@ export default function CCUs() {
     productionId,
     onEntityCreated: useCallback((event) => {
       if (event.entityType === 'ccu') {
+        if (isDragInProgress.current) return;
         console.log('🔔 CCU created by', event.userName, '| CCU:', event.entity.id);
         setLocalCCUs(prev => {
           // Avoid duplicates using ID
@@ -91,6 +102,7 @@ export default function CCUs() {
     }, []),
     onEntityUpdated: useCallback((event) => {
       if (event.entityType === 'ccu') {
+        if (isDragInProgress.current) return;
         console.log('🔔 CCU updated by', event.userName, '| CCU:', event.entity.id);
         setLocalCCUs(prev => 
           prev.map(c => c.id === event.entity.id ? event.entity : c)
@@ -116,6 +128,18 @@ export default function CCUs() {
 
   // Use localCCUs for rendering
   const ccus = localCCUs;
+
+  // CCUs sorted by number for display
+  const sortedCCUs = useMemo(() => {
+    return [...localCCUs].sort((a, b) => {
+      const aMatch = a.id.match(/^CCU\s*(\d+)$/i);
+      const bMatch = b.id.match(/^CCU\s*(\d+)$/i);
+      const aNum = aMatch ? parseInt(aMatch[1], 10) : Infinity;
+      const bNum = bMatch ? parseInt(bMatch[1], 10) : Infinity;
+      if (aNum !== bNum) return aNum - bNum;
+      return a.id.localeCompare(b.id);
+    });
+  }, [localCCUs]);
   
   // Get CCU equipment specs from store — memoized to avoid recompute
   const ccuSpecs = useMemo(
@@ -141,7 +165,7 @@ export default function CCUs() {
     return result;
   }, [CCU_MANUFACTURERS, ccuSpecs]);
 
-  // Format options
+  // Format options (static fallback)
   const FORMAT_OPTIONS = [
     '1080i59.94',
     '1080i60',
@@ -161,10 +185,22 @@ export default function CCUs() {
     '4K 24'
   ];
 
+  // Format options from selected spec — dynamic when model is chosen, static fallback otherwise
+  const specFormatOptions = useMemo(() => {
+    if (!formData.manufacturer || !formData.model) return FORMAT_OPTIONS;
+    const spec = ccuSpecs.find(
+      s => s.manufacturer === formData.manufacturer && s.model === formData.model
+    );
+    return spec?.deviceFormats && (spec.deviceFormats as string[]).length > 0
+      ? (spec.deviceFormats as string[])
+      : FORMAT_OPTIONS;
+  }, [formData.manufacturer, formData.model, ccuSpecs]);
+
   const handleAddNew = () => {
     setFormData({ manufacturer: '', model: '', formatMode: '', outputs: [], equipmentUuid: undefined });
     setEditingCCU(null);
     setErrors([]);
+    setSelectedCameraUuids([]);
     setIsModalOpen(true);
   };
 
@@ -201,6 +237,12 @@ export default function CCUs() {
       note: record.note || '',
       version: record.version,
     });
+    // Pre-select cameras currently assigned to this CCU
+    const linked = allCameras
+      .filter(c => c.ccuId === record.id)
+      .map(c => c.uuid as string)
+      .filter(Boolean);
+    setSelectedCameraUuids(linked);
     setEditingCCU(ccu);
     setErrors([]);
     setIsModalOpen(true);
@@ -217,6 +259,7 @@ export default function CCUs() {
     }
 
     try {
+      let createdCCU: any = null;
       if (editingCCU) {
         // Update existing CCU — pass uuid (PK) not display id
         const uuid = (editingCCU as any).uuid;
@@ -246,7 +289,7 @@ export default function CCUs() {
         // Auto-generate ID and name
         const newId = generateId();
         // Create new CCU — explicit fields, no spreads (Rule #6)
-        await ccusAPI.createCCU({
+        const created = await ccusAPI.createCCU({
           id: newId,
           productionId: productionId!,
           name: newId,
@@ -259,8 +302,53 @@ export default function CCUs() {
           equipmentUuid: formData.equipmentUuid,
           note: formData.note,
         });
+        createdCCU = created;
       }
-      
+
+      // Process camera assignments — figure out which cameras to link/unlink
+      const savedCcuId: string | undefined = editingCCU
+        ? (editingCCU as any).id
+        : (createdCCU as any)?.id;
+
+      if (savedCcuId) {
+        const prevLinkedUuids = allCameras
+          .filter(c => c.ccuId === savedCcuId)
+          .map(c => c.uuid as string)
+          .filter(Boolean);
+
+        const toLink = selectedCameraUuids.filter(u => !prevLinkedUuids.includes(u));
+        const toUnlink = prevLinkedUuids.filter(u => !selectedCameraUuids.includes(u));
+        const { userId, userName } = getCurrentUserId();
+
+        await Promise.all([
+          ...toLink.map(uuid => {
+            const cam = allCameras.find(c => c.uuid === uuid);
+            return apiClient.put(`/cameras/${uuid}`, {
+              ccuId: savedCcuId,
+              version: cam?.version ?? 1,
+              userId,
+              userName,
+            });
+          }),
+          ...toUnlink.map(uuid => {
+            const cam = allCameras.find(c => c.uuid === uuid);
+            return apiClient.put(`/cameras/${uuid}`, {
+              ccuId: null,
+              version: cam?.version ?? 1,
+              userId,
+              userName,
+            });
+          }),
+        ]);
+
+        // Refresh cameras list to reflect new assignments
+        if (productionId) {
+          camerasAPI.fetchCameras(productionId)
+            .then(data => setAllCameras(data))
+            .catch(console.error);
+        }
+      }
+
       if (action === 'duplicate') {
         // Generate new ID for duplicate
         const newId = generateId();
@@ -271,12 +359,14 @@ export default function CCUs() {
         });
         setEditingCCU(null);
         setErrors([]);
+        setSelectedCameraUuids([]);
         // Don't close modal
       } else {
         setIsModalOpen(false);
         setFormData({ manufacturer: '', model: '', formatMode: '', outputs: [], equipmentUuid: undefined });
         setEditingCCU(null);
         setErrors([]);
+        setSelectedCameraUuids([]);
       }
     } catch (error) {
       console.error('Failed to save CCU:', error);
@@ -293,6 +383,79 @@ export default function CCUs() {
         console.error('Failed to delete CCU:', error);
         alert('Failed to delete CCU. Please try again.');
       }
+    }
+  };
+
+  // ── Drag-to-reorder handlers (mirrors Cameras.tsx pattern) ───────────────
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+    isDragInProgress.current = true;
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = async () => {
+    const draggedIdx = draggedIndex;
+    const dragOverIdx = dragOverIndex;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    if (draggedIdx === null || dragOverIdx === null || draggedIdx === dragOverIdx) {
+      isDragInProgress.current = false;
+      return;
+    }
+
+    // Snapshot current sorted order before changes
+    const snapshot = sortedCCUs.map(ccu => ({
+      uuid: (ccu as any).uuid as string,
+      oldId: ccu.id,
+      version: ((ccu as any).version ?? 1) as number,
+    }));
+
+    // Compute new order after drag
+    const reordered = [...snapshot];
+    const [dragged] = reordered.splice(draggedIdx, 1);
+    reordered.splice(dragOverIdx, 0, dragged);
+
+    // Renumber as CCU 1, CCU 2, … — only send updates for CCUs that changed position
+    const updates = reordered
+      .map((ccu, i) => ({ ...ccu, newId: `CCU ${i + 1}` }))
+      .filter(u => u.oldId !== u.newId);
+
+    if (updates.length === 0) {
+      isDragInProgress.current = false;
+      return;
+    }
+
+    const { userId, userName } = getCurrentUserId();
+    try {
+      await Promise.all(
+        updates.map(u =>
+          apiClient.put(`/ccus/${u.uuid}`, {
+            id: u.newId,
+            version: u.version,
+            userId,
+            userName,
+          })
+        )
+      );
+      // Refetch fresh state from DB as single source of truth
+      if (productionId) {
+        const fresh = await ccusAPI.fetchCCUs(productionId);
+        setLocalCCUs(fresh);
+      }
+    } catch (err) {
+      console.error('❌ Drag renumber failed:', err);
+      alert('Failed to renumber CCUs. Please refresh the page.');
+    } finally {
+      isDragInProgress.current = false;
     }
   };
 
@@ -331,12 +494,26 @@ export default function CCUs() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {ccus.map((ccu) => (
-            <Card key={ccu.id} className="p-6 hover:border-av-accent/30 transition-colors">
+          {sortedCCUs.map((ccu, index) => {
+            const linkedCameras = allCameras.filter(c => c.ccuId === ccu.id);
+            return (
+            <Card
+              key={(ccu as any).uuid || ccu.id}
+              className={`p-6 transition-colors select-none
+                ${dragOverIndex === index ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
+                ${draggedIndex === index ? 'opacity-40' : ''}
+              `}
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnd={handleDragEnd}
+              onDragLeave={handleDragLeave}
+            >
               <div className="grid grid-cols-3 gap-6 items-center">
-                {/* Left 1/3: ID and Name */}
-                <div className="flex items-center gap-12">
-                  <span className="text-sm text-av-text">{ccu.id}</span>
+                {/* Left 1/3: Drag handle, ID and Name */}
+                <div className="flex items-center gap-3">
+                  <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
+                  <span className="text-sm text-av-text font-mono">{ccu.id}</span>
                   <h3 className="text-lg font-semibold text-av-text">{ccu.name}</h3>
                 </div>
                 
@@ -344,12 +521,11 @@ export default function CCUs() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {(ccu as any).manufacturer && <Badge>{(ccu as any).manufacturer}</Badge>}
                   {(ccu as any).model && <Badge>{(ccu as any).model}</Badge>}
-                  {(() => {
-                    const count = allCameras.filter(c => c.ccuId === ccu.id).length;
-                    return count > 0 ? (
-                      <Badge variant="info">{count} camera{count !== 1 ? 's' : ''}</Badge>
-                    ) : null;
-                  })()}
+                  {linkedCameras.length > 0 ? (
+                    linkedCameras.map(cam => (
+                      <Badge key={cam.uuid || cam.id} variant="info">{cam.id}</Badge>
+                    ))
+                  ) : null}
                 </div>
                 
                 {/* Right 1/3: Format Mode and Action Buttons */}
@@ -391,6 +567,7 @@ export default function CCUs() {
                           note: r.note || '',
                         });
                         setEditingCCU(null);
+                        setSelectedCameraUuids([]);
                         setIsModalOpen(true);
                       }}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
@@ -417,7 +594,8 @@ export default function CCUs() {
                 </div>
               )}
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -480,11 +658,11 @@ export default function CCUs() {
                 </div>
               </div>
 
-              {/* Format Mode: auto-filled from spec, but editable */}
+              {/* Format Mode: auto-filled from spec, editable dropdown */}
               <div>
                 <label className="block text-sm font-medium text-av-text mb-2">
                   Format Mode
-                  {formData.equipmentUuid && (
+                  {formData.model && specFormatOptions !== FORMAT_OPTIONS && (
                     <span className="text-xs text-av-text-muted ml-2">(auto-filled from spec)</span>
                   )}
                 </label>
@@ -494,7 +672,7 @@ export default function CCUs() {
                   className="input-field w-full"
                 >
                   <option value="">Select format mode...</option>
-                  {FORMAT_OPTIONS.map(format => (
+                  {specFormatOptions.map(format => (
                     <option key={format} value={format}>{format}</option>
                   ))}
                 </select>
@@ -533,6 +711,44 @@ export default function CCUs() {
                 </div>
               )}
               
+              {/* Camera Assignment */}
+              {allCameras.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Linked Cameras
+                    <span className="text-xs text-av-text-muted ml-2">(select which cameras belong to this CCU)</span>
+                  </label>
+                  <div className="space-y-1 max-h-40 overflow-y-auto border border-av-border rounded-md p-2">
+                    {allCameras
+                      .filter(cam => !cam.ccuId || cam.ccuId === formData.id)
+                      .map(cam => (
+                        <label
+                          key={cam.uuid || cam.id}
+                          className="flex items-center gap-2 p-1.5 rounded hover:bg-av-surface-light cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCameraUuids.includes(cam.uuid)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCameraUuids(prev => [...prev, cam.uuid]);
+                              } else {
+                                setSelectedCameraUuids(prev => prev.filter(u => u !== cam.uuid));
+                              }
+                            }}
+                            className="rounded border-av-border"
+                          />
+                          <span className="text-sm text-av-text font-mono">{cam.id}</span>
+                          {cam.name && cam.name !== cam.id && (
+                            <span className="text-sm text-av-text-muted">{cam.name}</span>
+                          )}
+                        </label>
+                      ))
+                    }
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3 pt-4">
                 <button 
                   type="button" 
