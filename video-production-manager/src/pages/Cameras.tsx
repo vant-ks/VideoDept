@@ -566,7 +566,7 @@ export default function Cameras() {
                         const spec = cameraSpecs.find(
                           s => s.manufacturer === formData.manufacturer && s.model === selectedModel
                         );
-                        setFormData({ ...formData, model: selectedModel, equipmentUuid: spec?.id });
+                        setFormData({ ...formData, model: selectedModel, equipmentUuid: spec?.uuid });
                       }}
                       className="input-field w-full"
                       disabled={!formData.manufacturer}

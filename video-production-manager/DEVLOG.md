@@ -95,6 +95,13 @@ Implemented full Cameras and CCUs CRUD pages with API integration, WebSocket syn
 
 ---
 
+### Fix equipmentUuid FK (spec.id → spec.uuid) — ✅ COMPLETE
+**Cause:** Both `CCUs.tsx` `handleModelChange` and `Cameras.tsx` model select were setting `equipmentUuid: spec?.id` (the user-editable display ID) instead of `spec?.uuid` (the actual FK primary key). Prisma's FK constraint on `equipment_uuid` references `equipment_specs.uuid`, so passing a display ID caused a FK constraint violation → 500 on every create/save when a model was selected from the dropdown.  
+**Files:** `src/pages/CCUs.tsx` line 186, `src/pages/Cameras.tsx` line 569  
+**Fix:** `spec?.id` → `spec?.uuid` in both locations.
+
+---
+
 ## February 27, 2026 - Media Servers: Drag-to-Reorder + No-Optimistic-Update Architecture
 
 ### Feature Overview

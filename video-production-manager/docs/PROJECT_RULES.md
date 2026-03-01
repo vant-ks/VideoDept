@@ -148,6 +148,7 @@ git commit -m "feat: add feature_name"
    - Foreign Keys: Always reference uuid (immune to id changes)
    - **PATTERN**: User can rename "SRC 1" → "SRC A" anytime, uuid stays same, all references remain valid
    - **⛔ PAGE COMPONENTS**: When calling `update*()/delete*()` API hooks, ALWAYS pass `entity.uuid` (NOT `entity.id`). Pattern: `updateCCU((editingCCU as any).uuid, data)`. The `.id` field is a user-editable display label, never a DB key. API routes do `findUnique({ where: { uuid } })` — passing `.id` returns 404/500.
+   - **⛔ FK REFERENCE FIELDS IN FORM STATE**: When storing a related entity's ID in form state (e.g. `equipmentUuid`), ALWAYS use `spec.uuid` (the DB primary key), NEVER `spec.id` (the display label). Prisma FK constraints reference `.uuid`. Storing `.id` causes FK violation → 500 on save.
    - **MIGRATION**: ONE table at a time, track progress in DEVLOG.md to prevent crashes
 
 11. **ALWAYS USE PRE-MIGRATION SAFETY CHECKS** → Run `npm run db:migrate:check` before EVERY migration to prevent VS Code crashes.
@@ -195,6 +196,7 @@ git commit -m "feat: add feature_name"
 - 🔥 **"We need to reset the 'public' schema" → STOP IMMEDIATELY, schema-database mismatch (#13)**
 - 🔥 **"500 on POST/PUT to /api/{entity}" → Route handler missing `toSnakeCase()` before Prisma. Check `cameras.ts` POST as reference (#1)**
 - 🔥 **"404 not found / Cannot update or delete entity" → Frontend passing display `.id` instead of `.uuid` to API hook. Fix: `(entity as any).uuid` (#10)**
+- 🔥 **"FK constraint violation / 500 on create with equipment" → `equipmentUuid` being set to `spec.id` (display) instead of `spec.uuid` (FK). Fix: always use `spec.uuid` when setting FK reference fields (#10)**
 
 **Before writing ANY code that touches data:**
 1. **Is this a database migration?** → READ PILLAR #13 first, NEVER skip pre-migration checks

@@ -183,7 +183,7 @@ export default function CCUs() {
       format: output.format || '1080i59.94'
     }));
     const formatMode = spec?.deviceFormats?.[0] || formData.formatMode || '';
-    setFormData({ ...formData, model, outputs, equipmentUuid: spec?.id, formatMode });
+    setFormData({ ...formData, model, outputs, equipmentUuid: spec?.uuid, formatMode });
   };
 
   const handleEdit = (ccu: CCU) => {
