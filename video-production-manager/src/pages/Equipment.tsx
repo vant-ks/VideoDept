@@ -152,6 +152,18 @@ export default function Equipment() {
     setEditingSpec(null);
   };
 
+  // Helper: update local store immediately AND persist full spec to API (fire-and-forget)
+  const applyEquipmentUpdate = (specId: string, updates: Partial<EquipmentSpec>) => {
+    const spec = equipmentSpecs.find(s => s.id === specId);
+    if (!spec) return;
+    updateEquipmentSpec(specId, updates);
+    const merged = { ...spec, ...updates };
+    const uuid = (merged as any).uuid || merged.id;
+    apiClient.updateEquipment(uuid, merged).catch((err) =>
+      console.error('Failed to persist equipment update:', err)
+    );
+  };
+
   // Add new I/O port (for direct I/O equipment)
   const addIOPort = (specId: string, ioType: 'inputs' | 'outputs') => {
     const spec = equipmentSpecs.find(s => s.id === specId);
@@ -164,7 +176,7 @@ export default function Equipment() {
     };
 
     const currentPorts = spec[ioType] || [];
-    updateEquipmentSpec(specId, { [ioType]: [...currentPorts, newPort] });
+    applyEquipmentUpdate(specId, { [ioType]: [...currentPorts, newPort] });
   };
 
   // Remove I/O port
@@ -173,7 +185,7 @@ export default function Equipment() {
     if (!spec) return;
 
     const currentPorts = spec[ioType] || [];
-    updateEquipmentSpec(specId, { [ioType]: currentPorts.filter(p => p.id !== portId) });
+    applyEquipmentUpdate(specId, { [ioType]: currentPorts.filter(p => p.id !== portId) });
   };
 
   // Update I/O port
@@ -185,7 +197,7 @@ export default function Equipment() {
     const updatedPorts = currentPorts.map(port => 
       port.id === portId ? { ...port, ...updates } : port
     );
-    updateEquipmentSpec(specId, { [ioType]: updatedPorts });
+    applyEquipmentUpdate(specId, { [ioType]: updatedPorts });
   };
 
   // Add card to card-based equipment
@@ -205,7 +217,7 @@ export default function Equipment() {
       outputs: []
     };
 
-    updateEquipmentSpec(specId, { cards: [...currentCards, newCard] });
+    applyEquipmentUpdate(specId, { cards: [...currentCards, newCard] });
   };
 
   // Remove card
@@ -214,7 +226,7 @@ export default function Equipment() {
     if (!spec) return;
 
     const currentCards = spec.cards || [];
-    updateEquipmentSpec(specId, { cards: currentCards.filter(c => c.id !== cardId) });
+    applyEquipmentUpdate(specId, { cards: currentCards.filter(c => c.id !== cardId) });
   };
 
   // Update card
@@ -226,7 +238,7 @@ export default function Equipment() {
     const updatedCards = currentCards.map(card => 
       card.id === cardId ? { ...card, ...updates } : card
     );
-    updateEquipmentSpec(specId, { cards: updatedCards });
+    applyEquipmentUpdate(specId, { cards: updatedCards });
   };
 
   // Add I/O to card
