@@ -5,6 +5,7 @@ import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useCamerasAPI } from '@/hooks/useCamerasAPI';
+import { useCCUsAPI } from '@/hooks/useCCUsAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import type { Camera } from '@/types';
 
@@ -14,6 +15,7 @@ export default function Cameras() {
   const oldStore = useProductionStore();
   const equipmentLib = useEquipmentLibrary();
   const camerasAPI = useCamerasAPI();
+  const ccusAPI = useCCUsAPI();
   
   // Extract store values FIRST (before using them)
   const cameras = activeProject?.cameras || oldStore.cameras;
@@ -27,6 +29,8 @@ export default function Cameras() {
   
   // Local state for cameras
   const [localCameras, setLocalCameras] = useState<Camera[]>(cameras);
+  // Local CCU list for the form dropdown — fetched from API on mount
+  const [localCCUs, setLocalCCUs] = useState<any[]>(ccus);
   
   // Sync local state when store cameras change (on initial load)
   useEffect(() => {
@@ -93,6 +97,15 @@ export default function Cameras() {
     if (productionId && oldStore.isConnected) {
       camerasAPI.fetchCameras(productionId)
         .then(data => setLocalCameras(data))
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
+
+  // Fetch CCUs from API on mount so dropdown is always fresh from DB
+  useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      ccusAPI.fetchCCUs(productionId)
+        .then(data => setLocalCCUs(data))
         .catch(console.error);
     }
   }, [productionId, oldStore.isConnected]);
@@ -194,9 +207,9 @@ export default function Cameras() {
     // Inherit format mode from CCU if connected
     let finalFormData = { ...formData };
     if (formData.ccuId) {
-      const connectedCCU = ccus.find(c => c.id === formData.ccuId);
-      if (connectedCCU && connectedCCU.formatMode) {
-        finalFormData.formatMode = connectedCCU.formatMode;
+      const connectedCCU = localCCUs.find((c: any) => c.id === formData.ccuId);
+      if (connectedCCU && (connectedCCU as any).formatMode) {
+        finalFormData.formatMode = (connectedCCU as any).formatMode;
       }
     }
 
@@ -299,7 +312,7 @@ export default function Cameras() {
     if (confirm('Are you sure you want to delete this camera?')) {
       try {
         await camerasAPI.deleteCamera(id);
-        deleteCamera(id);
+        // State update handled by WebSocket entity:deleted event
       } catch (error: any) {
         console.error('❌ Failed to delete camera:', error);
         alert(error.message || 'Failed to delete camera. Please try again.');
@@ -342,8 +355,8 @@ export default function Cameras() {
 
   const getCCUName = (ccuId?: string) => {
     if (!ccuId) return null;
-    const ccu = ccus.find(c => c.id === ccuId);
-    return ccu?.name;
+    const ccu = localCCUs.find((c: any) => c.id === ccuId);
+    return (ccu as any)?.name;
   };
 
   return (
@@ -584,23 +597,23 @@ export default function Cameras() {
                       value={formData.ccuId || ''}
                       onChange={(e) => {
                         const selectedCCUId = e.target.value;
-                        const selectedCCU = ccus.find(c => c.id === selectedCCUId);
+                        const selectedCCU = localCCUs.find((c: any) => c.id === selectedCCUId);
                         setFormData({
                           ...formData,
                           ccuId: selectedCCUId,
-                          formatMode: selectedCCU?.formatMode || formData.formatMode,
+                          formatMode: (selectedCCU as any)?.formatMode || formData.formatMode,
                         });
                       }}
                       className="input-field w-full"
                     >
                       <option value="">No CCU connection</option>
-                      {ccus.map(ccu => (
+                      {localCCUs.map((ccu: any) => (
                         <option key={ccu.id} value={ccu.id}>
                           {ccu.name} ({ccu.id})
                         </option>
                       ))}
                     </select>
-                    {ccus.length === 0 && (
+                    {localCCUs.length === 0 && (
                       <p className="text-xs text-av-text-muted mt-1">
                         No CCUs available. Add CCUs first.
                       </p>

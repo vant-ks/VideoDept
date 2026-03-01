@@ -248,6 +248,14 @@ router.delete('/:uuid', async (req: Request, res: Response) => {
       data: { is_deleted: true, version: { increment: 1 } }
     });
 
+    // Broadcast deletion via WebSocket before event recording
+    io.to(`production:${currentCCU.production_id}`).emit('entity:deleted', {
+      entityType: 'ccu',
+      entityId: currentCCU.id,
+      userId: userId || 'system',
+      userName: userName || 'System'
+    });
+
     // Record DELETE event
     await recordEvent({
       productionId: currentCCU.production_id,

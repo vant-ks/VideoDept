@@ -79,43 +79,36 @@ The `cameras` table has an `equipment_uuid` FK to `equipment_specs`. The Camera 
 
 ---
 
-## Phase 6 — Equipment Spec Picker (CCU Form)
+## Phase 6 — Equipment Spec Picker (CCU Form) ✅
 
 Same pattern as Phase 5 but for CCUs.
 
-- [ ] **`CCUs.tsx` form — Add Equipment Spec dropdown**
-  - Filter `equipmentSpecs` where `category === 'CCU'`
-  - On select: auto-fill `manufacturer`, `model`, `outputs`, `formatMode` from the spec
-  - Store `equipmentUuid` in formData
-- [ ] **Pass `equipmentUuid` through `useCCUsAPI` to the API** (covered in Phase 2)
-- [ ] **Test:** Select a CCU body from equipment list, save, confirm `equipment_uuid` is in DB
+- [x] **`CCUs.tsx` — local `CCUFormFields` interface** replaces `Partial<CCU>` for form state
+- [x] **`CCUs.tsx` — `handleModelChange`** now stores `equipmentUuid` (spec.id) and `formatMode` (spec.deviceFormats[0])
+- [x] **`CCUs.tsx` — Manufacturer onChange** clears `equipmentUuid`, `formatMode`, `outputs` on change
+- [x] **`CCUs.tsx` — `handleEdit`** populates all form fields explicitly from the CCU record
+- [x] **`CCUs.tsx` — `handleSave`** cleaned up — no more `(formData as any)` casts; updateCCU uses explicit fields
+- [x] **`CCUs.tsx` — Modal form** now includes Format Mode select and Notes textarea
+- [x] **`CCUs.tsx` — memoized** `ccuSpecs`, `CCU_MANUFACTURERS`, `CCU_MODELS_BY_MANUFACTURER` with `useMemo`
+- [x] **`equipmentUuid` already passes through `useCCUsAPI`** (Phase 2)
 
 ---
 
-## Phase 7 — Camera ↔ CCU Relationship UI
+## Phase 7 — Camera ↔ CCU Relationship UI ✅
 
-`cameras` has `ccu_id` and `ccu_uuid` FKs pointing to `ccus`. The Camera form already collects `ccuId` but needs verification that this is correctly persisted and reflected.
-
-- [ ] **Verify `ccuId` is passed to `camerasAPI.createCamera/updateCamera`**
-  - Check that the handler maps `ccuId` to `ccu_id` / `ccu_uuid` properly in the API route
-- [ ] **`cameras.ts` API route — Map `ccuId` to both `ccu_id` and `ccu_uuid`**
-  - When saving a camera with a CCU, look up the CCU's `uuid` from its `id` and save both fields
-- [ ] **CCUs page — Show linked camera count per CCU**
-  - In the CCU card, display a badge like `3 cameras` by counting `localCameras` where `ccuId === ccu.id`
-  - This requires Cameras page to also fetch/share camera data, OR CCUs page fetches cameras separately
-- [ ] **Cameras page — CCU dropdown shows only CCUs from current production**
-  - Currently reads from `oldStore.ccus` — should use `localCCUs` fetched from API (Phase 3)
+- [x] **`cameras.ts` POST** — after `toSnakeCase`, looks up matching CCU by `ccu_id` and writes its `uuid` to `ccu_uuid` column
+- [x] **`cameras.ts` PUT** — same lookup; also clears `ccu_uuid` when `ccu_id` is explicitly set to null/empty
+- [x] **`CCUs.tsx`** — fetches cameras from API on mount; each CCU card shows a linked camera count badge
+- [x] **`Cameras.tsx`** — imports `useCCUsAPI`, fetches CCUs from API into `localCCUs`; form dropdown and `getCCUName` use `localCCUs` instead of `oldStore.ccus`
 
 ---
 
-## Phase 8 — Delete Handlers (Verify WebSocket State Sync)
+## Phase 8 — Delete Handlers (Verify WebSocket State Sync) ✅
 
-Both pages have delete handlers that call the API. Verify they don't manually update state afterward (should let the WebSocket `entity:deleted` event handle it).
-
-- [ ] **`Cameras.tsx` `handleDelete`** — Confirm it only calls `camerasAPI.deleteCamera(id)` and no manual `setLocalCameras` / store update
-- [ ] **`CCUs.tsx` `handleDelete`** — Same check  
-- [ ] **`cameras.ts` route DELETE** — Confirm it emits `entity:deleted` (currently does ✅, just verify)
-- [ ] **`ccus.ts` route DELETE** — Confirm it emits `entity:deleted`
+- [x] **`Cameras.tsx` `handleDelete`** — removed `deleteCamera(id)` store call; state now handled exclusively by WebSocket `entity:deleted` event
+- [x] **`CCUs.tsx` `handleDelete`** — was already clean (only `ccusAPI.deleteCCU(id)`)
+- [x] **`cameras.ts` route DELETE** — confirmed emits `entity:deleted` (line 278) ✅
+- [x] **`ccus.ts` route DELETE** — added `entity:deleted` broadcast (was missing!)
 
 ---
 

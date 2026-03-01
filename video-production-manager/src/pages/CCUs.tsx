@@ -1,12 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Copy } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useCCUsAPI } from '@/hooks/useCCUsAPI';
+import { useCamerasAPI } from '@/hooks/useCamerasAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import type { CCU } from '@/types';
+
+// Local form state type — tracks all fields the CCU modal collects
+interface CCUFormFields {
+  id?: string;
+  name?: string;
+  manufacturer?: string;
+  model?: string;
+  formatMode?: string;
+  fiberInput?: string;
+  referenceInput?: string;
+  outputs?: any[];
+  equipmentUuid?: string;
+  note?: string;
+  version?: number;
+}
 
 export default function CCUs() {
   const { activeProject } = useProjectStore();
@@ -14,6 +30,7 @@ export default function CCUs() {
   const equipmentLib = useEquipmentLibrary();
   const oldStore = useProductionStore();
   const ccusAPI = useCCUsAPI();
+  const camerasAPI = useCamerasAPI();
   
   // Extract store values
   const storeCCUs = activeProject?.ccus || oldStore.ccus;
@@ -21,6 +38,8 @@ export default function CCUs() {
   
   // Local state for CCUs with real-time updates
   const [localCCUs, setLocalCCUs] = useState<CCU[]>(storeCCUs);
+  // Cameras fetched to show count badges on CCU cards
+  const [allCameras, setAllCameras] = useState<any[]>([]);
   
   // Sync local state when store CCUs change (on initial load)
   useEffect(() => {
@@ -42,6 +61,15 @@ export default function CCUs() {
     if (productionId && oldStore.isConnected) {
       ccusAPI.fetchCCUs(productionId)
         .then(data => setLocalCCUs(data))
+        .catch(console.error);
+    }
+  }, [productionId, oldStore.isConnected]);
+
+  // Fetch cameras to populate linked count per CCU
+  useEffect(() => {
+    if (productionId && oldStore.isConnected) {
+      camerasAPI.fetchCameras(productionId)
+        .then(data => setAllCameras(data))
         .catch(console.error);
     }
   }, [productionId, oldStore.isConnected]);
@@ -79,9 +107,10 @@ export default function CCUs() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCCU, setEditingCCU] = useState<CCU | null>(null);
-  const [formData, setFormData] = useState<Partial<CCU>>({
+  const [formData, setFormData] = useState<CCUFormFields>({
     manufacturer: '',
     model: '',
+    formatMode: '',
     outputs: [],
   });
   const [errors, setErrors] = useState<string[]>([]);
@@ -89,20 +118,29 @@ export default function CCUs() {
   // Use localCCUs for rendering
   const ccus = localCCUs;
   
-  // Get CCU equipment specs from store
-  const ccuSpecs = equipmentSpecs.filter(spec => spec.category === 'CCU');
+  // Get CCU equipment specs from store — memoized to avoid recompute
+  const ccuSpecs = useMemo(
+    () => equipmentSpecs.filter(spec => spec.category === 'CCU'),
+    [equipmentSpecs]
+  );
   
   // Get unique manufacturers from equipment specs
-  const CCU_MANUFACTURERS = Array.from(new Set(ccuSpecs.map(spec => spec.manufacturer))).sort();
+  const CCU_MANUFACTURERS = useMemo(
+    () => Array.from(new Set(ccuSpecs.map(spec => spec.manufacturer))).sort(),
+    [ccuSpecs]
+  );
   
   // Get models by manufacturer from equipment specs
-  const CCU_MODELS_BY_MANUFACTURER: Record<string, string[]> = {};
-  CCU_MANUFACTURERS.forEach(mfr => {
-    CCU_MODELS_BY_MANUFACTURER[mfr] = ccuSpecs
-      .filter(spec => spec.manufacturer === mfr)
-      .map(spec => spec.model)
-      .sort();
-  });
+  const CCU_MODELS_BY_MANUFACTURER = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    CCU_MANUFACTURERS.forEach(mfr => {
+      result[mfr] = ccuSpecs
+        .filter(spec => spec.manufacturer === mfr)
+        .map(spec => spec.model)
+        .sort();
+    });
+    return result;
+  }, [CCU_MANUFACTURERS, ccuSpecs]);
 
   // Format options
   const FORMAT_OPTIONS = [
@@ -125,16 +163,17 @@ export default function CCUs() {
   ];
 
   const handleAddNew = () => {
-    setFormData({ manufacturer: '', model: '', outputs: [] });
+    setFormData({ manufacturer: '', model: '', formatMode: '', outputs: [], equipmentUuid: undefined });
     setEditingCCU(null);
     setErrors([]);
     setIsModalOpen(true);
   };
 
-  // Auto-populate outputs when model changes using equipment specs
+  // Auto-populate outputs, formatMode, and equipmentUuid when model is selected
   const handleModelChange = (model: string) => {
-    const spec = ccuSpecs.find(s => s.model === model);
-    // Use the new IOPort structure from equipment specs
+    const spec = ccuSpecs.find(
+      s => s.manufacturer === formData.manufacturer && s.model === model
+    );
     const ioOutputs = spec?.outputs || [];
     const ccuNumber = ccus.length + 1;
     const outputs = ioOutputs.map((output, index) => ({
@@ -143,11 +182,26 @@ export default function CCUs() {
       label: output.label || output.type,
       format: output.format || '1080i59.94'
     }));
-    setFormData({ ...formData, model, outputs });
+    const formatMode = spec?.deviceFormats?.[0] || formData.formatMode || '';
+    setFormData({ ...formData, model, outputs, equipmentUuid: spec?.id, formatMode });
   };
 
   const handleEdit = (ccu: CCU) => {
-    setFormData(ccu);
+    // Populate form fields from the CCU record (casting to access API-returned fields)
+    const record = ccu as any;
+    setFormData({
+      id: record.id,
+      name: record.name,
+      manufacturer: record.manufacturer || '',
+      model: record.model || '',
+      formatMode: record.formatMode || '',
+      fiberInput: record.fiberInput || '',
+      referenceInput: record.referenceInput || '',
+      outputs: record.outputs || [],
+      equipmentUuid: record.equipmentUuid,
+      note: record.note || '',
+      version: record.version,
+    });
     setEditingCCU(ccu);
     setErrors([]);
     setIsModalOpen(true);
@@ -165,12 +219,24 @@ export default function CCUs() {
 
     try {
       if (editingCCU) {
-        // Update existing CCU via API
-        await ccusAPI.updateCCU(editingCCU.id, { ...formData, productionId });
+        // Update existing CCU — explicit fields, no spreads (Rule #6)
+        await ccusAPI.updateCCU(editingCCU.id, {
+          productionId,
+          name: formData.name,
+          manufacturer: formData.manufacturer,
+          model: formData.model,
+          formatMode: formData.formatMode,
+          fiberInput: formData.fiberInput,
+          referenceInput: formData.referenceInput,
+          outputs: formData.outputs,
+          equipmentUuid: formData.equipmentUuid,
+          note: formData.note,
+          version: formData.version,
+        });
       } else {
         // Auto-generate ID and name
         const newId = generateId();
-        // Create new CCU via API — explicit fields, no spreads to API layer
+        // Create new CCU — explicit fields, no spreads (Rule #6)
         await ccusAPI.createCCU({
           id: newId,
           productionId: productionId!,
@@ -178,10 +244,10 @@ export default function CCUs() {
           manufacturer: formData.manufacturer,
           model: formData.model,
           formatMode: formData.formatMode,
-          fiberInput: (formData as any).fiberInput,
-          referenceInput: (formData as any).referenceInput,
+          fiberInput: formData.fiberInput,
+          referenceInput: formData.referenceInput,
           outputs: formData.outputs,
-          equipmentUuid: (formData as any).equipmentUuid,
+          equipmentUuid: formData.equipmentUuid,
           note: formData.note,
         });
       }
@@ -199,7 +265,7 @@ export default function CCUs() {
         // Don't close modal
       } else {
         setIsModalOpen(false);
-        setFormData({ manufacturer: '', model: '', outputs: [] });
+        setFormData({ manufacturer: '', model: '', formatMode: '', outputs: [], equipmentUuid: undefined });
         setEditingCCU(null);
         setErrors([]);
       }
@@ -265,15 +331,21 @@ export default function CCUs() {
                 </div>
                 
                 {/* Middle 1/3: Badges */}
-                <div className="flex items-center gap-2">
-                  {ccu.manufacturer && <Badge>{ccu.manufacturer}</Badge>}
-                  {ccu.model && <Badge>{ccu.model}</Badge>}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(ccu as any).manufacturer && <Badge>{(ccu as any).manufacturer}</Badge>}
+                  {(ccu as any).model && <Badge>{(ccu as any).model}</Badge>}
+                  {(() => {
+                    const count = allCameras.filter(c => c.ccuId === ccu.id).length;
+                    return count > 0 ? (
+                      <Badge variant="info">{count} camera{count !== 1 ? 's' : ''}</Badge>
+                    ) : null;
+                  })()}
                 </div>
                 
                 {/* Right 1/3: Format Mode and Action Buttons */}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-av-text">
-                    {ccu.formatMode || 'N/A'}
+                    {(ccu as any).formatMode || 'N/A'}
                   </span>
                   
                   <div className="flex gap-2">
@@ -295,10 +367,18 @@ export default function CCUs() {
                           .filter(n => !isNaN(n));
                         const maxNumber = ccuNumbers.length > 0 ? Math.max(...ccuNumbers) : 0;
                         const newId = `CCU ${maxNumber + 1}`;
+                        const r = ccu as any;
                         setFormData({
-                          ...ccu,
                           id: newId,
-                          name: `${ccu.name} (Copy)`
+                          name: `${r.name || r.id} (Copy)`,
+                          manufacturer: r.manufacturer || '',
+                          model: r.model || '',
+                          formatMode: r.formatMode || '',
+                          fiberInput: r.fiberInput || '',
+                          referenceInput: r.referenceInput || '',
+                          outputs: r.outputs || [],
+                          equipmentUuid: undefined, // don't carry equipmentUuid to dupe
+                          note: r.note || '',
                         });
                         setEditingCCU(null);
                         setIsModalOpen(true);
@@ -319,10 +399,10 @@ export default function CCUs() {
                 </div>
               </div>
               
-              {ccu.note && (
+              {(ccu as any).note && (
                 <div className="mt-3">
                   <p className="text-sm text-av-text-muted">
-                    <span className="font-medium">Note:</span> {ccu.note}
+                    <span className="font-medium">Note:</span> {(ccu as any).note}
                   </p>
                 </div>
               )}
@@ -363,7 +443,7 @@ export default function CCUs() {
                   </label>
                   <select
                     value={formData.manufacturer || ''}
-                    onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value, model: '', outputs: [] })}
+                    onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value, model: '', formatMode: '', outputs: [], equipmentUuid: undefined })}
                     className="input-field w-full"
                   >
                     <option value="">Select manufacturer...</option>
@@ -389,7 +469,27 @@ export default function CCUs() {
                   </select>
                 </div>
               </div>
-              
+
+              {/* Format Mode: auto-filled from spec, but editable */}
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">
+                  Format Mode
+                  {formData.equipmentUuid && (
+                    <span className="text-xs text-av-text-muted ml-2">(auto-filled from spec)</span>
+                  )}
+                </label>
+                <select
+                  value={formData.formatMode || ''}
+                  onChange={(e) => setFormData({ ...formData, formatMode: e.target.value })}
+                  className="input-field w-full"
+                >
+                  <option value="">Select format mode...</option>
+                  {FORMAT_OPTIONS.map(format => (
+                    <option key={format} value={format}>{format}</option>
+                  ))}
+                </select>
+              </div>
+
               {formData.outputs && formData.outputs.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-av-text mb-2">
