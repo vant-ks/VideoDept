@@ -210,6 +210,12 @@ export default function CCUs() {
     '4K 24'
   ];
 
+  // Full spec for currently selected manufacturer + model — used by I/O panel
+  const selectedSpec = useMemo(() => {
+    if (!formData.manufacturer || !formData.model) return null;
+    return ccuSpecs.find(s => s.manufacturer === formData.manufacturer && s.model === formData.model) || null;
+  }, [formData.manufacturer, formData.model, ccuSpecs]);
+
   // Format options from selected spec — dynamic when model is chosen, static fallback otherwise
   const specFormatOptions = useMemo(() => {
     if (!formData.manufacturer || !formData.model) return FORMAT_OPTIONS;
@@ -545,9 +551,18 @@ export default function CCUs() {
               onDragLeave={handleDragLeave}
             >
               <div className="grid gap-3 items-center" style={{ gridTemplateColumns: '15fr 15fr 40fr 20fr 10fr' }}>
-                {/* Col 1: Drag handle + CCU ID */}
-                <div className="flex items-center gap-2 min-w-0" onClick={(e) => e.stopPropagation()}>
+                {/* Col 1: Drag handle + chevron + CCU ID */}
+                <div className="flex items-center gap-1.5 min-w-0" onClick={(e) => e.stopPropagation()}>
                   <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
+                  {hasIO && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleExpanded(ccuUuid); }}
+                      className="p-0.5 rounded text-av-text-muted hover:text-av-accent transition-colors flex-shrink-0"
+                      title={isExpanded ? 'Hide I/O' : 'Show I/O'}
+                    >
+                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
                   <h3 className={`text-sm font-semibold truncate ${linkedCameras.length === 0 ? 'text-av-warning' : 'text-av-text'}`}>{ccu.id}</h3>
                 </div>
 
@@ -577,18 +592,8 @@ export default function CCUs() {
                   {r.model && <Badge>{r.model}</Badge>}
                 </div>
 
-                {/* Col 5: Chevron + Action Buttons — stopPropagation so they don't toggle card */}
+                {/* Col 5: Action Buttons — stopPropagation so they don't toggle card */}
                 <div className="flex gap-1 items-center justify-end" onClick={(e) => e.stopPropagation()}>
-                  {/* Chevron toggle — visible only when there's I/O data */}
-                  {hasIO && (
-                    <button
-                      onClick={() => toggleExpanded(ccuUuid)}
-                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
-                      title={isExpanded ? 'Hide I/O' : 'Show I/O'}
-                    >
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                  )}
                   <button
                     onClick={() => handleEdit(ccu)}
                     className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
@@ -694,7 +699,7 @@ export default function CCUs() {
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-av-border">
               <h2 className="text-2xl font-bold text-av-text">
                 {editingCCU ? 'Edit CCU' : 'Add New CCU'}
@@ -779,36 +784,98 @@ export default function CCUs() {
                 </select>
               </div>
 
-              {formData.outputs && formData.outputs.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-2">
-                    Outputs (Auto-configured from model specs)
-                  </label>
-                  <div className="space-y-2">
-                    {formData.outputs.map((output, index) => (
-                      <div key={output.id} className="flex items-center gap-2 p-3 bg-av-surface-hover rounded-lg">
-                        <Badge variant="default" className="text-xs">
-                          {index + 1}
-                        </Badge>
-                        <span className="text-sm text-av-text w-32">{output.type}</span>
-                        <div className="flex-1">
-                          <select
-                            value={output.format || ''}
-                            onChange={(e) => {
-                              const newOutputs = [...(formData.outputs || [])];
-                              newOutputs[index] = { ...output, format: e.target.value };
-                              setFormData({ ...formData, outputs: newOutputs });
-                            }}
-                            className="input-field text-sm w-full"
-                          >
-                            {FORMAT_OPTIONS.map(format => (
-                              <option key={format} value={format}>{format}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    ))}
+              {/* ── Signal Flow I/O Panel ─────────────────────────── */}
+              {(selectedSpec || formData.fiberInput || formData.referenceInput || (formData.outputs && formData.outputs.length > 0)) && (
+                <div className="space-y-3">
+                  <div className="border-b border-av-border pb-2">
+                    <span className="text-xs font-semibold text-av-text-muted uppercase tracking-widest">Signal Flow I/O</span>
                   </div>
+
+                  {/* Inputs */}
+                  {(selectedSpec && selectedSpec.inputs.length > 0) || formData.fiberInput || formData.referenceInput ? (
+                    <div>
+                      <p className="text-xs text-av-text-muted uppercase tracking-widest mb-2">Inputs</p>
+                      <div className="space-y-2">
+                        {selectedSpec && selectedSpec.inputs.length > 0 ? (
+                          selectedSpec.inputs.map((input) => {
+                            const isSmpteFiber = /smpte|fiber/i.test(input.type);
+                            const isReference = /ref/i.test(input.type);
+                            const fieldValue = isSmpteFiber
+                              ? (formData.fiberInput || '')
+                              : isReference
+                              ? (formData.referenceInput || '')
+                              : '';
+                            const handlePortChange = (val: string) => {
+                              if (isSmpteFiber) setFormData({ ...formData, fiberInput: val });
+                              else if (isReference) setFormData({ ...formData, referenceInput: val });
+                            };
+                            return (
+                              <div key={input.id} className="flex items-center gap-3 p-3 bg-av-surface-hover rounded-lg">
+                                <span className="text-xs bg-av-surface px-2 py-0.5 rounded border border-av-border text-av-text-muted flex-shrink-0 whitespace-nowrap">{input.type}</span>
+                                <span className="text-sm text-av-text w-28 flex-shrink-0">{input.label || input.type}</span>
+                                <input
+                                  type="text"
+                                  value={fieldValue}
+                                  onChange={(e) => handlePortChange(e.target.value)}
+                                  className="input-field text-sm flex-1"
+                                  placeholder={isSmpteFiber ? 'e.g. CAM 1' : isReference ? 'e.g. House REF' : 'Connected source...'}
+                                />
+                              </div>
+                            );
+                          })
+                        ) : (
+                          // Fallback: no spec loaded but saved field data exists
+                          <>
+                            {(formData.fiberInput !== undefined) && (
+                              <div className="flex items-center gap-3 p-3 bg-av-surface-hover rounded-lg">
+                                <span className="text-xs bg-av-surface px-2 py-0.5 rounded border border-av-border text-av-text-muted flex-shrink-0">SMPTE Fiber</span>
+                                <span className="text-sm text-av-text w-28 flex-shrink-0">Camera Input</span>
+                                <input type="text" value={formData.fiberInput || ''} onChange={(e) => setFormData({ ...formData, fiberInput: e.target.value })} className="input-field text-sm flex-1" placeholder="e.g. CAM 1" />
+                              </div>
+                            )}
+                            {(formData.referenceInput !== undefined) && (
+                              <div className="flex items-center gap-3 p-3 bg-av-surface-hover rounded-lg">
+                                <span className="text-xs bg-av-surface px-2 py-0.5 rounded border border-av-border text-av-text-muted flex-shrink-0">Reference</span>
+                                <span className="text-sm text-av-text w-28 flex-shrink-0">Ref In</span>
+                                <input type="text" value={formData.referenceInput || ''} onChange={(e) => setFormData({ ...formData, referenceInput: e.target.value })} className="input-field text-sm flex-1" placeholder="e.g. House REF" />
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Outputs */}
+                  {formData.outputs && formData.outputs.length > 0 && (
+                    <div>
+                      <p className="text-xs text-av-text-muted uppercase tracking-widest mb-2">Outputs</p>
+                      <div className="space-y-2">
+                        {formData.outputs.map((output: any, index: number) => (
+                          <div key={output.id || index} className="flex items-center gap-3 p-3 bg-av-surface-hover rounded-lg">
+                            <span className="text-xs bg-av-surface px-2 py-0.5 rounded border border-av-border text-av-text-muted flex-shrink-0 whitespace-nowrap">{output.type}</span>
+                            <span className="text-sm text-av-text w-28 flex-shrink-0">{output.label || output.type}</span>
+                            <div className="flex-1">
+                              <select
+                                value={output.format || ''}
+                                onChange={(e) => {
+                                  const newOutputs = [...(formData.outputs || [])];
+                                  newOutputs[index] = { ...output, format: e.target.value };
+                                  setFormData({ ...formData, outputs: newOutputs });
+                                }}
+                                className="input-field text-sm w-full"
+                              >
+                                <option value="">Select format...</option>
+                                {specFormatOptions.map(format => (
+                                  <option key={format} value={format}>{format}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               
