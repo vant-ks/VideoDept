@@ -5,21 +5,28 @@
 - **`v0.1.2_toDosCatchUp`** ← you are here. Branch off `v0.1_sends`. Merge into `v0.1_sends` when done.
 
 ## 🚀 START HERE NEXT SESSION
-`git checkout v0.1.2_toDosCatchUp` — then begin **PRIORITY 1: Schema Drift Resolution**.
+`git checkout v0.1.2_toDosCatchUp` — begin **PRIORITY 2: Camera/CCU Integration Testing**.
+
+---
+
+## ✅ COMPLETED (2026-03-02) — Camera/CCU UI Polish
+
+- `b8471ba` — `sort_order` added to CCUs via `db:push` ✅
+- `5a9226b` — Note field on CCU add/edit modal
+- `ca7570c` — CCU/camera UUID linking fixes, mfr/model dropdown fix
+- `e14e03f` — CCU card: truncated note, collapsible I/O panel
+- `2740bc4`, `65aefe5` — Camera: manufacturer DB column, edit-modal parse fix
+- `6f09798` — **Cameras blank page fixed** (useEffect declared before its deps)
+- `258779a` — CCU card: whole-card click toggles I/O, chevron in ID col, edit-only modal
+- `cf1a0ec` — CCU modal: full Signal Flow I/O panel (connector type badges, input source fields, output format selectors)
+
+All pushed to `origin/v0.1.2_toDosCatchUp`.
 
 ---
 
 ## 🔴 PRIORITY 1 — Add `sort_order` to CCUs
 
-**Status:** Unresolved  
-**Protocol:** `prisma db push` ONLY — `migrate dev` crashes VS Code (Exit Code 137)
-
-**Steps:**
-1. Add `sort_order Int @default(0)` to `ccus` model in `api/prisma/schema.prisma`
-2. Run `npx prisma validate` to check syntax
-3. Run `npm run db:push` to apply to the database
-4. Restart the API dev server to load the new Prisma Client
-5. Verify `sort_order` field is present and functional on CCUs
+**Status: ✅ DONE** (`b8471ba`)
 
 ---
 
