@@ -323,14 +323,18 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                   {(formData.inputs || []).length === 0 && (
                     <p className="text-xs text-av-text-muted">No inputs configured</p>
                   )}
-                  {(formData.inputs || []).map((port) => (
+                  {(formData.inputs || []).map((port) => {
+                    const inputOptions = port.type && !portTypes.includes(port.type)
+                      ? [...portTypes, port.type]
+                      : portTypes;
+                    return (
                     <div key={port.id} className="flex items-center gap-2">
                       <select
                         value={port.type}
                         onChange={(e) => setFormData(f => ({ ...f, inputs: (f.inputs || []).map(p => p.id === port.id ? { ...p, type: e.target.value } : p) }))}
                         className="input-field flex-1 text-sm"
                       >
-                        {portTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                        {inputOptions.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                       <input
                         type="text"
@@ -347,11 +351,11 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
 
-              {/* Outputs */}
+              {/* Outputs */
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium text-av-text">Outputs</label>
@@ -370,14 +374,18 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                   {(formData.outputs || []).length === 0 && (
                     <p className="text-xs text-av-text-muted">No outputs configured</p>
                   )}
-                  {(formData.outputs || []).map((port) => (
+                  {(formData.outputs || []).map((port) => {
+                    const outputOptions = port.type && !portTypes.includes(port.type)
+                      ? [...portTypes, port.type]
+                      : portTypes;
+                    return (
                     <div key={port.id} className="flex items-center gap-2">
                       <select
                         value={port.type}
                         onChange={(e) => setFormData(f => ({ ...f, outputs: (f.outputs || []).map(p => p.id === port.id ? { ...p, type: e.target.value } : p) }))}
                         className="input-field flex-1 text-sm"
                       >
-                        {portTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                        {outputOptions.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                       <input
                         type="text"
@@ -394,7 +402,7 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
             </div>
