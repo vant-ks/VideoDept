@@ -40,7 +40,9 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
   useEffect(() => {
     if (editingEquipment) {
       setFormData({
-        category: editingEquipment.category || 'COMPUTER',
+        // Uppercase category so it matches the select option values.
+        // transformApiEquipment lowercases it; the select options use uppercase.
+        category: (editingEquipment.category || 'COMPUTER').toUpperCase() as any,
         manufacturer: editingEquipment.manufacturer || '',
         model: editingEquipment.model || '',
         ioArchitecture: editingEquipment.ioArchitecture || 'direct',

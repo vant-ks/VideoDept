@@ -18,6 +18,15 @@ const toIoArchitectureEnum = (value: string | undefined): 'DIRECT' | 'CARD_BASED
   return map[value] ?? 'DIRECT';
 };
 
+// Normalize EquipmentCategory: accept any case (e.g. 'monitor' → 'MONITOR').
+// transformApiEquipment on the frontend lowercases categories, so edits send
+// lowercase back; Prisma requires the uppercase enum value.
+const toEquipmentCategoryEnum = (value: string | undefined): string => {
+  if (!value) return value as any;
+  // Handle CAM_SWITCHER / cam_switcher style — already uppercased by toUpperCase()
+  return value.toUpperCase();
+};
+
 // Normalize DB enum value back to frontend string ('DIRECT' → 'direct', 'CARD_BASED' → 'card-based')
 const fromIoArchitectureEnum = (value: string | null | undefined): string => {
   if (value === 'CARD_BASED') return 'card-based';
@@ -91,7 +100,7 @@ router.post('/', async (req: Request, res: Response) => {
     const equipment = await prisma.equipment_specs.create({
       data: {
         id: crypto.randomUUID(),
-        category: snakeCaseData.category,
+        category: toEquipmentCategoryEnum(snakeCaseData.category) as any,
         manufacturer: snakeCaseData.manufacturer,
         model: snakeCaseData.model,
         io_architecture: toIoArchitectureEnum(snakeCaseData.io_architecture),
@@ -128,7 +137,7 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     const hasCards = req.body.cards !== undefined;
 
     const coreData = {
-      category: snakeCaseData.category,
+      category: toEquipmentCategoryEnum(snakeCaseData.category) as any,
       manufacturer: snakeCaseData.manufacturer,
       model: snakeCaseData.model,
       io_architecture: toIoArchitectureEnum(snakeCaseData.io_architecture),
