@@ -35,6 +35,11 @@ export default function Equipment() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
+  // Fetch fresh data on mount to ensure store has latest API shape
+  useEffect(() => {
+    equipmentLib.fetchFromAPI();
+  }, []);
+
   // Live-sync: re-fetch from API when another client adds/updates/deletes equipment
   useEffect(() => {
     const handleEquipmentUpdated = () => {
@@ -63,7 +68,10 @@ export default function Equipment() {
   }, []);
 
   const filteredSpecs = equipmentSpecs.filter(spec => {
-    const matchesCategory = selectedCategory === 'all' || spec.category === selectedCategory;
+    // Compare case-insensitively, treating dashes and underscores as equivalent
+    const normCat = (c: string) => c.toLowerCase().replace(/[_-]/g, '');
+    const matchesCategory = selectedCategory === 'all' ||
+      normCat(spec.category) === normCat(selectedCategory);
     const matchesSearch = searchQuery === '' || 
       spec.manufacturer.toLowerCase().includes(searchQuery.toLowerCase()) ||
       spec.model.toLowerCase().includes(searchQuery.toLowerCase());
