@@ -252,9 +252,9 @@ export default function CCUs() {
       note: record.note || '',
       version: record.version,
     });
-    // Pre-select cameras currently assigned to this CCU
+    // Pre-select cameras currently assigned to this CCU (use ccuUuid — stable FK)
     const linked = allCameras
-      .filter(c => c.ccuId === record.id)
+      .filter(c => c.ccuUuid === record.uuid)
       .map(c => c.uuid as string)
       .filter(Boolean);
     setSelectedCameraUuids(linked);
@@ -324,10 +324,13 @@ export default function CCUs() {
       const savedCcuId: string | undefined = editingCCU
         ? (editingCCU as any).id
         : (createdCCU as any)?.id;
+      const savedCcuUuid: string | undefined = editingCCU
+        ? (editingCCU as any).uuid
+        : (createdCCU as any)?.uuid;
 
-      if (savedCcuId) {
+      if (savedCcuId && savedCcuUuid) {
         const prevLinkedUuids = allCameras
-          .filter(c => c.ccuId === savedCcuId)
+          .filter(c => c.ccuUuid === savedCcuUuid)
           .map(c => c.uuid as string)
           .filter(Boolean);
 
@@ -510,7 +513,7 @@ export default function CCUs() {
       ) : (
         <div className="space-y-3">
           {sortedCCUs.map((ccu, index) => {
-            const linkedCameras = allCameras.filter(c => c.ccuId === ccu.id);
+            const linkedCameras = allCameras.filter(c => c.ccuUuid === (ccu as any).uuid);
             return (
             <Card
               key={(ccu as any).uuid || ccu.id}
@@ -652,6 +655,10 @@ export default function CCUs() {
                     {CCU_MANUFACTURERS.map(mfr => (
                       <option key={mfr} value={mfr}>{mfr}</option>
                     ))}
+                    {/* Fallback: show stored value even if specs haven't loaded yet */}
+                    {formData.manufacturer && !CCU_MANUFACTURERS.includes(formData.manufacturer) && (
+                      <option key="__stored__" value={formData.manufacturer}>{formData.manufacturer}</option>
+                    )}
                   </select>
                 </div>
                 <div>
@@ -668,6 +675,11 @@ export default function CCUs() {
                     {formData.manufacturer && CCU_MODELS_BY_MANUFACTURER[formData.manufacturer]?.map(model => (
                       <option key={model} value={model}>{model}</option>
                     ))}
+                    {/* Fallback: show stored value even if specs haven't loaded yet */}
+                    {formData.model && formData.manufacturer &&
+                      !CCU_MODELS_BY_MANUFACTURER[formData.manufacturer]?.includes(formData.model) && (
+                      <option key="__stored__" value={formData.model}>{formData.model}</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -733,9 +745,13 @@ export default function CCUs() {
                     <span className="text-xs text-av-text-muted ml-2">(select which cameras belong to this CCU)</span>
                   </label>
                   <div className="space-y-1 max-h-40 overflow-y-auto border border-av-border rounded-md p-2">
-                    {allCameras
-                      .filter(cam => !cam.ccuId || cam.ccuId === formData.id)
-                      .map(cam => (
+                    {allCameras.map(cam => {
+                      const thisCCUUuid = editingCCU ? (editingCCU as any).uuid : undefined;
+                      const assignedElsewhere = cam.ccuUuid && cam.ccuUuid !== thisCCUUuid;
+                      const assignedCCULabel = assignedElsewhere
+                        ? (localCCUs.find(c => (c as any).uuid === cam.ccuUuid)?.id || 'another CCU')
+                        : null;
+                      return (
                         <label
                           key={cam.uuid || cam.id}
                           className="flex items-center gap-2 p-1.5 rounded hover:bg-av-surface-light cursor-pointer"
@@ -756,9 +772,12 @@ export default function CCUs() {
                           {cam.name && cam.name !== cam.id && (
                             <span className="text-sm text-av-text-muted">{cam.name}</span>
                           )}
+                          {assignedElsewhere && (
+                            <span className="text-xs text-av-warning ml-auto">← {assignedCCULabel}</span>
+                          )}
                         </label>
-                      ))
-                    }
+                      );
+                    })}
                   </div>
                 </div>
               )}
