@@ -9,7 +9,18 @@ import { useCamerasAPI } from '@/hooks/useCamerasAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
-import type { CCU } from '@/types';
+import type { CCU, Format } from '@/types';
+
+// Draft shape for the I/O panel — maps to device_ports rows on save
+interface DevicePortDraft {
+  uuid?: string;         // set when editing a port that already exists in DB
+  specPortUuid?: string; // FK to equipment_io_ports.uuid — from API data
+  portLabel: string;
+  ioType: string;
+  direction: 'INPUT' | 'OUTPUT';
+  formatUuid?: string | null;
+  note?: string | null;
+}
 
 // Local form state type — tracks all fields the CCU modal collects
 interface CCUFormFields {
@@ -74,6 +85,13 @@ export default function CCUs() {
     }
   }, [productionId, oldStore.isConnected]);
 
+  // Fetch formats once (needed for per-port format dropdown)
+  useEffect(() => {
+    apiClient.get<Format[]>('/formats')
+      .then(data => setFormats(data))
+      .catch(console.error);
+  }, []);
+
   // Fetch cameras to populate linked count per CCU
   useEffect(() => {
     if (productionId && oldStore.isConnected) {
@@ -131,6 +149,11 @@ export default function CCUs() {
       }
     }, [])
   });
+  // ── I/O panel state ──────────────────────────────────────────────────────
+  const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
+  const [formats, setFormats] = useState<Format[]>([]);
+  const [portsLoading, setPortsLoading] = useState(false);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCCU, setEditingCCU] = useState<CCU | null>(null);
   const [formData, setFormData] = useState<CCUFormFields>({
@@ -213,13 +236,28 @@ export default function CCUs() {
 
   const handleAddNew = () => {
     setFormData({ manufacturer: '', model: '', formatMode: '', outputs: [], equipmentUuid: undefined });
+    setDevicePorts([]);
     setEditingCCU(null);
     setErrors([]);
     setSelectedCameraUuids([]);
     setIsModalOpen(true);
   };
 
-  // Auto-populate outputs, formatMode, and equipmentUuid when model is selected
+  // Build DevicePortDraft[] from a spec's inputs/outputs arrays
+  const buildPortsFromSpec = (spec: { inputs?: any[]; outputs?: any[] }): DevicePortDraft[] => [
+    ...(spec.inputs || []).map(p => ({
+      portLabel: p.label || p.id || p.type,
+      ioType:    p.type || p.id,
+      direction: 'INPUT' as const,
+    })),
+    ...(spec.outputs || []).map(p => ({
+      portLabel: p.label || p.id || p.type,
+      ioType:    p.type || p.id,
+      direction: 'OUTPUT' as const,
+    })),
+  ];
+
+  // Auto-populate formatMode, equipmentUuid, and device ports when model is selected
   const handleModelChange = (model: string) => {
     const spec = ccuSpecs.find(
       s => s.manufacturer === formData.manufacturer && s.model === model
@@ -234,6 +272,8 @@ export default function CCUs() {
     }));
     const formatMode = spec?.deviceFormats?.[0] || formData.formatMode || '';
     setFormData({ ...formData, model, outputs, equipmentUuid: spec?.uuid, formatMode });
+    // Build port drafts from spec — these will be synced on save
+    if (spec) setDevicePorts(buildPortsFromSpec(spec));
   };
 
   const handleEdit = (ccu: CCU) => {
@@ -258,9 +298,36 @@ export default function CCUs() {
       .map(c => c.uuid as string)
       .filter(Boolean);
     setSelectedCameraUuids(linked);
+    setDevicePorts([]);
     setEditingCCU(ccu);
     setErrors([]);
     setIsModalOpen(true);
+    // Fetch existing device_ports for this CCU
+    if (record.uuid) {
+      setPortsLoading(true);
+      apiClient.get<any[]>(`/device-ports/device/${record.uuid}`)
+        .then(ports => {
+          if (Array.isArray(ports) && ports.length > 0) {
+            setDevicePorts(ports.map(p => ({
+              uuid:          p.uuid,
+              specPortUuid:  p.specPortUuid,
+              portLabel:     p.portLabel,
+              ioType:        p.ioType,
+              direction:     p.direction as 'INPUT' | 'OUTPUT',
+              formatUuid:    p.formatUuid ?? null,
+              note:          p.note ?? null,
+            })));
+          } else {
+            // No ports yet — seed from spec so the panel shows something
+            const spec = ccuSpecs.find(
+              s => s.manufacturer === record.manufacturer && s.model === record.model
+            );
+            if (spec) setDevicePorts(buildPortsFromSpec(spec));
+          }
+        })
+        .catch(console.error)
+        .finally(() => setPortsLoading(false));
+    }
   };
 
   const handleSave = async (action: 'close' | 'duplicate' = 'close') => {
@@ -304,7 +371,7 @@ export default function CCUs() {
         // Auto-generate ID and name
         const newId = generateId();
         // Create new CCU — explicit fields, no spreads (Rule #6)
-        const created = await ccusAPI.createCCU({
+        createdCCU = await ccusAPI.createCCU({
           id: newId,
           productionId: productionId!,
           name: newId,
@@ -317,7 +384,27 @@ export default function CCUs() {
           equipmentUuid: formData.equipmentUuid,
           note: formData.note,
         });
-        createdCCU = created;
+      }
+
+      // ── Sync device_ports if there are any port drafts ─────────────────────
+      const savedUuid: string | undefined = editingCCU
+        ? (editingCCU as any).uuid
+        : (createdCCU as any)?.uuid;
+      const savedId: string | undefined = editingCCU
+        ? (editingCCU as any).id
+        : (createdCCU as any)?.id;
+
+      if (savedUuid && devicePorts.length > 0) {
+        try {
+          await apiClient.post(`/device-ports/device/${savedUuid}/sync`, {
+            productionId,
+            deviceDisplayId: savedId,
+            ports: devicePorts,
+          });
+        } catch (portErr) {
+          console.error('⚠️ Port sync failed (CCU saved):', portErr);
+          // Non-fatal — CCU is saved, ports can be retried
+        }
       }
 
       // Process camera assignments — figure out which cameras to link/unlink
@@ -372,6 +459,7 @@ export default function CCUs() {
           id: newId,
           name: newId,
         });
+        setDevicePorts(devicePorts.map(p => ({ ...p, uuid: undefined }))); // fresh ports for duplicate
         setEditingCCU(null);
         setErrors([]);
         setSelectedCameraUuids([]);
@@ -379,6 +467,7 @@ export default function CCUs() {
       } else {
         setIsModalOpen(false);
         setFormData({ manufacturer: '', model: '', formatMode: '', outputs: [], equipmentUuid: undefined });
+        setDevicePorts([]);
         setEditingCCU(null);
         setErrors([]);
         setSelectedCameraUuids([]);
@@ -580,6 +669,7 @@ export default function CCUs() {
                           equipmentUuid: undefined, // don't carry equipmentUuid to dupe
                           note: r.note || '',
                         });
+                        setDevicePorts([]);
                         setEditingCCU(null);
                         setSelectedCameraUuids([]);
                         setIsModalOpen(true);
@@ -616,13 +706,13 @@ export default function CCUs() {
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-av-border">
               <h2 className="text-2xl font-bold text-av-text">
                 {editingCCU ? 'Edit CCU' : 'Add New CCU'}
               </h2>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => { setIsModalOpen(false); setDevicePorts([]); }}
                 className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-text transition-colors"
               >
                 ×
@@ -692,38 +782,111 @@ export default function CCUs() {
                 </select>
               </div>
 
-              {formData.outputs && formData.outputs.length > 0 && (
+              {/* ── I/O Ports Panel ────────────────────────────────────────────── */}
+              {portsLoading ? (
+                <p className="text-sm text-av-text-muted italic">Loading ports…</p>
+              ) : devicePorts.length > 0 ? (
                 <div>
                   <label className="block text-sm font-medium text-av-text mb-2">
-                    Outputs (Auto-configured from model specs)
+                    I/O Ports
+                    <span className="text-xs text-av-text-muted ml-2">format &amp; signal per port</span>
                   </label>
-                  <div className="space-y-2">
-                    {formData.outputs.map((output, index) => (
-                      <div key={output.id} className="flex items-center gap-2 p-3 bg-av-surface-hover rounded-lg">
-                        <Badge variant="default" className="text-xs">
-                          {index + 1}
-                        </Badge>
-                        <span className="text-sm text-av-text w-32">{output.type}</span>
-                        <div className="flex-1">
-                          <select
-                            value={output.format || ''}
-                            onChange={(e) => {
-                              const newOutputs = [...(formData.outputs || [])];
-                              newOutputs[index] = { ...output, format: e.target.value };
-                              setFormData({ ...formData, outputs: newOutputs });
-                            }}
-                            className="input-field text-sm w-full"
-                          >
-                            {FORMAT_OPTIONS.map(format => (
-                              <option key={format} value={format}>{format}</option>
-                            ))}
-                          </select>
-                        </div>
+
+                  {/* INPUTS */}
+                  {devicePorts.some(p => p.direction === 'INPUT') && (
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">Inputs</p>
+                      <div className="space-y-1.5">
+                        {devicePorts.map((port, idx) => {
+                          if (port.direction !== 'INPUT') return null;
+                          return (
+                            <div key={idx} className="grid grid-cols-[80px_1fr_1fr] gap-2 items-center p-2 bg-av-surface-hover rounded-lg">
+                              <span className="text-xs text-av-text-muted font-mono truncate" title={port.ioType}>{port.ioType}</span>
+                              <input
+                                type="text"
+                                value={port.portLabel}
+                                onChange={(e) => {
+                                  const next = [...devicePorts];
+                                  next[idx] = { ...next[idx], portLabel: e.target.value };
+                                  setDevicePorts(next);
+                                }}
+                                placeholder="Port label"
+                                className="input-field text-xs py-1"
+                              />
+                              <input
+                                type="text"
+                                value={port.note || ''}
+                                onChange={(e) => {
+                                  const next = [...devicePorts];
+                                  next[idx] = { ...next[idx], note: e.target.value || null };
+                                  setDevicePorts(next);
+                                }}
+                                placeholder="Signal / note"
+                                className="input-field text-xs py-1"
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* OUTPUTS */}
+                  {devicePorts.some(p => p.direction === 'OUTPUT') && (
+                    <div>
+                      <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">Outputs</p>
+                      <div className="space-y-1.5">
+                        {devicePorts.map((port, idx) => {
+                          if (port.direction !== 'OUTPUT') return null;
+                          return (
+                            <div key={idx} className="grid grid-cols-[80px_1fr_1fr_1fr] gap-2 items-center p-2 bg-av-surface-hover rounded-lg">
+                              <span className="text-xs text-av-text-muted font-mono truncate" title={port.ioType}>{port.ioType}</span>
+                              <input
+                                type="text"
+                                value={port.portLabel}
+                                onChange={(e) => {
+                                  const next = [...devicePorts];
+                                  next[idx] = { ...next[idx], portLabel: e.target.value };
+                                  setDevicePorts(next);
+                                }}
+                                placeholder="Port label"
+                                className="input-field text-xs py-1"
+                              />
+                              <select
+                                value={port.formatUuid || ''}
+                                onChange={(e) => {
+                                  const next = [...devicePorts];
+                                  next[idx] = { ...next[idx], formatUuid: e.target.value || null };
+                                  setDevicePorts(next);
+                                }}
+                                className="input-field text-xs py-1"
+                              >
+                                <option value="">— format —</option>
+                                {formats.map(f => (
+                                  <option key={f.uuid} value={f.uuid}>{f.id}</option>
+                                ))}
+                              </select>
+                              <input
+                                type="text"
+                                value={port.note || ''}
+                                onChange={(e) => {
+                                  const next = [...devicePorts];
+                                  next[idx] = { ...next[idx], note: e.target.value || null };
+                                  setDevicePorts(next);
+                                }}
+                                placeholder="Destination / note"
+                                className="input-field text-xs py-1"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              ) : formData.model ? (
+                <p className="text-xs text-av-text-muted italic">No spec ports found for this model.</p>
+              ) : null}
               
               {/* Camera Assignment */}
               {allCameras.length > 0 && (
@@ -780,7 +943,7 @@ export default function CCUs() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => { setIsModalOpen(false); setDevicePorts([]); }}
                   className="btn-secondary flex-1"
                 >
                   Cancel
