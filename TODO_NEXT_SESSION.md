@@ -101,6 +101,7 @@ Pages still using manual state instead of sync hooks:
 
 ## 🟢 LOW / OPTIONAL
 
+- [ ] **Equipment compatibility matrix** — define which camera models work with which CCU models (and lens↔projector). Spec-library level. New DB table `equipment_compatibility` (uuid, spec_uuid_a, spec_uuid_b, relationship_type, notes). Add "Compatible With" panel to Equipment Library UI. Optionally warn in CCU camera-assignment modal if selected camera spec isn't listed as compatible.
 - [ ] `apiClient.ts` — add Camera/CCU methods for consistency with Equipment (currently using hooks directly — functionally fine)
 - [ ] `SYNC_RULES.md` — document WebSocket event naming, conflict strategy
 - [ ] `ARCHITECTURE_SYNC.md` — data flow diagrams, component integration guide

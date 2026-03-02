@@ -700,6 +700,10 @@ export default function Cameras() {
                       {CAMERA_MANUFACTURERS.map(mfr => (
                         <option key={mfr} value={mfr}>{mfr}</option>
                       ))}
+                      {/* Fallback: show stored value if specs haven't loaded yet */}
+                      {formData.manufacturer && !CAMERA_MANUFACTURERS.includes(formData.manufacturer) && (
+                        <option key="__stored__" value={formData.manufacturer}>{formData.manufacturer}</option>
+                      )}
                     </select>
                   </div>
                   <div>
@@ -722,6 +726,11 @@ export default function Cameras() {
                       {formData.manufacturer && CAMERA_MODELS_BY_MANUFACTURER[formData.manufacturer]?.map(model => (
                         <option key={model} value={model}>{model}</option>
                       ))}
+                      {/* Fallback: show stored value if specs haven't loaded yet */}
+                      {formData.model && formData.manufacturer &&
+                        !CAMERA_MODELS_BY_MANUFACTURER[formData.manufacturer]?.includes(formData.model) && (
+                        <option key="__stored__" value={formData.model}>{formData.model}</option>
+                      )}
                     </select>
                     {!formData.manufacturer && (
                       <p className="text-xs text-av-text-muted mt-1">
