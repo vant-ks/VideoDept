@@ -524,14 +524,21 @@ export default function CCUs() {
         <div className="space-y-3">
           {sortedCCUs.map((ccu, index) => {
             const linkedCameras = allCameras.filter(c => c.ccuUuid === (ccu as any).uuid);
+            const ccuUuid = (ccu as any).uuid;
+            const isExpanded = expandedCCUs.has(ccuUuid);
+            const r = ccu as any;
+            const hasIO = r.fiberInput || r.referenceInput || (Array.isArray(r.outputs) && r.outputs.length > 0) || r.formatMode || linkedCameras.length > 0;
+
             return (
             <Card
-              key={(ccu as any).uuid || ccu.id}
+              key={ccuUuid || ccu.id}
               className={`p-6 transition-colors select-none
                 ${dragOverIndex === index ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
                 ${draggedIndex === index ? 'opacity-40' : ''}
+                ${hasIO ? 'cursor-pointer' : ''}
               `}
               draggable
+              onClick={() => { if (hasIO) toggleExpanded(ccuUuid); }}
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragEnd={handleDragEnd}
@@ -539,7 +546,7 @@ export default function CCUs() {
             >
               <div className="grid gap-3 items-center" style={{ gridTemplateColumns: '15fr 15fr 40fr 20fr 10fr' }}>
                 {/* Col 1: Drag handle + CCU ID */}
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0" onClick={(e) => e.stopPropagation()}>
                   <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
                   <h3 className={`text-sm font-semibold truncate ${linkedCameras.length === 0 ? 'text-av-warning' : 'text-av-text'}`}>{ccu.id}</h3>
                 </div>
@@ -557,8 +564,8 @@ export default function CCUs() {
 
                 {/* Col 3: Note */}
                 <div className="min-w-0">
-                  {(ccu as any).note ? (
-                    <p className="text-sm text-av-text-muted truncate" title={(ccu as any).note}>{(ccu as any).note}</p>
+                  {r.note ? (
+                    <p className="text-sm text-av-text-muted truncate" title={r.note}>{r.note}</p>
                   ) : (
                     <span className="text-xs text-av-text-muted">—</span>
                   )}
@@ -566,12 +573,22 @@ export default function CCUs() {
 
                 {/* Col 4: Tags (manufacturer, model only — format shown in expanded view) */}
                 <div className="flex items-center gap-1 flex-wrap min-w-0">
-                  {(ccu as any).manufacturer && <Badge>{(ccu as any).manufacturer}</Badge>}
-                  {(ccu as any).model && <Badge>{(ccu as any).model}</Badge>}
+                  {r.manufacturer && <Badge>{r.manufacturer}</Badge>}
+                  {r.model && <Badge>{r.model}</Badge>}
                 </div>
 
-                {/* Col 5: Action Buttons */}
-                <div className="flex gap-1 justify-end">
+                {/* Col 5: Chevron + Action Buttons — stopPropagation so they don't toggle card */}
+                <div className="flex gap-1 items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                  {/* Chevron toggle — visible only when there's I/O data */}
+                  {hasIO && (
+                    <button
+                      onClick={() => toggleExpanded(ccuUuid)}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                      title={isExpanded ? 'Hide I/O' : 'Show I/O'}
+                    >
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleEdit(ccu)}
                     className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
@@ -590,7 +607,6 @@ export default function CCUs() {
                         .filter(n => !isNaN(n));
                       const maxNumber = ccuNumbers.length > 0 ? Math.max(...ccuNumbers) : 0;
                       const newId = `CCU ${maxNumber + 1}`;
-                      const r = ccu as any;
                       setFormData({
                         id: newId,
                         name: `${r.name || r.id} (Copy)`,
@@ -600,7 +616,7 @@ export default function CCUs() {
                         fiberInput: r.fiberInput || '',
                         referenceInput: r.referenceInput || '',
                         outputs: r.outputs || [],
-                        equipmentUuid: undefined, // don't carry equipmentUuid to dupe
+                        equipmentUuid: undefined,
                         note: r.note || '',
                       });
                       setEditingCCU(null);
@@ -613,7 +629,7 @@ export default function CCUs() {
                     <Copy className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete((ccu as any).uuid || ccu.id)}
+                    onClick={() => handleDelete(ccuUuid || ccu.id)}
                     className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
                     title="Delete"
                   >
@@ -622,81 +638,53 @@ export default function CCUs() {
                 </div>
               </div>
 
-              {/* Bottom row: I/O expand toggle */}
-              {(() => {
-                const ccuUuid = (ccu as any).uuid;
-                const isExpanded = expandedCCUs.has(ccuUuid);
-                const r = ccu as any;
-                const hasIO = r.fiberInput || r.referenceInput || (Array.isArray(r.outputs) && r.outputs.length > 0) || r.formatMode || linkedCameras.length > 0;
-                if (!hasIO) return null;
-                return (
-                  <>
-                    <div className="mt-3 flex items-center gap-2 min-w-0">
-                      {hasIO && (
-                        <button
-                          onClick={() => toggleExpanded(ccuUuid)}
-                          className="flex items-center gap-1 text-xs text-av-text-muted hover:text-av-accent transition-colors flex-shrink-0"
-                          title={isExpanded ? 'Hide I/O' : 'Show I/O'}
-                        >
-                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                          I/O
-                        </button>
-                      )}
+              {/* Expanded I/O detail panel */}
+              {isExpanded && hasIO && (
+                <div className="mt-3 pt-3 border-t border-av-border space-y-2" onClick={(e) => e.stopPropagation()}>
+                  {r.formatMode && (
+                    <div className="flex gap-6 text-sm">
+                      <span className="text-av-text-muted w-32 flex-shrink-0">Format Mode</span>
+                      <span className="text-av-text">{r.formatMode}</span>
                     </div>
-                    {isExpanded && hasIO && (
-                      <div className="mt-3 pt-3 border-t border-av-border space-y-2">
-                        {/* Format Mode */}
-                        {r.formatMode && (
-                          <div className="flex gap-6 text-sm">
-                            <span className="text-av-text-muted w-32 flex-shrink-0">Format Mode</span>
-                            <span className="text-av-text">{r.formatMode}</span>
-                          </div>
-                        )}
-                        {/* Fiber Input */}
-                        {r.fiberInput && (
-                          <div className="flex gap-6 text-sm">
-                            <span className="text-av-text-muted w-32 flex-shrink-0">Fiber Input</span>
-                            <span className="text-av-text">{r.fiberInput}</span>
-                          </div>
-                        )}
-                        {/* Reference Input */}
-                        {r.referenceInput && (
-                          <div className="flex gap-6 text-sm">
-                            <span className="text-av-text-muted w-32 flex-shrink-0">Reference Input</span>
-                            <span className="text-av-text">{r.referenceInput}</span>
-                          </div>
-                        )}
-                        {/* Outputs */}
-                        {Array.isArray(r.outputs) && r.outputs.length > 0 && (
-                          <div className="flex gap-6 text-sm">
-                            <span className="text-av-text-muted w-32 flex-shrink-0">Outputs</span>
-                            <div className="flex flex-wrap gap-2">
-                              {r.outputs.map((out: any, i: number) => (
-                                <span key={i} className="text-xs bg-av-surface-hover px-2 py-0.5 rounded text-av-text">
-                                  {out.type}{out.format ? ` · ${out.format}` : ''}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {/* Linked Cameras */}
-                        {linkedCameras.length > 0 && (
-                          <div className="flex gap-6 text-sm">
-                            <span className="text-av-text-muted w-32 flex-shrink-0">Cameras</span>
-                            <div className="flex flex-wrap gap-2">
-                              {linkedCameras.map((cam: any) => (
-                                <span key={cam.uuid || cam.id} className="text-xs bg-av-surface-hover px-2 py-0.5 rounded text-av-text">
-                                  {cam.id}{cam.name && cam.name !== cam.id ? ` · ${cam.name}` : ''}{cam.smpteCableLength ? ` · ${cam.smpteCableLength}ft` : ''}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                  )}
+                  {r.fiberInput && (
+                    <div className="flex gap-6 text-sm">
+                      <span className="text-av-text-muted w-32 flex-shrink-0">Fiber Input</span>
+                      <span className="text-av-text">{r.fiberInput}</span>
+                    </div>
+                  )}
+                  {r.referenceInput && (
+                    <div className="flex gap-6 text-sm">
+                      <span className="text-av-text-muted w-32 flex-shrink-0">Reference Input</span>
+                      <span className="text-av-text">{r.referenceInput}</span>
+                    </div>
+                  )}
+                  {Array.isArray(r.outputs) && r.outputs.length > 0 && (
+                    <div className="flex gap-6 text-sm">
+                      <span className="text-av-text-muted w-32 flex-shrink-0">Outputs</span>
+                      <div className="flex flex-wrap gap-2">
+                        {r.outputs.map((out: any, i: number) => (
+                          <span key={i} className="text-xs bg-av-surface-hover px-2 py-0.5 rounded text-av-text">
+                            {out.type}{out.format ? ` · ${out.format}` : ''}
+                          </span>
+                        ))}
                       </div>
-                    )}
-                  </>
-                );
-              })()}
+                    </div>
+                  )}
+                  {linkedCameras.length > 0 && (
+                    <div className="flex gap-6 text-sm">
+                      <span className="text-av-text-muted w-32 flex-shrink-0">Cameras</span>
+                      <div className="flex flex-wrap gap-2">
+                        {linkedCameras.map((cam: any) => (
+                          <span key={cam.uuid || cam.id} className="text-xs bg-av-surface-hover px-2 py-0.5 rounded text-av-text">
+                            {cam.id}{cam.name && cam.name !== cam.id ? ` · ${cam.name}` : ''}{cam.smpteCableLength ? ` · ${cam.smpteCableLength}ft` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
             );
           })}
