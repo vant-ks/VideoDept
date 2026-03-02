@@ -2256,7 +2256,7 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     ioArchitecture: 'direct',
     inputs: [
       { id: 'sdi-in-1', type: '12G-SDI', label: 'SDI In 1' },
-      { id: 'sdi-in-2', type: '12G-SDI', label: 'SDI In 2',
+      { id: 'sdi-in-2', type: '12G-SDI', label: 'SDI In 2' },
       { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [
@@ -2291,7 +2291,7 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     ioArchitecture: 'direct',
     inputs: [
       { id: 'sdi-in-1', type: '3G-SDI', label: 'SDI In 1' },
-      { id: 'sdi-in-2', type: '3G-SDI', label: 'SDI In 2',
+      { id: 'sdi-in-2', type: '3G-SDI', label: 'SDI In 2' },
       { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [
@@ -3785,7 +3785,7 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     ioArchitecture: 'direct',
     inputs: [
       { id: 'sdi-in-1', type: '12G-SDI', label: 'SDI In 1' },
-      { id: 'sdi-in-2', type: '12G-SDI', label: 'SDI In 2',
+      { id: 'sdi-in-2', type: '12G-SDI', label: 'SDI In 2' },
       { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [
