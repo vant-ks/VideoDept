@@ -1,5 +1,134 @@
 # TODO List - Next Work Session
 
+## 📍 Current Branch Structure
+- **`v0.1_sends`** — long-running parent branch for all sends-related work. DO NOT merge to main until explicitly instructed.
+- **`v0.1.2_toDosCatchUp`** ← you are here. Branch off `v0.1_sends`. Merge into `v0.1_sends` when done.
+
+---
+
+## 🔴 PRIORITY 1 — Schema Drift Resolution (Camera/CCU)
+
+**Status:** Unresolved — blocks adding `sort_order` to CCUs and any future migrations  
+**Risk:** Running `migrate dev` without resolving drift will prompt Prisma to wipe the entire DB
+
+**Steps:**
+1. Run `npx prisma migrate status` in `video-production-manager/api`
+2. Review which DB objects are not in migration history
+3. Get explicit Kevin approval before proceeding
+4. Create baseline migration OR use `prisma db push` (dev only)
+5. After resolved: add `sort_order Int @default(0)` to `ccus` model and migrate safely
+
+---
+
+## 🔴 PRIORITY 2 — Camera/CCU Integration Testing (Phase 10)
+
+All implementation is done. These are verification tests:
+
+- [ ] Add a Camera → persists after page refresh
+- [ ] Add Camera in Browser A → appears in Browser B within ~1 second (WebSocket)
+- [ ] Edit a Camera → persists after refresh
+- [ ] Delete a Camera → disappears in all browsers
+- [ ] Select equipment spec on Camera → `equipment_uuid` saved in DB
+- [ ] Assign CCU to Camera → `ccu_id` and `ccu_uuid` saved in DB
+- [ ] Add/Edit/Delete CCU → all persist and sync
+- [ ] CCU card shows linked camera count badge
+- [ ] All operations work on Railway (production) as well as local dev
+
+---
+
+## 🟠 PRIORITY 3 — Railway Deployment: Switch to New GitHub Repo
+
+**Issue:** Railway still connected to old repo `kashea24/VideoDept`  
+**Target:** `vant-ks/VideoDept`
+
+- [ ] Update Railway project to connect to `vant-ks/VideoDept`
+- [ ] Verify deployment triggers on `main` branch pushes
+- [ ] Test production health endpoint after redeployment
+- [ ] Update any docs with new Railway URL if it changed
+
+---
+
+## 🟠 PRIORITY 4 — Multi-Browser Sync Testing (Phase 5 — 10 Scenarios)
+
+Run all scenarios from `MULTI_BROWSER_SYNC_TEST.md`:
+
+- [ ] Test 1: Production Settings Sync
+- [ ] Test 2: Checklist Item Sync
+- [ ] Test 3: Camera Sync
+- [ ] Test 4: Source Sync
+- [ ] Test 5: Send Sync (LED / Projection / Monitor)
+- [ ] Test 6: CCU Sync
+- [ ] Test 7: Connection/Signal Flow Sync
+- [ ] Test 8: Offline Warning (red banner on disconnect, orange→green on reconnect)
+- [ ] Test 9: Conflict Resolution (stale version merge)
+- [ ] Test 10: Performance — rapid toggles, sync latency < 100ms
+
+Document results in `docs/PHASE_5_TEST_RESULTS.md`
+
+---
+
+## 🟡 PRIORITY 5 — Production Checklist Feature
+
+**Goal:** Second checklist that activates 48 hrs before load-in
+
+- Pre-Production Checklist (current): planning → 48 hrs before load-in
+- Production Checklist (new): on-site activities — setup, testing, rehearsal, show day, strike
+- Needs: trigger mechanism design (manual vs. date-based), category set for production phase
+
+---
+
+## 🟡 PRIORITY 6 — Sync Hooks: Wire into Remaining Page Components
+
+Pages still using manual state instead of sync hooks:
+
+- [ ] `Checklist.tsx` → `useChecklistItemSync`
+- [ ] `Cameras.tsx` → `useCameraSync`
+- [ ] `CCUs.tsx` → `useCCUSync`
+- [ ] `Computers.tsx` / Media Servers → `useSourceSync`
+- [ ] Sends pages (LED, Projection) → `useSendSync`
+
+---
+
+## 🟡 PRIORITY 7 — Update Remaining API Routes with Sync Helpers
+
+- [ ] `ip-addresses.ts` — add `broadcastEntityUpdate/Created` + `last_modified_by`
+- [ ] Audit `sources.ts` — verify fully using sync-helpers
+
+---
+
+## 🟢 LOW / OPTIONAL
+
+- [ ] `apiClient.ts` — add Camera/CCU methods for consistency with Equipment (currently using hooks directly — functionally fine)
+- [ ] `SYNC_RULES.md` — document WebSocket event naming, conflict strategy
+- [ ] `ARCHITECTURE_SYNC.md` — data flow diagrams, component integration guide
+- [ ] `DEVELOPER_TESTING_GUIDE.md` — how to add sync to new entity types
+- [ ] Field-edit indicators (Google Sheets style — show who's editing which field)
+- [ ] Offline change queue (save locally, sync on reconnect)
+
+---
+
+## ✅ COMPLETED THIS SESSION (2026-03-01)
+
+### Monitors + Equipment Port Sync — Branch `v0.1.1_sends-monitors` → merged to `main`
+
+**Bug 1 — Equipment edits silently failing (category enum mismatch)**
+- `transformApiEquipment` lowercases category; edit modal sent lowercase back; Prisma 500'd silently
+- Fix: `toEquipmentCategoryEnum()` in PUT/POST handlers; uppercase category init in `EquipmentFormModal`
+- Commits: `cb4e4ec`
+
+**Bug 2 — New ports not appearing in Monitor edit modal**
+- `parseConnectorRouting` returned saved JSON verbatim, ignoring spec changes
+- Fix: always start from `initConnectorRouting(spec)`, merge saved signal assignments over it
+- Also: removed `length === 0` guard on `fetchFromAPI()` — always fetch fresh on mount
+- Commit: `8bbaf9c`
+
+**Bug 3 — Port changes require manual refresh in other tabs**
+- Monitors never subscribed to `equipment:updated` socket event
+- Fix: added same listener pattern as `Equipment.tsx`
+- Commit: `4a091a9`
+
+---
+
 ## ✅ COMPLETED: Media Server Creation Fixed (2026-02-26)
 
 **Status:** RESOLVED  
