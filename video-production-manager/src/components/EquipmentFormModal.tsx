@@ -355,7 +355,7 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                 </div>
               </div>
 
-              {/* Outputs */
+              {/* Outputs */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium text-av-text">Outputs</label>
