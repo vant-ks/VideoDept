@@ -106,15 +106,35 @@ function initConnectorRouting(spec: any): ConnectorRouting[] {
   ];
 }
 
-// Parse routing from output_connector JSON, fall back to spec init
+// Parse routing from output_connector JSON and MERGE with current spec.
+// The spec is the source of truth for which ports exist; saved routing provides
+// previously-assigned signal values for ports that still exist.
+// New ports added to the spec appear with empty routing; removed ports are dropped.
 function parseConnectorRouting(outputConnector: string | undefined, spec: any): ConnectorRouting[] {
-  if (outputConnector) {
-    try {
-      const parsed = JSON.parse(outputConnector);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {}
-  }
-  return spec ? initConnectorRouting(spec) : [];
+  // Always start from the current spec so port additions/removals are reflected
+  const fresh = spec ? initConnectorRouting(spec) : [];
+  if (!fresh.length) return fresh;
+  if (!outputConnector) return fresh;
+  try {
+    const parsed = JSON.parse(outputConnector);
+    if (!Array.isArray(parsed)) return fresh;
+    // Build lookup of saved routing by portId
+    const savedMap = new Map<string, ConnectorRouting>(
+      (parsed as ConnectorRouting[]).map(r => [r.portId, r])
+    );
+    // Merge: spec determines ports, saved data fills in signal assignments
+    return fresh.map(port => {
+      const saved = savedMap.get(port.portId);
+      if (!saved) return port; // new port on spec — starts empty
+      return {
+        ...port,               // spec-derived label/type/direction
+        sourceSignal:       saved.sourceSignal,
+        hasSecondaryDevice: saved.hasSecondaryDevice,
+        secondaryDevice:    saved.secondaryDevice,
+      };
+    });
+  } catch {}
+  return fresh;
 }
 
 export default function Monitors() {
@@ -144,11 +164,10 @@ export default function Monitors() {
   const productionId =
     activeProject?.production?.id || oldStore.production?.id;
 
-  // Fetch equipment on mount
+  // Always fetch fresh equipment specs on mount so port changes made in the
+  // Equipment page are immediately reflected when the Monitor modal opens.
   useEffect(() => {
-    if (equipmentLib.equipmentSpecs.length === 0) {
-      equipmentLib.fetchFromAPI();
-    }
+    equipmentLib.fetchFromAPI();
   }, []);
 
   // Fetch monitors (filtered sends) from API on mount
