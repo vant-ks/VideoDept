@@ -564,15 +564,10 @@ export default function CCUs() {
                   )}
                 </div>
 
-                {/* Col 4: Tags (manufacturer, model, format mode) */}
+                {/* Col 4: Tags (manufacturer, model only — format shown in expanded view) */}
                 <div className="flex items-center gap-1 flex-wrap min-w-0">
                   {(ccu as any).manufacturer && <Badge>{(ccu as any).manufacturer}</Badge>}
                   {(ccu as any).model && <Badge>{(ccu as any).model}</Badge>}
-                  {(ccu as any).formatMode && (
-                    <span className={`text-xs ${linkedCameras.length === 0 ? 'text-av-warning' : 'text-av-text-muted'}`}>
-                      {(ccu as any).formatMode}
-                    </span>
-                  )}
                 </div>
 
                 {/* Col 5: Action Buttons */}
@@ -627,12 +622,12 @@ export default function CCUs() {
                 </div>
               </div>
 
-              {/* Bottom row: I/O expand toggle (note is now in col 3 above) */}
+              {/* Bottom row: I/O expand toggle */}
               {(() => {
                 const ccuUuid = (ccu as any).uuid;
                 const isExpanded = expandedCCUs.has(ccuUuid);
                 const r = ccu as any;
-                const hasIO = r.fiberInput || r.referenceInput || (Array.isArray(r.outputs) && r.outputs.length > 0);
+                const hasIO = r.fiberInput || r.referenceInput || (Array.isArray(r.outputs) && r.outputs.length > 0) || r.formatMode || linkedCameras.length > 0;
                 if (!hasIO) return null;
                 return (
                   <>
@@ -650,18 +645,28 @@ export default function CCUs() {
                     </div>
                     {isExpanded && hasIO && (
                       <div className="mt-3 pt-3 border-t border-av-border space-y-2">
+                        {/* Format Mode */}
+                        {r.formatMode && (
+                          <div className="flex gap-6 text-sm">
+                            <span className="text-av-text-muted w-32 flex-shrink-0">Format Mode</span>
+                            <span className="text-av-text">{r.formatMode}</span>
+                          </div>
+                        )}
+                        {/* Fiber Input */}
                         {r.fiberInput && (
                           <div className="flex gap-6 text-sm">
                             <span className="text-av-text-muted w-32 flex-shrink-0">Fiber Input</span>
                             <span className="text-av-text">{r.fiberInput}</span>
                           </div>
                         )}
+                        {/* Reference Input */}
                         {r.referenceInput && (
                           <div className="flex gap-6 text-sm">
                             <span className="text-av-text-muted w-32 flex-shrink-0">Reference Input</span>
                             <span className="text-av-text">{r.referenceInput}</span>
                           </div>
                         )}
+                        {/* Outputs */}
                         {Array.isArray(r.outputs) && r.outputs.length > 0 && (
                           <div className="flex gap-6 text-sm">
                             <span className="text-av-text-muted w-32 flex-shrink-0">Outputs</span>
@@ -669,6 +674,19 @@ export default function CCUs() {
                               {r.outputs.map((out: any, i: number) => (
                                 <span key={i} className="text-xs bg-av-surface-hover px-2 py-0.5 rounded text-av-text">
                                   {out.type}{out.format ? ` · ${out.format}` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Linked Cameras */}
+                        {linkedCameras.length > 0 && (
+                          <div className="flex gap-6 text-sm">
+                            <span className="text-av-text-muted w-32 flex-shrink-0">Cameras</span>
+                            <div className="flex flex-wrap gap-2">
+                              {linkedCameras.map((cam: any) => (
+                                <span key={cam.uuid || cam.id} className="text-xs bg-av-surface-hover px-2 py-0.5 rounded text-av-text">
+                                  {cam.id}{cam.name && cam.name !== cam.id ? ` · ${cam.name}` : ''}{cam.smpteCableLength ? ` · ${cam.smpteCableLength}ft` : ''}
                                 </span>
                               ))}
                             </div>

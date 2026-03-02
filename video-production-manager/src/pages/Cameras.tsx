@@ -121,23 +121,6 @@ export default function Cameras() {
     }
   }, [productionId, oldStore.isConnected]);
 
-  // Migration: if modal is open editing an old camera whose manufacturer is still blank
-  // (combined model string in DB), retry the parse-back now that cameraSpecs may have loaded.
-  useEffect(() => {
-    if (!isModalOpen || !editingCamera || formData.manufacturer || !formData.model || cameraSpecs.length === 0) return;
-    const matchingSpec = cameraSpecs.find(spec =>
-      formData.model === `${spec.manufacturer} ${spec.model}`
-    );
-    if (matchingSpec) {
-      setFormData(prev => ({
-        ...prev,
-        manufacturer: matchingSpec.manufacturer,
-        model: matchingSpec.model,
-        equipmentUuid: (matchingSpec as any).uuid,
-      }));
-    }
-  }, [cameraSpecs, isModalOpen]);
-  
   // Cameras sorted by CAM number for display (non-CAM IDs sort after)
   const sortedCameras = useMemo(() => {
     return [...localCameras].sort((a, b) => {
@@ -193,6 +176,23 @@ export default function Cameras() {
     note: '',
   });
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Migration: if modal is open editing an old camera whose manufacturer is still blank
+  // (combined model string in DB), retry the parse-back now that cameraSpecs may have loaded.
+  useEffect(() => {
+    if (!isModalOpen || !editingCamera || formData.manufacturer || !formData.model || cameraSpecs.length === 0) return;
+    const matchingSpec = cameraSpecs.find(spec =>
+      formData.model === `${spec.manufacturer} ${spec.model}`
+    );
+    if (matchingSpec) {
+      setFormData(prev => ({
+        ...prev,
+        manufacturer: matchingSpec.manufacturer,
+        model: matchingSpec.model,
+        equipmentUuid: (matchingSpec as any).uuid,
+      }));
+    }
+  }, [cameraSpecs, isModalOpen]);
 
   const camerasWithCCU = cameras.filter(c => c.ccuId).length;
   const camerasWithSupport = cameras.filter(c => c.hasTripod || c.hasShortTripod || c.hasDolly || c.hasJib).length;
