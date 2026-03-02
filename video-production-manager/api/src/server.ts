@@ -268,6 +268,8 @@ import projectionScreenRouter from './routes/projection-screens';
 import ipAddressRouter from './routes/ip-addresses';
 import checklistItemRouter from './routes/checklist-items';
 import connectionRouter from './routes/connections';
+import devicePortsRouter from './routes/device-ports';
+import formatsRouter from './routes/formats';
 import adminRouter from './routes/admin';
 
 app.use('/api/productions', productionsRouter);
@@ -292,6 +294,8 @@ app.use('/api/projection-screens', projectionScreenRouter);
 app.use('/api/ip-addresses', ipAddressRouter);
 app.use('/api/checklist-items', checklistItemRouter);
 app.use('/api/connections', connectionRouter);
+app.use('/api/device-ports', devicePortsRouter);
+app.use('/api/formats', formatsRouter);
 app.use('/api', eventsRouter); // Events routes (includes production context)
 
 // 404 handler
