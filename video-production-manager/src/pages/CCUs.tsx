@@ -763,6 +763,20 @@ export default function CCUs() {
                 </div>
               )}
 
+              {/* Note */}
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">
+                  Note
+                </label>
+                <textarea
+                  value={formData.note || ''}
+                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                  className="input-field w-full resize-none"
+                  rows={3}
+                  placeholder="Optional notes about this CCU..."
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button 
                   type="button" 
