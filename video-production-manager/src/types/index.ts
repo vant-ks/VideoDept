@@ -304,6 +304,7 @@ export interface EquipmentCard {
 // Equipment Specifications
 export interface EquipmentSpec {
   id: string;
+  uuid?: string;  // DB-generated UUID primary key (present when fetched from API)
   category: 'camera' | 'ccu' | 'switcher' | 'router' | 'led-processor' | 'led-tile' | 'projector' | 'recorder' | 'monitor' | 'converter' | 'cam-switcher' | 'vision-switcher';
   manufacturer: string;
   model: string;

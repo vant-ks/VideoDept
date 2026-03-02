@@ -6,7 +6,7 @@ let socket: Socket | null = null;
 /** Access the shared WebSocket singleton outside of useProductionEvents */
 export function getSocket(): Socket | null { return socket; }
 
-interface EntityEvent {
+export interface EntityEvent {
   entityType: 'source' | 'send' | 'camera' | 'ccu' | 'checklist-item' | 'connection' | 'router' | 'stream' | 'mediaServer';
   entity?: any;
   entityId?: string;

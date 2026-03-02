@@ -7,8 +7,9 @@ import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useSendsAPI } from '@/hooks/useSendsAPI';
 import { useSourcesAPI } from '@/hooks/useSourcesAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
+import type { EntityEvent } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
-import { getCurrentUserId } from '@/utils/userUtils';
+import { getCurrentUserId, getCurrentUserName } from '@/utils/userUtils';
 import { secondaryDevices as SECONDARY_DEVICES } from '@/data/sampleData';
 import type { Send, Source } from '@/types';
 
@@ -128,7 +129,7 @@ export default function Monitors() {
   useProductionEvents({
     productionId,
     onEntityCreated: useCallback(
-      (event) => {
+      (event: EntityEvent) => {
         if (event.entityType !== 'send') return;
         if (event.entity?.type !== 'MONITOR') return;
         if (isDragInProgress.current) return;
@@ -140,7 +141,7 @@ export default function Monitors() {
       []
     ),
     onEntityUpdated: useCallback(
-      (event) => {
+      (event: EntityEvent) => {
         if (event.entityType !== 'send') return;
         if (isDragInProgress.current) return;
         setLocalMonitors(prev =>
@@ -152,7 +153,7 @@ export default function Monitors() {
       []
     ),
     onEntityDeleted: useCallback(
-      (event) => {
+      (event: EntityEvent) => {
         if (event.entityType !== 'send') return;
         setLocalMonitors(prev => prev.filter(m => (m as any).uuid !== event.entityId));
       },
@@ -186,7 +187,7 @@ export default function Monitors() {
 
   // ── Equipment spec lookups ─────────────────────────────────────────────────
   const monitorSpecs = useMemo(
-    () => equipmentSpecs.filter(spec => spec.category === 'MONITOR'),
+    () => equipmentSpecs.filter(spec => spec.category === 'monitor'),
     [equipmentSpecs]
   );
 
@@ -421,7 +422,8 @@ export default function Monitors() {
       return;
     }
 
-    const { userId, userName } = getCurrentUserId();
+    const userId = getCurrentUserId();
+    const userName = getCurrentUserName();
     try {
       await Promise.all(
         updates.map(u =>
