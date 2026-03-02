@@ -6,8 +6,9 @@ import { useProjectStore } from '@/hooks/useProjectStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useSendsAPI } from '@/hooks/useSendsAPI';
 import { useSourcesAPI } from '@/hooks/useSourcesAPI';
-import { useProductionEvents } from '@/hooks/useProductionEvents';
+import { useProductionEvents, getSocket } from '@/hooks/useProductionEvents';
 import type { EntityEvent } from '@/hooks/useProductionEvents';
+import { io as socketIO } from 'socket.io-client';
 import { apiClient } from '@/services';
 import { getCurrentUserId, getCurrentUserName } from '@/utils/userUtils';
 import { secondaryDevices as SECONDARY_DEVICES } from '@/data/sampleData';
@@ -164,10 +165,33 @@ export default function Monitors() {
   const productionId =
     activeProject?.production?.id || oldStore.production?.id;
 
-  // Always fetch fresh equipment specs on mount so port changes made in the
-  // Equipment page are immediately reflected when the Monitor modal opens.
+  // Fetch fresh equipment specs on mount.
   useEffect(() => {
     equipmentLib.fetchFromAPI();
+  }, []);
+
+  // Listen for real-time equipment:updated events so port additions/removals
+  // in the Equipment page are reflected here without a manual refresh.
+  useEffect(() => {
+    const handleEquipmentUpdated = () => {
+      equipmentLib.fetchFromAPI();
+    };
+    const sharedSocket = getSocket();
+    let ownSocket: ReturnType<typeof socketIO> | null = null;
+    if (sharedSocket) {
+      sharedSocket.on('equipment:updated', handleEquipmentUpdated);
+    } else {
+      const apiUrl = (localStorage.getItem('api_server_url') || import.meta.env.VITE_API_URL || 'http://localhost:3010').replace(/\/api\/?$/, '');
+      ownSocket = socketIO(apiUrl, { transports: ['websocket', 'polling'] });
+      ownSocket.on('equipment:updated', handleEquipmentUpdated);
+    }
+    return () => {
+      sharedSocket?.off('equipment:updated', handleEquipmentUpdated);
+      if (ownSocket) {
+        ownSocket.off('equipment:updated', handleEquipmentUpdated);
+        ownSocket.disconnect();
+      }
+    };
   }, []);
 
   // Fetch monitors (filtered sends) from API on mount
