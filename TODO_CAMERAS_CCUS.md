@@ -112,23 +112,22 @@ Same pattern as Phase 5 but for CCUs.
 
 ---
 
-## ⚠️ Schema Drift Issue (DO NOT MIGRATE WITHOUT REVIEWING THIS)
+## ⚠️ Add `sort_order` to CCUs (DO NOT use `migrate dev`)
 
 **Status:** Unresolved — needs dedicated session
 
-**What happened (2026-03-01):** The previous session added `sort_order Int @default(0)` to the `ccus` model in `schema.prisma` and attempted `prisma migrate dev --name add_sort_order_to_ccus`. Prisma detected **schema drift** — indexes and FKs exist in the database that don't exist in migration history — and prompted to reset the entire `public` schema (destroying all data). The session was killed before confirming.
+**What happened (2026-03-01):** A previous session attempted `prisma migrate dev --name add_sort_order_to_ccus`. Prisma detected schema drift and prompted to reset the entire `public` schema (destroying all data). Session was killed before confirming. **`migrate dev` is banned — it crashes VS Code (Exit Code 137) and risks data loss.**
 
 **Current state:**
 - `sort_order` was removed from `schema.prisma` (reverted to match DB)
 - The `ccus` table does NOT have a `sort_order` column
-- The underlying schema drift condition still exists (predates this incident)
 
-**To add `sort_order` to ccus safely:**
-1. Investigate the drift: `npx prisma migrate status` — identify which DB objects are not in migration history
-2. Decide: create a baseline migration or use `prisma db push` (dev only, no migration file)
-3. Get explicit user approval before running any `prisma migrate dev` or `prisma db push`
-4. Test on local DB first, verify no data loss
-5. Only then apply to production via Railway
+**To add `sort_order` to ccus safely (use `db push` only):**
+1. Add `sort_order Int @default(0)` to `ccus` model in `api/prisma/schema.prisma`
+2. Run `npx prisma validate` to check syntax
+3. Run `npm run db:push` — applies schema change without migration files, no data loss risk
+4. Restart the API dev server to reload Prisma Client
+5. Verify `sort_order` is present and functional on CCUs
 
 ---
 

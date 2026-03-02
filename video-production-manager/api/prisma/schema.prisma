@@ -65,6 +65,7 @@ model ccus {
   last_modified_by String?
   synced_at        DateTime?
   equipment_uuid   String?
+  sort_order       Int      @default(0)
   cameras          cameras[]
   productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
   equipment_specs  equipment_specs? @relation("CCUEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)

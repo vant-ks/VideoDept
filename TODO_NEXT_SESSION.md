@@ -9,17 +9,17 @@
 
 ---
 
-## 🔴 PRIORITY 1 — Schema Drift Resolution (Camera/CCU)
+## 🔴 PRIORITY 1 — Add `sort_order` to CCUs
 
-**Status:** Unresolved — blocks adding `sort_order` to CCUs and any future migrations  
-**Risk:** Running `migrate dev` without resolving drift will prompt Prisma to wipe the entire DB
+**Status:** Unresolved  
+**Protocol:** `prisma db push` ONLY — `migrate dev` crashes VS Code (Exit Code 137)
 
 **Steps:**
-1. Run `npx prisma migrate status` in `video-production-manager/api`
-2. Review which DB objects are not in migration history
-3. Get explicit Kevin approval before proceeding
-4. Create baseline migration OR use `prisma db push` (dev only)
-5. After resolved: add `sort_order Int @default(0)` to `ccus` model and migrate safely
+1. Add `sort_order Int @default(0)` to `ccus` model in `api/prisma/schema.prisma`
+2. Run `npx prisma validate` to check syntax
+3. Run `npm run db:push` to apply to the database
+4. Restart the API dev server to load the new Prisma Client
+5. Verify `sort_order` field is present and functional on CCUs
 
 ---
 
