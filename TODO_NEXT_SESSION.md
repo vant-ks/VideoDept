@@ -4,6 +4,9 @@
 - **`v0.1_sends`** — long-running parent branch for all sends-related work. DO NOT merge to main until explicitly instructed.
 - **`v0.1.2_toDosCatchUp`** ← you are here. Branch off `v0.1_sends`. Merge into `v0.1_sends` when done.
 
+## 🚀 START HERE NEXT SESSION
+`git checkout v0.1.2_toDosCatchUp` — then begin **PRIORITY 1: Schema Drift Resolution**.
+
 ---
 
 ## 🔴 PRIORITY 1 — Schema Drift Resolution (Camera/CCU)
