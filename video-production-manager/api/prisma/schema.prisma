@@ -14,6 +14,7 @@ model cameras {
   id           String
   production_id      String
   name               String
+  manufacturer       String?
   model              String?
   format_mode        String?
   lens_type          String?
@@ -65,6 +66,7 @@ model ccus {
   last_modified_by String?
   synced_at        DateTime?
   equipment_uuid   String?
+  sort_order       Int      @default(0)
   cameras          cameras[]
   productions      productions      @relation(fields: [production_id], references: [id], onDelete: Cascade)
   equipment_specs  equipment_specs? @relation("CCUEquipment", fields: [equipment_uuid], references: [uuid], onDelete: SetNull)
@@ -412,6 +414,7 @@ model equipment_io_ports {
   updated_at      DateTime
   version         Int             @default(1)
   equipment_specs equipment_specs? @relation(fields: [equipment_uuid], references: [uuid], onDelete: Cascade)
+  device_ports    device_ports[]   @relation("PortSpecLink")
 
   @@index([equipment_id])
 }
@@ -540,6 +543,8 @@ model productions {
   computers          computers[]
   streams            streams[]
   vision_switchers   vision_switchers[]
+  device_ports       device_ports[]
+  cables             cables[]
 
   @@index([status, is_deleted])
 }
@@ -699,6 +704,83 @@ model sync_log {
   created_at         DateTime      @default(now())
 }
 
+// ─── Format presets ─────────────────────────────────────────────────────────
+
+model formats {
+  uuid          String         @id @default(dbgenerated("gen_random_uuid()"))
+  id            String         @unique   // e.g. "1080i5994", "4Kp2398"
+  h_res         Int
+  v_res         Int
+  frame_rate    Float
+  is_interlaced Boolean        @default(false)
+  blanking      Blanking       @default(NONE)
+  is_system     Boolean        @default(true)
+  created_at    DateTime       @default(now())
+  updated_at    DateTime
+  device_ports  device_ports[]
+
+  @@index([is_system])
+  @@index([h_res, v_res, frame_rate])
+}
+
+// ─── Per-port instance on a device in a production ───────────────────────────
+// One row per physical port per device per show.
+// Replaces: ccus.fiber_input, ccus.reference_input, ccus.outputs Json,
+//           sends.output_connector Json (ConnectorRouting[] pattern)
+
+model device_ports {
+  uuid           String              @id @default(dbgenerated("gen_random_uuid()"))
+  id             String              // "{device.id}_{in|out}_{n}" — display only
+  production_id  String
+  device_uuid    String              // soft FK to instance table (ccus.uuid, cameras.uuid, etc.)
+  spec_port_uuid String?             // FK to equipment_io_ports.uuid — enables stale-port detection
+  port_label     String              // editable per show; default copied from spec
+  io_type        String              // "SDI" | "SMPTE-Fiber" | "REF" | "HDMI" | ...
+  direction      PortType
+  format_uuid    String?
+  note           String?
+  created_at     DateTime            @default(now())
+  updated_at     DateTime
+  version        Int                 @default(1)
+  is_deleted     Boolean             @default(false)
+  productions    productions         @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  spec_port      equipment_io_ports? @relation("PortSpecLink", fields: [spec_port_uuid], references: [uuid], onDelete: SetNull)
+  format         formats?            @relation(fields: [format_uuid], references: [uuid], onDelete: SetNull)
+  outgoing_cables cables[]           @relation("CableOutputPort")
+  incoming_cables cables[]           @relation("CableInputPort")
+
+  @@index([production_id])
+  @@index([device_uuid])
+  @@index([spec_port_uuid])
+  @@index([format_uuid])
+}
+
+// ─── Physical cable between two device_ports ─────────────────────────────────
+// output_port = the source end (e.g. CCU SDI Out 1)
+// input_port  = the destination end (e.g. Vision Switcher Input 3)
+
+model cables {
+  uuid             String       @id @default(dbgenerated("gen_random_uuid()"))
+  id               String       // "{out_port.id}_{cable_type}_{in_port.id}" — display only
+  production_id    String
+  output_port_uuid String
+  input_port_uuid  String
+  cable_type       String       // "SDI" | "SMPTE-Fiber" | "HDMI" | "CAT6" | "MADI" | "IP" | ...
+  length_ft        Float?
+  note             String?
+  created_at       DateTime     @default(now())
+  updated_at       DateTime
+  version          Int          @default(1)
+  is_deleted       Boolean      @default(false)
+  productions      productions  @relation(fields: [production_id], references: [id], onDelete: Cascade)
+  output_port      device_ports @relation("CableOutputPort", fields: [output_port_uuid], references: [uuid])
+  input_port       device_ports @relation("CableInputPort", fields: [input_port_uuid], references: [uuid])
+
+  @@index([production_id])
+  @@index([output_port_uuid])
+  @@index([input_port_uuid])
+}
+
 enum ConflictResolution {
   PENDING
   CLOUD_WINS
@@ -779,4 +861,11 @@ enum SyncStatus {
   COMPLETED
   FAILED
   PARTIAL
+}
+
+enum Blanking {
+  NONE
+  RBv1
+  RBv2
+  RBv3
 }
