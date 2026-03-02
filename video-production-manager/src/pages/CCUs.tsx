@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, Edit2, Trash2, Copy, GripVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -47,6 +47,16 @@ export default function CCUs() {
   const isDragInProgress = useRef(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Expand/collapse I/O details per card
+  const [expandedCCUs, setExpandedCCUs] = useState<Set<string>>(new Set());
+  const toggleExpanded = (uuid: string) => {
+    setExpandedCCUs(prev => {
+      const next = new Set(prev);
+      if (next.has(uuid)) next.delete(uuid); else next.add(uuid);
+      return next;
+    });
+  };
 
   // Camera assignment state for modal — uuids of cameras linked to the CCU being edited/created
   const [selectedCameraUuids, setSelectedCameraUuids] = useState<string[]>([]);
@@ -603,13 +613,63 @@ export default function CCUs() {
                 </div>
               </div>
               
-              {(ccu as any).note && (
-                <div className="mt-3">
-                  <p className="text-sm text-av-text-muted">
-                    <span className="font-medium">Note:</span> {(ccu as any).note}
-                  </p>
-                </div>
-              )}
+              {/* Bottom row: note (single line) + expand toggle */}
+              {(() => {
+                const ccuUuid = (ccu as any).uuid;
+                const isExpanded = expandedCCUs.has(ccuUuid);
+                const r = ccu as any;
+                const hasIO = r.fiberInput || r.referenceInput || (Array.isArray(r.outputs) && r.outputs.length > 0);
+                if (!r.note && !hasIO) return null;
+                return (
+                  <>
+                    <div className="mt-3 flex items-center gap-2 min-w-0">
+                      {r.note && (
+                        <p className="text-sm text-av-text-muted flex-1 truncate min-w-0" title={r.note}>
+                          <span className="font-medium text-av-text">Note:</span> {r.note}
+                        </p>
+                      )}
+                      {hasIO && (
+                        <button
+                          onClick={() => toggleExpanded(ccuUuid)}
+                          className="ml-auto flex items-center gap-1 text-xs text-av-text-muted hover:text-av-accent transition-colors flex-shrink-0"
+                          title={isExpanded ? 'Hide I/O' : 'Show I/O'}
+                        >
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          I/O
+                        </button>
+                      )}
+                    </div>
+                    {isExpanded && hasIO && (
+                      <div className="mt-3 pt-3 border-t border-av-border space-y-2">
+                        {r.fiberInput && (
+                          <div className="flex gap-6 text-sm">
+                            <span className="text-av-text-muted w-32 flex-shrink-0">Fiber Input</span>
+                            <span className="text-av-text">{r.fiberInput}</span>
+                          </div>
+                        )}
+                        {r.referenceInput && (
+                          <div className="flex gap-6 text-sm">
+                            <span className="text-av-text-muted w-32 flex-shrink-0">Reference Input</span>
+                            <span className="text-av-text">{r.referenceInput}</span>
+                          </div>
+                        )}
+                        {Array.isArray(r.outputs) && r.outputs.length > 0 && (
+                          <div className="flex gap-6 text-sm">
+                            <span className="text-av-text-muted w-32 flex-shrink-0">Outputs</span>
+                            <div className="flex flex-wrap gap-2">
+                              {r.outputs.map((out: any, i: number) => (
+                                <span key={i} className="text-xs bg-av-surface-hover px-2 py-0.5 rounded text-av-text">
+                                  {out.type}{out.format ? ` · ${out.format}` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </Card>
             );
           })}
