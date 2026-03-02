@@ -13,6 +13,20 @@ import { getCurrentUserId, getCurrentUserName } from '@/utils/userUtils';
 import { secondaryDevices as SECONDARY_DEVICES } from '@/data/sampleData';
 import type { Send, Source } from '@/types';
 
+// Monitor placement / purpose types
+const MONITOR_TYPES = [
+  { label: 'Front-of-House',       code: 'FOH'   },
+  { label: 'Backstage',            code: 'BSM'   },
+  { label: 'Operator',             code: 'OPMON' },
+  { label: 'Downstage Confidence', code: 'DSM'   },
+  { label: 'Downstage Producer',   code: 'PROD'  },
+  { label: 'Green Room',           code: 'GRN'   },
+  { label: 'Digital Signage',      code: 'DIG'   },
+  { label: 'In-Room Display',      code: 'DIS'   },
+] as const;
+
+type MonitorTypeCode = typeof MONITOR_TYPES[number]['code'];
+
 // Per-connector signal routing entry
 interface ConnectorRouting {
   portId: string;
@@ -31,33 +45,65 @@ interface MonitorFormFields {
   manufacturer?: string;
   model?: string;
   equipmentUuid?: string;
-  location?: string;              // placement / purpose (stored in secondary_device)
+  monitorType?: MonitorTypeCode | '';  // placement type (stored in secondary_device)
   note?: string;
   version?: number;
   connectorRouting?: ConnectorRouting[];
 }
 
-// Build connector routing array from an equipment spec
+// Build connector routing array from an equipment spec.
+// Handles both local format (spec.inputs / spec.outputs) and API format (spec.equipment_io_ports).
 function initConnectorRouting(spec: any): ConnectorRouting[] {
-  const inputs: ConnectorRouting[] = (spec.inputs || []).map((p: any) => ({
-    portId: p.id,
-    portLabel: p.label,
-    portType: p.type,
-    direction: 'input' as const,
-    sourceSignal: '',
-    hasSecondaryDevice: false,
-    secondaryDevice: '',
-  }));
-  const outputs: ConnectorRouting[] = (spec.outputs || []).map((p: any) => ({
-    portId: p.id,
-    portLabel: p.label,
-    portType: p.type,
-    direction: 'output' as const,
-    sourceSignal: '',
-    hasSecondaryDevice: false,
-    secondaryDevice: '',
-  }));
-  return [...inputs, ...outputs];
+  let inputs: any[] = [];
+  let outputs: any[] = [];
+
+  if (Array.isArray(spec.equipment_io_ports) && spec.equipment_io_ports.length > 0) {
+    // API shape: { port_type: 'INPUT'|'OUTPUT', io_type, label, id }
+    inputs  = spec.equipment_io_ports.filter((p: any) => p.port_type === 'INPUT');
+    outputs = spec.equipment_io_ports.filter((p: any) => p.port_type === 'OUTPUT');
+    return [
+      ...inputs.map((p: any) => ({
+        portId:             p.id,
+        portLabel:          p.label || p.id,
+        portType:           p.io_type,
+        direction:          'input' as const,
+        sourceSignal:       '',
+        hasSecondaryDevice: false,
+        secondaryDevice:    '',
+      })),
+      ...outputs.map((p: any) => ({
+        portId:             p.id,
+        portLabel:          p.label || p.id,
+        portType:           p.io_type,
+        direction:          'output' as const,
+        sourceSignal:       '',
+        hasSecondaryDevice: false,
+        secondaryDevice:    '',
+      })),
+    ];
+  }
+
+  // Local / legacy shape: spec.inputs[] / spec.outputs[]
+  return [
+    ...(spec.inputs || []).map((p: any) => ({
+      portId:             p.id,
+      portLabel:          p.label,
+      portType:           p.type,
+      direction:          'input' as const,
+      sourceSignal:       '',
+      hasSecondaryDevice: false,
+      secondaryDevice:    '',
+    })),
+    ...(spec.outputs || []).map((p: any) => ({
+      portId:             p.id,
+      portLabel:          p.label,
+      portType:           p.type,
+      direction:          'output' as const,
+      sourceSignal:       '',
+      hasSecondaryDevice: false,
+      secondaryDevice:    '',
+    })),
+  ];
 }
 
 // Parse routing from output_connector JSON, fall back to spec init
@@ -107,23 +153,23 @@ export default function Monitors() {
 
   // Fetch monitors (filtered sends) from API on mount
   useEffect(() => {
-    if (productionId && oldStore.isConnected) {
+    if (productionId) {
       sendsAPI
         .fetchSends(productionId)
         .then(data => setLocalMonitors(data.filter(s => s.type === 'MONITOR')))
         .catch(console.error);
     }
-  }, [productionId, oldStore.isConnected]);
+  }, [productionId]);
 
   // Fetch production sources for signal source dropdown
   useEffect(() => {
-    if (productionId && oldStore.isConnected) {
+    if (productionId) {
       sourcesAPI
         .fetchSources(productionId)
         .then(data => setLocalSources(data))
         .catch(console.error);
     }
-  }, [productionId, oldStore.isConnected]);
+  }, [productionId]);
 
   // Real-time WebSocket updates
   useProductionEvents({
@@ -167,7 +213,7 @@ export default function Monitors() {
   const [formData, setFormData] = useState<MonitorFormFields>({
     manufacturer: '',
     model: '',
-    location: '',
+    monitorType: '',
     note: '',
     connectorRouting: [],
   });
@@ -175,19 +221,26 @@ export default function Monitors() {
 
   // ── Sorted monitors ────────────────────────────────────────────────────────
   const sortedMonitors = useMemo(() => {
+    const typeOrder = MONITOR_TYPES.map(t => t.code);
     return [...localMonitors].sort((a, b) => {
-      const aMatch = a.id.match(/^MON\s*(\d+)$/i);
-      const bMatch = b.id.match(/^MON\s*(\d+)$/i);
-      const aNum = aMatch ? parseInt(aMatch[1], 10) : Infinity;
-      const bNum = bMatch ? parseInt(bMatch[1], 10) : Infinity;
-      if (aNum !== bNum) return aNum - bNum;
-      return a.id.localeCompare(b.id);
+      const aMatch = a.id.match(/^([A-Za-z]+)\s*(\d+)$/);
+      const bMatch = b.id.match(/^([A-Za-z]+)\s*(\d+)$/);
+      const aCode = aMatch ? aMatch[1].toUpperCase() : '';
+      const bCode = bMatch ? bMatch[1].toUpperCase() : '';
+      const aNum  = aMatch ? parseInt(aMatch[2], 10) : Infinity;
+      const bNum  = bMatch ? parseInt(bMatch[2], 10) : Infinity;
+      const aPos  = typeOrder.indexOf(aCode as MonitorTypeCode);
+      const bPos  = typeOrder.indexOf(bCode as MonitorTypeCode);
+      const aSort = aPos === -1 ? 9999 : aPos;
+      const bSort = bPos === -1 ? 9999 : bPos;
+      if (aSort !== bSort) return aSort - bSort;
+      return aNum - bNum;
     });
   }, [localMonitors]);
 
   // ── Equipment spec lookups ─────────────────────────────────────────────────
   const monitorSpecs = useMemo(
-    () => equipmentSpecs.filter(spec => spec.category === 'monitor'),
+    () => equipmentSpecs.filter(spec => spec.category.toLowerCase() === 'monitor'),
     [equipmentSpecs]
   );
 
@@ -209,15 +262,12 @@ export default function Monitors() {
   }, [MONITOR_MANUFACTURERS, monitorSpecs]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  const generateId = (): string => {
-    const nums = localMonitors
-      .map(m => {
-        const match = m.id.match(/^MON\s*(\d+)$/i);
-        return match ? parseInt(match[1], 10) : 0;
-      })
-      .filter(n => !isNaN(n));
-    const max = nums.length > 0 ? Math.max(...nums) : 0;
-    return `MON ${max + 1}`;
+  const generateId = (typeCode: string): string => {
+    const count = localMonitors.filter(m => {
+      const match = m.id.match(/^([A-Za-z]+)\s*\d+$/);
+      return match && match[1].toUpperCase() === typeCode.toUpperCase();
+    }).length;
+    return `${typeCode} ${count + 1}`;
   };
 
   const getSpecForForm = () => {
@@ -259,7 +309,7 @@ export default function Monitors() {
 
   // ── CRUD handlers ──────────────────────────────────────────────────────────
   const handleAddNew = () => {
-    setFormData({ manufacturer: '', model: '', location: '', note: '', connectorRouting: [] });
+    setFormData({ manufacturer: '', model: '', monitorType: '', note: '', connectorRouting: [] });
     setEditingMonitor(null);
     setErrors([]);
     setIsModalOpen(true);
@@ -279,16 +329,15 @@ export default function Monitors() {
 
   const handleEdit = (monitor: Send) => {
     const record = monitor as any;
-    const spec = monitorSpecs.find(s => s.uuid === record.equipmentUuid) ||
-      monitorSpecs.find(s => s.manufacturer === record.manufacturer && s.model === record.model);
+    const spec = monitorSpecs.find(s => s.uuid === record.equipmentUuid);
     const routing = parseConnectorRouting(record.outputConnector, spec);
     setFormData({
       id: record.id,
       name: record.name,
-      manufacturer: record.manufacturer || '',
-      model: record.model || '',
+      manufacturer: spec?.manufacturer || '',
+      model: spec?.model || '',
       equipmentUuid: record.equipmentUuid,
-      location: record.secondaryDevice || '',
+      monitorType: (record.secondaryDevice || '') as MonitorTypeCode | '',
       note: record.note || '',
       version: record.version,
       connectorRouting: routing,
@@ -300,6 +349,7 @@ export default function Monitors() {
 
   const handleSave = async (action: 'close' | 'duplicate' = 'close') => {
     const newErrors: string[] = [];
+    if (!formData.monitorType?.trim()) newErrors.push('Monitor type is required');
     if (!formData.manufacturer?.trim()) newErrors.push('Manufacturer is required');
     if (!formData.model?.trim()) newErrors.push('Model is required');
     if (newErrors.length > 0) { setErrors(newErrors); return; }
@@ -321,7 +371,7 @@ export default function Monitors() {
           vRes,
           rate,
           equipmentUuid: formData.equipmentUuid,
-          secondaryDevice: formData.location,
+          secondaryDevice: formData.monitorType,
           outputConnector: routingJson,
           note: formData.note,
           version: formData.version,
@@ -334,7 +384,7 @@ export default function Monitors() {
           prev.map(m => (m as any).uuid === uuid ? result as Send : m)
         );
       } else {
-        const newId = generateId();
+        const newId = generateId(formData.monitorType || 'MON');
         const created = await sendsAPI.createSend({
           id: newId,
           productionId: productionId!,
@@ -344,21 +394,26 @@ export default function Monitors() {
           vRes,
           rate,
           equipmentUuid: formData.equipmentUuid,
-          secondaryDevice: formData.location,
+          secondaryDevice: formData.monitorType,
           outputConnector: routingJson,
           note: formData.note,
         });
-        setLocalMonitors(prev => [...prev, created]);
+        // Upsert: WS may have already added it; replace if present, append if not
+        setLocalMonitors(prev =>
+          prev.some(m => (m as any).uuid === (created as any).uuid)
+            ? prev.map(m => (m as any).uuid === (created as any).uuid ? created : m)
+            : [...prev, created]
+        );
       }
 
       if (action === 'duplicate') {
-        const newId = generateId();
-        setFormData({ ...formData, id: newId, name: newId });
+        const dupeId = generateId(formData.monitorType || 'MON');
+        setFormData({ ...formData, id: dupeId, name: dupeId });
         setEditingMonitor(null);
         setErrors([]);
       } else {
         setIsModalOpen(false);
-        setFormData({ manufacturer: '', model: '', location: '', note: '', connectorRouting: [] });
+        setFormData({ manufacturer: '', model: '', monitorType: '', note: '', connectorRouting: [] });
         setEditingMonitor(null);
         setErrors([]);
       }
@@ -413,8 +468,15 @@ export default function Monitors() {
     const [dragged] = reordered.splice(draggedIdx, 1);
     reordered.splice(dragOverIdx, 0, dragged);
 
+    // Renumber per-type: FOH 1, FOH 2 ... BSM 1, BSM 2 ...
+    const typeCounts: Record<string, number> = {};
     const updates = reordered
-      .map((m, i) => ({ ...m, newId: `MON ${i + 1}` }))
+      .map(m => {
+        const typeMatch = m.oldId.match(/^([A-Za-z]+)\s*\d+$/);
+        const typeCode = typeMatch ? typeMatch[1].toUpperCase() : 'MON';
+        typeCounts[typeCode] = (typeCounts[typeCode] || 0) + 1;
+        return { ...m, newId: `${typeCode} ${typeCounts[typeCode]}` };
+      })
       .filter(u => u.oldId !== u.newId);
 
     if (updates.length === 0) {
@@ -541,12 +603,17 @@ export default function Monitors() {
                       ) : null;
                     })()}
 
-                    {/* Secondary info row */}
+                    {/* Type badge + notes row */}
                     {(record.secondaryDevice || record.note) && (
-                      <div className="flex items-center gap-4 mt-1 text-xs text-av-text-muted flex-wrap">
-                        {record.secondaryDevice && (
-                          <span>📍 {record.secondaryDevice}</span>
-                        )}
+                      <div className="flex items-center gap-3 mt-1 text-xs text-av-text-muted flex-wrap">
+                        {record.secondaryDevice && (() => {
+                          const typeEntry = MONITOR_TYPES.find(t => t.code === record.secondaryDevice);
+                          return typeEntry ? (
+                            <span className="px-1.5 py-0.5 rounded bg-av-surface border border-av-border text-av-text-secondary font-medium">
+                              {typeEntry.label}
+                            </span>
+                          ) : null;
+                        })()}
                         {record.note && (
                           <span className="italic">{record.note}</span>
                         )}
@@ -596,6 +663,36 @@ export default function Monitors() {
               )}
 
               <div className="space-y-4">
+                {/* Monitor Type */}
+                <div>
+                  <label className="block text-sm font-medium text-av-text-muted mb-2">
+                    Type <span className="text-red-400">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {MONITOR_TYPES.map(({ label, code }) => (
+                      <label
+                        key={code}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
+                          formData.monitorType === code
+                            ? 'border-av-accent bg-av-accent/10 text-av-text'
+                            : 'border-av-border hover:border-av-accent/40 text-av-text-muted'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="monitorType"
+                          value={code}
+                          checked={formData.monitorType === code}
+                          onChange={() => setFormData({ ...formData, monitorType: code })}
+                          className="sr-only"
+                        />
+                        <span className="text-xs font-mono font-semibold w-12 flex-shrink-0 text-av-accent">{code}</span>
+                        <span className="text-sm">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Name */}
                 <div>
                   <label className="block text-sm font-medium text-av-text-muted mb-1">
@@ -736,20 +833,6 @@ export default function Monitors() {
                   );
                 })()}
 
-                {/* Location */}
-                <div>
-                  <label className="block text-sm font-medium text-av-text-muted mb-1">
-                    Location / Purpose
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.location || ''}
-                    onChange={e => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="e.g. Stage Left, Broadcast Position, Green Room"
-                    className="input-field w-full"
-                  />
-                </div>
-
                 {/* Note */}
                 <div>
                   <label className="block text-sm font-medium text-av-text-muted mb-1">
@@ -770,7 +853,7 @@ export default function Monitors() {
                 <button
                   onClick={() => {
                     setIsModalOpen(false);
-                    setFormData({ manufacturer: '', model: '', location: '', note: '', connectorRouting: [] });
+                    setFormData({ manufacturer: '', model: '', monitorType: '', note: '', connectorRouting: [] });
                     setErrors([]);
                   }}
                   className="btn-secondary"
