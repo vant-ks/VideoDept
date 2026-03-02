@@ -2218,7 +2218,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'in-1', type: '12G-SDI', label: 'SDI In 1' },
       { id: 'in-2', type: '12G-SDI', label: 'SDI In 2' },
       { id: 'in-3', type: 'HDMI', label: 'HDMI In' },
-      { id: 'in-4', type: 'DisplayPort', label: 'DP In' }
+      { id: 'in-4', type: 'DisplayPort', label: 'DP In' },
+      { id: 'ref-1', type: 'Reference (BNC)', label: 'Ref In' }
     ],
     outputs: [
       { id: 'out-1', type: '12G-SDI', label: 'SDI Out 1' },
@@ -2236,7 +2237,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'in-1', type: '12G-SDI', label: 'SDI In 1' },
       { id: 'in-2', type: '12G-SDI', label: 'SDI In 2' },
-      { id: 'in-3', type: 'HDMI', label: 'HDMI In' }
+      { id: 'in-3', type: 'HDMI', label: 'HDMI In' },
+      { id: 'ref-1', type: 'Reference (BNC)', label: 'Ref In' }
     ],
     outputs: [
       { id: 'out-1', type: '12G-SDI', label: 'SDI Out' }
@@ -2254,7 +2256,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     ioArchitecture: 'direct',
     inputs: [
       { id: 'sdi-in-1', type: '12G-SDI', label: 'SDI In 1' },
-      { id: 'sdi-in-2', type: '12G-SDI', label: 'SDI In 2' }
+      { id: 'sdi-in-2', type: '12G-SDI', label: 'SDI In 2',
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [
       { id: 'sdi-out-1', type: '12G-SDI', label: 'SDI Out 1' },
@@ -2288,7 +2291,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     ioArchitecture: 'direct',
     inputs: [
       { id: 'sdi-in-1', type: '3G-SDI', label: 'SDI In 1' },
-      { id: 'sdi-in-2', type: '3G-SDI', label: 'SDI In 2' }
+      { id: 'sdi-in-2', type: '3G-SDI', label: 'SDI In 2',
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [
       { id: 'sdi-out-1', type: '3G-SDI', label: 'SDI Out 1' },
@@ -2447,7 +2451,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2462,7 +2467,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2477,7 +2483,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2492,7 +2499,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2507,7 +2515,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2522,7 +2531,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2537,7 +2547,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2554,7 +2565,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@144Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@144Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 144', '4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2570,7 +2582,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@144Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@144Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 144', '4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2586,7 +2599,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@144Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@144Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 144', '4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2602,7 +2616,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@144Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@144Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 144', '4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2619,7 +2634,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -2635,7 +2651,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -2651,7 +2668,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -2667,7 +2685,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -2683,7 +2702,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -2700,7 +2720,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (8K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (8K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['8K 60', '4K 120', '4K 60', '1080p60'],
@@ -2716,7 +2737,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (8K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (8K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['8K 60', '4K 120', '4K 60', '1080p60'],
@@ -2732,7 +2754,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (8K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (8K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['8K 60', '4K 120', '4K 60', '1080p60'],
@@ -2747,7 +2770,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     ioArchitecture: 'direct',
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
-      { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' }
+      { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2762,7 +2786,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2777,7 +2802,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2792,7 +2818,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2807,7 +2834,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2823,7 +2851,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2838,7 +2867,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2853,7 +2883,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2868,7 +2899,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -2887,7 +2919,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2903,7 +2936,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2919,7 +2953,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2936,7 +2971,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2952,7 +2988,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2968,7 +3005,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -2985,7 +3023,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3001,7 +3040,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3017,7 +3057,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3033,7 +3074,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3050,7 +3092,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3066,7 +3109,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3082,7 +3126,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3098,7 +3143,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3114,7 +3160,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3131,7 +3178,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -3147,7 +3195,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -3163,7 +3212,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -3182,7 +3232,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -3198,7 +3249,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -3214,7 +3266,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -3230,7 +3283,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -3246,7 +3300,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -3262,7 +3317,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p120', '1080p60', '720p60'],
@@ -3279,7 +3335,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@144Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@144Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 144', '4K 120', '4K 60', '1080p120', '1080p60', '720p60'],
@@ -3295,7 +3352,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@144Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@144Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 144', '4K 120', '4K 60', '1080p120', '1080p60', '720p60'],
@@ -3311,7 +3369,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@144Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@144Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 144', '4K 120', '4K 60', '1080p120', '1080p60', '720p60'],
@@ -3327,7 +3386,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@144Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@144Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 144', '4K 120', '4K 60', '1080p120', '1080p60', '720p60'],
@@ -3343,7 +3403,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@144Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@144Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 144', '4K 120', '4K 60', '1080p120', '1080p60', '720p60'],
@@ -3360,7 +3421,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3376,7 +3438,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3392,7 +3455,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3409,7 +3473,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3425,7 +3490,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3441,7 +3507,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1 (4K@120Hz)' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2 (4K@120Hz)' },
       { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
-      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' }
+      { id: 'hdmi-4', type: 'HDMI', label: 'HDMI 4' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 120', '4K 60', '4K 30', '1080p60', '720p60'],
@@ -3457,7 +3524,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3472,7 +3540,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3487,7 +3556,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3502,7 +3572,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3517,7 +3588,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     inputs: [
       { id: 'hdmi-1', type: 'HDMI', label: 'HDMI 1' },
       { id: 'hdmi-2', type: 'HDMI', label: 'HDMI 2' },
-      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' }
+      { id: 'hdmi-3', type: 'HDMI', label: 'HDMI 3' },
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [],
     deviceFormats: ['4K 60', '4K 30', '1080p60', '720p60'],
@@ -3713,7 +3785,8 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     ioArchitecture: 'direct',
     inputs: [
       { id: 'sdi-in-1', type: '12G-SDI', label: 'SDI In 1' },
-      { id: 'sdi-in-2', type: '12G-SDI', label: 'SDI In 2' }
+      { id: 'sdi-in-2', type: '12G-SDI', label: 'SDI In 2',
+      { id: 'net-rj45', type: 'Network (RJ45)', label: 'LAN' }
     ],
     outputs: [
       { id: 'sdi-out-1', type: '12G-SDI', label: 'SDI Out 1' },

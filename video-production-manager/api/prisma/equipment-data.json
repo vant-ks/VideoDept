@@ -11137,6 +11137,16 @@
         "id": "in-4",
         "type": "DisplayPort",
         "label": "DP In"
+      },
+      {
+        "id": "ref-1",
+        "type": "Reference (BNC)",
+        "label": "Ref In"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [
@@ -11179,6 +11189,11 @@
         "id": "in-3",
         "type": "HDMI",
         "label": "HDMI In"
+      },
+      {
+        "id": "ref-1",
+        "type": "Reference (BNC)",
+        "label": "Ref In"
       }
     ],
     "outputs": [
@@ -11211,6 +11226,11 @@
         "id": "sdi-in-2",
         "type": "12G-SDI",
         "label": "SDI In 2"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [
@@ -11253,6 +11273,11 @@
         "id": "sdi-in-2",
         "type": "12G-SDI",
         "label": "12G-SDI In 2"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [
@@ -11293,6 +11318,11 @@
         "id": "sdi-in-2",
         "type": "3G-SDI",
         "label": "SDI In 2"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [
@@ -11652,6 +11682,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -11684,6 +11719,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -11716,6 +11756,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -11748,6 +11793,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -11780,6 +11830,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -11812,6 +11867,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -11844,6 +11904,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -11881,6 +11946,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -11921,6 +11991,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -11961,6 +12036,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12001,6 +12081,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12041,6 +12126,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12079,6 +12169,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12117,6 +12212,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12155,6 +12255,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12193,6 +12298,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12231,6 +12341,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12268,6 +12383,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12305,6 +12425,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12332,6 +12457,11 @@
         "id": "hdmi-2",
         "type": "HDMI",
         "label": "HDMI 2"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12364,6 +12494,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12396,6 +12531,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12428,6 +12568,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12460,6 +12605,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12492,6 +12642,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12524,6 +12679,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12556,6 +12716,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12588,6 +12753,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12625,6 +12795,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12664,6 +12839,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12703,6 +12883,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12742,6 +12927,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12781,6 +12971,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12820,6 +13015,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12859,6 +13059,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12897,6 +13102,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12935,6 +13145,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -12973,6 +13188,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13011,6 +13231,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13048,6 +13273,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13085,6 +13315,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13122,6 +13357,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13159,6 +13399,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13196,6 +13441,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13235,6 +13485,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13274,6 +13529,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13313,6 +13573,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13352,6 +13617,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13391,6 +13661,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13430,6 +13705,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13469,6 +13749,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13508,6 +13793,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13547,6 +13837,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13586,6 +13881,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13625,6 +13925,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13664,6 +13969,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13703,6 +14013,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13742,6 +14057,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13780,6 +14100,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13818,6 +14143,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13856,6 +14186,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13894,6 +14229,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13932,6 +14272,11 @@
         "id": "hdmi-4",
         "type": "HDMI",
         "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13965,6 +14310,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -13997,6 +14347,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -14029,6 +14384,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -14061,6 +14421,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
@@ -14093,6 +14458,11 @@
         "id": "hdmi-3",
         "type": "HDMI",
         "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [],
