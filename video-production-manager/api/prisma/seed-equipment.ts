@@ -39,10 +39,6 @@ async function seedEquipment() {
   console.log('🌱 Seeding equipment database...');
   
   try {
-    // Delete existing equipment specs (cascade will handle related records)
-    await prisma.equipment_specs.deleteMany({});
-    console.log('✅ Cleared existing equipment specs');
-    
     // Load equipment data from JSON file
     const equipmentSpecs = loadEquipmentData();
     
@@ -53,6 +49,24 @@ async function seedEquipment() {
     }
     
     console.log(`📦 Loaded ${equipmentSpecs.length} equipment specs from JSON file`);
+
+    // Build lookup of existing specs by string id so we can preserve UUIDs
+    const existing = await prisma.equipment_specs.findMany({ select: { uuid: true, id: true } });
+    const existingBySlug = new Map(existing.map(e => [e.id, e.uuid]));
+
+    // Remove specs that are no longer in the source file
+    const incomingIds = new Set(equipmentSpecs.map(s => s.id));
+    const toDelete = existing.filter(e => !incomingIds.has(e.id)).map(e => e.uuid);
+    if (toDelete.length > 0) {
+      // Delete child tables first for removed specs
+      await prisma.equipment_card_io.deleteMany({
+        where: { equipment_cards: { equipment_uuid: { in: toDelete } } }
+      });
+      await prisma.equipment_cards.deleteMany({ where: { equipment_uuid: { in: toDelete } } });
+      await prisma.equipment_io_ports.deleteMany({ where: { equipment_uuid: { in: toDelete } } });
+      await prisma.equipment_specs.deleteMany({ where: { uuid: { in: toDelete } } });
+      console.log(`🗑️  Removed ${toDelete.length} obsolete equipment specs`);
+    }
     
     // Process each equipment spec
     for (const spec of equipmentSpecs) {
@@ -92,23 +106,40 @@ async function seedEquipment() {
         'card-based': IoArchitecture.CARD_BASED
       };
       
-      // Create equipment spec
-      const equipment = await prisma.equipment_specs.create({
-        data: {
-          id,
-          category: categoryMap[category],
-          manufacturer,
-          model,
-          io_architecture: ioArchitectureMap[ioArchitecture],
-          card_slots: cardSlots || null,
-          format_by_io: formatByIO !== false,
-          is_secondary_device: isSecondaryDevice || false,
-          device_formats: deviceFormats || [],
-          created_at: new Date(),
-          updated_at: new Date(),
-        }
+      // Upsert equipment spec — preserve UUID if spec already exists so FK references in sends stay valid
+      const specData = {
+        id,
+        category: categoryMap[category],
+        manufacturer,
+        model,
+        io_architecture: ioArchitectureMap[ioArchitecture],
+        card_slots: cardSlots || null,
+        format_by_io: formatByIO !== false,
+        is_secondary_device: isSecondaryDevice || false,
+        device_formats: deviceFormats || [],
+        updated_at: new Date(),
+      };
+
+      let equipment: { uuid: string; id: string };
+      const existingUuid = existingBySlug.get(id);
+      if (existingUuid) {
+        equipment = await prisma.equipment_specs.update({
+          where: { uuid: existingUuid },
+          data: specData,
+        });
+      } else {
+        equipment = await prisma.equipment_specs.create({
+          data: { ...specData, created_at: new Date() },
+        });
+      }
+
+      // Delete and recreate ports/cards for this spec (ports carry no external FK references)
+      await prisma.equipment_card_io.deleteMany({
+        where: { equipment_cards: { equipment_uuid: equipment.uuid } }
       });
-      
+      await prisma.equipment_cards.deleteMany({ where: { equipment_uuid: equipment.uuid } });
+      await prisma.equipment_io_ports.deleteMany({ where: { equipment_uuid: equipment.uuid } });
+
       // Create IO ports for direct architecture
       if (ioArchitecture === 'direct' && (inputs || outputs)) {
         if (inputs) {
@@ -117,6 +148,7 @@ async function seedEquipment() {
               data: {
                 id: `${equipment.id}-in-${index}`,
                 equipment_id: equipment.id,
+                equipment_uuid: equipment.uuid,
                 port_type: 'INPUT',
                 io_type: input.type,
                 label: input.label || `Input ${index + 1}`,
@@ -134,6 +166,7 @@ async function seedEquipment() {
               data: {
                 id: `${equipment.id}-out-${index}`,
                 equipment_id: equipment.id,
+                equipment_uuid: equipment.uuid,
                 port_type: 'OUTPUT',
                 io_type: output.type,
                 label: output.label || `Output ${index + 1}`,
@@ -153,6 +186,7 @@ async function seedEquipment() {
             data: {
               id: `${equipment.id}-card-${card.slotNumber}`,
               equipment_id: equipment.id,
+              equipment_uuid: equipment.uuid,
               slot_number: card.slotNumber,
               updated_at: new Date()
             }
