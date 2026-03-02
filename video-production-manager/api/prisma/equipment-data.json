@@ -11137,6 +11137,16 @@
         "id": "in-4",
         "type": "DisplayPort",
         "label": "DP In"
+      },
+      {
+        "id": "ref-1",
+        "type": "Reference (BNC)",
+        "label": "Ref In"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
       }
     ],
     "outputs": [
@@ -11179,6 +11189,11 @@
         "id": "in-3",
         "type": "HDMI",
         "label": "HDMI In"
+      },
+      {
+        "id": "ref-1",
+        "type": "Reference (BNC)",
+        "label": "Ref In"
       }
     ],
     "outputs": [
@@ -11192,6 +11207,3270 @@
       "4K 60",
       "1080p60",
       "HDR"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "blackmagic-smartscope-duo-4k",
+    "category": "monitor",
+    "manufacturer": "Blackmagic Design",
+    "model": "SmartScope Duo 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in-1",
+        "type": "12G-SDI",
+        "label": "SDI In 1"
+      },
+      {
+        "id": "sdi-in-2",
+        "type": "12G-SDI",
+        "label": "SDI In 2"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out-1",
+        "type": "12G-SDI",
+        "label": "SDI Out 1"
+      },
+      {
+        "id": "sdi-out-2",
+        "type": "12G-SDI",
+        "label": "SDI Out 2"
+      }
+    ],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "1080i50",
+      "720p60",
+      "HDR"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "blackmagic-smartview-4k",
+    "category": "monitor",
+    "manufacturer": "Blackmagic Design",
+    "model": "SmartView 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in-1",
+        "type": "12G-SDI",
+        "label": "12G-SDI In 1"
+      },
+      {
+        "id": "sdi-in-2",
+        "type": "12G-SDI",
+        "label": "12G-SDI In 2"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out-1",
+        "type": "12G-SDI",
+        "label": "12G-SDI Out 1"
+      },
+      {
+        "id": "sdi-out-2",
+        "type": "12G-SDI",
+        "label": "12G-SDI Out 2"
+      }
+    ],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "HDR"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "blackmagic-smartview-hd",
+    "category": "monitor",
+    "manufacturer": "Blackmagic Design",
+    "model": "SmartView HD",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in-1",
+        "type": "3G-SDI",
+        "label": "SDI In 1"
+      },
+      {
+        "id": "sdi-in-2",
+        "type": "3G-SDI",
+        "label": "SDI In 2"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out-1",
+        "type": "3G-SDI",
+        "label": "SDI Out 1"
+      },
+      {
+        "id": "sdi-out-2",
+        "type": "3G-SDI",
+        "label": "SDI Out 2"
+      }
+    ],
+    "deviceFormats": [
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "1080i50",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "blackmagic-video-assist-5-12g",
+    "category": "monitor",
+    "manufacturer": "Blackmagic Design",
+    "model": "Video Assist 5\" 12G HDR",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in",
+        "type": "12G-SDI",
+        "label": "12G-SDI In"
+      },
+      {
+        "id": "hdmi-in",
+        "type": "HDMI",
+        "label": "HDMI In"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out",
+        "type": "12G-SDI",
+        "label": "12G-SDI Out"
+      },
+      {
+        "id": "hdmi-out",
+        "type": "HDMI",
+        "label": "HDMI Out"
+      }
+    ],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "HDR10+"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "blackmagic-video-assist-7-12g",
+    "category": "monitor",
+    "manufacturer": "Blackmagic Design",
+    "model": "Video Assist 7\" 12G HDR",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in",
+        "type": "12G-SDI",
+        "label": "12G-SDI In"
+      },
+      {
+        "id": "hdmi-in",
+        "type": "HDMI",
+        "label": "HDMI In"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out",
+        "type": "12G-SDI",
+        "label": "12G-SDI Out"
+      },
+      {
+        "id": "hdmi-out",
+        "type": "HDMI",
+        "label": "HDMI Out"
+      }
+    ],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "HDR10+"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lilliput-q7",
+    "category": "monitor",
+    "manufacturer": "Lilliput",
+    "model": "Q7 7\" 4K Broadcast Director Monitor",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in",
+        "type": "12G-SDI",
+        "label": "12G-SDI In"
+      },
+      {
+        "id": "hdmi-in",
+        "type": "HDMI",
+        "label": "HDMI In"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out",
+        "type": "12G-SDI",
+        "label": "12G-SDI Out"
+      },
+      {
+        "id": "hdmi-out",
+        "type": "HDMI",
+        "label": "HDMI Out"
+      }
+    ],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "HDR"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lilliput-q5",
+    "category": "monitor",
+    "manufacturer": "Lilliput",
+    "model": "Q5 5\" Broadcast Monitor",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in",
+        "type": "3G-SDI",
+        "label": "SDI In"
+      },
+      {
+        "id": "hdmi-in",
+        "type": "HDMI",
+        "label": "HDMI In"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out",
+        "type": "3G-SDI",
+        "label": "SDI Out"
+      },
+      {
+        "id": "hdmi-out",
+        "type": "HDMI",
+        "label": "HDMI Out"
+      }
+    ],
+    "deviceFormats": [
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lilliput-bm150-4ks",
+    "category": "monitor",
+    "manufacturer": "Lilliput",
+    "model": "BM150-4KS 15.6\" 4K Broadcast Director Monitor",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in",
+        "type": "12G-SDI",
+        "label": "12G-SDI In"
+      },
+      {
+        "id": "hdmi-in",
+        "type": "HDMI",
+        "label": "HDMI In"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out",
+        "type": "12G-SDI",
+        "label": "12G-SDI Out"
+      },
+      {
+        "id": "hdmi-out",
+        "type": "HDMI",
+        "label": "HDMI Out"
+      }
+    ],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "HDR"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lilliput-tm-1018s",
+    "category": "monitor",
+    "manufacturer": "Lilliput",
+    "model": "TM-1018/S 10.1\" Broadcast Monitor",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in",
+        "type": "12G-SDI",
+        "label": "12G-SDI In"
+      },
+      {
+        "id": "hdmi-in",
+        "type": "HDMI",
+        "label": "HDMI In"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out",
+        "type": "12G-SDI",
+        "label": "12G-SDI Out"
+      },
+      {
+        "id": "hdmi-out",
+        "type": "HDMI",
+        "label": "HDMI Out"
+      }
+    ],
+    "deviceFormats": [
+      "4K 30",
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "HDR"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lilliput-a11",
+    "category": "monitor",
+    "manufacturer": "Lilliput",
+    "model": "A11 11.6\" 4K Broadcast Director Monitor",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in",
+        "type": "12G-SDI",
+        "label": "12G-SDI In"
+      },
+      {
+        "id": "hdmi-in",
+        "type": "HDMI",
+        "label": "HDMI In"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out",
+        "type": "12G-SDI",
+        "label": "12G-SDI Out"
+      },
+      {
+        "id": "hdmi-out",
+        "type": "HDMI",
+        "label": "HDMI Out"
+      }
+    ],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "HDR"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lilliput-663-s2",
+    "category": "monitor",
+    "manufacturer": "Lilliput",
+    "model": "663/S2 7\" SDI/HDMI Monitor",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in",
+        "type": "3G-SDI",
+        "label": "SDI In"
+      },
+      {
+        "id": "hdmi-in",
+        "type": "HDMI",
+        "label": "HDMI In"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out",
+        "type": "3G-SDI",
+        "label": "SDI Out"
+      },
+      {
+        "id": "hdmi-out",
+        "type": "HDMI",
+        "label": "HDMI Out"
+      }
+    ],
+    "deviceFormats": [
+      "1080p60",
+      "1080p59.94",
+      "1080i59.94",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-32-the-frame-ls03d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "32\" The Frame LS03D 4K QLED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-43-the-frame-ls03d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "43\" The Frame LS03D 4K QLED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-50-the-frame-ls03d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "50\" The Frame LS03D 4K QLED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-55-the-frame-ls03d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "55\" The Frame LS03D 4K QLED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-65-the-frame-ls03d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "65\" The Frame LS03D 4K QLED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-75-the-frame-ls03d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "75\" The Frame LS03D 4K QLED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-85-the-frame-ls03d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "85\" The Frame LS03D 4K QLED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-55-qn90d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "55\" QN90D Neo QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 144",
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-65-qn90d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "65\" QN90D Neo QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 144",
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-75-qn90d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "75\" QN90D Neo QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 144",
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-85-qn90d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "85\" QN90D Neo QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 144",
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-43-qn85d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "43\" QN85D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-55-qn85d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "55\" QN85D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-65-qn85d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "65\" QN85D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-75-qn85d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "75\" QN85D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-85-qn85d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "85\" QN85D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-65-qn900d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "65\" QN900D Neo QLED 8K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (8K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (8K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "8K 60",
+      "4K 120",
+      "4K 60",
+      "1080p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-75-qn900d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "75\" QN900D Neo QLED 8K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (8K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (8K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "8K 60",
+      "4K 120",
+      "4K 60",
+      "1080p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-85-qn900d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "85\" QN900D Neo QLED 8K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (8K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (8K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "8K 60",
+      "4K 120",
+      "4K 60",
+      "1080p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-32-q60d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "32\" Q60D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-43-q60d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "43\" Q60D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-55-q60d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "55\" Q60D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-65-q60d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "65\" Q60D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-75-q60d",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "75\" Q60D QLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-55-cu8000",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "55\" CU8000 4K UHD",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-65-cu8000",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "65\" CU8000 4K UHD",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-75-cu8000",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "75\" CU8000 4K UHD",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "samsung-85-cu8000",
+    "category": "monitor",
+    "manufacturer": "Samsung",
+    "model": "85\" CU8000 4K UHD",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-65-bravia9-x95l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "65\" Bravia 9 XR-65X95L 4K Mini LED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-75-bravia9-x95l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "75\" Bravia 9 XR-75X95L 4K Mini LED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-85-bravia9-x95l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "85\" Bravia 9 XR-85X95L 4K Mini LED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-55-bravia8-a80l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "55\" Bravia 8 XR-55A80L OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-65-bravia8-a80l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "65\" Bravia 8 XR-65A80L OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-77-bravia8-a80l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "77\" Bravia 8 XR-77A80L OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-55-bravia7-x90l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "55\" Bravia 7 XR-55X90L 4K HDR",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-65-bravia7-x90l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "65\" Bravia 7 XR-65X90L 4K HDR",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-75-bravia7-x90l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "75\" Bravia 7 XR-75X90L 4K HDR",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-85-bravia7-x90l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "85\" Bravia 7 XR-85X90L 4K HDR",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-43-x85l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "43\" X85L 4K HDR LED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-55-x85l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "55\" X85L 4K HDR LED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-65-x85l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "65\" X85L 4K HDR LED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-75-x85l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "75\" X85L 4K HDR LED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-85-x85l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "85\" X85L 4K HDR LED",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-55-a95l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "55\" Bravia XR A95L OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-65-a95l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "65\" Bravia XR A95L OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "sony-77-a95l",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "77\" Bravia XR A95L OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-42-c4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "42\" C4 evo OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-48-c4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "48\" C4 evo OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-55-c4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "55\" C4 evo OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-65-c4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "65\" C4 evo OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-77-c4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "77\" C4 evo OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-83-c4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "83\" C4 evo OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-55-g4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "55\" G4 OLED evo Gallery 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 144",
+      "4K 120",
+      "4K 60",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-65-g4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "65\" G4 OLED evo Gallery 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 144",
+      "4K 120",
+      "4K 60",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-77-g4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "77\" G4 OLED evo Gallery 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 144",
+      "4K 120",
+      "4K 60",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-83-g4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "83\" G4 OLED evo Gallery 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 144",
+      "4K 120",
+      "4K 60",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-97-g4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "97\" G4 OLED evo Gallery 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@144Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 144",
+      "4K 120",
+      "4K 60",
+      "1080p120",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-55-b4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "55\" B4 OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-65-b4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "65\" B4 OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-77-b4-oled",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "77\" B4 OLED 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-65-qned90",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "65\" QNED90 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-75-qned90",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "75\" QNED90 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-86-qned90",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "86\" QNED90 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2 (4K@120Hz)"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "hdmi-4",
+        "type": "HDMI",
+        "label": "HDMI 4"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 120",
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-43-ur9000",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "43\" UR9000 NanoCell 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-55-ur9000",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "55\" UR9000 NanoCell 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-65-ur9000",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "65\" UR9000 NanoCell 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-75-ur9000",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "75\" UR9000 NanoCell 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "lg-86-ur9000",
+    "category": "monitor",
+    "manufacturer": "LG",
+    "model": "86\" UR9000 NanoCell 4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "hdmi-1",
+        "type": "HDMI",
+        "label": "HDMI 1"
+      },
+      {
+        "id": "hdmi-2",
+        "type": "HDMI",
+        "label": "HDMI 2"
+      },
+      {
+        "id": "hdmi-3",
+        "type": "HDMI",
+        "label": "HDMI 3"
+      },
+      {
+        "id": "net-rj45",
+        "type": "Network (RJ45)",
+        "label": "LAN"
+      }
+    ],
+    "outputs": [],
+    "deviceFormats": [
+      "4K 60",
+      "4K 30",
+      "1080p60",
+      "720p60"
     ],
     "formatByIO": false
   },

@@ -18,6 +18,27 @@ const toIoArchitectureEnum = (value: string | undefined): 'DIRECT' | 'CARD_BASED
   return map[value] ?? 'DIRECT';
 };
 
+// Normalize EquipmentCategory: accept any case (e.g. 'monitor' → 'MONITOR').
+// transformApiEquipment on the frontend lowercases categories, so edits send
+// lowercase back; Prisma requires the uppercase enum value.
+const toEquipmentCategoryEnum = (value: string | undefined): string => {
+  if (!value) return value as any;
+  // Handle CAM_SWITCHER / cam_switcher style — already uppercased by toUpperCase()
+  return value.toUpperCase();
+};
+
+// Normalize DB enum value back to frontend string ('DIRECT' → 'direct', 'CARD_BASED' → 'card-based')
+const fromIoArchitectureEnum = (value: string | null | undefined): string => {
+  if (value === 'CARD_BASED') return 'card-based';
+  return 'direct';
+};
+
+// Transform a raw equipment_specs DB row for the frontend
+const transformEquipment = (eq: any) => ({
+  ...eq,
+  io_architecture: fromIoArchitectureEnum(eq.io_architecture),
+});
+
 // GET all equipment specs
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -38,7 +59,7 @@ router.get('/', async (req: Request, res: Response) => {
       ]
     });
 
-    res.json(equipment);
+    res.json(equipment.map(transformEquipment));
   } catch (error: any) {
     console.error('Error fetching equipment:', error);
     res.status(500).json({ error: 'Failed to fetch equipment' });
@@ -64,7 +85,7 @@ router.get('/:uuid', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Equipment not found' });
     }
 
-    res.json(equipment);
+    res.json(transformEquipment(equipment));
   } catch (error: any) {
     console.error('Error fetching equipment:', error);
     res.status(500).json({ error: 'Failed to fetch equipment' });
@@ -79,7 +100,7 @@ router.post('/', async (req: Request, res: Response) => {
     const equipment = await prisma.equipment_specs.create({
       data: {
         id: crypto.randomUUID(),
-        category: snakeCaseData.category,
+        category: toEquipmentCategoryEnum(snakeCaseData.category) as any,
         manufacturer: snakeCaseData.manufacturer,
         model: snakeCaseData.model,
         io_architecture: toIoArchitectureEnum(snakeCaseData.io_architecture),
@@ -96,9 +117,10 @@ router.post('/', async (req: Request, res: Response) => {
       }
     });
 
-    res.status(201).json(equipment);
+    const transformed = transformEquipment(equipment);
+    res.status(201).json(transformed);
     // Broadcast to all connected clients — equipment is global, not production-scoped
-    io.emit('equipment:updated', { action: 'created', equipment });
+    io.emit('equipment:updated', { action: 'created', equipment: transformed });
   } catch (error: any) {
     console.error('Error creating equipment:', error);
     res.status(500).json({ error: 'Failed to create equipment' });
@@ -115,7 +137,7 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     const hasCards = req.body.cards !== undefined;
 
     const coreData = {
-      category: snakeCaseData.category,
+      category: toEquipmentCategoryEnum(snakeCaseData.category) as any,
       manufacturer: snakeCaseData.manufacturer,
       model: snakeCaseData.model,
       io_architecture: toIoArchitectureEnum(snakeCaseData.io_architecture),
@@ -246,8 +268,9 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       });
     }
 
-    res.json(equipment);
-    io.emit('equipment:updated', { action: 'updated', equipment });
+    const transformed = transformEquipment(equipment);
+    res.json(transformed);
+    io.emit('equipment:updated', { action: 'updated', equipment: transformed });
   } catch (error: any) {
     console.error('Error updating equipment:', error);
     res.status(500).json({ error: 'Failed to update equipment' });

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import type { EquipmentSpec } from '@/types';
+import { X, Plus } from 'lucide-react';
+import type { EquipmentSpec, IOPort } from '@/types';
 import { useProductionStore } from '@/hooks/useStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 
 interface EquipmentFormModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface EquipmentFormModalProps {
 
 export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEquipment }: EquipmentFormModalProps) {
   const { resolutions = [], frameRates = [] } = useProductionStore();
+  const { connectorTypes } = useEquipmentLibrary();
+  const portTypes = connectorTypes.length > 0 ? connectorTypes : ['SDI', 'HDMI', 'DisplayPort', 'NDI'];
   
   const [formData, setFormData] = useState<Partial<EquipmentSpec>>({
     category: 'COMPUTER',
@@ -37,7 +40,9 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
   useEffect(() => {
     if (editingEquipment) {
       setFormData({
-        category: editingEquipment.category || 'COMPUTER',
+        // Uppercase category so it matches the select option values.
+        // transformApiEquipment lowercases it; the select options use uppercase.
+        category: (editingEquipment.category || 'COMPUTER').toUpperCase() as any,
         manufacturer: editingEquipment.manufacturer || '',
         model: editingEquipment.model || '',
         ioArchitecture: editingEquipment.ioArchitecture || 'direct',
@@ -298,12 +303,112 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             </label>
           </div>
 
-          {/* Note about I/O */}
-          <div className="bg-av-surface-light border border-av-border rounded-md p-4">
-            <p className="text-sm text-av-text-muted">
-              <strong className="text-av-text">Note:</strong> Inputs, outputs, and cards can be configured after creating the equipment by clicking the Edit button.
-            </p>
-          </div>
+          {/* Direct I/O Ports */}
+          {formData.ioArchitecture === 'direct' && (
+            <div className="grid grid-cols-2 gap-6">
+              {/* Inputs */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-av-text">Inputs</label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(f => ({
+                      ...f,
+                      inputs: [...(f.inputs || []), { id: `in-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
+                    }))}
+                    className="text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Add
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(formData.inputs || []).length === 0 && (
+                    <p className="text-xs text-av-text-muted">No inputs configured</p>
+                  )}
+                  {(formData.inputs || []).map((port) => {
+                    const inputOptions = port.type && !portTypes.includes(port.type)
+                      ? [...portTypes, port.type]
+                      : portTypes;
+                    return (
+                    <div key={port.id} className="flex items-center gap-2">
+                      <select
+                        value={port.type}
+                        onChange={(e) => setFormData(f => ({ ...f, inputs: (f.inputs || []).map(p => p.id === port.id ? { ...p, type: e.target.value } : p) }))}
+                        className="input-field flex-1 text-sm"
+                      >
+                        {inputOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        value={port.label || ''}
+                        onChange={(e) => setFormData(f => ({ ...f, inputs: (f.inputs || []).map(p => p.id === port.id ? { ...p, label: e.target.value } : p) }))}
+                        placeholder="Label"
+                        className="input-field flex-1 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(f => ({ ...f, inputs: (f.inputs || []).filter(p => p.id !== port.id) }))}
+                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );})}
+                </div>
+              </div>
+
+              {/* Outputs */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-av-text">Outputs</label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(f => ({
+                      ...f,
+                      outputs: [...(f.outputs || []), { id: `out-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
+                    }))}
+                    className="text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Add
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(formData.outputs || []).length === 0 && (
+                    <p className="text-xs text-av-text-muted">No outputs configured</p>
+                  )}
+                  {(formData.outputs || []).map((port) => {
+                    const outputOptions = port.type && !portTypes.includes(port.type)
+                      ? [...portTypes, port.type]
+                      : portTypes;
+                    return (
+                    <div key={port.id} className="flex items-center gap-2">
+                      <select
+                        value={port.type}
+                        onChange={(e) => setFormData(f => ({ ...f, outputs: (f.outputs || []).map(p => p.id === port.id ? { ...p, type: e.target.value } : p) }))}
+                        className="input-field flex-1 text-sm"
+                      >
+                        {outputOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        value={port.label || ''}
+                        onChange={(e) => setFormData(f => ({ ...f, outputs: (f.outputs || []).map(p => p.id === port.id ? { ...p, label: e.target.value } : p) }))}
+                        placeholder="Label"
+                        className="input-field flex-1 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(f => ({ ...f, outputs: (f.outputs || []).filter(p => p.id !== port.id) }))}
+                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );})}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-av-border">

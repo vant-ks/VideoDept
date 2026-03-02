@@ -5,8 +5,70 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { EquipmentSpec } from '@/types';
+import type { EquipmentSpec, IOPort, EquipmentCard } from '@/types';
 import { apiClient } from '@/services';
+
+/**
+ * Transform raw API/DB equipment row into frontend EquipmentSpec shape.
+ * API returns snake_case + raw Prisma enums; frontend expects camelCase + lowercase strings.
+ */
+function transformApiEquipment(raw: any): EquipmentSpec {
+  // Split flat equipment_io_ports array into inputs / outputs
+  const ports: any[] = raw.equipment_io_ports ?? [];
+  const sortByIndex = (a: any, b: any) => (a.port_index ?? 0) - (b.port_index ?? 0);
+  const mapPort = (p: any): IOPort => ({
+    id: p.id,
+    type: p.io_type ?? p.type ?? '',
+    label: p.label ?? undefined,
+    format: p.format ?? undefined,
+  });
+
+  const inputs: IOPort[] = ports
+    .filter(p => (p.port_type ?? p.portType ?? '').toUpperCase() === 'INPUT')
+    .sort(sortByIndex)
+    .map(mapPort);
+
+  const outputs: IOPort[] = ports
+    .filter(p => (p.port_type ?? p.portType ?? '').toUpperCase() === 'OUTPUT')
+    .sort(sortByIndex)
+    .map(mapPort);
+
+  // Convert card-based I/O
+  const cards: EquipmentCard[] = (raw.equipment_cards ?? []).map((card: any) => {
+    const cardPorts: any[] = card.equipment_card_io ?? [];
+    return {
+      id: card.id,
+      slotNumber: card.slot_number ?? card.slotNumber ?? 0,
+      inputs: cardPorts
+        .filter(p => (p.port_type ?? '').toUpperCase() === 'INPUT')
+        .sort(sortByIndex)
+        .map(mapPort),
+      outputs: cardPorts
+        .filter(p => (p.port_type ?? '').toUpperCase() === 'OUTPUT')
+        .sort(sortByIndex)
+        .map(mapPort),
+    };
+  }).sort((a: EquipmentCard, b: EquipmentCard) => a.slotNumber - b.slotNumber);
+
+  const ioArch = (raw.io_architecture ?? raw.ioArchitecture ?? 'direct').toLowerCase();
+
+  return {
+    uuid: raw.uuid,
+    id: raw.id,
+    category: (raw.category ?? '').toLowerCase() as EquipmentSpec['category'],
+    manufacturer: raw.manufacturer ?? '',
+    model: raw.model ?? '',
+    ioArchitecture: ioArch === 'card_based' || ioArch === 'card-based' ? 'card-based' : 'direct',
+    inputs,
+    outputs,
+    cards,
+    cardSlots: raw.card_slots ?? raw.cardSlots ?? undefined,
+    deviceFormats: raw.device_formats ?? raw.deviceFormats ?? undefined,
+    formatByIO: raw.format_by_io ?? raw.formatByIO ?? undefined,
+    isSecondaryDevice: raw.is_secondary_device ?? raw.isSecondaryDevice ?? undefined,
+    specs: raw.specs ?? undefined,
+  };
+}
 
 interface EquipmentLibraryState {
   // Library Version
@@ -80,7 +142,11 @@ const defaultEquipmentData = {
     'USB-C (Thunderbolt 3)',
     'USB-C (Thunderbolt 4)',
     'Fiber (SMPTE)',
-    'NDI'
+    'NDI',
+    'Reference (BNC)',
+    'Network (RJ45)',
+    'Network (SFP)',
+    'Network (SFP+)'
   ],
   sourceTypes: [
     'Laptop',
@@ -128,8 +194,11 @@ export const useEquipmentLibrary = create<EquipmentLibraryState>()(
       fetchFromAPI: async () => {
         set({ isLoading: true, error: null });
         try {
-          // Fetch equipment specs
-          const equipment = await apiClient.getEquipment();
+          // Fetch equipment specs and transform from DB shape → EquipmentSpec shape
+          const rawEquipment = await apiClient.getEquipment() as any[];
+          const equipment: EquipmentSpec[] = Array.isArray(rawEquipment)
+            ? rawEquipment.map(transformApiEquipment)
+            : [];
           
           // Fetch settings separately
           const [connectorTypes, sourceTypes, frameRates, resolutions] = await Promise.all([
@@ -140,7 +209,7 @@ export const useEquipmentLibrary = create<EquipmentLibraryState>()(
           ]);
           
           set({ 
-            equipmentSpecs: Array.isArray(equipment) ? equipment : [],
+            equipmentSpecs: equipment,
             connectorTypes: Array.isArray(connectorTypes) ? connectorTypes : get().connectorTypes,
             sourceTypes: Array.isArray(sourceTypes) ? sourceTypes : get().sourceTypes,
             frameRates: Array.isArray(frameRates) ? frameRates : get().frameRates,
@@ -272,7 +341,7 @@ export const useEquipmentLibrary = create<EquipmentLibraryState>()(
         set({ resolutions, lastUpdated: Date.now() }),
     }),
     {
-      name: 'equipment-library',
+      name: 'equipment-library-v2',
     }
   )
 );

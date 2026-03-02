@@ -1,5 +1,75 @@
 # Development Log - Video Production Manager
 
+## March 1, 2026 (Session 3) - Monitors + Equipment port sync complete
+
+### Branch: `v0.1.1_sends-monitors` → merged to `main`
+### Commits: `8bbaf9c`, `cb4e4ec`, `4a091a9`
+
+### Overview
+Fixed the full equipment-port → monitor pipeline: ports added/edited in the Equipment
+page now save correctly to the DB, and all open Monitors pages update in real-time
+without a refresh.
+
+---
+
+### Bug 1 — Equipment edits silently failing (category enum mismatch)
+**Symptom:** Adding/editing a port in the Equipment modal appeared to save (UI updated)
+but the change was gone after any page refresh.
+
+**Root Cause:** `transformApiEquipment` in `useEquipmentLibrary.ts` lowercases
+the `category` field (`'MONITOR' → 'monitor'`) for frontend use. `EquipmentFormModal`
+initialized `formData.category` directly from the editing spec, so it sent
+lowercase back to the API. Prisma's `EquipmentCategory` enum requires uppercase;
+the update threw a 500. The catch block silently fell back to Zustand-only state,
+making the UI look saved while the DB was never touched.
+
+**Fixes:**
+- `api/src/routes/equipment.ts`: added `toEquipmentCategoryEnum()` (`.toUpperCase()`)
+  applied in both POST and PUT handlers, same pattern as existing `toIoArchitectureEnum`
+- `src/components/EquipmentFormModal.tsx`: uppercase category on init so the
+  category dropdown shows the correct option when editing existing equipment
+
+---
+
+### Bug 2 — New ports not appearing in Monitors edit modal
+**Symptom:** After adding a port to a monitor's equipment spec, opening the monitor's
+edit modal still showed the old port list.
+
+**Root Cause (a):** `parseConnectorRouting` returned saved JSON verbatim — it never
+consulted the current spec. New/removed ports were completely ignored.
+
+**Fix:** Rewrote `parseConnectorRouting` to always start from `initConnectorRouting(spec)`
+(current spec as source of truth) and then carry over only `sourceSignal` /
+`hasSecondaryDevice` / `secondaryDevice` for ports that still exist. New ports appear
+empty; removed ports are dropped automatically.
+
+**Root Cause (b):** Equipment specs were fetched on mount only if `length === 0`,
+so a cached stale spec was used for the rest of the session.
+
+**Fix:** Removed the length guard — `fetchFromAPI()` now runs unconditionally on mount.
+
+---
+
+### Bug 3 — Port changes require manual refresh in other tabs
+**Symptom:** After editing a port in tab A, tab B needed a full page refresh before
+the Monitor edit modal reflected the change.
+
+**Root Cause:** The API already broadcast `equipment:updated` on every PUT/POST/DELETE.
+Monitors.tsx never subscribed to that event; only Equipment.tsx did.
+
+**Fix:** Added the same `equipment:updated` socket listener to Monitors.tsx (shared
+singleton socket pattern from Equipment.tsx). Any equipment change in any tab triggers
+`fetchFromAPI()` on all connected Monitors pages immediately.
+
+---
+
+### Files Changed
+- `video-production-manager/api/src/routes/equipment.ts`
+- `video-production-manager/src/components/EquipmentFormModal.tsx`
+- `video-production-manager/src/pages/Monitors.tsx`
+
+---
+
 ## March 1, 2026 (Session 2) - Crash Recovery: Revert schema drift + commit staged fixes
 
 ### Branch: `feature/cameras-ccus`
