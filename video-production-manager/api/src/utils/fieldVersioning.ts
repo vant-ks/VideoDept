@@ -66,6 +66,7 @@ export const VERSIONED_FIELDS = [
  */
 export const CAMERA_VERSIONED_FIELDS = [
   'name',
+  'manufacturer',
   'model',
   'format_mode',
   'lens_type',

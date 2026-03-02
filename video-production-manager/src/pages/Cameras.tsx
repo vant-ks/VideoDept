@@ -120,6 +120,23 @@ export default function Cameras() {
         .catch(console.error);
     }
   }, [productionId, oldStore.isConnected]);
+
+  // Migration: if modal is open editing an old camera whose manufacturer is still blank
+  // (combined model string in DB), retry the parse-back now that cameraSpecs may have loaded.
+  useEffect(() => {
+    if (!isModalOpen || !editingCamera || formData.manufacturer || !formData.model || cameraSpecs.length === 0) return;
+    const matchingSpec = cameraSpecs.find(spec =>
+      formData.model === `${spec.manufacturer} ${spec.model}`
+    );
+    if (matchingSpec) {
+      setFormData(prev => ({
+        ...prev,
+        manufacturer: matchingSpec.manufacturer,
+        model: matchingSpec.model,
+        equipmentUuid: (matchingSpec as any).uuid,
+      }));
+    }
+  }, [cameraSpecs, isModalOpen]);
   
   // Cameras sorted by CAM number for display (non-CAM IDs sort after)
   const sortedCameras = useMemo(() => {
@@ -207,8 +224,9 @@ export default function Cameras() {
   const handleEdit = (camera: Camera) => {
     let editFormData: Partial<Camera> = { ...camera };
 
-    // The DB stores model as a combined "Manufacturer Model" string (no separate manufacturer column).
-    // Try to parse it back into separate manufacturer + model fields by matching against equipment specs.
+    // Migration: old records stored model as a combined "Manufacturer Model" string.
+    // If manufacturer is missing from DB, try to parse it back from equipment specs.
+    // New records will have manufacturer stored separately and this block is skipped.
     if (!camera.manufacturer && camera.model && cameraSpecs.length > 0) {
       const matchingSpec = cameraSpecs.find(spec =>
         camera.model === `${spec.manufacturer} ${spec.model}`
@@ -258,15 +276,9 @@ export default function Cameras() {
       let newCamera: Camera | undefined = undefined;
 
       if (editingCamera) {
-        // Combine manufacturer and model into single model field for database (same as create path)
-        const combinedModel = finalFormData.manufacturer && finalFormData.model
-          ? `${finalFormData.manufacturer} ${finalFormData.model}`
-          : finalFormData.model || '';
-
         // Update existing camera via API — pass uuid (PK) not display id
         const result = await camerasAPI.updateCamera((editingCamera as any).uuid || editingCamera.id, {
           ...finalFormData,
-          model: combinedModel,
           productionId,
           version: editingCamera.version,
         });
@@ -288,15 +300,11 @@ export default function Cameras() {
         // Create new camera via API
         console.log('💾 Creating new camera with id:', finalFormData.id);
         
-        // Combine manufacturer and model into single model field for database
-        const combinedModel = finalFormData.manufacturer && finalFormData.model
-          ? `${finalFormData.manufacturer} ${finalFormData.model}`
-          : finalFormData.model || '';
-        
         const newCamera_result = await camerasAPI.createCamera({
           id: finalFormData.id as string,
           name: finalFormData.name as string,
-          model: combinedModel,
+          manufacturer: finalFormData.manufacturer,
+          model: finalFormData.model,
           formatMode: finalFormData.formatMode,
           maxZoom: finalFormData.maxZoom,
           shootingDistance: finalFormData.shootingDistance,
@@ -535,89 +543,93 @@ export default function Cameras() {
                 onDragEnd={handleDragEnd}
                 onDragLeave={handleDragLeave}
               >
-                <div className="grid grid-cols-3 gap-6 items-center">
-                  {/* Left 1/3: Drag handle, ID and Name */}
-                  <div className="flex items-center gap-3">
+                <div className="grid gap-3 items-center" style={{ gridTemplateColumns: '10fr 10fr 10fr 35fr 15fr 10fr 10fr' }}>
+                  {/* Col 1: Drag handle + CAM ID */}
+                  <div className="flex items-center gap-2 min-w-0">
                     <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
-                    <span className="text-sm text-av-text">{camera.id}</span>
-                    <h3 className="text-lg font-semibold text-av-text">{camera.name}</h3>
+                    <span className="text-sm font-medium text-av-text truncate">{camera.id}</span>
                   </div>
-                  
-                  {/* Middle 1/3: Badges */}
-                  <div className="flex items-center gap-2 flex-wrap">
+
+                  {/* Col 2: CAM Name */}
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-av-text truncate">{camera.name}</h3>
+                  </div>
+
+                  {/* Col 3: CCU ID */}
+                  <div className="min-w-0">
+                    {ccuName ? (
+                      <div className="flex items-center gap-1 text-av-text-muted text-sm">
+                        <LinkIcon className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{ccuName}</span>
+                        {camera.smpteCableLength && (
+                          <span className="text-xs flex-shrink-0">({camera.smpteCableLength}ft)</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-av-text-muted">—</span>
+                    )}
+                  </div>
+
+                  {/* Col 4: Note */}
+                  <div className="min-w-0">
+                    {camera.note ? (
+                      <p className="text-sm text-av-text-muted truncate" title={camera.note}>{camera.note}</p>
+                    ) : (
+                      <span className="text-xs text-av-text-muted">—</span>
+                    )}
+                  </div>
+
+                  {/* Col 5: Tags */}
+                  <div className="flex items-center gap-1 flex-wrap">
                     {camera.manufacturer && <Badge>{camera.manufacturer}</Badge>}
                     {camera.model && <Badge>{camera.model}</Badge>}
-                    {camera.maxZoom && (
-                      <Badge>
-                        {camera.maxZoom}x Zoom
-                      </Badge>
-                    )}
+                    {camera.maxZoom && <Badge>{camera.maxZoom}x</Badge>}
                     {supportBadges.map(badge => (
                       <Badge key={badge}>{badge}</Badge>
                     ))}
                   </div>
-                  
-                  {/* Right 1/3: Format Mode, CCU Connection, and Action Buttons */}
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm">
-                      <div className="text-av-text">
-                        {camera.formatMode || 'N/A'}
-                      </div>
-                      {ccuName && (
-                        <div className="flex items-center gap-1 text-av-text-muted mt-1">
-                          <LinkIcon className="w-3 h-3" />
-                          <span>{ccuName}</span>
-                          {camera.smpteCableLength && (
-                            <span className="text-xs">({camera.smpteCableLength}ft)</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(camera)}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          // Duplicate camera by opening modal with duplicated data
-                          const newId = generateId();
-                          setFormData({
-                            ...camera,
-                            id: newId,
-                            name: `${camera.name} (Copy)`,
-                            ccuId: camera.ccuId // Preserve CCU connection
-                          });
-                          setEditingCamera(null);
-                          setIsModalOpen(true);
-                        }}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
-                        title="Duplicate"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete((camera as any).uuid || camera.id)}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+
+                  {/* Col 6: Format Mode */}
+                  <div className="text-sm text-av-text">
+                    {camera.formatMode || '—'}
+                  </div>
+
+                  {/* Col 7: Action Buttons */}
+                  <div className="flex gap-1 justify-end">
+                    <button
+                      onClick={() => handleEdit(camera)}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Duplicate camera by opening modal with duplicated data
+                        const newId = generateId();
+                        setFormData({
+                          ...camera,
+                          id: newId,
+                          name: `${camera.name} (Copy)`,
+                          ccuId: camera.ccuId // Preserve CCU connection
+                        });
+                        setEditingCamera(null);
+                        setIsModalOpen(true);
+                      }}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+                      title="Duplicate"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete((camera as any).uuid || camera.id)}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                
-                {camera.note && (
-                  <div className="mt-3">
-                    <p className="text-sm text-av-text-muted">
-                      <span className="font-medium">Note:</span> {camera.note}
-                    </p>
-                  </div>
-                )}
               </Card>
             );
           })}

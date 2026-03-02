@@ -14,6 +14,7 @@ model cameras {
   id           String
   production_id      String
   name               String
+  manufacturer       String?
   model              String?
   format_mode        String?
   lens_type          String?

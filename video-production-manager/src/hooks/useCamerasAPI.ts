@@ -8,7 +8,8 @@ interface CreateCameraInput {
   userId?: string;
   userName?: string;
   name: string;
-  model?: string; // Combined manufacturer + model (e.g., "Sony HDC-5500")
+  manufacturer?: string;
+  model?: string;
   formatMode?: string;
   lensType?: string;
   maxZoom?: number;
@@ -69,6 +70,7 @@ export function useCamerasAPI() {
         id: input.id,
         productionId: input.productionId,
         name: input.name,
+        manufacturer: input.manufacturer,
         model: input.model,
         formatMode: input.formatMode,
         lensType: input.lensType,
@@ -108,6 +110,7 @@ export function useCamerasAPI() {
       const requestData = {
         productionId: input.productionId,
         name: input.name,
+        manufacturer: input.manufacturer,
         model: input.model,
         formatMode: input.formatMode,
         lensType: input.lensType,
