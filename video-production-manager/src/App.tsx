@@ -18,6 +18,7 @@ import MediaServers from '@/pages/MediaServers';
 import CCUs from '@/pages/CCUs';
 import Monitors from '@/pages/Monitors';
 import Equipment from '@/pages/Equipment';
+import Formats from '@/pages/Formats';
 import Settings from '@/pages/Settings';
 import Logs from '@/pages/Logs';
 import { Projects } from '@/pages/Projects';
@@ -198,6 +199,8 @@ const App: React.FC = () => {
         return <CCUs />;
       case 'equipment':
         return <Equipment />;
+      case 'formats':
+        return <Formats />;
       case 'records':
         return <Records />;
       case 'streams':

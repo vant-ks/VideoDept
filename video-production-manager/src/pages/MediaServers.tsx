@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy, GripVertical } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
@@ -10,6 +10,8 @@ import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import type { MediaServer, MediaServerOutput, MediaServerLayer } from '@/types';
 import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
+import { IOPortsPanel } from '@/components/IOPortsPanel';
+import type { DevicePortDraft } from '@/components/IOPortsPanel';
 
 export default function MediaServers() {
   const { activeProject } = useProjectStore();
@@ -839,9 +841,48 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
     }];
   });
   const [note, setNote] = useState(editingServer?.note || '');
-  
-  // Track which outputs have custom resolution
-  const [customResolutions, setCustomResolutions] = useState<{[key: number]: boolean}>({});
+
+  // device_ports state — tracks signal routing per port
+  const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
+  const [portsLoading, setPortsLoading] = useState(false);
+  const [formats, setFormats] = useState<any[]>([]);
+
+  // Load formats once on open
+  useEffect(() => {
+    if (!isOpen) return;
+    apiClient.get('/formats')
+      .then((res: any) => { if (Array.isArray(res.data)) setFormats(res.data); })
+      .catch(() => {});
+  }, [isOpen]);
+
+  // Load device_ports for the main (A) server when editing
+  useEffect(() => {
+    if (!isOpen) return;
+    const mainServer = editingServer && !editingServer.isBackup ? editingServer : null;
+    if (mainServer?.uuid) {
+      setPortsLoading(true);
+      apiClient.get(`/device-ports/device/${mainServer.uuid}`)
+        .then((res: any) => {
+          if (Array.isArray(res.data)) {
+            setDevicePorts(res.data.map((p: any) => ({
+              uuid: p.uuid,
+              specPortUuid: p.specPortUuid,
+              portLabel: p.portLabel,
+              ioType: p.ioType,
+              direction: p.direction,
+              formatUuid: p.formatUuid,
+              note: p.note,
+            })));
+          } else {
+            setDevicePorts([]);
+          }
+        })
+        .catch(() => setDevicePorts([]))
+        .finally(() => setPortsLoading(false));
+    } else {
+      setDevicePorts([]);
+    }
+  }, [isOpen, editingServer?.uuid]);
   
   // Helper functions for A/B suffix handling
   const stripABSuffix = (name: string): string => {
@@ -914,14 +955,26 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
     setOutputs(outputs.map((o, i) => i === index ? { ...o, ...updates } : o));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent, action: 'close' | 'duplicate' = 'close') => {
     e.preventDefault();
     // Format outputs with A/B suffix and role in parentheses
     const outputsWithFormatting = outputs.map((o) => ({
       ...o,
       name: o.role ? `${o.name} A (${o.role})` : `${o.name} A`
     }));
-    onSave(platform, outputsWithFormatting as any, note, computerType);
+
+    // Sync device_ports for main server if we have its uuid (edit case)
+    const mainUuid = editingServer && !editingServer.isBackup ? editingServer.uuid : undefined;
+    if (mainUuid && devicePorts.length > 0) {
+      apiClient.post(`/device-ports/device/${mainUuid}/sync`, { ports: devicePorts })
+        .catch((err: any) => console.warn('device_ports sync failed (non-fatal):', err));
+    }
+
+    if (action === 'duplicate' && onSaveAndDuplicate) {
+      onSaveAndDuplicate(platform, outputsWithFormatting as any, note, computerType);
+    } else {
+      onSave(platform, outputsWithFormatting as any, note, computerType);
+    }
   };
 
   if (!isOpen) return null;
@@ -1137,6 +1190,25 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
                   );
                 })}
               </div>
+            </div>
+
+            {/* I/O Ports — Signal Routing */}
+            <div>
+              <label className="block text-sm font-medium text-av-text mb-2">
+                I/O Ports — Signal Routing
+                <span className="text-xs text-av-text-muted ml-2">format &amp; destination per output</span>
+              </label>
+              <IOPortsPanel
+                ports={devicePorts}
+                onChange={setDevicePorts}
+                formats={formats}
+                isLoading={portsLoading}
+                emptyText={
+                  editingServer?.uuid
+                    ? 'No ports saved for this server yet. Save first, then assign via equipment spec.'
+                    : 'Ports can be configured after the server pair is saved.'
+                }
+              />
             </div>
 
             <div>

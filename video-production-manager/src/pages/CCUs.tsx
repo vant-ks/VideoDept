@@ -10,17 +10,7 @@ import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import type { CCU, Format } from '@/types';
-
-// Draft shape for the I/O panel — maps to device_ports rows on save
-interface DevicePortDraft {
-  uuid?: string;         // set when editing a port that already exists in DB
-  specPortUuid?: string; // FK to equipment_io_ports.uuid — from API data
-  portLabel: string;
-  ioType: string;
-  direction: 'INPUT' | 'OUTPUT';
-  formatUuid?: string | null;
-  note?: string | null;
-}
+import { IOPortsPanel, type DevicePortDraft } from '@/components/IOPortsPanel';
 
 // Local form state type — tracks all fields the CCU modal collects
 interface CCUFormFields {
@@ -914,138 +904,21 @@ export default function CCUs() {
               </div>
 
               {/* ── I/O Ports Panel ────────────────────────────────────────────── */}
-              {portsLoading ? (
-                <p className="text-sm text-av-text-muted italic">Loading ports…</p>
-              ) : devicePorts.length > 0 ? (
+              {(portsLoading || devicePorts.length > 0 || formData.model) && (
                 <div>
                   <label className="block text-sm font-medium text-av-text mb-2">
                     I/O Ports
                     <span className="text-xs text-av-text-muted ml-2">format &amp; signal per port</span>
                   </label>
-
-                  {/* INPUTS */}
-                  {devicePorts.some(p => p.direction === 'INPUT') && (
-                    <div className="mb-3">
-                      <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">Inputs</p>
-                      {/* column headers */}
-                      <div className="grid grid-cols-[80px_1fr_1fr_1fr] gap-2 items-center mb-1 px-2">
-                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Type</span>
-                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Label</span>
-                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Format In</span>
-                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">← Connected from</span>
-                      </div>
-                      <div className="space-y-1.5">
-                        {devicePorts.map((port, idx) => {
-                          if (port.direction !== 'INPUT') return null;
-                          return (
-                            <div key={idx} className="grid grid-cols-[80px_1fr_1fr_1fr] gap-2 items-center p-2 bg-av-surface-hover rounded-lg">
-                              <span className="text-xs text-av-text-muted font-mono truncate" title={port.ioType}>{port.ioType}</span>
-                              <input
-                                type="text"
-                                value={port.portLabel}
-                                onChange={(e) => {
-                                  const next = [...devicePorts];
-                                  next[idx] = { ...next[idx], portLabel: e.target.value };
-                                  setDevicePorts(next);
-                                }}
-                                placeholder="Port label"
-                                className="input-field text-xs py-1"
-                              />
-                              <select
-                                value={port.formatUuid || ''}
-                                onChange={(e) => {
-                                  const next = [...devicePorts];
-                                  next[idx] = { ...next[idx], formatUuid: e.target.value || null };
-                                  setDevicePorts(next);
-                                }}
-                                className="input-field text-xs py-1"
-                              >
-                                <option value="">— format —</option>
-                                {formats.map(f => (
-                                  <option key={f.uuid} value={f.uuid}>{f.id}</option>
-                                ))}
-                              </select>
-                              <input
-                                type="text"
-                                value={port.note || ''}
-                                onChange={(e) => {
-                                  const next = [...devicePorts];
-                                  next[idx] = { ...next[idx], note: e.target.value || null };
-                                  setDevicePorts(next);
-                                }}
-                                placeholder="Source signal or device"
-                                className="input-field text-xs py-1"
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* OUTPUTS */}
-                  {devicePorts.some(p => p.direction === 'OUTPUT') && (
-                    <div>
-                      <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">Outputs</p>
-                      {/* column headers */}
-                      <div className="grid grid-cols-[80px_1fr_1fr_1fr] gap-2 items-center mb-1 px-2">
-                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Type</span>
-                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Label</span>
-                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Format Out</span>
-                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">→ Destination</span>
-                      </div>
-                      <div className="space-y-1.5">
-                        {devicePorts.map((port, idx) => {
-                          if (port.direction !== 'OUTPUT') return null;
-                          return (
-                            <div key={idx} className="grid grid-cols-[80px_1fr_1fr_1fr] gap-2 items-center p-2 bg-av-surface-hover rounded-lg">
-                              <span className="text-xs text-av-text-muted font-mono truncate" title={port.ioType}>{port.ioType}</span>
-                              <input
-                                type="text"
-                                value={port.portLabel}
-                                onChange={(e) => {
-                                  const next = [...devicePorts];
-                                  next[idx] = { ...next[idx], portLabel: e.target.value };
-                                  setDevicePorts(next);
-                                }}
-                                placeholder="Port label"
-                                className="input-field text-xs py-1"
-                              />
-                              <select
-                                value={port.formatUuid || ''}
-                                onChange={(e) => {
-                                  const next = [...devicePorts];
-                                  next[idx] = { ...next[idx], formatUuid: e.target.value || null };
-                                  setDevicePorts(next);
-                                }}
-                                className="input-field text-xs py-1"
-                              >
-                                <option value="">— format —</option>
-                                {formats.map(f => (
-                                  <option key={f.uuid} value={f.uuid}>{f.id}</option>
-                                ))}
-                              </select>
-                              <input
-                                type="text"
-                                value={port.note || ''}
-                                onChange={(e) => {
-                                  const next = [...devicePorts];
-                                  next[idx] = { ...next[idx], note: e.target.value || null };
-                                  setDevicePorts(next);
-                                }}
-                                placeholder="Destination device or input"
-                                className="input-field text-xs py-1"
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  <IOPortsPanel
+                    ports={devicePorts}
+                    onChange={setDevicePorts}
+                    formats={formats}
+                    isLoading={portsLoading}
+                    emptyText={formData.model ? 'No spec ports found for this model.' : undefined}
+                  />
                 </div>
-              ) : formData.model ? (
-                <p className="text-xs text-av-text-muted italic">No spec ports found for this model.</p>
-              ) : null}
+              )}
               
               {/* Camera Assignment */}
               {allCameras.length > 0 && (

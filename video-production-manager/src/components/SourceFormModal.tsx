@@ -1,39 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Copy } from 'lucide-react';
-import type { Source, ConnectorType, SourceType } from '@/types';
-import { SourceService } from '@/services';
+import { X } from 'lucide-react';
+import type { Source, Format } from '@/types';
+import { SourceService, apiClient } from '@/services';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
+import { IOPortsPanel, type DevicePortDraft } from '@/components/IOPortsPanel';
 
 interface SourceFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (source: Source) => void;
-  onSaveAndDuplicate?: (source: Source) => void;
+  onSave: (source: Source, devicePorts: DevicePortDraft[]) => void;
+  onSaveAndDuplicate?: (source: Source, devicePorts: DevicePortDraft[]) => void;
   existingSources: Source[];
   editingSource?: Source | null;
   typeFieldLabel?: string; // Optional label for the Type field (e.g., "Computer Type" for Computers page)
   entityLabel?: string; // Optional label for the entity (e.g., "Computer" for Computers page) — used in modal title
 }
-
-// Resolution presets
-interface ResolutionPreset {
-  label: string;
-  hRes: number;
-  vRes: number;
-}
-
-const resolutionPresets: ResolutionPreset[] = [
-  { label: '1920x1080 (Full HD)', hRes: 1920, vRes: 1080 },
-  { label: '1280x720 (HD)', hRes: 1280, vRes: 720 },
-  { label: '3840x2160 (4K UHD)', hRes: 3840, vRes: 2160 },
-  { label: '2560x1440 (QHD)', hRes: 2560, vRes: 1440 },
-  { label: '1024x768 (XGA)', hRes: 1024, vRes: 768 },
-  { label: '1680x1050 (WSXGA+)', hRes: 1680, vRes: 1050 },
-];
-
-// Frame rate presets
-const frameRatePresets = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60, 120];
 
 export function SourceFormModal({ 
   isOpen, 
@@ -45,10 +27,6 @@ export function SourceFormModal({
   typeFieldLabel = 'Type', // Default to 'Type', can be overridden (e.g., 'Computer Type')
   entityLabel = 'Source' // Default to 'Source', can be overridden (e.g., 'Computer')
 }: SourceFormModalProps) {
-  const equipmentLibConnectorTypes = useEquipmentLibrary(state => state.connectorTypes);
-  const oldStoreConnectorTypes = useProductionStore(state => state.connectorTypes) || [];
-  const connectorTypes = equipmentLibConnectorTypes.length > 0 ? equipmentLibConnectorTypes : oldStoreConnectorTypes;
-  const sends = useProductionStore(state => state.sends);
   const oldStoreEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
   const equipmentLibSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
   // Prefer the equipment library store (kept in sync by Equipment page) over the old store
@@ -65,157 +43,73 @@ export function SourceFormModal({
   
   const [formData, setFormData] = useState<Partial<Source>>({
     id: '',
-    type: defaultType, // Settings-defined type (e.g., "Laptop - PC GFX")
+    type: defaultType,
     name: '',
-    formatAssignmentMode: 'per-io', // Always per-io for computers
-    hRes: undefined,
-    vRes: undefined,
-    rate: 59.94,
-    standard: '',
     note: '',
     secondaryDevice: '',
-    outputs: [{ id: 'out-1', connector: 'HDMI' }],
-    blanking: 'none',
   });
-  
-  const [errors, setErrors] = useState<string[]>([]);
-  const [isCustomResolution, setIsCustomResolution] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState<string>('');
-  const [selectedFrameRate, setSelectedFrameRate] = useState<string>('59.94');
-  const [isDuplicateId, setIsDuplicateId] = useState(false);
-  
-  // Per-I/O format states (for when formatAssignmentMode is 'per-io')
-  const [perIoPresets, setPerIoPresets] = useState<Record<string, string>>({});
-  const [perIoFrameRates, setPerIoFrameRates] = useState<Record<string, string>>({});
-  const [perIoCustomResolution, setPerIoCustomResolution] = useState<Record<string, boolean>>({});
 
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isDuplicateId, setIsDuplicateId] = useState(false);
+
+  // device_ports state — managed in parallel with formData
+  const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
+  const [portsLoading, setPortsLoading] = useState(false);
+  const [formats, setFormats] = useState<Format[]>([]);
+
+  // Load formats once on mount
   useEffect(() => {
-    // Reset form when modal opens/closes or when editing source changes
-    if (!isOpen) return; // Don't run when modal is closed
-    
+    apiClient.get('/formats')
+      .then((res: any) => { if (Array.isArray(res.data)) setFormats(res.data); })
+      .catch(() => {});
+  }, []);
+
+  // Reset form + load device_ports when modal opens/closes or editing source changes
+  useEffect(() => {
+    if (!isOpen) return;
+
     if (editingSource) {
-      // Ensure outputs array exists for backwards compatibility
-      const sourceWithOutputs = {
+      setFormData({
         ...editingSource,
         type: editingSource.type || defaultType,
-        outputs: editingSource.outputs || [{ id: 'out-1', connector: 'HDMI' as ConnectorType }]
-      };
-      setFormData(sourceWithOutputs);
-      // Check if it matches a preset
-      const matchingPreset = resolutionPresets.find(
-        p => p.hRes === editingSource.hRes && p.vRes === editingSource.vRes
-      );
-      if (matchingPreset) {
-        setSelectedPreset(`${matchingPreset.hRes}x${matchingPreset.vRes}`);
-        setIsCustomResolution(false);
-      } else if (editingSource.hRes && editingSource.vRes) {
-        setSelectedPreset('custom');
-        setIsCustomResolution(true);
+      });
+      // Load existing device_ports
+      if (editingSource.uuid) {
+        setPortsLoading(true);
+        apiClient.get(`/device-ports/device/${editingSource.uuid}`)
+          .then((res: any) => {
+            if (Array.isArray(res.data)) {
+              setDevicePorts(res.data.map((p: any) => ({
+                uuid: p.uuid,
+                specPortUuid: p.specPortUuid,
+                portLabel: p.portLabel,
+                ioType: p.ioType,
+                direction: p.direction,
+                formatUuid: p.formatUuid,
+                note: p.note,
+              })));
+            } else {
+              setDevicePorts([]);
+            }
+          })
+          .catch(() => setDevicePorts([]))
+          .finally(() => setPortsLoading(false));
       } else {
-        setSelectedPreset('');
-        setIsCustomResolution(false);
+        setDevicePorts([]);
       }
-      setSelectedFrameRate(editingSource.rate?.toString() || '59.94');
     } else {
-      // Auto-generate ID for new source (FRESH on each open)
+      // Auto-generate ID for new source
       console.log('🔧 SourceFormModal: Auto-generating ID for new source');
-      console.log('🔧 existingSources COUNT:', existingSources.length);
-      console.log('🔧 existingSources FULL DATA:', existingSources.map(s => ({ id: s.id, category: s.category, uuid: s.uuid })));
       const newId = SourceService.generateId(existingSources);
       console.log('🔧 Generated newId:', newId);
       setFormData({
         id: newId,
         type: defaultType,
         name: '',
-        rate: 59.94,
-        outputs: [{ id: 'out-1', connector: 'HDMI' }],
       });
-      console.log('🔧 formData.id set to:', newId);
-      setSelectedPreset('');
-      setIsCustomResolution(false);
-      setSelectedFrameRate('59.94');
+      setDevicePorts([]);
     }
   }, [isOpen, editingSource, existingSources, defaultType]);
-
-  const handleResolutionPresetChange = (presetKey: string) => {
-    setSelectedPreset(presetKey);
-    
-    if (presetKey === 'custom') {
-      setIsCustomResolution(true);
-      // Keep existing values or clear them
-    } else if (presetKey) {
-      setIsCustomResolution(false);
-      const preset = resolutionPresets.find(p => `${p.hRes}x${p.vRes}` === presetKey);
-      if (preset) {
-        setFormData(prev => ({
-          ...prev,
-          hRes: preset.hRes,
-          vRes: preset.vRes,
-        }));
-      }
-    } else {
-      setIsCustomResolution(false);
-      setFormData(prev => ({
-        ...prev,
-        hRes: undefined,
-        vRes: undefined,
-      }));
-    }
-    setErrors([]);
-  };
-
-  const handleFrameRatePresetChange = (rate: string) => {
-    setSelectedFrameRate(rate);
-    if (rate) {
-      const rateValue = parseFloat(rate);
-      setFormData(prev => ({ ...prev, rate: rateValue }));
-    } else {
-      setFormData(prev => ({ ...prev, rate: undefined }));
-    }
-    setErrors([]);
-  };
-  
-  // Per-I/O format handlers
-  const handlePerIoResolutionPresetChange = (outputId: string, presetKey: string) => {
-    setPerIoPresets(prev => ({ ...prev, [outputId]: presetKey }));
-    
-    if (presetKey === 'custom') {
-      setPerIoCustomResolution(prev => ({ ...prev, [outputId]: true }));
-    } else if (presetKey) {
-      setPerIoCustomResolution(prev => ({ ...prev, [outputId]: false }));
-      const preset = resolutionPresets.find(p => `${p.hRes}x${p.vRes}` === presetKey);
-      if (preset) {
-        const newOutputs = (formData.outputs || []).map(output =>
-          output.id === outputId ? { ...output, hRes: preset.hRes, vRes: preset.vRes } : output
-        );
-        setFormData(prev => ({ ...prev, outputs: newOutputs }));
-      }
-    } else {
-      setPerIoCustomResolution(prev => ({ ...prev, [outputId]: false }));
-      const newOutputs = (formData.outputs || []).map(output =>
-        output.id === outputId ? { ...output, hRes: undefined, vRes: undefined } : output
-      );
-      setFormData(prev => ({ ...prev, outputs: newOutputs }));
-    }
-    setErrors([]);
-  };
-
-  const handlePerIoFrameRateChange = (outputId: string, rate: string) => {
-    setPerIoFrameRates(prev => ({ ...prev, [outputId]: rate }));
-    if (rate) {
-      const rateValue = parseFloat(rate);
-      const newOutputs = (formData.outputs || []).map(output =>
-        output.id === outputId ? { ...output, rate: rateValue } : output
-      );
-      setFormData(prev => ({ ...prev, outputs: newOutputs }));
-    } else {
-      const newOutputs = (formData.outputs || []).map(output =>
-        output.id === outputId ? { ...output, rate: undefined } : output
-      );
-      setFormData(prev => ({ ...prev, outputs: newOutputs }));
-    }
-    setErrors([]);
-  };
 
   const handleChange = (field: keyof Source, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -253,23 +147,16 @@ export function SourceFormModal({
     const sourceData = formData as Source;
     
     if (action === 'duplicate' && onSaveAndDuplicate) {
-      // Call onSaveAndDuplicate which handles save + keeping modal open
-      onSaveAndDuplicate(sourceData);
+      onSaveAndDuplicate(sourceData, devicePorts);
     } else {
-      // Normal save - calls onSave and closes modal
-      onSave(sourceData);
+      onSave(sourceData, devicePorts);
       handleClose();
     }
   };
 
   const handleClose = () => {
-    setFormData({
-      id: '',
-      type: 'LAPTOP',
-      name: '',
-      rate: 59.94,
-      outputs: [{ id: 'out-1', connector: 'HDMI' }],
-    });
+    setFormData({ id: '', type: defaultType, name: '' });
+    setDevicePorts([]);
     setErrors([]);
     onClose();
   };
@@ -389,241 +276,23 @@ export function SourceFormModal({
 
 
 
-          {/* Outputs Section */}
+          {/* I/O Ports Panel */}
           <div>
             <label className="block text-sm font-medium text-av-text mb-2">
-              Outputs <span className="text-av-danger">*</span>
-              {(formData.outputs?.length || 0) < 2 && formData.type !== 'SERVER' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextId = `out-${(formData.outputs?.length || 0) + 1}`;
-                    setFormData({
-                      ...formData,
-                      outputs: [...(formData.outputs || []), { id: nextId, connector: 'HDMI' }]
-                    });
-                  }}
-                  className="ml-2 text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 inline-flex items-center gap-1"
-                >
-                  <Plus className="w-3 h-3" /> Add Output
-                </button>
-              )}
-              {formData.type === 'SERVER' && (formData.outputs?.length || 0) < 8 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextId = `out-${(formData.outputs?.length || 0) + 1}`;
-                    setFormData({
-                      ...formData,
-                      outputs: [...(formData.outputs || []), { id: nextId, connector: 'HDMI' }]
-                    });
-                  }}
-                  className="ml-2 text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 inline-flex items-center gap-1"
-                >
-                  <Plus className="w-3 h-3" /> Add Output
-                </button>
-              )}
+              I/O Ports
+              <span className="text-xs text-av-text-muted ml-2">format &amp; signal per port</span>
             </label>
-            <div className="space-y-4">
-              {(formData.outputs || []).map((output, idx) => (
-                <div key={output.id} className="border border-av-border rounded-lg p-4">
-                  {/* Connector row */}
-                  <div className="flex gap-2 items-center mb-3">
-                    <span className="text-sm font-medium text-av-text w-16">Out {idx + 1}:</span>
-                    <select
-                      value={output.connector}
-                      onChange={(e) => {
-                        const newOutputs = [...(formData.outputs || [])];
-                        newOutputs[idx] = { ...output, connector: e.target.value as ConnectorType };
-                        setFormData({ ...formData, outputs: newOutputs });
-                      }}
-                      className="input-field flex-1"
-                      required
-                    >
-                      {connectorTypes.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextId = `out-${(formData.outputs || []).length + 1}`;
-                        const duplicatedOutput = { 
-                          ...output, 
-                          id: nextId,
-                          // Preserve the format properties from the output being duplicated
-                        };
-                        const newOutputs = [...(formData.outputs || []), duplicatedOutput];
-                        setFormData({ ...formData, outputs: newOutputs });
-                      }}
-                      className="p-2 text-av-accent hover:bg-av-accent/10 rounded"
-                      title="Duplicate this output"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    {(formData.outputs || []).length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newOutputs = (formData.outputs || []).filter((_, i) => i !== idx);
-                          setFormData({ ...formData, outputs: newOutputs });
-                        }}
-                        className="p-2 text-av-danger hover:bg-av-danger/10 rounded"
-                        title="Remove this output"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  
-                  {/* Per-I/O format fields */}
-                  {
-                    <>
-                      {/* Resolution and Frame Rate Presets for this output */}
-                      <div className="grid grid-cols-2 gap-2 mb-2">
-                        <div>
-                          <label className="block text-xs font-medium text-av-text-muted mb-1">
-                            Resolution Preset
-                          </label>
-                          <select
-                            value={perIoPresets[output.id] || ''}
-                            onChange={(e) => handlePerIoResolutionPresetChange(output.id, e.target.value)}
-                            className="input-field w-full text-sm"
-                          >
-                            <option value="">Select...</option>
-                            {resolutionPresets.map(preset => (
-                              <option key={`${output.id}-${preset.hRes}x${preset.vRes}`} value={`${preset.hRes}x${preset.vRes}`}>
-                                {preset.label}
-                              </option>
-                            ))}
-                            <option value="custom">Custom...</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-medium text-av-text-muted mb-1">
-                            Frame Rate
-                          </label>
-                          <select
-                            value={perIoFrameRates[output.id] || ''}
-                            onChange={(e) => handlePerIoFrameRateChange(output.id, e.target.value)}
-                            className="input-field w-full text-sm"
-                          >
-                            <option value="">Select...</option>
-                            {frameRatePresets.map(rate => (
-                              <option key={`${output.id}-${rate}`} value={rate}>
-                                {rate} fps
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Resolution fields for this output */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs font-medium text-av-text-muted mb-1">
-                            H Res
-                          </label>
-                          <input
-                            type="number"
-                            value={output.hRes || ''}
-                            onChange={(e) => {
-                              const newOutputs = [...(formData.outputs || [])];
-                              newOutputs[idx] = { ...output, hRes: e.target.value ? parseInt(e.target.value) : undefined };
-                              setFormData({ ...formData, outputs: newOutputs });
-                            }}
-                            className="input-field w-full text-sm"
-                            placeholder="1920"
-                            min="0"
-                            disabled={!perIoCustomResolution[output.id] && perIoPresets[output.id] !== '' && perIoPresets[output.id] !== undefined}
-                            readOnly={!perIoCustomResolution[output.id] && perIoPresets[output.id] !== '' && perIoPresets[output.id] !== undefined}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-medium text-av-text-muted mb-1">
-                            V Res
-                          </label>
-                          <input
-                            type="number"
-                            value={output.vRes || ''}
-                            onChange={(e) => {
-                              const newOutputs = [...(formData.outputs || [])];
-                              newOutputs[idx] = { ...output, vRes: e.target.value ? parseInt(e.target.value) : undefined };
-                              setFormData({ ...formData, outputs: newOutputs });
-                            }}
-                            className="input-field w-full text-sm"
-                            placeholder="1080"
-                            min="0"
-                            disabled={!perIoCustomResolution[output.id] && perIoPresets[output.id] !== '' && perIoPresets[output.id] !== undefined}
-                            readOnly={!perIoCustomResolution[output.id] && perIoPresets[output.id] !== '' && perIoPresets[output.id] !== undefined}
-                          />
-                        </div>
-                      </div>
-                    </>
-                  }
-                </div>
-              ))}
-            </div>
-          </div>
-
-
-
-          {/* Blanking */}
-          <div>
-            <label className="block text-sm font-medium text-av-text mb-2">
-              Blanking
-            </label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="blanking"
-                  value="none"
-                  checked={formData.blanking === 'none' || !formData.blanking}
-                  onChange={(e) => handleChange('blanking', e.target.value)}
-                  className="w-4 h-4 text-av-accent"
-                />
-                <span className="text-sm text-av-text">None</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="blanking"
-                  value="RBv1"
-                  checked={formData.blanking === 'RBv1'}
-                  onChange={(e) => handleChange('blanking', e.target.value)}
-                  className="w-4 h-4 text-av-accent"
-                />
-                <span className="text-sm text-av-text">RBv1</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="blanking"
-                  value="RBv2"
-                  checked={formData.blanking === 'RBv2'}
-                  onChange={(e) => handleChange('blanking', e.target.value)}
-                  className="w-4 h-4 text-av-accent"
-                />
-                <span className="text-sm text-av-text">RBv2</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="blanking"
-                  value="RBv3"
-                  checked={formData.blanking === 'RBv3'}
-                  onChange={(e) => handleChange('blanking', e.target.value)}
-                  className="w-4 h-4 text-av-accent"
-                />
-                <span className="text-sm text-av-text">RBv3</span>
-              </label>
-            </div>
-            <p className="text-xs text-av-text-muted mt-1">
-              Reduced blanking affects bandwidth requirements for link type calculation
-            </p>
+            <IOPortsPanel
+              ports={devicePorts}
+              onChange={setDevicePorts}
+              formats={formats}
+              isLoading={portsLoading}
+              emptyText={
+                editingSource?.uuid
+                  ? 'No ports saved for this device yet.'
+                  : 'Save the device first, then assign ports via its equipment spec.'
+              }
+            />
           </div>
 
           {/* Notes */}

@@ -24,7 +24,8 @@ import {
   Box,
   FolderOpen,
   LogOut,
-  Radio
+  Radio,
+  Film
 } from 'lucide-react';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -81,6 +82,7 @@ const navItems: NavItem[] = [
       { id: 'snakes', label: 'Snakes', icon: Cable },
     ]
   },
+  { id: 'formats', label: 'Formats', icon: Film },
   { id: 'equipment', label: 'Equipment', icon: Wrench },
   { id: 'network', label: 'IP Management', icon: Network },
   { id: 'checklist', label: 'Checklist', icon: CheckSquare },

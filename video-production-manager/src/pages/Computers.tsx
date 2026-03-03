@@ -6,8 +6,9 @@ import { useProjectStore } from '@/hooks/useProjectStore';
 import { useSourcesAPI } from '@/hooks/useSourcesAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { SourceFormModal } from '@/components/SourceFormModal';
-import { SourceService } from '@/services';
+import { SourceService, apiClient } from '@/services';
 import type { Source } from '@/types';
+import type { DevicePortDraft } from '@/components/IOPortsPanel';
 
 export const Computers: React.FC = () => {
   // Use new stores
@@ -104,13 +105,14 @@ export const Computers: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (source: Source, shouldCloseModal: boolean = true) => {
+  const handleSave = async (source: Source, devicePorts: DevicePortDraft[], shouldCloseModal = true) => {
     setConflictError(null);
     
     try {
       // Force category to 'COMPUTER' for all sources created/edited on Computers page
       const computerSource = { ...source, category: 'COMPUTER' as any };
-      
+      let savedUuid: string | undefined;
+
       // Check if we're editing an existing source (uuid must be present and not empty)
       if (editingSource && editingSource.uuid) {
         const result = await sourcesAPI.updateSource(editingSource.uuid, computerSource);
@@ -118,14 +120,25 @@ export const Computers: React.FC = () => {
           setConflictError(result);
           return;
         }
+        savedUuid = editingSource.uuid;
         // Don't manually update state - let WebSocket event handle it
       } else {
         // Create via API - WebSocket event will update state automatically
-        await sourcesAPI.createSource({
+        const created = await sourcesAPI.createSource({
           ...computerSource,
           productionId: productionId!
-        });
+        }) as any;
+        savedUuid = created?.uuid;
         // Don't manually update state - let WebSocket event handle it
+      }
+
+      // Sync device_ports if we have a uuid and ports to save
+      if (savedUuid && devicePorts.length > 0) {
+        try {
+          await apiClient.post(`/device-ports/device/${savedUuid}/sync`, { ports: devicePorts });
+        } catch (portErr) {
+          console.warn('device_ports sync failed (non-fatal):', portErr);
+        }
       }
       
       if (shouldCloseModal) {
@@ -377,10 +390,10 @@ export const Computers: React.FC = () => {
           setIsModalOpen(false);
           setEditingSource(null);
         }}
-        onSave={handleSave}
-        onSaveAndDuplicate={async (source) => {
+        onSave={(source, devicePorts) => handleSave(source, devicePorts)}
+        onSaveAndDuplicate={async (source, devicePorts) => {
           // Save without closing the modal
-          await handleSave(source, false);
+          await handleSave(source, devicePorts, false);
           // Generate new ID and set editing source with duplicated data
           const newId = SourceService.generateId([...sources, source]);
           setEditingSource({
