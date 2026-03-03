@@ -32,11 +32,13 @@ export interface DevicePortDraft {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface IOPortsPanelProps {
-  ports:     DevicePortDraft[];
-  onChange:  (ports: DevicePortDraft[]) => void;
-  formats:   Format[];
-  isLoading?: boolean;
-  emptyText?: string;
+  ports:                  DevicePortDraft[];
+  onChange:               (ports: DevicePortDraft[]) => void;
+  formats:                Format[];
+  isLoading?:             boolean;
+  emptyText?:             string;
+  /** Optional callback: opens the "create custom format" flow in the parent */
+  onCreateCustomFormat?:  () => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -47,6 +49,7 @@ export function IOPortsPanel({
   formats,
   isLoading = false,
   emptyText,
+  onCreateCustomFormat,
 }: IOPortsPanelProps) {
   // Helper: update one port at the given index
   const update = (idx: number, patch: Partial<DevicePortDraft>) => {
@@ -110,13 +113,25 @@ export function IOPortsPanel({
                   {/* format */}
                   <select
                     value={port.formatUuid || ''}
-                    onChange={e => update(idx, { formatUuid: e.target.value || null })}
+                    onChange={e => {
+                      if (e.target.value === '__create__') {
+                        onCreateCustomFormat?.();
+                      } else {
+                        update(idx, { formatUuid: e.target.value || null });
+                      }
+                    }}
                     className="input-field text-xs py-1"
                   >
                     <option value="">— format —</option>
                     {formats.map(f => (
                       <option key={f.uuid} value={f.uuid}>{f.id}</option>
                     ))}
+                    {onCreateCustomFormat && (
+                      <>
+                        <option disabled value="">──────────</option>
+                        <option value="__create__">+ Create custom format…</option>
+                      </>
+                    )}
                   </select>
                   {/* connected-from note */}
                   <input
@@ -172,13 +187,25 @@ export function IOPortsPanel({
                   {/* format */}
                   <select
                     value={port.formatUuid || ''}
-                    onChange={e => update(idx, { formatUuid: e.target.value || null })}
+                    onChange={e => {
+                      if (e.target.value === '__create__') {
+                        onCreateCustomFormat?.();
+                      } else {
+                        update(idx, { formatUuid: e.target.value || null });
+                      }
+                    }}
                     className="input-field text-xs py-1"
                   >
                     <option value="">— format —</option>
                     {formats.map(f => (
                       <option key={f.uuid} value={f.uuid}>{f.id}</option>
                     ))}
+                    {onCreateCustomFormat && (
+                      <>
+                        <option disabled value="">──────────</option>
+                        <option value="__create__">+ Create custom format…</option>
+                      </>
+                    )}
                   </select>
                   {/* destination note */}
                   <input

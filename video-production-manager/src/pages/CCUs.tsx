@@ -11,6 +11,7 @@ import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import type { CCU, Format } from '@/types';
 import { IOPortsPanel, type DevicePortDraft } from '@/components/IOPortsPanel';
+import { FormatFormModal } from '@/components/FormatFormModal';
 
 // Local form state type — tracks all fields the CCU modal collects
 interface CCUFormFields {
@@ -147,6 +148,7 @@ export default function CCUs() {
   // ── I/O panel state ──────────────────────────────────────────────────────
   const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
   const [formats, setFormats] = useState<Format[]>([]);
+  const [isCreateFormatOpen, setIsCreateFormatOpen] = useState(false);
   const [portsLoading, setPortsLoading] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -916,6 +918,7 @@ export default function CCUs() {
                     formats={formats}
                     isLoading={portsLoading}
                     emptyText={formData.model ? 'No spec ports found for this model.' : undefined}
+                    onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
                   />
                 </div>
               )}
@@ -984,6 +987,13 @@ export default function CCUs() {
             </form>
           </div>
         </div>
+
+        {/* Create custom format — modal over modal */}
+        <FormatFormModal
+          isOpen={isCreateFormatOpen}
+          onClose={() => setIsCreateFormatOpen(false)}
+          onSaved={(fmt) => { setFormats(prev => [...prev, fmt]); setIsCreateFormatOpen(false); }}
+        />
       )}
     </div>
   );

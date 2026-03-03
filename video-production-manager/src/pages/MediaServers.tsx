@@ -12,6 +12,7 @@ import type { MediaServer, MediaServerOutput, MediaServerLayer, Format } from '@
 import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
 import { IOPortsPanel } from '@/components/IOPortsPanel';
 import type { DevicePortDraft } from '@/components/IOPortsPanel';
+import { FormatFormModal } from '@/components/FormatFormModal';
 
 export default function MediaServers() {
   const { activeProject } = useProjectStore();
@@ -965,8 +966,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
   const [portsLoading, setPortsLoading] = useState(false);
   const [formats, setFormats] = useState<any[]>([]);
-
-  // Load formats once on open
+  const [isCreateFormatOpen, setIsCreateFormatOpen] = useState(false);
   useEffect(() => {
     if (!isOpen) return;
     apiClient.get('/formats')
@@ -1331,6 +1331,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
                     ? 'No ports saved for this server yet. Save first, then assign via equipment spec.'
                     : 'Ports can be configured after the server pair is saved.'
                 }
+                onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
               />
             </div>
 
@@ -1369,6 +1370,13 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
         </form>
       </div>
     </div>
+
+    {/* Create custom format — modal over modal */}
+    <FormatFormModal
+      isOpen={isCreateFormatOpen}
+      onClose={() => setIsCreateFormatOpen(false)}
+      onSaved={(fmt) => { setFormats((prev: any[]) => [...prev, fmt]); setIsCreateFormatOpen(false); }}
+    />
   );
 }
 

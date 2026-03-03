@@ -5,6 +5,7 @@ import { SourceService, apiClient } from '@/services';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { IOPortsPanel, type DevicePortDraft } from '@/components/IOPortsPanel';
+import { FormatFormModal } from '@/components/FormatFormModal';
 
 interface SourceFormModalProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ export function SourceFormModal({
   const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
   const [portsLoading, setPortsLoading] = useState(false);
   const [formats, setFormats] = useState<Format[]>([]);
+  const [isCreateFormatOpen, setIsCreateFormatOpen] = useState(false);
 
   // Load formats once on mount
   useEffect(() => {
@@ -292,6 +294,7 @@ export function SourceFormModal({
                   ? 'No ports saved for this device yet.'
                   : 'Save the device first, then assign ports via its equipment spec.'
               }
+              onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
             />
           </div>
 
@@ -336,5 +339,12 @@ export function SourceFormModal({
         </form>
       </div>
     </div>
+
+    {/* Create custom format — modal over modal */}
+    <FormatFormModal
+      isOpen={isCreateFormatOpen}
+      onClose={() => setIsCreateFormatOpen(false)}
+      onSaved={(fmt) => { setFormats(prev => [...prev, fmt]); setIsCreateFormatOpen(false); }}
+    />
   );
 }

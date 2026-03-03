@@ -1,57 +1,31 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Lock, MonitorPlay } from 'lucide-react';
-import { Card, Badge } from '@/components/ui';
+// ── Formats page — complete source, do not modify header comment ─────────────
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Plus, Trash2, Lock, MonitorPlay, Search } from 'lucide-react';
+import { Card } from '@/components/ui';
 import { apiClient } from '@/services/apiClient';
+import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import type { Format } from '@/types';
 import { deriveVideoStandard } from '@/types';
-
-// ── Blanking options ──────────────────────────────────────────────────────────
-const BLANKING_OPTIONS = ['NONE', 'RBv1', 'RBv2', 'RBv3'] as const;
-type BlankingOption = typeof BLANKING_OPTIONS[number];
-
-// ── Auto-suggest an id from specs ─────────────────────────────────────────────
-function suggestFormatId(
-  hRes: number,
-  vRes: number,
-  frameRate: number,
-  isInterlaced: boolean,
-): string {
-  const std = deriveVideoStandard(hRes, vRes);
-  const prefix =
-    std === '4K'   ? `${hRes}` :
-    std === 'UHD'  ? '4K' :
-    std === 'HD'   ? `${vRes}` :
-    `${vRes}`;
-  const suffix = frameRate.toString().replace('.', '');
-  const scan   = isInterlaced ? 'i' : 'p';
-  return `${prefix}${scan}${suffix}`;
-}
-
-// ── Blank form state ──────────────────────────────────────────────────────────
-const blankForm = () => ({
-  hRes:        1920,
-  vRes:        1080,
-  frameRate:   59.94,
-  isInterlaced:false,
-  blanking:    'NONE' as BlankingOption,
-  id:          '1080p5994',
-});
+import { FormatFormModal, displayRate } from '@/components/FormatFormModal';
 
 export default function Formats() {
-  const [formats, setFormats]       = useState<Format[]>([]);
-  const [isLoading, setIsLoading]   = useState(true);
-  const [showForm, setShowForm]     = useState(false);
-  const [formData, setFormData]     = useState(blankForm());
-  const [formError, setFormError]   = useState<string | null>(null);
-  const [isSaving, setIsSaving]     = useState(false);
+  const { userRole } = usePreferencesStore();
+  const isAdmin = userRole === 'admin';
+
+  const [formats, setFormats]             = useState<Format[]>([]);
+  const [isLoading, setIsLoading]         = useState(true);
+  const [search, setSearch]               = useState('');
+  const [isModalOpen, setIsModalOpen]     = useState(false);
+  const [editingFormat, setEditingFormat] = useState<Format | null>(null);
+  const [modalReadOnly, setModalReadOnly] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // ── Load formats ────────────────────────────────────────────────────────────
+  // ── Load formats ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await apiClient.get<Format[]>('/formats');
-      setFormats(data);
+      setFormats(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to load formats:', err);
     } finally {
@@ -61,48 +35,43 @@ export default function Formats() {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Auto-update id suggestion when specs change ──────────────────────────
-  const handleSpecChange = useCallback(
-    (updates: Partial<typeof formData>) => {
-      setFormData(prev => {
-        const next = { ...prev, ...updates };
-        next.id = suggestFormatId(next.hRes, next.vRes, next.frameRate, next.isInterlaced);
-        return next;
-      });
-    },
-    [],
-  );
+  // ── Filtered list ─────────────────────────────────────────────────────────
+  const filteredFormats = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return formats.filter(f => {
+      if (!q) return true;
+      const std      = deriveVideoStandard(f.hRes, f.vRes);
+      const rate     = displayRate(f.frameRate, f.isInterlaced);
+      const res      = `${f.hRes}x${f.vRes}`;
+      const blanking = f.blanking !== 'NONE' ? f.blanking.toLowerCase() : '';
+      return (
+        f.id.toLowerCase().includes(q) ||
+        res.includes(q) ||
+        rate.toLowerCase().includes(q) ||
+        std.toLowerCase().includes(q) ||
+        blanking.includes(q)
+      );
+    });
+  }, [formats, search]);
 
-  // ── Save custom format ──────────────────────────────────────────────────────
-  const handleSave = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    if (!formData.id.trim())  { setFormError('Format ID is required.'); return; }
-    if (!formData.hRes)       { setFormError('H Res is required.'); return; }
-    if (!formData.vRes)       { setFormError('V Res is required.'); return; }
-    if (!formData.frameRate)  { setFormError('Frame Rate is required.'); return; }
+  // ── Modal helpers ─────────────────────────────────────────────────────────
+  const openCreate = () => { setEditingFormat(null); setModalReadOnly(false); setIsModalOpen(true); };
+  const openEdit   = (fmt: Format) => {
+    setEditingFormat(fmt);
+    setModalReadOnly(fmt.isSystem && !isAdmin);
+    setIsModalOpen(true);
+  };
+  const closeModal = () => { setIsModalOpen(false); setEditingFormat(null); setModalReadOnly(false); };
 
-    setIsSaving(true);
-    try {
-      const created = await apiClient.post<Format>('/formats', {
-        id:          formData.id.trim(),
-        hRes:        formData.hRes,
-        vRes:        formData.vRes,
-        frameRate:   formData.frameRate,
-        isInterlaced:formData.isInterlaced,
-        blanking:    formData.blanking,
-      });
-      setFormats(prev => [...prev, created]);
-      setShowForm(false);
-      setFormData(blankForm());
-    } catch (err: any) {
-      setFormError(err.response?.data?.error || 'Failed to create format.');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [formData]);
+  const handleSaved = (saved: Format) => {
+    setFormats(prev => {
+      const idx = prev.findIndex(f => f.uuid === saved.uuid);
+      if (idx >= 0) { const next = [...prev]; next[idx] = saved; return next; }
+      return [...prev, saved];
+    });
+  };
 
-  // ── Delete custom format ────────────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = useCallback(async (uuid: string) => {
     try {
       await apiClient.delete(`/formats/${uuid}`);
@@ -114,254 +83,145 @@ export default function Formats() {
     }
   }, []);
 
-  // ── Derived groupings ───────────────────────────────────────────────────────
-  const systemFormats = formats.filter(f => f.isSystem);
-  const customFormats = formats.filter(f => !f.isSystem);
-
-  // ── Row renderer ──────────────────────────────────────────────────────────
-  const FormatRow = ({ f, deletable }: { f: Format; deletable: boolean }) => {
-    const std       = deriveVideoStandard(f.hRes, f.vRes);
-    const rateLabel = f.frameRate.toString();
-    const scan      = f.isInterlaced ? 'i' : 'p';
-
+  // ── Row ───────────────────────────────────────────────────────────────────
+  const FormatRow = ({ f }: { f: Format }) => {
+    const std      = deriveVideoStandard(f.hRes, f.vRes);
+    const stdColor =
+      std === '4K' || std === 'UHD' ? 'text-av-warning' :
+      std === 'HD'                  ? 'text-av-accent'  :
+                                      'text-av-text-muted';
     return (
-      <tr className="hover:bg-av-surface-hover/40 border-b border-av-border/30">
+      <tr
+        className="hover:bg-av-surface-hover/40 border-b border-av-border/30 cursor-pointer select-none"
+        onDoubleClick={() => openEdit(f)}
+        title={
+          f.isSystem
+            ? (isAdmin ? 'Double-click to edit (admin)' : 'Double-click to view (system preset)')
+            : 'Double-click to edit'
+        }
+      >
         <td className="py-2 pr-4 font-mono text-sm text-av-text">{f.id}</td>
-        <td className="py-2 pr-4">
-          <Badge variant={std === '4K' || std === 'UHD' ? 'warning' : 'default'}>{std}</Badge>
-        </td>
         <td className="py-2 pr-4 text-sm text-av-text tabular-nums">
           {f.hRes.toLocaleString()} × {f.vRes.toLocaleString()}
         </td>
         <td className="py-2 pr-4 text-sm text-av-text tabular-nums">
-          {scan}{rateLabel}
+          {displayRate(f.frameRate, f.isInterlaced)}
         </td>
         <td className="py-2 pr-4 text-sm text-av-text-muted">
           {f.blanking !== 'NONE' ? f.blanking : '—'}
         </td>
-        <td className="py-2 pr-4">
-          {f.isSystem
-            ? <span className="inline-flex items-center gap-1 text-[10px] text-av-text-muted"><Lock className="w-3 h-3" />System</span>
-            : <span className="text-[10px] text-av-info">Custom</span>
-          }
-        </td>
+        <td className={`py-2 pr-4 text-sm font-medium ${stdColor}`}>{std}</td>
         <td className="py-2 text-right">
-          {deletable && (
-            deleteConfirm === f.uuid ? (
-              <span className="inline-flex items-center gap-2">
-                <span className="text-xs text-av-danger">Delete?</span>
-                <button
-                  onClick={() => handleDelete(f.uuid)}
-                  className="text-xs text-av-danger font-semibold hover:underline"
-                >Yes</button>
-                <button
-                  onClick={() => setDeleteConfirm(null)}
-                  className="text-xs text-av-text-muted hover:underline"
-                >No</button>
-              </span>
-            ) : (
-              <button
-                onClick={() => setDeleteConfirm(f.uuid)}
-                className="p-1 rounded hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
-                title="Delete custom format"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )
+          {f.isSystem ? (
+            <span className="inline-flex items-center gap-1 text-[10px] text-av-text-muted">
+              <Lock className="w-3 h-3" />
+              {isAdmin ? 'Admin' : 'System'}
+            </span>
+          ) : deleteConfirm === f.uuid ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="text-xs text-av-danger">Delete?</span>
+              <button onClick={e => { e.stopPropagation(); handleDelete(f.uuid); }} className="text-xs text-av-danger font-semibold hover:underline">Yes</button>
+              <button onClick={e => { e.stopPropagation(); setDeleteConfirm(null); }} className="text-xs text-av-text-muted hover:underline">No</button>
+            </span>
+          ) : (
+            <button
+              onClick={e => { e.stopPropagation(); setDeleteConfirm(f.uuid); }}
+              className="p-1 rounded hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+              title="Delete custom format"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           )}
         </td>
       </tr>
     );
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const totalCustom = formats.filter(f => !f.isSystem).length;
+
   return (
     <div className="p-6 space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-av-text flex items-center gap-2">
             <MonitorPlay className="w-6 h-6 text-av-accent" />
             Formats
           </h1>
           <p className="text-sm text-av-text-muted mt-1">
-            Video format presets used across I/O ports. System presets are read-only.
+            Video format presets used across I/O ports. System presets are{' '}
+            {isAdmin ? <strong>editable (admin)</strong> : 'read-only'}.
           </p>
         </div>
-        <button
-          onClick={() => { setShowForm(s => !s); setFormError(null); }}
-          className="btn-primary flex items-center gap-2"
-        >
+        <button onClick={openCreate} className="btn-primary flex items-center gap-2 flex-shrink-0">
           <Plus className="w-4 h-4" />
           Add Custom Format
         </button>
       </div>
 
-      {/* Add Custom Format form */}
-      {showForm && (
-        <Card className="p-5">
-          <h2 className="text-sm font-semibold text-av-text mb-4">New Custom Format</h2>
-          <form onSubmit={handleSave} className="space-y-4">
-            {formError && (
-              <div className="bg-av-danger/10 border border-av-danger rounded-md p-3">
-                <p className="text-sm text-av-danger">{formError}</p>
-              </div>
-            )}
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-av-text-muted pointer-events-none" />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search formats…"
+          className="input-field pl-9 w-full"
+        />
+      </div>
 
-            {/* Resolution row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-av-text-muted mb-1">H Res *</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={formData.hRes}
-                  onChange={e => handleSpecChange({ hRes: parseInt(e.target.value) || 0 })}
-                  className="input-field w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-av-text-muted mb-1">V Res *</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={formData.vRes}
-                  onChange={e => handleSpecChange({ vRes: parseInt(e.target.value) || 0 })}
-                  className="input-field w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-av-text-muted mb-1">Frame Rate *</label>
-                <select
-                  value={formData.frameRate}
-                  onChange={e => handleSpecChange({ frameRate: parseFloat(e.target.value) })}
-                  className="input-field w-full"
-                >
-                  {[23.976, 24, 25, 29.97, 30, 50, 59.94, 60, 120].map(r => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-av-text-muted mb-1">Blanking</label>
-                <select
-                  value={formData.blanking}
-                  onChange={e => setFormData(prev => ({ ...prev, blanking: e.target.value as BlankingOption }))}
-                  className="input-field w-full"
-                >
-                  {BLANKING_OPTIONS.map(b => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Interlaced + ID row */}
-            <div className="grid grid-cols-2 gap-4 items-end">
-              <div className="flex items-center gap-3 pt-2">
-                <input
-                  type="checkbox"
-                  id="isInterlaced"
-                  checked={formData.isInterlaced}
-                  onChange={e => handleSpecChange({ isInterlaced: e.target.checked })}
-                  className="w-4 h-4 rounded"
-                />
-                <label htmlFor="isInterlaced" className="text-sm text-av-text select-none">
-                  Interlaced scan
-                </label>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-av-text-muted mb-1">
-                  Format ID <span className="font-normal">(auto-suggested, editable)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.id}
-                  onChange={e => setFormData(prev => ({ ...prev, id: e.target.value }))}
-                  placeholder="e.g. 1080p5994"
-                  className="input-field w-full font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 justify-end pt-1">
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setFormError(null); setFormData(blankForm()); }}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-              <button type="submit" disabled={isSaving} className="btn-primary">
-                {isSaving ? 'Saving…' : 'Save Format'}
-              </button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {/* Custom formats */}
-      {customFormats.length > 0 && (
-        <Card className="p-5">
-          <h2 className="text-sm font-semibold text-av-text mb-3">
-            Custom Formats
-            <span className="ml-2 text-av-text-muted font-normal">({customFormats.length})</span>
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wide text-av-text-muted border-b border-av-border">
-                  <th className="text-left pb-2 pr-4 font-semibold">ID</th>
-                  <th className="text-left pb-2 pr-4 font-semibold">Standard</th>
-                  <th className="text-left pb-2 pr-4 font-semibold">Resolution</th>
-                  <th className="text-left pb-2 pr-4 font-semibold">Scan / Rate</th>
-                  <th className="text-left pb-2 pr-4 font-semibold">Blanking</th>
-                  <th className="text-left pb-2 pr-4 font-semibold">Type</th>
-                  <th className="pb-2 w-8"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {customFormats.map(f => (
-                  <FormatRow key={f.uuid} f={f} deletable />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* System formats */}
+      {/* Unified table */}
       <Card className="p-5">
-        <h2 className="text-sm font-semibold text-av-text mb-3">
-          System Presets
-          <span className="ml-2 text-av-text-muted font-normal">({systemFormats.length} formats • read-only)</span>
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-av-text">
+            All Formats
+            <span className="ml-2 text-av-text-muted font-normal">
+              ({filteredFormats.length} shown{search ? ` of ${formats.length}` : ''}
+              {totalCustom > 0 ? ` · ${totalCustom} custom` : ''})
+            </span>
+          </h2>
+          <p className="text-[10px] text-av-text-muted italic">Double-click a row to view or edit</p>
+        </div>
+
         {isLoading ? (
-          <p className="text-sm text-av-text-muted italic">Loading…</p>
+          <p className="text-sm text-av-text-muted italic py-4">Loading…</p>
+        ) : filteredFormats.length === 0 ? (
+          <p className="text-sm text-av-text-muted italic py-4">
+            {search ? 'No formats match your search.' : 'No formats found.'}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wide text-av-text-muted border-b border-av-border">
-                  <th className="text-left pb-2 pr-4 font-semibold">ID</th>
-                  <th className="text-left pb-2 pr-4 font-semibold">Standard</th>
+                  <th className="text-left pb-2 pr-4 font-semibold">Format</th>
                   <th className="text-left pb-2 pr-4 font-semibold">Resolution</th>
-                  <th className="text-left pb-2 pr-4 font-semibold">Scan / Rate</th>
+                  <th className="text-left pb-2 pr-4 font-semibold">Rate</th>
                   <th className="text-left pb-2 pr-4 font-semibold">Blanking</th>
-                  <th className="text-left pb-2 pr-4 font-semibold">Type</th>
-                  <th className="pb-2 w-8"></th>
+                  <th className="text-left pb-2 pr-4 font-semibold">Standard</th>
+                  <th className="pb-2 w-20"></th>
                 </tr>
               </thead>
               <tbody>
-                {systemFormats.map(f => (
-                  <FormatRow key={f.uuid} f={f} deletable={false} />
+                {filteredFormats.map(f => (
+                  <FormatRow key={f.uuid} f={f} />
                 ))}
               </tbody>
             </table>
           </div>
         )}
       </Card>
+
+      {/* Format modal */}
+      <FormatFormModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onSaved={handleSaved}
+        editingFormat={editingFormat}
+        readOnly={modalReadOnly}
+      />
     </div>
   );
 }
