@@ -15,6 +15,7 @@
 
 import React from 'react';
 import type { Format } from '@/types';
+import { displayFormatId } from '@/components/FormatFormModal';
 
 // ── DevicePortDraft ──────────────────────────────────────────────────────────
 // Draft shape that the modal works with before saving to device_ports table.
@@ -124,7 +125,7 @@ export function IOPortsPanel({
                   >
                     <option value="">— format —</option>
                     {formats.map(f => (
-                      <option key={f.uuid} value={f.uuid}>{f.id}</option>
+                      <option key={f.uuid} value={f.uuid}>{displayFormatId(f.id)}</option>
                     ))}
                     {onCreateCustomFormat && (
                       <>
@@ -198,7 +199,7 @@ export function IOPortsPanel({
                   >
                     <option value="">— format —</option>
                     {formats.map(f => (
-                      <option key={f.uuid} value={f.uuid}>{f.id}</option>
+                      <option key={f.uuid} value={f.uuid}>{displayFormatId(f.id)}</option>
                     ))}
                     {onCreateCustomFormat && (
                       <>

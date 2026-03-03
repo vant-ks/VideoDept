@@ -11,7 +11,7 @@ import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import type { CCU, Format } from '@/types';
 import { IOPortsPanel, type DevicePortDraft } from '@/components/IOPortsPanel';
-import { FormatFormModal } from '@/components/FormatFormModal';
+import { FormatFormModal, displayFormatId } from '@/components/FormatFormModal';
 
 // Local form state type — tracks all fields the CCU modal collects
 interface CCUFormFields {
@@ -800,7 +800,7 @@ export default function CCUs() {
                             .filter(p => p.direction === 'OUTPUT')
                             .map((port, i) => {
                               const fmtName = port.formatUuid
-                                ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
+                                ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid!)
                                 : '—';
                               return (
                                 <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
