@@ -1,6 +1,314 @@
 # Development Log - Video Production Manager
 
-## March 1, 2026 (Session 3) - Monitors + Equipment port sync complete
+---
+
+## March 3, 2026 (Session 2) — Formats page overhaul (modal, search, scan rates, columns, double-click edit)
+
+### Branch: `v0.1.4_signal-flow`
+### Commits: `06956f8`
+
+### Overview
+All 7 quality-of-life improvements to the Formats system requested this session:
+modal-based create/edit, search, canonical scan-rate registry, column rename,
+unified table, double-click-to-edit, and admin-gated system format editing.
+
+---
+
+### 1. New `FormatFormModal` component (`src/components/FormatFormModal.tsx`)
+
+Extracted the "add custom format" inline card form into a standalone reusable modal
+so it can be triggered from both the Formats page and any `IOPortsPanel` dropdown.
+
+**Key exports:**
+- `FormatFormModal` — the modal itself. Props: `isOpen`, `onClose`, `onSaved`, `editingFormat?`, `readOnly?`
+- `SCAN_RATES` — canonical registry of all supported frame rates:
+
+  | value  | label  | idSuffix |
+  |--------|--------|----------|
+  | 23.976 | 23.98  | 2398     |
+  | 24     | 24     | 24       |
+  | 29.97  | 29.97  | 29       |
+  | 30     | 30     | 30       |
+  | 48     | 48     | 48       |
+  | 59.94  | 59.94  | 59       |
+  | 60     | 60     | 60       |
+  | 120    | 120    | 120      |
+  | 240    | 240    | 240      |
+
+- `displayRate(frameRate, isInterlaced)` — returns just the numeric label; appends
+  `i` suffix only for interlaced (e.g. `29.97i`). No `p` suffix ever — progressive
+  is the assumed default.
+
+- `suggestFormatId(hRes, vRes, frameRate, isInterlaced)` — builds the auto-suggested
+  format ID string using short suffixes (29.97 → `29`, 59.94 → `59`, 23.976 → `2398`).
+  Examples: `1080p59`, `1080i29`, `4Kp24`, `720p30`.
+
+**Modal behaviour:**
+- **Create mode** (`editingFormat` is null/undefined): Format ID auto-suggested
+  as specs change, but user can override. ID is editable in create mode, immutable
+  in edit mode (it's the unique key).
+- **Edit mode** (`editingFormat` set): Pre-populates all fields; sends `PUT /formats/:uuid`.
+  ID field is disabled — can't rename a format after creation.
+- **Read-only mode** (`readOnly=true`): All fields disabled; "Close" button only;
+  shown for system formats opened by non-admin users.
+
+---
+
+### 2. Formats.tsx — complete rewrite
+
+**Before:** Inline expand/collapse card form for new custom formats. Two separate
+tables (System Presets section + Custom Formats section). Columns: ID | Standard |
+Resolution | Scan/Rate | Blanking | Type. No search. No double-click. No edit.
+
+**After:**
+
+- **"Add Custom Format" button** opens `FormatFormModal` in create mode — clean,
+  no inline DOM toggle.
+
+- **Search bar** (`/Search` icon, `max-w-sm`) at top of page. Filters by:
+  - Format ID (e.g. `1080p59`)
+  - Resolution string (e.g. `1920x1080`)
+  - Rate label (e.g. `29.97`, `59`)
+  - Standard name (HD, UHD, 4K, SD)
+  - Blanking value (RBv1, RBv2, etc.)
+  Case-insensitive, updates live.
+
+- **Single unified table** — system and custom rows together in the same table.
+  The API already returns `is_system` DESC then v_res DESC so system presets rise
+  to the top naturally.
+
+- **Column order**: **Format | Resolution | Rate | Blanking | Standard** + actions
+  (was: ID | Standard | Resolution | Scan/Rate | Blanking | Type)
+
+- **Rate column** uses `displayRate()` — `59.94`, `29.97i`, `23.98`, etc.
+  No "p" suffix on progressive formats.
+
+- **Standard column** — coloured text (HD → `av-accent`, UHD/4K → `av-warning`,
+  SD → muted) instead of a `<Badge>` component.
+
+- **"Type" column removed** from UI entirely. `isSystem` is still stored in DB
+  and drives the lock/edit gating logic, but is never shown to the user.
+
+- **Double-click to edit**: every row has `onDoubleClick → openEdit(fmt)`.
+  - Custom format → opens edit modal (all fields editable except ID)
+  - System format + non-admin → opens read-only view modal
+  - System format + admin (`userRole === 'admin'`) → opens fully editable modal
+    (calls `PUT /formats/:uuid`, which the API permits for admins)
+
+- **Delete** behaviour unchanged: custom formats only; confirm inline.
+
+**State summary:**
+```typescript
+const isAdmin = userRole === 'admin';
+const [formats, setFormats]             = useState<Format[]>([]);
+const [search, setSearch]               = useState('');
+const [isModalOpen, setIsModalOpen]     = useState(false);
+const [editingFormat, setEditingFormat] = useState<Format | null>(null);
+const [modalReadOnly, setModalReadOnly] = useState(false);
+const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+```
+
+---
+
+### 3. IOPortsPanel — `onCreateCustomFormat` prop
+
+Added optional `onCreateCustomFormat?: () => void` prop to `IOPortsPanelProps`.
+
+When supplied, both the INPUT and OUTPUT format `<select>` dropdowns gain a
+separator `<option disabled>` followed by `<option value="__create__">+ Create custom format…</option>` at the bottom of the list.
+
+Selecting `__create__` calls `onCreateCustomFormat()` and does **not** change
+`port.formatUuid` — the current selection is preserved while the user creates
+the new format in the overlay modal.
+
+---
+
+### 4. Modal-over-modal wiring (IOPortsPanel → FormatFormModal)
+
+Three components that host IOPortsPanel now support "Create custom format…" directly
+without leaving the current modal:
+
+| Component | File |
+|-----------|------|
+| `SourceFormModal` | `src/components/SourceFormModal.tsx` |
+| CCU edit modal | `src/pages/CCUs.tsx` |
+| `ServerPairModal` | `src/pages/MediaServers.tsx` |
+
+**Pattern applied to each:**
+```tsx
+import { FormatFormModal } from '@/components/FormatFormModal';
+// ...
+const [isCreateFormatOpen, setIsCreateFormatOpen] = useState(false);
+// ...
+<IOPortsPanel
+  ...
+  onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+/>
+// At the end of the parent modal:
+<FormatFormModal
+  isOpen={isCreateFormatOpen}
+  onClose={() => setIsCreateFormatOpen(false)}
+  onSaved={(fmt) => { setFormats(prev => [...prev, fmt]); setIsCreateFormatOpen(false); }}
+/>
+```
+`onSaved` immediately appends the new format to the local `formats` array so it
+appears in the dropdown without a page reload or refetch.
+
+---
+
+### Files Changed
+- `src/components/FormatFormModal.tsx` *(new)*
+- `src/pages/Formats.tsx` *(complete rewrite)*
+- `src/components/IOPortsPanel.tsx` *(new prop)*
+- `src/components/SourceFormModal.tsx` *(FormatFormModal wired)*
+- `src/pages/CCUs.tsx` *(FormatFormModal wired)*
+- `src/pages/MediaServers.tsx` *(FormatFormModal wired in ServerPairModal)*
+
+---
+
+## March 3, 2026 (Session 1) — Signal-flow: device_ports sync fixes, backfill scripts, reveal views
+
+### Branch: `v0.1.4_signal-flow`
+### Commits: `9ace8f3` (sync fixes + backfill scripts + reveal views)
+
+### Overview
+Completed the `device_ports` signal-flow layer across Computers and Media Servers:
+fixed a broken sync payload, created idempotent backfill scripts to migrate legacy
+data, and added expand-toggle reveal panels on Computer cards and Media Server
+pair cards — matching the CCU card reveal pattern from the previous session.
+
+---
+
+### Bug Fix — Sync calls missing `productionId` (Computers + MediaServers)
+
+**Symptom:** Saving a Computer or Media Server with ports configured would silently
+do nothing — no ports were stored. No visible error in the UI.
+
+**Root Cause:** The sync endpoint `POST /api/device-ports/device/:uuid/sync` requires
+the body `{ productionId, deviceDisplayId?, ports[] }`. The frontend calls in
+`Computers.tsx` and `MediaServers.tsx` were only sending `{ ports: devicePorts }`,
+missing the required `productionId` field. The API returned `400 Bad Request`
+("productionId and ports[] are required") which was caught and logged as non-fatal
+(`console.warn`), so the user never saw it.
+
+**Fix — Computers.tsx (`handleSave`):**
+```typescript
+await apiClient.post(`/device-ports/device/${savedUuid}/sync`, {
+  productionId,
+  deviceDisplayId: source.id,
+  ports: devicePorts,
+});
+```
+
+**Fix — MediaServers.tsx (`ServerPairModal`):**
+- Added `productionId?: string` to `ServerPairModalProps` interface
+- Destructured in function signature
+- Updated sync call:
+```typescript
+if (mainUuid && devicePorts.length > 0 && productionId) {
+  apiClient.post(`/device-ports/device/${mainUuid}/sync`, {
+    productionId,
+    deviceDisplayId: editingServer?.id,
+    ports: devicePorts,
+  });
+}
+```
+- Passed `productionId={productionId}` at `<ServerPairModal>` render site in
+  the parent.
+
+---
+
+### Backfill Scripts (two new files in `api/scripts/`)
+
+Both scripts are idempotent — safe to re-run; skip any device that already has
+`device_ports` rows.
+
+#### `backfill-computer-ports.ts`
+Migrates existing `source_outputs` rows → `device_ports` for all Computers.
+
+Logic per computer:
+1. Find all non-deleted sources with `category = 'COMPUTER'` that have
+   `source_outputs` rows but zero `device_ports` rows.
+2. For each `source_output`, create one `device_ports` row:
+   - `direction = 'OUTPUT'`
+   - `io_type = source_output.connector`
+   - `port_label = source_output.connector`
+   - `id = "{computer.id}_out_{n}"`
+
+Run: `npx tsx api/scripts/backfill-computer-ports.ts`
+
+#### `backfill-media-server-ports.ts`
+Migrates `outputs_data` JSON field → `device_ports` for all Media Servers (main servers only).
+
+Logic per server:
+1. Find all non-deleted media servers with `is_backup = false` that have
+   non-empty `outputs_data` JSON but zero `device_ports` rows.
+2. For each entry in `outputs_data`, create one `device_ports` row:
+   - `direction = 'OUTPUT'`
+   - `io_type = output.type` (e.g. `'DP'`, `'SDI'`)
+   - `port_label = output.name`
+   - `note = output.role`
+   - `id = "{server.id}_out_{n}"`
+
+Run: `npx tsx api/scripts/backfill-media-server-ports.ts`
+
+---
+
+### Reveal Views — Computer cards
+
+Added an expand-toggle button and port reveal panel to each Computer card in
+`src/pages/Computers.tsx`, replicating the CCU card reveal pattern exactly.
+
+**State added:**
+```typescript
+const [expandedSources, setExpandedSources]         = useState<Set<string>>(new Set());
+const [cardPorts, setCardPorts]                     = useState<Record<string, DevicePortDraft[]>>({});
+const [cardPortsLoading, setCardPortsLoading]       = useState<Set<string>>(new Set());
+const [formats, setFormats]                         = useState<Format[]>([]);
+```
+
+**`toggleReveal(uuid)` callback:** Sets the expand set, then lazy-fetches
+`GET /device-ports/device/:uuid` on first expand only. Maps API response to
+`DevicePortDraft[]` and caches in `cardPorts[uuid]`. Error path stores `[]`
+to prevent re-fetching on subsequent expands.
+
+**UI changes per card:**
+- ChevronDown/Up button added to the BUTTONS column (before Duplicate/Delete)
+- Reveal panel appended at the bottom of each Card, inside the card boundary
+- Panel shows: loading state → empty message → port table
+- Port table columns: **Dir** (IN/OUT badge) | **Type** (mono) | **Label** | **Format** | **Route / Note**
+- Inputs sorted before outputs; format resolved as `formats.find(f => f.uuid === port.formatUuid)?.id`
+
+---
+
+### Reveal Views — Media Server pair cards
+
+Same pattern applied to `src/pages/MediaServers.tsx`. Ports are fetched for
+`pair.main.uuid` only (backup server mirrors main).
+
+**State added (inside `ServerPairModal` is NOT where this lives — it's in the
+`MediaServers` component itself):**
+```typescript
+const [expandedPairs, setExpandedPairs]             = useState<Set<string>>(new Set());
+const [pairCardPorts, setPairCardPorts]             = useState<Record<string, DevicePortDraft[]>>({});
+const [pairCardPortsLoading, setPairCardPortsLoading] = useState<Set<string>>(new Set());
+const [formats, setFormats]                         = useState<Format[]>([]);
+```
+
+Reveal toggle button placed in the pair header action row (after Delete).
+Reveal panel placed after the note block, before `</Card>`.
+
+---
+
+### Files Changed
+- `src/pages/Computers.tsx` — sync payload fix + reveal view
+- `src/pages/MediaServers.tsx` — sync payload fix + reveal view + formats state
+- `api/scripts/backfill-computer-ports.ts` *(new)*
+- `api/scripts/backfill-media-server-ports.ts` *(new)*
+
+---
+
+
 
 ### Branch: `v0.1.1_sends-monitors` → merged to `main`
 ### Commits: `8bbaf9c`, `cb4e4ec`, `4a091a9`
