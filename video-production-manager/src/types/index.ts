@@ -270,6 +270,7 @@ export interface CCU extends BaseEntity {
   ioMode: 'direct'; // CCUs use direct I/O
   outputs: Output[]; // Max 8 direct outputs
   smpteCableLength?: number; // In feet
+  note?: string;
 }
 
 export interface CameraLens {
