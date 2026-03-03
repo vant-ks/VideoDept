@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Copy, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -7,7 +7,7 @@ import { useSourcesAPI } from '@/hooks/useSourcesAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { SourceFormModal } from '@/components/SourceFormModal';
 import { SourceService, apiClient } from '@/services';
-import type { Source } from '@/types';
+import type { Source, Format } from '@/types';
 import type { DevicePortDraft } from '@/components/IOPortsPanel';
 
 export const Computers: React.FC = () => {
@@ -75,6 +75,50 @@ export const Computers: React.FC = () => {
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [selectedType, setSelectedType] = useState<string>('all');
 
+  // ── Reveal panel state ─────────────────────────────────────────────────
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+  const [cardPorts, setCardPorts] = useState<Record<string, DevicePortDraft[]>>({});
+  const [cardPortsLoading, setCardPortsLoading] = useState<Set<string>>(new Set());
+  const [formats, setFormats] = useState<Format[]>([]);
+
+  useEffect(() => {
+    apiClient.get('/formats')
+      .then((res: any) => { if (Array.isArray(res.data)) setFormats(res.data); })
+      .catch(() => {});
+  }, []);
+
+  const toggleReveal = useCallback(async (uuid: string) => {
+    setExpandedSources(prev => {
+      const next = new Set(prev);
+      if (next.has(uuid)) { next.delete(uuid); } else { next.add(uuid); }
+      return next;
+    });
+    if (!cardPorts[uuid]) {
+      setCardPortsLoading(prev => new Set(prev).add(uuid));
+      try {
+        const ports = await apiClient.get<any[]>(`/device-ports/device/${uuid}`);
+        setCardPorts(prev => ({
+          ...prev,
+          [uuid]: Array.isArray(ports)
+            ? ports.map((p: any) => ({
+                uuid:         p.uuid,
+                specPortUuid: p.specPortUuid,
+                portLabel:    p.portLabel,
+                ioType:       p.ioType,
+                direction:    p.direction as 'INPUT' | 'OUTPUT',
+                formatUuid:   p.formatUuid ?? null,
+                note:         p.note ?? null,
+              }))
+            : [],
+        }));
+      } catch {
+        setCardPorts(prev => ({ ...prev, [uuid]: [] }));
+      } finally {
+        setCardPortsLoading(prev => { const s = new Set(prev); s.delete(uuid); return s; });
+      }
+    }
+  }, [cardPorts]);
+
   const sourceTypes = React.useMemo(() => {
     const types = new Set(sources.map(s => s.type));
     return ['all', ...Array.from(types)];
@@ -135,7 +179,11 @@ export const Computers: React.FC = () => {
       // Sync device_ports if we have a uuid and ports to save
       if (savedUuid && devicePorts.length > 0) {
         try {
-          await apiClient.post(`/device-ports/device/${savedUuid}/sync`, { ports: devicePorts });
+          await apiClient.post(`/device-ports/device/${savedUuid}/sync`, {
+            productionId,
+            deviceDisplayId: source.id,
+            ports: devicePorts,
+          });
         } catch (portErr) {
           console.warn('device_ports sync failed (non-fatal):', portErr);
         }
@@ -282,6 +330,10 @@ export const Computers: React.FC = () => {
         <div className="space-y-3">
           {filteredSources.map((source) => {
             const isDuplicate = hasDuplicateId(source);
+            const sourceUuid = source.uuid;
+            const isExpanded = sourceUuid ? expandedSources.has(sourceUuid) : false;
+            const isLoadingPorts = sourceUuid ? cardPortsLoading.has(sourceUuid) : false;
+            const revealPorts = sourceUuid ? (cardPorts[sourceUuid] ?? []) : [];
             return (
               <Card 
                 key={source.uuid} 
@@ -347,6 +399,15 @@ export const Computers: React.FC = () => {
                   
                   {/* BUTTONS (10%) */}
                   <div className="flex gap-2 justify-end items-center">
+                    {sourceUuid && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleReveal(sourceUuid); }}
+                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors flex-shrink-0"
+                        title={isExpanded ? 'Hide I/O ports' : 'Show I/O ports'}
+                      >
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -369,6 +430,66 @@ export const Computers: React.FC = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* ── Reveal Panel ───────────────────────────────────────────────── */}
+                {isExpanded && (
+                  <div className="mt-4 border-t border-av-border pt-4">
+                    {isLoadingPorts ? (
+                      <p className="text-xs text-av-text-muted italic">Loading ports…</p>
+                    ) : revealPorts.length === 0 ? (
+                      <p className="text-xs text-av-text-muted italic">
+                        No ports configured. Open Edit to assign ports.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-16">Dir</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
+                              <th className="text-left pb-1.5 font-semibold">Route / Note</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-av-border/40">
+                            {revealPorts
+                              .filter(p => p.direction === 'INPUT')
+                              .map((port, i) => (
+                                <tr key={`in-${i}`} className="hover:bg-av-surface-hover/40">
+                                  <td className="py-1.5 pr-3">
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                  </td>
+                                  <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
+                                  <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
+                                  <td className="py-1.5 pr-3 text-av-text-muted">—</td>
+                                  <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                                </tr>
+                              ))}
+                            {revealPorts
+                              .filter(p => p.direction === 'OUTPUT')
+                              .map((port, i) => {
+                                const fmtName = port.formatUuid
+                                  ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
+                                  : '—';
+                                return (
+                                  <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
+                                    <td className="py-1.5 pr-3">
+                                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                    </td>
+                                    <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
+                                    <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
+                                    <td className="py-1.5 pr-3 text-av-info">{fmtName}</td>
+                                    <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             );
           })}

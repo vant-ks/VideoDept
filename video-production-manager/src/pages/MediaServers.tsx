@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useCallback, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy, GripVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
@@ -8,7 +8,7 @@ import { useProjectStore } from '@/hooks/useProjectStore';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
-import type { MediaServer, MediaServerOutput, MediaServerLayer } from '@/types';
+import type { MediaServer, MediaServerOutput, MediaServerLayer, Format } from '@/types';
 import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
 import { IOPortsPanel } from '@/components/IOPortsPanel';
 import type { DevicePortDraft } from '@/components/IOPortsPanel';
@@ -34,8 +34,50 @@ export default function MediaServers() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isDragInProgress, setIsDragInProgress] = useState(false);
-  
-  // Real-time event subscriptions
+
+  // ── Reveal panel state ─────────────────────────────────────────────────
+  const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
+  const [pairCardPorts, setPairCardPorts] = useState<Record<string, DevicePortDraft[]>>({});
+  const [pairCardPortsLoading, setPairCardPortsLoading] = useState<Set<string>>(new Set());
+  const [formats, setFormats] = useState<Format[]>([]);
+
+  useEffect(() => {
+    apiClient.get('/formats')
+      .then((res: any) => { if (Array.isArray(res.data)) setFormats(res.data); })
+      .catch(() => {});
+  }, []);
+
+  const togglePairReveal = useCallback(async (uuid: string) => {
+    setExpandedPairs(prev => {
+      const next = new Set(prev);
+      if (next.has(uuid)) { next.delete(uuid); } else { next.add(uuid); }
+      return next;
+    });
+    if (!pairCardPorts[uuid]) {
+      setPairCardPortsLoading(prev => new Set(prev).add(uuid));
+      try {
+        const ports = await apiClient.get<any[]>(`/device-ports/device/${uuid}`);
+        setPairCardPorts(prev => ({
+          ...prev,
+          [uuid]: Array.isArray(ports)
+            ? ports.map((p: any) => ({
+                uuid:         p.uuid,
+                specPortUuid: p.specPortUuid,
+                portLabel:    p.portLabel,
+                ioType:       p.ioType,
+                direction:    p.direction as 'INPUT' | 'OUTPUT',
+                formatUuid:   p.formatUuid ?? null,
+                note:         p.note ?? null,
+              }))
+            : [],
+        }));
+      } catch {
+        setPairCardPorts(prev => ({ ...prev, [uuid]: [] }));
+      } finally {
+        setPairCardPortsLoading(prev => { const s = new Set(prev); s.delete(uuid); return s; });
+      }
+    }
+  }, [pairCardPorts]);
   useProductionEvents({
     productionId,
     onEntityCreated: useCallback((event) => {
@@ -356,7 +398,12 @@ export default function MediaServers() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {serverPairs.map((pair, index) => (
+              {serverPairs.map((pair, index) => {
+                const mainUuid = (pair.main as any).uuid as string | undefined;
+                const isExpanded = mainUuid ? expandedPairs.has(mainUuid) : false;
+                const isLoadingPorts = mainUuid ? pairCardPortsLoading.has(mainUuid) : false;
+                const revealPorts = mainUuid ? (pairCardPorts[mainUuid] ?? []) : [];
+                return (
                 <Card 
                   key={pair.main.pairNumber} 
                   className={`p-6 transition-all ${
@@ -421,6 +468,15 @@ export default function MediaServers() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                      {mainUuid && (
+                        <button
+                          onClick={() => togglePairReveal(mainUuid)}
+                          className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                          title={isExpanded ? 'Hide I/O ports' : 'Show I/O ports'}
+                        >
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -486,8 +542,69 @@ export default function MediaServers() {
                       </p>
                     </div>
                   )}
+
+                  {/* ── Reveal Panel ───────────────────────────────────────────────── */}
+                  {isExpanded && (
+                    <div className="mt-4 border-t border-av-border pt-4">
+                      {isLoadingPorts ? (
+                        <p className="text-xs text-av-text-muted italic">Loading ports…</p>
+                      ) : revealPorts.length === 0 ? (
+                        <p className="text-xs text-av-text-muted italic">
+                          No ports configured. Open Edit to assign ports.
+                        </p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                                <th className="text-left pb-1.5 pr-3 font-semibold w-16">Dir</th>
+                                <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
+                                <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
+                                <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
+                                <th className="text-left pb-1.5 font-semibold">Route / Note</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-av-border/40">
+                              {revealPorts
+                                .filter(p => p.direction === 'INPUT')
+                                .map((port, i) => (
+                                  <tr key={`in-${i}`} className="hover:bg-av-surface-hover/40">
+                                    <td className="py-1.5 pr-3">
+                                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                    </td>
+                                    <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
+                                    <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
+                                    <td className="py-1.5 pr-3 text-av-text-muted">—</td>
+                                    <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                                  </tr>
+                                ))}
+                              {revealPorts
+                                .filter(p => p.direction === 'OUTPUT')
+                                .map((port, i) => {
+                                  const fmtName = port.formatUuid
+                                    ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
+                                    : '—';
+                                  return (
+                                    <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
+                                      <td className="py-1.5 pr-3">
+                                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                      </td>
+                                      <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
+                                      <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
+                                      <td className="py-1.5 pr-3 text-av-info">{fmtName}</td>
+                                      <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                                    </tr>
+                                  );
+                                })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -698,6 +815,7 @@ export default function MediaServers() {
         <ServerPairModal
           isOpen={isServerModalOpen}
           nextPairNumber={serverPairs.length + 1}
+          productionId={productionId}
           onClose={() => {
             setIsServerModalOpen(false);
             setEditingServer(null);
@@ -803,9 +921,10 @@ interface ServerPairModalProps {
   editingServer: MediaServer | null;
   isDuplicating?: boolean;
   nextPairNumber?: number;
+  productionId?: string;
 }
 
-function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingServer, isDuplicating, nextPairNumber }: ServerPairModalProps) {
+function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingServer, isDuplicating, nextPairNumber, productionId }: ServerPairModalProps) {
   // Use the pairNumber passed from parent (which uses the same logic as main page display)
   // or fall back to the editingServer's pairNumber
   const pairNumber = editingServer?.pairNumber || nextPairNumber || 1;
@@ -965,8 +1084,12 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
 
     // Sync device_ports for main server if we have its uuid (edit case)
     const mainUuid = editingServer && !editingServer.isBackup ? editingServer.uuid : undefined;
-    if (mainUuid && devicePorts.length > 0) {
-      apiClient.post(`/device-ports/device/${mainUuid}/sync`, { ports: devicePorts })
+    if (mainUuid && devicePorts.length > 0 && productionId) {
+      apiClient.post(`/device-ports/device/${mainUuid}/sync`, {
+        productionId,
+        deviceDisplayId: editingServer?.id,
+        ports: devicePorts,
+      })
         .catch((err: any) => console.warn('device_ports sync failed (non-fatal):', err));
     }
 
