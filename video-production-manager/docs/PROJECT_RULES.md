@@ -431,6 +431,33 @@ video-production-manager/
 - **Push to GitHub** only at feature completion or when user requests
 - **Session tracking:** All work logged in `docs/SESSION_JOURNAL.md`
 
+### Branch Map
+
+All feature branches are cut from `main` and merge back to `main` when complete.
+There is no intermediate release branch — `main` is the trunk.
+
+```
+main (trunk)
+├── v0.1.1_sends-monitors       ✅ merged 2026-03-xx  — Sends/Monitors entities
+├── v0.1.2_toDosCatchUp         ✅ merged 2026-03-03  — Cameras manufacturer split, CCU note field
+├── v0.1.3_connections-formats  ✅ merged 2026-03-03  — Formats table, device_ports, /api/cables,
+│                                                        CCU card reveal panel, CCU modal I/O panel
+└── v0.1.4_sources-cleanup      🟡 in progress        — Computers/Sources entity cleanup
+    (next: v0.1.5_signal-flow)  ⏳ planned            — useCablesAPI, Connections/Signal Flow page,
+                                                        camera card reveal view
+```
+
+**Naming convention:** `v{major}.{minor}.{patch}_{slug}`
+- `major.minor` = product milestone (0.1 = initial entity modeling)
+- `patch` = sequential branch number within milestone
+- `slug` = short feature description (kebab-case)
+
+**Merge rules:**
+- Feature branch → `main` via `git merge --no-ff`
+- Merge commit message format: `merge: {branch-name} → main`
+- Delete remote branch after merge (keep local for reference)
+- Railway auto-deploys from `main` on push
+
 ### Ignore Patterns
 ```gitignore
 # Development-only files (ignore on Railway/production)
