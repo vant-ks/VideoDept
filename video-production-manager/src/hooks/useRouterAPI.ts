@@ -6,7 +6,10 @@ export interface Router {
   id: string;
   productionId: string;
   name: string;
-  // Add other fields as needed
+  manufacturer?: string;
+  model?: string;
+  equipmentUuid?: string;
+  note?: string;
   createdAt: Date;
   updatedAt: Date;
   version: number;
@@ -16,8 +19,11 @@ export interface Router {
 export interface RouterInput {
   productionId: string;
   name: string;
+  manufacturer?: string;
+  model?: string;
+  equipmentUuid?: string;
+  note?: string;
   version?: number;
-  // Add other fields as needed
 }
 
 interface ConflictError {

@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Plus, Edit2, Trash2, Tv2, GripVertical } from 'lucide-react';
-import { Card, Badge } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useSendsAPI } from '@/hooks/useSendsAPI';
-import { useSourcesAPI } from '@/hooks/useSourcesAPI';
 import { useProductionEvents, getSocket } from '@/hooks/useProductionEvents';
 import type { EntityEvent } from '@/hooks/useProductionEvents';
 import { io as socketIO } from 'socket.io-client';
 import { apiClient } from '@/services';
 import { getCurrentUserId, getCurrentUserName } from '@/utils/userUtils';
-import { secondaryDevices as SECONDARY_DEVICES } from '@/data/sampleData';
-import type { Send, Source } from '@/types';
+import { IOPortsPanel, DevicePortDraft } from '@/components/IOPortsPanel';
+import { FormatFormModal, displayFormatId } from '@/components/FormatFormModal';
+import type { Send, Format } from '@/types';
 
 // Monitor placement / purpose types
 const MONITOR_TYPES = [
@@ -28,17 +28,6 @@ const MONITOR_TYPES = [
 
 type MonitorTypeCode = typeof MONITOR_TYPES[number]['code'];
 
-// Per-connector signal routing entry
-interface ConnectorRouting {
-  portId: string;
-  portLabel: string;
-  portType: string;
-  direction: 'input' | 'output';
-  sourceSignal: string;        // what signal feeds / comes from this connector
-  hasSecondaryDevice: boolean; // toggle: inline device in signal path
-  secondaryDevice: string;     // which secondary device is in-line
-}
-
 // Form fields collected by the Monitor modal
 interface MonitorFormFields {
   id?: string;
@@ -49,93 +38,24 @@ interface MonitorFormFields {
   monitorType?: MonitorTypeCode | '';  // placement type (stored in secondary_device)
   note?: string;
   version?: number;
-  connectorRouting?: ConnectorRouting[];
 }
 
-// Build connector routing array from an equipment spec.
-// Handles both local format (spec.inputs / spec.outputs) and API format (spec.equipment_io_ports).
-function initConnectorRouting(spec: any): ConnectorRouting[] {
-  let inputs: any[] = [];
-  let outputs: any[] = [];
-
-  if (Array.isArray(spec.equipment_io_ports) && spec.equipment_io_ports.length > 0) {
-    // API shape: { port_type: 'INPUT'|'OUTPUT', io_type, label, id }
-    inputs  = spec.equipment_io_ports.filter((p: any) => p.port_type === 'INPUT');
-    outputs = spec.equipment_io_ports.filter((p: any) => p.port_type === 'OUTPUT');
-    return [
-      ...inputs.map((p: any) => ({
-        portId:             p.id,
-        portLabel:          p.label || p.id,
-        portType:           p.io_type,
-        direction:          'input' as const,
-        sourceSignal:       '',
-        hasSecondaryDevice: false,
-        secondaryDevice:    '',
-      })),
-      ...outputs.map((p: any) => ({
-        portId:             p.id,
-        portLabel:          p.label || p.id,
-        portType:           p.io_type,
-        direction:          'output' as const,
-        sourceSignal:       '',
-        hasSecondaryDevice: false,
-        secondaryDevice:    '',
-      })),
-    ];
+function buildPortDrafts(spec: any): DevicePortDraft[] {
+  const ioPorts = spec.equipment_io_ports || [];
+  if (ioPorts.length > 0) {
+    return ioPorts.map((p: any) => ({
+      specPortUuid: p.uuid,
+      portLabel:    p.label || p.id,
+      ioType:       p.io_type,
+      direction:    p.port_type as 'INPUT' | 'OUTPUT',
+      formatUuid:   null,
+      note:         null,
+    }));
   }
-
-  // Local / legacy shape: spec.inputs[] / spec.outputs[]
   return [
-    ...(spec.inputs || []).map((p: any) => ({
-      portId:             p.id,
-      portLabel:          p.label,
-      portType:           p.type,
-      direction:          'input' as const,
-      sourceSignal:       '',
-      hasSecondaryDevice: false,
-      secondaryDevice:    '',
-    })),
-    ...(spec.outputs || []).map((p: any) => ({
-      portId:             p.id,
-      portLabel:          p.label,
-      portType:           p.type,
-      direction:          'output' as const,
-      sourceSignal:       '',
-      hasSecondaryDevice: false,
-      secondaryDevice:    '',
-    })),
+    ...(spec.inputs  || []).map((p: any) => ({ portLabel: p.label, ioType: p.type, direction: 'INPUT'  as const, formatUuid: null, note: null })),
+    ...(spec.outputs || []).map((p: any) => ({ portLabel: p.label, ioType: p.type, direction: 'OUTPUT' as const, formatUuid: null, note: null })),
   ];
-}
-
-// Parse routing from output_connector JSON and MERGE with current spec.
-// The spec is the source of truth for which ports exist; saved routing provides
-// previously-assigned signal values for ports that still exist.
-// New ports added to the spec appear with empty routing; removed ports are dropped.
-function parseConnectorRouting(outputConnector: string | undefined, spec: any): ConnectorRouting[] {
-  // Always start from the current spec so port additions/removals are reflected
-  const fresh = spec ? initConnectorRouting(spec) : [];
-  if (!fresh.length) return fresh;
-  if (!outputConnector) return fresh;
-  try {
-    const parsed = JSON.parse(outputConnector);
-    if (!Array.isArray(parsed)) return fresh;
-    // Build lookup of saved routing by portId
-    const savedMap = new Map<string, ConnectorRouting>(
-      (parsed as ConnectorRouting[]).map(r => [r.portId, r])
-    );
-    // Merge: spec determines ports, saved data fills in signal assignments
-    return fresh.map(port => {
-      const saved = savedMap.get(port.portId);
-      if (!saved) return port; // new port on spec — starts empty
-      return {
-        ...port,               // spec-derived label/type/direction
-        sourceSignal:       saved.sourceSignal,
-        hasSecondaryDevice: saved.hasSecondaryDevice,
-        secondaryDevice:    saved.secondaryDevice,
-      };
-    });
-  } catch {}
-  return fresh;
 }
 
 export default function Monitors() {
@@ -143,7 +63,6 @@ export default function Monitors() {
   const equipmentLib = useEquipmentLibrary();
   const oldStore = useProductionStore();
   const sendsAPI = useSendsAPI();
-  const sourcesAPI = useSourcesAPI();
 
   // Equipment specs from library
   const equipmentSpecs =
@@ -153,8 +72,14 @@ export default function Monitors() {
 
   // Local state: only MONITOR-type sends
   const [localMonitors, setLocalMonitors] = useState<Send[]>([]);
-  // Production sources for signal source dropdown
-  const [localSources, setLocalSources] = useState<Source[]>([]);
+  // Format list for IOPortsPanel
+  const [formats, setFormats]             = useState<Format[]>([]);
+  // Per-card ports (for the expanded summary)
+  const [cardPorts, setCardPorts]         = useState<Record<string, any[]>>({});
+  // Per-edit device port drafts
+  const [devicePorts, setDevicePorts]     = useState<DevicePortDraft[]>([]);
+  const [portsLoading, setPortsLoading]   = useState(false);
+  const [isCreateFormatOpen, setIsCreateFormatOpen] = useState(false);
 
   // Drag-to-reorder state
   const isDragInProgress = useRef(false);
@@ -204,15 +129,23 @@ export default function Monitors() {
     }
   }, [productionId]);
 
-  // Fetch production sources for signal source dropdown
+  // Fetch formats for IOPortsPanel
   useEffect(() => {
-    if (productionId) {
-      sourcesAPI
-        .fetchSources(productionId)
-        .then(data => setLocalSources(data))
-        .catch(console.error);
-    }
-  }, [productionId]);
+    apiClient.get<Format[]>('/formats')
+      .then(data => setFormats(data))
+      .catch(() => {});
+  }, []);
+
+  // Fetch device ports for each monitor card
+  useEffect(() => {
+    localMonitors.forEach(m => {
+      const uuid = (m as any).uuid;
+      if (!uuid) return;
+      apiClient.get<any[]>(`/device-ports/device/${uuid}`)
+        .then(ports => setCardPorts(prev => ({ ...prev, [uuid]: ports })))
+        .catch(() => {});
+    });
+  }, [localMonitors]);
 
   // Real-time WebSocket updates
   useProductionEvents({
@@ -258,7 +191,6 @@ export default function Monitors() {
     model: '',
     monitorType: '',
     note: '',
-    connectorRouting: [],
   });
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -332,27 +264,10 @@ export default function Monitors() {
     return { hRes: 1920, vRes: 1080, rate: 60 };
   };
 
-  // ── Connector routing helpers ──────────────────────────────────────────────
-  const updateConnectorRouting = (portId: string, changes: Partial<ConnectorRouting>) => {
-    setFormData(prev => ({
-      ...prev,
-      connectorRouting: (prev.connectorRouting || []).map(r =>
-        r.portId === portId ? { ...r, ...changes } : r
-      ),
-    }));
-  };
-
-  // Source options for signal dropdown: production sources
-  const sourceOptions = useMemo(() => {
-    return localSources.map(src => ({
-      value: src.id,
-      label: src.name && src.name !== src.id ? `${src.id} — ${src.name}` : src.id,
-    }));
-  }, [localSources]);
-
   // ── CRUD handlers ──────────────────────────────────────────────────────────
   const handleAddNew = () => {
-    setFormData({ manufacturer: '', model: '', monitorType: '', note: '', connectorRouting: [] });
+    setFormData({ manufacturer: '', model: '', monitorType: '', note: '' });
+    setDevicePorts([]);
     setEditingMonitor(null);
     setErrors([]);
     setIsModalOpen(true);
@@ -362,18 +277,13 @@ export default function Monitors() {
     const spec = monitorSpecs.find(
       s => s.manufacturer === formData.manufacturer && s.model === model
     );
-    setFormData({
-      ...formData,
-      model,
-      equipmentUuid: spec?.uuid,
-      connectorRouting: spec ? initConnectorRouting(spec) : [],
-    });
+    setFormData({ ...formData, model, equipmentUuid: spec?.uuid });
+    setDevicePorts(spec ? buildPortDrafts(spec) : []);
   };
 
-  const handleEdit = (monitor: Send) => {
+  const handleEdit = async (monitor: Send) => {
     const record = monitor as any;
     const spec = monitorSpecs.find(s => s.uuid === record.equipmentUuid);
-    const routing = parseConnectorRouting(record.outputConnector, spec);
     setFormData({
       id: record.id,
       name: record.name,
@@ -383,11 +293,27 @@ export default function Monitors() {
       monitorType: (record.secondaryDevice || '') as MonitorTypeCode | '',
       note: record.note || '',
       version: record.version,
-      connectorRouting: routing,
     });
     setEditingMonitor(monitor);
     setErrors([]);
+    setPortsLoading(true);
     setIsModalOpen(true);
+    try {
+      const ports = await apiClient.get<any[]>(`/device-ports/device/${record.uuid}`);
+      setDevicePorts(ports.map((p: any) => ({
+        uuid:         p.uuid,
+        specPortUuid: p.specPortUuid,
+        portLabel:    p.portLabel,
+        ioType:       p.ioType,
+        direction:    p.direction as 'INPUT' | 'OUTPUT',
+        formatUuid:   p.formatUuid ?? null,
+        note:         p.note ?? null,
+      })));
+    } catch {
+      setDevicePorts(spec ? buildPortDrafts(spec) : []);
+    } finally {
+      setPortsLoading(false);
+    }
   };
 
   const handleSave = async (action: 'close' | 'duplicate' = 'close') => {
@@ -397,14 +323,10 @@ export default function Monitors() {
     if (!formData.model?.trim()) newErrors.push('Model is required');
     if (newErrors.length > 0) { setErrors(newErrors); return; }
 
-    const spec = getSpecForForm();
     const { hRes, vRes, rate } = resolveResolution(formData.manufacturer || '', formData.model || '');
 
-    const routingJson = formData.connectorRouting && formData.connectorRouting.length > 0
-      ? JSON.stringify(formData.connectorRouting)
-      : undefined;
-
     try {
+      let savedUuid: string;
       if (editingMonitor) {
         const uuid = (editingMonitor as any).uuid;
         const result = await sendsAPI.updateSend(uuid, {
@@ -415,7 +337,6 @@ export default function Monitors() {
           rate,
           equipmentUuid: formData.equipmentUuid,
           secondaryDevice: formData.monitorType,
-          outputConnector: routingJson,
           note: formData.note,
           version: formData.version,
         });
@@ -426,6 +347,7 @@ export default function Monitors() {
         setLocalMonitors(prev =>
           prev.map(m => (m as any).uuid === uuid ? result as Send : m)
         );
+        savedUuid = uuid;
       } else {
         const newId = generateId(formData.monitorType || 'MON');
         const created = await sendsAPI.createSend({
@@ -438,25 +360,33 @@ export default function Monitors() {
           rate,
           equipmentUuid: formData.equipmentUuid,
           secondaryDevice: formData.monitorType,
-          outputConnector: routingJson,
           note: formData.note,
         });
-        // Upsert: WS may have already added it; replace if present, append if not
         setLocalMonitors(prev =>
           prev.some(m => (m as any).uuid === (created as any).uuid)
             ? prev.map(m => (m as any).uuid === (created as any).uuid ? created : m)
             : [...prev, created]
         );
+        savedUuid = (created as any).uuid;
+      }
+
+      // Sync device ports
+      if (devicePorts.length > 0) {
+        await apiClient.post(`/device-ports/device/${savedUuid}/sync`, { productionId, ports: devicePorts });
+        const fresh = await apiClient.get<any[]>(`/device-ports/device/${savedUuid}`);
+        setCardPorts(prev => ({ ...prev, [savedUuid]: fresh }));
       }
 
       if (action === 'duplicate') {
         const dupeId = generateId(formData.monitorType || 'MON');
         setFormData({ ...formData, id: dupeId, name: dupeId });
+        setDevicePorts([...devicePorts]);
         setEditingMonitor(null);
         setErrors([]);
       } else {
         setIsModalOpen(false);
-        setFormData({ manufacturer: '', model: '', monitorType: '', note: '', connectorRouting: [] });
+        setFormData({ manufacturer: '', model: '', monitorType: '', note: '' });
+        setDevicePorts([]);
         setEditingMonitor(null);
         setErrors([]);
       }
@@ -623,23 +553,25 @@ export default function Monitors() {
                       )}
                     </div>
 
-                    {/* Connector routing summary */}
+                    {/* Port summary */}
                     {(() => {
-                      let routing: ConnectorRouting[] = [];
-                      try {
-                        const parsed = record.outputConnector ? JSON.parse(record.outputConnector) : null;
-                        if (Array.isArray(parsed)) routing = parsed;
-                      } catch {}
-                      const assigned = routing.filter(r => r.sourceSignal || r.hasSecondaryDevice);
-                      return assigned.length > 0 ? (
+                      const ports = (cardPorts[(monitor as any).uuid] ?? []) as any[];
+                      const inputs  = ports.filter(p => p.direction === 'INPUT');
+                      const outputs = ports.filter(p => p.direction === 'OUTPUT');
+                      return ports.length > 0 ? (
                         <div className="flex items-center gap-3 mt-1 flex-wrap">
-                          {assigned.map(r => (
-                            <span key={r.portId} className="text-xs text-av-text-muted flex items-center gap-1">
-                              <span className="text-av-text-secondary">{r.portLabel}</span>
-                              {r.sourceSignal && <span>← {r.sourceSignal}</span>}
-                              {r.hasSecondaryDevice && r.secondaryDevice && (
-                                <Badge className="text-[10px] px-1 py-0">{r.secondaryDevice}</Badge>
-                              )}
+                          {inputs.map((p: any, i: number) => (
+                            <span key={`in-${i}`} className="text-xs text-av-text-muted flex items-center gap-1">
+                              <span className="text-av-warning text-[10px] font-bold">IN</span>
+                              <span className="text-av-text-secondary">{p.portLabel}</span>
+                              {p.note && <span>← {p.note}</span>}
+                            </span>
+                          ))}
+                          {outputs.map((p: any, i: number) => (
+                            <span key={`out-${i}`} className="text-xs text-av-text-muted flex items-center gap-1">
+                              <span className="text-av-accent text-[10px] font-bold">OUT</span>
+                              <span className="text-av-text-secondary">{p.portLabel}</span>
+                              {p.note && <span>→ {p.note}</span>}
                             </span>
                           ))}
                         </div>
@@ -758,7 +690,7 @@ export default function Monitors() {
                   <select
                     value={formData.manufacturer || ''}
                     onChange={e =>
-                      setFormData({ ...formData, manufacturer: e.target.value, model: '', equipmentUuid: undefined, connectorRouting: [] })
+                      setFormData({ ...formData, manufacturer: e.target.value, model: '', equipmentUuid: undefined })
                     }
                     className="input-field w-full"
                   >
@@ -787,94 +719,19 @@ export default function Monitors() {
                   </select>
                 </div>
 
-                {/* Connector Routing — shown once a model is selected */}
-                {formData.model && (formData.connectorRouting || []).length > 0 && (() => {
-                  const routing = formData.connectorRouting || [];
-                  const inputs = routing.filter(r => r.direction === 'input');
-                  const outputs = routing.filter(r => r.direction === 'output');
-
-                  const ConnectorRow = ({ r }: { r: ConnectorRouting }) => (
-                    <div key={r.portId} className="rounded-md border border-av-border bg-av-bg p-3 space-y-2">
-                      {/* Port header */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-av-text">{r.portLabel}</span>
-                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-av-surface text-av-text-muted border border-av-border">
-                          {r.portType}
-                        </span>
-                      </div>
-
-                      {/* Source Signal */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-av-text-muted w-28 flex-shrink-0">
-                          {r.direction === 'input' ? 'Source Signal' : 'Feeds'}
-                        </span>
-                        <select
-                          value={r.sourceSignal}
-                          onChange={e => updateConnectorRouting(r.portId, { sourceSignal: e.target.value })}
-                          className="input-field flex-1 text-sm py-1"
-                        >
-                          <option value="">— unassigned —</option>
-                          {sourceOptions.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Secondary device toggle + picker */}
-                      <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-1.5 text-xs text-av-text-muted cursor-pointer w-28 flex-shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={r.hasSecondaryDevice}
-                            onChange={e => updateConnectorRouting(r.portId, {
-                              hasSecondaryDevice: e.target.checked,
-                              secondaryDevice: e.target.checked ? r.secondaryDevice : '',
-                            })}
-                            className="rounded border-av-border"
-                          />
-                          Secondary Device
-                        </label>
-                        {r.hasSecondaryDevice && (
-                          <select
-                            value={r.secondaryDevice}
-                            onChange={e => updateConnectorRouting(r.portId, { secondaryDevice: e.target.value })}
-                            className="input-field flex-1 text-sm py-1"
-                          >
-                            <option value="">Select inline device...</option>
-                            {SECONDARY_DEVICES.map(d => (
-                              <option key={d} value={d}>{d}</option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    </div>
-                  );
-
-                  return (
-                    <div className="space-y-3">
-                      {inputs.length > 0 && (
-                        <div>
-                          <h3 className="text-xs font-semibold text-av-text-muted uppercase tracking-wider mb-2">
-                            Inputs
-                          </h3>
-                          <div className="space-y-2">
-                            {inputs.map(r => <ConnectorRow key={r.portId} r={r} />)}
-                          </div>
-                        </div>
-                      )}
-                      {outputs.length > 0 && (
-                        <div>
-                          <h3 className="text-xs font-semibold text-av-text-muted uppercase tracking-wider mb-2">
-                            Outputs
-                          </h3>
-                          <div className="space-y-2">
-                            {outputs.map(r => <ConnectorRow key={r.portId} r={r} />)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
+                {/* I/O Ports */}
+                {formData.model && (devicePorts.length > 0 || portsLoading) && (
+                  <div>
+                    <label className="block text-sm font-medium text-av-text-muted mb-2">I/O Ports</label>
+                    <IOPortsPanel
+                      ports={devicePorts}
+                      onChange={setDevicePorts}
+                      formats={formats}
+                      isLoading={portsLoading}
+                      onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                    />
+                  </div>
+                )}
 
                 {/* Note */}
                 <div>
@@ -896,7 +753,8 @@ export default function Monitors() {
                 <button
                   onClick={() => {
                     setIsModalOpen(false);
-                    setFormData({ manufacturer: '', model: '', monitorType: '', note: '', connectorRouting: [] });
+                    setFormData({ manufacturer: '', model: '', monitorType: '', note: '' });
+                    setDevicePorts([]);
                     setErrors([]);
                   }}
                   className="btn-secondary"
@@ -920,6 +778,14 @@ export default function Monitors() {
             </div>
           </div>
         </div>
+      )}
+
+      {isCreateFormatOpen && (
+        <FormatFormModal
+          isOpen={isCreateFormatOpen}
+          onClose={() => setIsCreateFormatOpen(false)}
+          onSaved={fmt => { setFormats(prev => [...prev, fmt]); setIsCreateFormatOpen(false); }}
+        />
       )}
     </div>
   );

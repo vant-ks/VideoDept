@@ -2,10 +2,14 @@ import { useCallback } from 'react';
 import { apiClient } from '@/services/apiClient';
 
 export interface CamSwitcher {
+  uuid: string;
   id: string;
   productionId: string;
   name: string;
-  // Add other fields as needed
+  manufacturer?: string;
+  model?: string;
+  equipmentUuid?: string;
+  note?: string;
   createdAt: Date;
   updatedAt: Date;
   version: number;
@@ -15,8 +19,11 @@ export interface CamSwitcher {
 export interface CamSwitcherInput {
   productionId: string;
   name: string;
+  manufacturer?: string;
+  model?: string;
+  equipmentUuid?: string;
+  note?: string;
   version?: number;
-  // Add other fields as needed
 }
 
 interface ConflictError {
