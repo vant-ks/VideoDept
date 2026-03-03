@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, Edit2, Trash2, Copy, GripVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -58,6 +58,11 @@ export default function CCUs() {
   const isDragInProgress = useRef(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Reveal (expand) state — track expanded CCU uuids and their fetched ports
+  const [expandedCCUs, setExpandedCCUs] = useState<Set<string>>(new Set());
+  const [cardPorts, setCardPorts] = useState<Record<string, DevicePortDraft[]>>({});
+  const [cardPortsLoading, setCardPortsLoading] = useState<Set<string>>(new Set());
 
   // Camera assignment state for modal — uuids of cameras linked to the CCU being edited/created
   const [selectedCameraUuids, setSelectedCameraUuids] = useState<string[]>([]);
@@ -234,6 +239,50 @@ export default function CCUs() {
       : FORMAT_OPTIONS;
   }, [formData.manufacturer, formData.model, ccuSpecs]);
 
+  // ── Reveal toggle ────────────────────────────────────────────────────────
+  const toggleReveal = useCallback(async (uuid: string) => {
+    setExpandedCCUs(prev => {
+      const next = new Set(prev);
+      if (next.has(uuid)) {
+        next.delete(uuid);
+      } else {
+        next.add(uuid);
+      }
+      return next;
+    });
+
+    // Fetch ports if not cached yet
+    if (!cardPorts[uuid]) {
+      setCardPortsLoading(prev => new Set(prev).add(uuid));
+      try {
+        const ports = await apiClient.get<any[]>(`/device-ports/device/${uuid}`);
+        setCardPorts(prev => ({
+          ...prev,
+          [uuid]: Array.isArray(ports)
+            ? ports.map(p => ({
+                uuid:         p.uuid,
+                specPortUuid: p.specPortUuid,
+                portLabel:    p.portLabel,
+                ioType:       p.ioType,
+                direction:    p.direction as 'INPUT' | 'OUTPUT',
+                formatUuid:   p.formatUuid ?? null,
+                note:         p.note ?? null,
+              }))
+            : [],
+        }));
+      } catch (err) {
+        console.error('Failed to fetch ports for card reveal:', err);
+        setCardPorts(prev => ({ ...prev, [uuid]: [] }));
+      } finally {
+        setCardPortsLoading(prev => {
+          const next = new Set(prev);
+          next.delete(uuid);
+          return next;
+        });
+      }
+    }
+  }, [cardPorts]);
+
   const handleAddNew = () => {
     setFormData({ manufacturer: '', model: '', formatMode: '', outputs: [], equipmentUuid: undefined });
     setDevicePorts([]);
@@ -400,6 +449,12 @@ export default function CCUs() {
             productionId,
             deviceDisplayId: savedId,
             ports: devicePorts,
+          });
+          // Invalidate reveal cache so next expand refetches fresh ports
+          setCardPorts(prev => {
+            const next = { ...prev };
+            delete next[savedUuid];
+            return next;
           });
         } catch (portErr) {
           console.error('⚠️ Port sync failed (CCU saved):', portErr);
@@ -600,9 +655,13 @@ export default function CCUs() {
         <div className="space-y-3">
           {sortedCCUs.map((ccu, index) => {
             const linkedCameras = allCameras.filter(c => c.ccuId === ccu.id);
+            const ccuUuid = (ccu as any).uuid as string | undefined;
+            const isExpanded = ccuUuid ? expandedCCUs.has(ccuUuid) : false;
+            const isLoadingPorts = ccuUuid ? cardPortsLoading.has(ccuUuid) : false;
+            const revealPorts = ccuUuid ? (cardPorts[ccuUuid] ?? []) : [];
             return (
             <Card
-              key={(ccu as any).uuid || ccu.id}
+              key={ccuUuid || ccu.id}
               className={`p-6 transition-colors select-none
                 ${dragOverIndex === index ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
                 ${draggedIndex === index ? 'opacity-40' : ''}
@@ -638,6 +697,16 @@ export default function CCUs() {
                   </span>
                   
                   <div className="flex gap-2">
+                    {/* Reveal toggle */}
+                    {ccuUuid && (
+                      <button
+                        onClick={() => toggleReveal(ccuUuid)}
+                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                        title={isExpanded ? 'Hide I/O ports' : 'Show I/O ports'}
+                      >
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleEdit(ccu)}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
@@ -695,6 +764,68 @@ export default function CCUs() {
                   <p className="text-sm text-av-text-muted">
                     <span className="font-medium">Note:</span> {(ccu as any).note}
                   </p>
+                </div>
+              )}
+
+              {/* ── Reveal Panel ─────────────────────────────────────────────── */}
+              {isExpanded && (
+                <div className="mt-4 border-t border-av-border pt-4">
+                  {isLoadingPorts ? (
+                    <p className="text-xs text-av-text-muted italic">Loading ports…</p>
+                  ) : revealPorts.length === 0 ? (
+                    <p className="text-xs text-av-text-muted italic">
+                      No ports configured. Open Edit to add ports from an equipment spec.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                            <th className="text-left pb-1.5 pr-3 font-semibold w-16">Dir</th>
+                            <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
+                            <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
+                            <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
+                            <th className="text-left pb-1.5 font-semibold">Route / Note</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-av-border/40">
+                          {/* Inputs first */}
+                          {revealPorts
+                            .filter(p => p.direction === 'INPUT')
+                            .map((port, i) => (
+                              <tr key={`in-${i}`} className="hover:bg-av-surface-hover/40">
+                                <td className="py-1.5 pr-3">
+                                  <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                </td>
+                                <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
+                                <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
+                                <td className="py-1.5 pr-3 text-av-text-muted">—</td>
+                                <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                              </tr>
+                            ))}
+                          {/* Outputs */}
+                          {revealPorts
+                            .filter(p => p.direction === 'OUTPUT')
+                            .map((port, i) => {
+                              const fmtName = port.formatUuid
+                                ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
+                                : '—';
+                              return (
+                                <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
+                                  <td className="py-1.5 pr-3">
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                  </td>
+                                  <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
+                                  <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
+                                  <td className="py-1.5 pr-3 text-av-info">{fmtName}</td>
+                                  <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>
@@ -796,11 +927,18 @@ export default function CCUs() {
                   {devicePorts.some(p => p.direction === 'INPUT') && (
                     <div className="mb-3">
                       <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">Inputs</p>
+                      {/* column headers */}
+                      <div className="grid grid-cols-[80px_1fr_1fr_1fr] gap-2 items-center mb-1 px-2">
+                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Type</span>
+                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Label</span>
+                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Format In</span>
+                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">← Connected from</span>
+                      </div>
                       <div className="space-y-1.5">
                         {devicePorts.map((port, idx) => {
                           if (port.direction !== 'INPUT') return null;
                           return (
-                            <div key={idx} className="grid grid-cols-[80px_1fr_1fr] gap-2 items-center p-2 bg-av-surface-hover rounded-lg">
+                            <div key={idx} className="grid grid-cols-[80px_1fr_1fr_1fr] gap-2 items-center p-2 bg-av-surface-hover rounded-lg">
                               <span className="text-xs text-av-text-muted font-mono truncate" title={port.ioType}>{port.ioType}</span>
                               <input
                                 type="text"
@@ -813,6 +951,20 @@ export default function CCUs() {
                                 placeholder="Port label"
                                 className="input-field text-xs py-1"
                               />
+                              <select
+                                value={port.formatUuid || ''}
+                                onChange={(e) => {
+                                  const next = [...devicePorts];
+                                  next[idx] = { ...next[idx], formatUuid: e.target.value || null };
+                                  setDevicePorts(next);
+                                }}
+                                className="input-field text-xs py-1"
+                              >
+                                <option value="">— format —</option>
+                                {formats.map(f => (
+                                  <option key={f.uuid} value={f.uuid}>{f.id}</option>
+                                ))}
+                              </select>
                               <input
                                 type="text"
                                 value={port.note || ''}
@@ -821,7 +973,7 @@ export default function CCUs() {
                                   next[idx] = { ...next[idx], note: e.target.value || null };
                                   setDevicePorts(next);
                                 }}
-                                placeholder="Signal / note"
+                                placeholder="Source signal or device"
                                 className="input-field text-xs py-1"
                               />
                             </div>
@@ -835,6 +987,13 @@ export default function CCUs() {
                   {devicePorts.some(p => p.direction === 'OUTPUT') && (
                     <div>
                       <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">Outputs</p>
+                      {/* column headers */}
+                      <div className="grid grid-cols-[80px_1fr_1fr_1fr] gap-2 items-center mb-1 px-2">
+                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Type</span>
+                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Label</span>
+                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">Format Out</span>
+                        <span className="text-[10px] text-av-text-muted uppercase font-semibold">→ Destination</span>
+                      </div>
                       <div className="space-y-1.5">
                         {devicePorts.map((port, idx) => {
                           if (port.direction !== 'OUTPUT') return null;
@@ -874,7 +1033,7 @@ export default function CCUs() {
                                   next[idx] = { ...next[idx], note: e.target.value || null };
                                   setDevicePorts(next);
                                 }}
-                                placeholder="Destination / note"
+                                placeholder="Destination device or input"
                                 className="input-field text-xs py-1"
                               />
                             </div>

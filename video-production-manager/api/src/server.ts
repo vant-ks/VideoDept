@@ -259,6 +259,7 @@ import healthRouter from './routes/health';
 import mediaServerRouter from './routes/media-servers';
 import routerRouter from './routes/routers';
 import cableSnakeRouter from './routes/cable-snakes';
+import cablesRouter from './routes/cables';
 import recordRouter from './routes/records';
 import streamRouter from './routes/streams';
 import visionSwitcherRouter from './routes/vision-switchers';
@@ -285,6 +286,7 @@ app.use('/', healthRouter); // Provides /health and /health/diagnostics
 app.use('/api/media-servers', mediaServerRouter);
 app.use('/api/routers', routerRouter);
 app.use('/api/cable-snakes', cableSnakeRouter);
+app.use('/api/cables', cablesRouter);
 app.use('/api/records', recordRouter);
 app.use('/api/streams', streamRouter);
 app.use('/api/vision-switchers', visionSwitcherRouter);
