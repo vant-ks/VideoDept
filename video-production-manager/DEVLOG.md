@@ -2,6 +2,160 @@
 
 ---
 
+## March 3, 2026 (Session 3) — Signal-flow: Routers, CamSwitcher, Monitors migrated to device_ports + IOPortsPanel
+
+### Branch: `v0.1.4_signal-flow`
+### Commits: `703f03d`, `5ad3937`, `c3c7816`, `72734f3`
+
+### Overview
+Completed the connection management standardisation for Routers, CamSwitchers, and
+Monitors. All three pages now use the same `device_ports` + `IOPortsPanel` architecture
+already established for CCUs, Computers, and Media Servers. Also added a category
+filter dropdown to Formats.tsx and a `displayFormatId` helper throughout all port views.
+
+---
+
+### 1. Formats page — category filter dropdown (`703f03d`)
+
+Added a `<select>` dropdown next to the search bar on Formats.tsx. Options:
+
+> All categories / Standard / Custom / SD / HD / UHD / 4K
+
+Applied before the text search in `filteredFormats` useMemo. The category filter
+maps to flags already on each format record (`is_system`, `standard`).
+
+---
+
+### 2. `displayFormatId` rollout to IOPortsPanel and CCU reveal panel (`5ad3937`)
+
+`displayFormatId(id)` is exported from `FormatFormModal.tsx`. Applies short-form
+display to IDs in port format dropdowns and card reveal tables:
+`2398 → 23.98`, `2997 → 29.97`, `5994 → 59.94`, inserts `_` before `RB`.
+
+Applied to:
+- **`IOPortsPanel.tsx`** — both INPUT and OUTPUT format `<select>` `<option>` labels
+- **`CCUs.tsx`** reveal panel — `fmtName` now calls `displayFormatId(formats.find(...)?.id ?? port.formatUuid)`
+
+---
+
+### 3. Hook interface expansions
+
+**`useRouterAPI.ts`** — `Router` interface expanded with `manufacturer?`, `model?`,
+`equipmentUuid?`, `note?`. `RouterInput` expanded with same optional fields.
+
+**`useCamSwitcherAPI.ts`** — `CamSwitcher` interface now has `uuid: string` (was
+missing entirely), plus `manufacturer?`, `model?`, `equipmentUuid?`, `note?`.
+`CamSwitcherInput` expanded with same fields.
+
+---
+
+### 4. Routers.tsx — full rewrite (`c3c7816`)
+
+**Before:** Name-only stub. Cards showed ID + name only. Modal had a single Name
+input. No equipment association. No port management.
+
+**After:**
+- Equipment library (manufacturer → model cascade dropdowns) scoped to `category === 'router'`
+- `buildPortDrafts(spec)` — handles both `equipment_io_ports` (API shape) and
+  legacy `spec.inputs/outputs` (local shape)
+- Collapsible I/O table per card (chevron toggle, `expandedUuid` state). Shows
+  IN/OUT badge, ioType, portLabel, formatted format ID, note
+- `IOPortsPanel` in add/edit modal with `onCreateCustomFormat` wired
+- `device_ports` synced on save via `/device-ports/device/:uuid/sync`
+- `cardPorts` state fetched per router on load and after save
+- Full WebSocket sync (`onEntityCreated/Updated/Deleted`)
+
+---
+
+### 5. CamSwitcher.tsx — full rewrite (`c3c7816`)
+
+**Before:** Read from `oldStore.videoSwitchers[0]` (legacy Zustand store). Showed
+a single static card with inputs/outputs arrays from the store. No per-item edit
+or delete. No equipment association.
+
+**After:** Complete replacement following the Routers pattern:
+- DB-backed list via `useCamSwitcherAPI.getCamSwitchers(productionId)`
+- Equipment library scoped to `category === 'cam-switcher'`
+- Collapsible I/O table per card, same port summary pattern as Routers
+- Full add/edit/delete per item with `IOPortsPanel` in modal
+- `device_ports` sync on save
+- WebSocket entity type: `'camSwitcher'`
+
+---
+
+### 6. Monitors.tsx — surgical refactor (`c3c7816`)
+
+**Removed:**
+- `ConnectorRouting` interface + `initConnectorRouting()` + `parseConnectorRouting()` helpers
+- `outputConnector` JSON blob in save payload
+- `useSourcesAPI` import + `localSources` / `sourceOptions` state
+- `secondaryDevices as SECONDARY_DEVICES` import from sampleData
+- `updateConnectorRouting()` helper
+- `ConnectorRow` inner component with its source-signal select and secondary-device toggle
+
+**Added:**
+- `IOPortsPanel` + `DevicePortDraft` — replaces `ConnectorRow` entirely in the modal
+- `formats` state + fetch useEffect + `displayFormatId` import
+- `cardPorts: Record<string, any[]>` state — fetched per-monitor on load
+- `devicePorts: DevicePortDraft[]` state (separate from formData)
+- `portsLoading` + `isCreateFormatOpen` + `<FormatFormModal>` at render root
+- `device_ports` sync in `handleSave`; ports fetched into `cardPorts` after save
+- Port summary on cards: reads from `cardPorts[uuid]` — shows IN/OUT badge, portLabel, note
+
+**Preserved (unchanged):**
+- Drag-to-reorder (GripVertical + renumber logic)
+- `MONITOR_TYPES` constant and type-code radio grid in modal
+- `sortedMonitors` useMemo (sorted by MONITOR_TYPES order then number)
+- Equipment spec loading + manufacturer/model cascade
+- Real-time WebSocket (`onEntityCreated/Updated/Deleted` for `'send'` type)
+- `handleDelete` + `Save & Add Another` button
+
+**Note on `sourceSignal`:** The old `sourceSignal` field (which signal feeds a
+port) is now entered as the `note` field on each `DevicePortDraft`. The IOPortsPanel
+already labels these "← Connected from" (inputs) and "→ Destination" (outputs).
+
+---
+
+### 7. Bugfix — literal `\n` in Routers.tsx comment (`72734f3`)
+
+The `replace_string_in_file` tool wrote a literal `\` + `n` (two characters) into
+a `//` comment separator line. Since `//` comments extend to the physical end of
+line, the `const handleAdd = () => {` declaration that followed the `\n` was
+consumed by the comment. The next `};` closed the component function, leaving
+`return (` at module scope — Babel error: "return outside of function". Fixed by
+writing the actual newline character.
+
+---
+
+### Architecture note
+
+All six equipment entity pages now follow the same connection management policy:
+
+| Entity | Port storage | Modal UI |
+|---|---|---|
+| Computers | `device_ports` via `/sync` | `IOPortsPanel` |
+| Media Servers | `device_ports` via `/sync` | `IOPortsPanel` |
+| CCUs | `device_ports` via `/sync` | `IOPortsPanel` |
+| Routers | `device_ports` via `/sync` | `IOPortsPanel` |
+| CamSwitchers | `device_ports` via `/sync` | `IOPortsPanel` |
+| Monitors | `device_ports` via `/sync` | `IOPortsPanel` |
+
+Snakes deferred by decision — to be done in a future session.
+
+---
+
+### Files Changed
+- `src/pages/Formats.tsx` — category filter dropdown
+- `src/components/IOPortsPanel.tsx` — `displayFormatId` in format option labels
+- `src/pages/CCUs.tsx` — `displayFormatId` in reveal panel
+- `src/hooks/useRouterAPI.ts` — Router/RouterInput interface expansion
+- `src/hooks/useCamSwitcherAPI.ts` — CamSwitcher uuid + interface expansion
+- `src/pages/Routers.tsx` — full rewrite + literal `\n` fix
+- `src/pages/CamSwitcher.tsx` — full rewrite
+- `src/pages/Monitors.tsx` — surgical refactor
+
+---
+
 ## March 3, 2026 (Session 2) — Formats page overhaul (modal, search, scan rates, columns, double-click edit)
 
 ### Branch: `v0.1.4_signal-flow`
