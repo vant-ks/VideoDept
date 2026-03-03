@@ -1103,6 +1103,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-av-surface rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
@@ -1377,6 +1378,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
       onClose={() => setIsCreateFormatOpen(false)}
       onSaved={(fmt) => { setFormats((prev: any[]) => [...prev, fmt]); setIsCreateFormatOpen(false); }}
     />
+    </>
   );
 }
 

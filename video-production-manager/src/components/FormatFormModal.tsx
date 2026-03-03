@@ -13,7 +13,7 @@
  *   readOnly       — show fields disabled (system format opened by non-admin)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Lock } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
 import type { Format } from '@/types';
@@ -24,7 +24,7 @@ import { deriveVideoStandard } from '@/types';
 // label   = shown in the rate dropdown and the Rate column
 // idSuffix = used in auto-generated format id string
 export const SCAN_RATES = [
-  { value: 23.976, label: '23.98', idSuffix: '2398' },
+  { value: 23.976, label: '23.98', idSuffix: '23'  },
   { value: 24,     label: '24',    idSuffix: '24'   },
   { value: 29.97,  label: '29.97', idSuffix: '29'   },
   { value: 30,     label: '30',    idSuffix: '30'   },
@@ -47,6 +47,19 @@ export function displayRate(frameRate: number, isInterlaced: boolean): string {
   const entry = SCAN_RATES.find(r => r.value === frameRate);
   const label = entry ? entry.label : frameRate.toString();
   return isInterlaced ? `${label}i` : label;
+}
+
+/**
+ * Normalise a stored format ID for display:
+ *   2398 → 23, 2997 → 29, 5994 → 59
+ *   RBv# → _RBv# (underscore prefix)
+ */
+export function displayFormatId(id: string): string {
+  return id
+    .replace(/2398/g, '23')
+    .replace(/2997/g, '29')
+    .replace(/5994/g, '59')
+    .replace(/([^_])RB/g, '$1_RB');
 }
 
 /** Auto-generate a format id string from specs (uses short suffixes for 29.97/59.94). */
@@ -79,24 +92,28 @@ const blankForm = () => ({
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface FormatFormModalProps {
-  isOpen:         boolean;
-  onClose:        () => void;
-  onSaved:        (fmt: Format) => void;
-  editingFormat?: Format | null;   // null / undefined = create mode
-  readOnly?:      boolean;         // true for system formats opened by non-admin
+  isOpen:          boolean;
+  onClose:         () => void;
+  onSaved:         (fmt: Format) => void;
+  editingFormat?:  Format | null;   // null / undefined = create mode
+  duplicateFrom?:  Format | null;   // seed create-mode form from this format's specs
+  readOnly?:       boolean;         // true for system formats opened by non-admin
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────
 export function FormatFormModal({
   isOpen,
   onClose,
   onSaved,
   editingFormat,
+  duplicateFrom,
   readOnly = false,
 }: FormatFormModalProps) {
   const [formData, setFormData]     = useState(blankForm());
   const [formError, setFormError]   = useState<string | null>(null);
   const [isSaving, setIsSaving]     = useState(false);
+  const formDataRef = useRef(formData);
+  useEffect(() => { formDataRef.current = formData; }, [formData]);
 
   // Populate / reset when modal opens
   useEffect(() => {
@@ -110,11 +127,21 @@ export function FormatFormModal({
         blanking:     (editingFormat.blanking ?? 'NONE') as BlankingOption,
         id:           editingFormat.id,
       });
+    } else if (duplicateFrom) {
+      const { hRes, vRes, frameRate, isInterlaced, blanking } = duplicateFrom;
+      setFormData({
+        hRes,
+        vRes,
+        frameRate:    (frameRate ?? 59.94) as ScanRateValue,
+        isInterlaced,
+        blanking:     (blanking ?? 'NONE') as BlankingOption,
+        id:           suggestFormatId(hRes, vRes, frameRate ?? 59.94, isInterlaced),
+      });
     } else {
       setFormData(blankForm());
     }
     setFormError(null);
-  }, [isOpen, editingFormat]);
+  }, [isOpen, editingFormat, duplicateFrom]);
 
   // Update fields and auto-regenerate id (create mode only)
   const handleSpecChange = useCallback(
@@ -133,31 +160,33 @@ export function FormatFormModal({
   const handleSave = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (readOnly) return;
+    const data = formDataRef.current;
     setFormError(null);
-    if (!formData.id.trim()) { setFormError('Format ID is required.'); return; }
-    if (!formData.hRes)      { setFormError('H Res is required.'); return; }
-    if (!formData.vRes)      { setFormError('V Res is required.'); return; }
-    if (!formData.frameRate) { setFormError('Frame Rate is required.'); return; }
+    if (!data.id.trim()) { setFormError('Format ID is required.'); return; }
+    if (!data.hRes)      { setFormError('H Res is required.'); return; }
+    if (!data.vRes)      { setFormError('V Res is required.'); return; }
+    if (!data.frameRate) { setFormError('Frame Rate is required.'); return; }
 
     setIsSaving(true);
     try {
       let saved: Format;
       if (editingFormat) {
         saved = await apiClient.put<Format>(`/formats/${editingFormat.uuid}`, {
-          hRes:         formData.hRes,
-          vRes:         formData.vRes,
-          frameRate:    formData.frameRate,
-          isInterlaced: formData.isInterlaced,
-          blanking:     formData.blanking,
+          id:           data.id.trim(),
+          hRes:         data.hRes,
+          vRes:         data.vRes,
+          frameRate:    data.frameRate,
+          isInterlaced: data.isInterlaced,
+          blanking:     data.blanking,
         });
       } else {
         saved = await apiClient.post<Format>('/formats', {
-          id:           formData.id.trim(),
-          hRes:         formData.hRes,
-          vRes:         formData.vRes,
-          frameRate:    formData.frameRate,
-          isInterlaced: formData.isInterlaced,
-          blanking:     formData.blanking,
+          id:           data.id.trim(),
+          hRes:         data.hRes,
+          vRes:         data.vRes,
+          frameRate:    data.frameRate,
+          isInterlaced: data.isInterlaced,
+          blanking:     data.blanking,
         });
       }
       onSaved(saved);
@@ -167,7 +196,7 @@ export function FormatFormModal({
     } finally {
       setIsSaving(false);
     }
-  }, [formData, editingFormat, onSaved, onClose, readOnly]);
+  }, [editingFormat, onSaved, onClose, readOnly]);
 
   if (!isOpen) return null;
 
@@ -184,10 +213,17 @@ export function FormatFormModal({
 
         {/* ── Header ────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between p-5 border-b border-av-border">
-          <h2 className="text-lg font-semibold text-av-text flex items-center gap-2">
-            {readOnly && <Lock className="w-4 h-4 text-av-text-muted" />}
-            {title}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-av-text flex items-center gap-2">
+              {readOnly && <Lock className="w-4 h-4 text-av-text-muted" />}
+              {title}
+            </h2>
+            {editingFormat && (
+              editingFormat.isSystem
+                ? <span className="text-xs px-2 py-0.5 rounded-full bg-av-surface-light text-av-text-muted border border-av-border">System</span>
+                : <span className="text-xs px-2 py-0.5 rounded-full bg-av-warning/10 text-av-warning border border-av-warning/30">Custom</span>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="p-1.5 rounded-md text-2xl leading-none hover:bg-av-surface-light text-av-text-muted hover:text-av-text transition-colors"
@@ -293,8 +329,8 @@ export function FormatFormModal({
                 value={formData.id}
                 onChange={e => setFormData(prev => ({ ...prev, id: e.target.value }))}
                 placeholder="e.g. 1080p59"
-                disabled={readOnly || isEditMode}   // ID is immutable after creation
-                className="input-field w-full font-mono disabled:opacity-60"
+                disabled={readOnly}
+                className="input-field w-full disabled:opacity-60"
               />
             </div>
           </div>

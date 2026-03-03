@@ -827,7 +827,7 @@ export default function CCUs() {
       )}
 
       {/* Modal */}
-      {isModalOpen && (
+      {isModalOpen && (<>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-av-border">
@@ -994,7 +994,7 @@ export default function CCUs() {
           onClose={() => setIsCreateFormatOpen(false)}
           onSaved={(fmt) => { setFormats(prev => [...prev, fmt]); setIsCreateFormatOpen(false); }}
         />
-      )}
+      </>)}
     </div>
   );
 }

@@ -108,11 +108,20 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'System format presets cannot be modified' });
     }
 
-    const { hRes, vRes, frameRate, isInterlaced, blanking } = req.body;
+    const { id, hRes, vRes, frameRate, isInterlaced, blanking } = req.body;
+
+    // If id is being changed, check it isn't already taken by another format
+    if (id && id !== existing.id) {
+      const conflict = await prisma.formats.findUnique({ where: { id } });
+      if (conflict) {
+        return res.status(409).json({ error: `Format id "${id}" already exists` });
+      }
+    }
 
     const format = await prisma.formats.update({
       where: { uuid: req.params.uuid },
       data: {
+        id:            id            ?? existing.id,
         h_res:         hRes         ?? existing.h_res,
         v_res:         vRes         ?? existing.v_res,
         frame_rate:    frameRate    ?? existing.frame_rate,
