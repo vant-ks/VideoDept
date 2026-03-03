@@ -152,6 +152,80 @@ export interface Input {
 }
 
 // ============================================================================
+// FORMATS, DEVICE PORTS & CABLES
+// Core signal-flow data model (DB-backed)
+// ============================================================================
+
+/**
+ * Format — named video format preset.
+ * Maps to the `formats` DB table.
+ * `standard` (HD/UHD/4K/SD) is NOT stored — derive at render time:
+ *   deriveVideoStandard(hRes, vRes) => string
+ */
+export interface Format {
+  uuid: string;
+  id: string;           // e.g. "1080i5994", "4Kp2398"
+  hRes: number;
+  vRes: number;
+  frameRate: number;    // e.g. 59.94, 29.97, 23.976
+  isInterlaced: boolean;
+  blanking: 'NONE' | 'RBv1' | 'RBv2' | 'RBv3';
+  isSystem: boolean;    // true = seeded system preset, false = user-defined
+}
+
+/** Derive "HD" / "UHD" / "4K" / "SD" at render time — never store. */
+export function deriveVideoStandard(hRes: number, vRes: number): string {
+  if (vRes <= 576)  return 'SD';
+  if (vRes <= 1080) return 'HD';
+  if (hRes >= 4096) return '4K';   // DCI 4K
+  return 'UHD';                    // 3840×2160
+}
+
+/**
+ * DevicePort — one physical port on a device instance in a production.
+ * Maps to the `device_ports` DB table.
+ * Replaces: ccus.fiberInput, ccus.referenceInput, ccus.outputs Json,
+ *           sends.outputConnector Json (ConnectorRouting[] pattern)
+ *
+ * The spec port (via specPortUuid → equipment_io_ports) is the source of truth
+ * for portLabel default and ioType. Values here are per-show overrides.
+ */
+export interface DevicePort {
+  uuid: string;
+  id: string;             // "{device.id}_{in|out}_{n}" — display only
+  productionId: string;
+  deviceUuid: string;     // FK to the instance table (ccus.uuid, cameras.uuid, …)
+  specPortUuid?: string;  // FK to equipment_io_ports.uuid — null if no spec linked
+  portLabel: string;      // editable per show; default copied from spec
+  ioType: string;         // "SDI" | "SMPTE-Fiber" | "REF" | "HDMI" | …
+  direction: 'INPUT' | 'OUTPUT';
+  formatUuid?: string;    // FK to formats.uuid — null = inherit device-level format
+  note?: string;
+  // Resolved relations (populated by API include)
+  format?: Format;
+}
+
+/**
+ * Cable — physical cable between two DevicePorts.
+ * Maps to the `cables` DB table.
+ * outputPort = source end (e.g. CCU SDI Out 1)
+ * inputPort  = destination end (e.g. Vision Switcher Input 3)
+ */
+export interface Cable {
+  uuid: string;
+  id: string;              // "{out_port.id}_{cable_type}_{in_port.id}" — display only
+  productionId: string;
+  outputPortUuid: string;  // FK to device_ports.uuid
+  inputPortUuid: string;   // FK to device_ports.uuid
+  cableType: string;       // "SDI" | "SMPTE-Fiber" | "HDMI" | "CAT6" | "MADI" | "IP" | …
+  lengthFt?: number;
+  note?: string;
+  // Resolved relations (populated by API include)
+  outputPort?: DevicePort;
+  inputPort?: DevicePort;
+}
+
+// ============================================================================
 // SOURCES CATEGORY
 // ============================================================================
 

@@ -259,6 +259,7 @@ import healthRouter from './routes/health';
 import mediaServerRouter from './routes/media-servers';
 import routerRouter from './routes/routers';
 import cableSnakeRouter from './routes/cable-snakes';
+import cablesRouter from './routes/cables';
 import recordRouter from './routes/records';
 import streamRouter from './routes/streams';
 import visionSwitcherRouter from './routes/vision-switchers';
@@ -268,6 +269,8 @@ import projectionScreenRouter from './routes/projection-screens';
 import ipAddressRouter from './routes/ip-addresses';
 import checklistItemRouter from './routes/checklist-items';
 import connectionRouter from './routes/connections';
+import devicePortsRouter from './routes/device-ports';
+import formatsRouter from './routes/formats';
 import adminRouter from './routes/admin';
 
 app.use('/api/productions', productionsRouter);
@@ -283,6 +286,7 @@ app.use('/', healthRouter); // Provides /health and /health/diagnostics
 app.use('/api/media-servers', mediaServerRouter);
 app.use('/api/routers', routerRouter);
 app.use('/api/cable-snakes', cableSnakeRouter);
+app.use('/api/cables', cablesRouter);
 app.use('/api/records', recordRouter);
 app.use('/api/streams', streamRouter);
 app.use('/api/vision-switchers', visionSwitcherRouter);
@@ -292,6 +296,8 @@ app.use('/api/projection-screens', projectionScreenRouter);
 app.use('/api/ip-addresses', ipAddressRouter);
 app.use('/api/checklist-items', checklistItemRouter);
 app.use('/api/connections', connectionRouter);
+app.use('/api/device-ports', devicePortsRouter);
+app.use('/api/formats', formatsRouter);
 app.use('/api', eventsRouter); // Events routes (includes production context)
 
 // 404 handler
