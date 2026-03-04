@@ -415,7 +415,7 @@ export interface Camera {
   formatMode?: string; // Inherited from CCU if connected, or set manually
   maxZoom?: number; // Maximum zoom magnification (always zoom lens)
   shootingDistance?: number; // Distance in feet/meters
-  calculatedZoom?: number; // Calculated from shooting distance
+  focalLength?: number; // Lens focal length in mm
   // Support equipment
   hasHeavyTripod?: boolean;
   hasMediumTripod?: boolean;

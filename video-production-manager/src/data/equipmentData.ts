@@ -107,6 +107,109 @@ export const defaultEquipmentSpecs: EquipmentSpec[] = [
     formatByIO: false
   },
 
+  // ===== PTZ Cameras =====
+  {
+    id: 'sony-srg-a40',
+    category: 'ptz',
+    manufacturer: 'Sony',
+    model: 'SRG-A40',
+    ioArchitecture: 'direct',
+    inputs: [],
+    outputs: [
+      { id: 'hdmi-1', type: 'HDMI', label: 'HDMI Out' },
+      { id: 'ip-1', type: 'IP', label: 'IP Stream' }
+    ],
+    deviceFormats: ['4K 59.94', '4K 60', '1080p59.94', '1080p60'],
+    formatByIO: false
+  },
+  {
+    id: 'sony-srg-x120',
+    category: 'ptz',
+    manufacturer: 'Sony',
+    model: 'SRG-X120',
+    ioArchitecture: 'direct',
+    inputs: [],
+    outputs: [
+      { id: 'hdmi-1', type: 'HDMI', label: 'HDMI Out' },
+      { id: '3g-sdi-1', type: '3G-SDI', label: 'SDI Out' }
+    ],
+    deviceFormats: ['1080p59.94', '1080p60', '1080i59.94', '1080i60'],
+    formatByIO: false
+  },
+  {
+    id: 'sony-fr7',
+    category: 'ptz',
+    manufacturer: 'Sony',
+    model: 'FR7',
+    ioArchitecture: 'direct',
+    inputs: [],
+    outputs: [
+      { id: 'hdmi-1', type: 'HDMI', label: 'HDMI Out' },
+      { id: '12g-sdi-1', type: '12G-SDI', label: 'SDI Out' },
+      { id: 'ip-1', type: 'IP', label: 'IP Stream' }
+    ],
+    deviceFormats: ['4K 59.94', '4K 60', '1080p59.94', '1080p60'],
+    formatByIO: false
+  },
+  {
+    id: 'panasonic-aw-ue150',
+    category: 'ptz',
+    manufacturer: 'Panasonic',
+    model: 'AW-UE150',
+    ioArchitecture: 'direct',
+    inputs: [],
+    outputs: [
+      { id: 'hdmi-1', type: 'HDMI', label: 'HDMI Out' },
+      { id: '12g-sdi-1', type: '12G-SDI', label: 'SDI Out' },
+      { id: 'ip-1', type: 'IP', label: 'IP Stream' }
+    ],
+    deviceFormats: ['4K 59.94', '4K 60', '4K 50', '1080p59.94', '1080p60'],
+    formatByIO: false
+  },
+  {
+    id: 'panasonic-aw-he130',
+    category: 'ptz',
+    manufacturer: 'Panasonic',
+    model: 'AW-HE130',
+    ioArchitecture: 'direct',
+    inputs: [],
+    outputs: [
+      { id: 'hdmi-1', type: 'HDMI', label: 'HDMI Out' },
+      { id: '3g-sdi-1', type: '3G-SDI', label: 'SDI Out' }
+    ],
+    deviceFormats: ['1080p59.94', '1080p60', '1080i59.94', '1080i60'],
+    formatByIO: false
+  },
+  {
+    id: 'birddog-p200',
+    category: 'ptz',
+    manufacturer: 'BirdDog',
+    model: 'P200',
+    ioArchitecture: 'direct',
+    inputs: [],
+    outputs: [
+      { id: 'hdmi-1', type: 'HDMI', label: 'HDMI Out' },
+      { id: '3g-sdi-1', type: '3G-SDI', label: 'SDI Out' },
+      { id: 'ip-1', type: 'IP', label: 'NDI Stream' }
+    ],
+    deviceFormats: ['1080p59.94', '1080p60', '1080i59.94', '1080i60'],
+    formatByIO: false
+  },
+  {
+    id: 'marshall-cv620',
+    category: 'ptz',
+    manufacturer: 'Marshall',
+    model: 'CV620',
+    ioArchitecture: 'direct',
+    inputs: [],
+    outputs: [
+      { id: 'hdmi-1', type: 'HDMI', label: 'HDMI Out' },
+      { id: '3g-sdi-1', type: '3G-SDI', label: 'SDI Out' }
+    ],
+    deviceFormats: ['1080p59.94', '1080p60', '1080i59.94', '1080i60'],
+    formatByIO: false
+  },
+
   // ===== Cam Switchers (Card-based) =====
   {
     id: 'grass-valley-korona-k-frame',

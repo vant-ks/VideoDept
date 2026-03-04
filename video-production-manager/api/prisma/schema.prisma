@@ -20,7 +20,7 @@ model cameras {
   lens_type          String?
   max_zoom           Float?
   shooting_distance  Float?
-  calculated_zoom    Float?
+  focal_length       Float?
   has_heavy_tripod   Boolean?
   has_medium_tripod  Boolean?
   has_tripod         Boolean?

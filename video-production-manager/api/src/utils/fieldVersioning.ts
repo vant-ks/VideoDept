@@ -72,7 +72,7 @@ export const CAMERA_VERSIONED_FIELDS = [
   'lens_type',
   'max_zoom',
   'shooting_distance',
-  'calculated_zoom',
+  'focal_length',
   'has_heavy_tripod',
   'has_medium_tripod',
   'has_tripod',

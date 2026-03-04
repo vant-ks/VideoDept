@@ -14,7 +14,7 @@ interface CreateCameraInput {
   lensType?: string;
   maxZoom?: number;
   shootingDistance?: number;
-  calculatedZoom?: number;
+  focalLength?: number;
   hasHeavyTripod?: boolean;
   hasMediumTripod?: boolean;
   hasTripod?: boolean;
@@ -80,7 +80,7 @@ export function useCamerasAPI() {
         lensType: input.lensType,
         maxZoom: input.maxZoom,
         shootingDistance: input.shootingDistance,
-        calculatedZoom: input.calculatedZoom,
+        focalLength: input.focalLength,
         hasHeavyTripod: input.hasHeavyTripod,
         hasMediumTripod: input.hasMediumTripod,
         hasTripod: input.hasTripod,
@@ -124,7 +124,7 @@ export function useCamerasAPI() {
         lensType: input.lensType,
         maxZoom: input.maxZoom,
         shootingDistance: input.shootingDistance,
-        calculatedZoom: input.calculatedZoom,
+        focalLength: input.focalLength,
         hasHeavyTripod: input.hasHeavyTripod,
         hasMediumTripod: input.hasMediumTripod,
         hasTripod: input.hasTripod,
