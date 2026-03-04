@@ -135,7 +135,7 @@ export default function Cameras() {
 
   // Get camera equipment specs - recompute when equipmentSpecs changes
   const cameraSpecs = useMemo(() => 
-    equipmentSpecs.filter(spec => spec.category === 'CAMERA'),
+    equipmentSpecs.filter(spec => spec.category === 'camera'),
     [equipmentSpecs]
   );
   
@@ -775,11 +775,18 @@ export default function Cameras() {
                       className="input-field w-full"
                     >
                       <option value="">No CCU connection</option>
-                      {localCCUs.map((ccu: any) => (
-                        <option key={ccu.id} value={ccu.id}>
-                          {ccu.name} ({ccu.id})
-                        </option>
-                      ))}
+                      {localCCUs.map((ccu: any) => {
+                        const linkedCams = localCameras.filter(
+                          c => c.ccuId === ccu.id && (c as any).uuid !== (editingCamera as any)?.uuid
+                        );
+                        const isTaken = linkedCams.length > 0;
+                        const camLabel = linkedCams.map(c => c.id).join(', ');
+                        return (
+                          <option key={ccu.id} value={ccu.id}>
+                            {isTaken ? `⚠ ` : `✓ `}{ccu.name} ({ccu.id}){isTaken ? ` — ${camLabel}` : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                     {localCCUs.length === 0 && (
                       <p className="text-xs text-av-text-muted mt-1">

@@ -2,6 +2,46 @@
 
 ---
 
+## March 4, 2026 (Session 2) — CamSwitcher type alias + Cameras CCU availability indicator
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE
+
+### Changes Committed
+- **CamSwitcher.tsx** — Fixed name collision between `CamSwitcher` component and `CamSwitcher` imported type. Aliased import as `CamSwitcherEntity`.
+- **Cameras.tsx** — Two fixes:
+  1. Category filter `'CAMERA'` → `'camera'` (matches `transformApiEquipment` lowercase contract)
+  2. CCU dropdown now shows availability: `⚠ taken — CamId` vs `✓ available` for each option
+
+---
+
+## March 4, 2026 — Camera/CCU Integration Testing (Phase 10)
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE (API layer)
+
+### API Tests — All Passed
+| Test | Result |
+|------|--------|
+| GET /cameras/production/:id — list cameras | ✅ |
+| POST /cameras — create camera | ✅ |
+| PUT /cameras/:uuid — edit camera, version increments | ✅ |
+| GET /cameras/:uuid — persists after edit | ✅ |
+| DELETE /cameras/:uuid — soft-delete, returns 404 on re-fetch | ✅ |
+| POST /cameras with ccuId — saves ccu_id + ccu_uuid (both FK columns) | ✅ |
+| GET /ccus/production/:id — list CCUs | ✅ |
+| POST /ccus — create CCU | ✅ |
+| PUT /ccus/:uuid — edit CCU, version increments | ✅ |
+| DELETE /ccus/:uuid | ✅ |
+| CCU camera count badge — computed client-side in CCUs.tsx (by design, no API field needed) | ✅ |
+
+### Remaining (manual browser tests)
+- [ ] Cross-browser WebSocket sync (Camera appears in Browser B within ~1s)
+- [ ] equipment_uuid saved when spec selected on Camera
+- [ ] All operations on Railway production (blocked by Priority 3 — repo not connected)
+
+---
+
 ## March 3, 2026 (Session 3) — Signal-flow: Routers, CamSwitcher, Monitors migrated to device_ports + IOPortsPanel
 
 ### Branch: `v0.1.4_signal-flow`

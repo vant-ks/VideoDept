@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, EmptyState } from '@/components/ui';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useProductionStore } from '@/hooks/useStore';
-import { useCamSwitcherAPI, CamSwitcher } from '@/hooks/useCamSwitcherAPI';
+import { useCamSwitcherAPI, CamSwitcher as CamSwitcherEntity } from '@/hooks/useCamSwitcherAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { IOPortsPanel, DevicePortDraft } from '@/components/IOPortsPanel';
@@ -19,7 +19,7 @@ export const CamSwitcher: React.FC = () => {
   const camSwitcherAPI = useCamSwitcherAPI();
   const { equipmentSpecs, fetchFromAPI: fetchEquipment } = useEquipmentLibrary();
 
-  const [camSwitchers, setCamSwitchers]       = useState<CamSwitcher[]>([]);
+  const [camSwitchers, setCamSwitchers]       = useState<CamSwitcherEntity[]>([]);
   const [formats, setFormats]                 = useState<Format[]>([]);
   const [cardPorts, setCardPorts]             = useState<Record<string, any[]>>({});
   const [expandedUuid, setExpandedUuid]       = useState<string | null>(null);
@@ -120,7 +120,7 @@ export const CamSwitcher: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleEdit = async (cs: CamSwitcher) => {
+  const handleEdit = async (cs: CamSwitcherEntity) => {
     const r = cs as any;
     const spec = switcherSpecs.find(s => s.uuid === r.equipmentUuid);
     setEditingUuid(cs.uuid);
