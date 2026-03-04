@@ -1,78 +1,187 @@
-# Railway Deployment Guide - Split Services
+# Railway Deployment Guide - Full Stack Setup
 
-This project deploys as two separate Railway services:
-1. **Frontend** - Vite React app  
-2. **API** - Express/Prisma backend
+## Architecture Overview
+- **API Service**: Node.js/Express backend with PostgreSQL
+- **Frontend Service**: Vite/React SPA
+- **Database**: PostgreSQL (managed by Railway)
 
-## Current Status
+---
 
-- Frontend service "VideoDept" is already deployed ✅
-- Need to add API service
+## 🚀 Step-by-Step Deployment
 
-## Setup Instructions
+### Step 1: Create PostgreSQL Database
 
-### 1. Add PostgreSQL Database
+1. In Railway dashboard, click **"+ New"** → **"Database"** → **"PostgreSQL"**
+2. Railway auto-generates `DATABASE_URL` variable
+3. Note: This will be automatically linked to services
 
-In Railway dashboard (project "video-dept"):
-1. Click **+ New**
-2. Select **Database** → **Add PostgreSQL**
-3. This creates a database and auto-generates `DATABASE_URL`
+### Step 2: Deploy API Service (Backend)
 
-### 2. Create API Service
+#### Configure Existing Service (the one that failed):
+1. Click on the failed service
+2. Go to **Settings** tab
+3. **Service Name**: Rename to `VideoDept-API` (optional but recommended)
+4. **Root Directory**: Set to `video-production-manager/api`
+5. **Watch Paths**: Leave default (Railway auto-detects)
 
-In Railway dashboard:
-1. Click **+ New** → **GitHub Repo**
-2. Select your VideoDept repository
-3. **Service Settings:**
-   - Name: `VideoDept-API` (or similar)
-   - **Root Directory**: `video-production-manager/api`
-   - **Watch Paths**: `video-production-manager/api/**`
-4. **Environment Variables** (in service settings):
-   ```
-   DATABASE_URL=${{Postgres.DATABASE_URL}}  # Link to your PostgreSQL
-   NODE_ENV=production
-   ENABLE_MDNS=false
-   ```
-5. Deploy service
+#### Set Environment Variables for API:
+1. Click on **Variables** tab
+2. Add/verify these:
+   - `NODE_ENV` = `production`
+   - `DATABASE_URL` = (click "Add Reference" → select PostgreSQL → DATABASE_URL)
+   - `PORT` = Railway auto-sets, no action needed
 
-### 3. Update Frontend Service
+#### Deploy:
+1. Click **"Deploy"** or **"Redeploy"** 
+2. Watch logs for:
+   - ✅ npm install
+   - ✅ Prisma generate
+   - ✅ Build completed
+   - ✅ Migrations deployed
+   - ✅ Seeds completed
+   - ✅ Server listening
 
-In your existing "VideoDept" frontend service:
-1. Go to **Settings** → **Variables**
-2. Add environment variable:
-   ```
-   VITE_API_URL=https://<your-api-service-domain>.railway.app
-   ```
-   (Get this URL from your API service after it deploys)
-3. **Settings** → **Service**:
-   - Verify **Root Directory**: `video-production-manager`
-   - **Watch Paths**: `video-production-manager/**` (but not `**/api/**`)
-4. Redeploy
+3. Once deployed, copy your API URL: `https://[service-name].railway.app`
 
-## Deployment Files
+### Step 3: Deploy Frontend Service
 
-- **Frontend**: `video-production-manager/nixpacks.toml`
-- **API**: `video-production-manager/api/nixpacks.toml`
+#### Create New Service:
+1. Go back to your project dashboard
+2. Click **"+ New"** → **"GitHub Repo"**
+3. Select repository: `vant-ks/VideoDept`
+4. Railway creates a new service
 
-## Database Migrations
+#### Configure Frontend Service:
+1. Click on the new service
+2. Go to **Settings** tab
+3. **Service Name**: Rename to `VideoDept-Frontend`
+4. **Root Directory**: Set to `video-production-manager`
+5. **Build Command** (optional): Leave empty (uses nixpacks.toml)
+6. **Start Command** (optional): Leave empty (uses nixpacks.toml)
 
-API service automatically runs migrations on deploy:
+#### Set Environment Variables for Frontend:
+1. Click on **Variables** tab
+2. Add:
+   - `VITE_API_URL` = `https://[your-api-service].railway.app/api`
+     (Use the URL from Step 2, add `/api` at the end)
+
+Example: If API is `https://videodept-api-production.up.railway.app`
+Then set: `VITE_API_URL=https://videodept-api-production.up.railway.app/api`
+
+#### Deploy:
+1. Service should auto-deploy
+2. Watch logs for:
+   - ✅ npm install
+   - ✅ Vite build completed
+   - ✅ Preview server started
+
+3. Your frontend URL: `https://[frontend-service-name].railway.app`
+
+---
+
+## 🧪 Testing Your Deployment
+
+### Test API:
 ```bash
-npx prisma migrate deploy
+# Health check
+curl https://[api-url].railway.app/health
+
+# List sources (should return empty array initially)
+curl https://[api-url].railway.app/api/sources
 ```
 
-## Manual Deploy Commands (if needed)
+### Test Frontend:
+1. Open `https://[frontend-url].railway.app` in browser
+2. Create a new production
+3. Add a source in the Computers page
+4. Verify real-time sync works
 
-```bash
-# Deploy API
-cd api
-railway up
+### Test WebSocket Connection:
+- Open browser console → Network tab → WS filter
+- Should see Socket.io connection to API service
+- Try creating/editing sources in multiple browser tabs
 
-# Deploy Frontend  
-cd ..
-railway up
-```
+---
 
-## GitHub Auto-Deploy
+## 📋 Current Deployment Status
 
-Connect both services to your GitHub repo and enable auto-deploy on push to `main`.
+✅ **Commits Pushed:**
+- 90855c3: Duplicate ID handling + source creation fixes  
+- 0b0cbb2: Save & Duplicate modal fix
+- 7200d4a: Railway deployment guide
+
+✅ **Configuration Files:**
+- `video-production-manager/api/nixpacks.toml` - Backend build config
+- `video-production-manager/nixpacks.toml` - Frontend build config
+
+---
+
+## 🔧 Service Configuration Summary
+
+| Service | Root Directory | Env Vars | URL |
+|---------|---------------|----------|-----|
+| PostgreSQL | N/A | Auto-configured | Internal |
+| API | `video-production-manager/api` | `NODE_ENV`, `DATABASE_URL` | `https://[api].railway.app` |
+| Frontend | `video-production-manager` | `VITE_API_URL` | `https://[frontend].railway.app` |
+
+---
+
+## 🐛 Troubleshooting
+
+### API Issues:
+
+**Build fails at Prisma:** 
+- Check `DATABASE_URL` is connected to PostgreSQL service
+- Verify PostgreSQL service is running
+
+**Migration fails:**
+- Check database credentials
+- Ensure migrations folder is committed to git
+
+**Server won't start:**
+- Check logs for `PORT` variable
+- Verify all dependencies installed
+
+### Frontend Issues:
+
+**Build fails:**
+- Check `package.json` in `video-production-manager/` folder
+- Verify TypeScript has no errors
+
+**Can't connect to API:**
+- Verify `VITE_API_URL` is set correctly
+- Check API service is running
+- Try API health endpoint manually
+
+**CORS errors:**
+- API should allow Railway frontend domain
+- Check API CORS configuration in `src/server.ts`
+
+---
+
+## 🔄 Updating After Code Changes
+
+1. Commit changes locally: `git commit -m "Your message"`
+2. Push to GitHub: `git push origin main`
+3. Railway auto-deploys both services
+4. Monitor logs in Railway dashboard
+
+---
+
+## 💡 Tips
+
+- **Custom Domains**: Add custom domains in Railway service settings
+- **Environment Variables**: Use Railway's environment groups to share vars
+- **Logs**: Click any service → View logs for real-time debugging
+- **Metrics**: Monitor CPU/Memory usage in service metrics tab
+- **Rollback**: Click deployments tab to rollback to previous version
+
+---
+
+## 🎯 Next Steps After Deploy
+
+1. Test all CRUD operations (Create, Read, Update, Delete)
+2. Test multi-user sync (open app in multiple browser tabs)
+3. Monitor logs for any errors
+4. Set up custom domain (optional)
+5. Enable Railway's built-in monitoring/alerting
