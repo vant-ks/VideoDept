@@ -417,6 +417,8 @@ export interface Camera {
   shootingDistance?: number; // Distance in feet/meters
   calculatedZoom?: number; // Calculated from shooting distance
   // Support equipment
+  hasHeavyTripod?: boolean;
+  hasMediumTripod?: boolean;
   hasTripod?: boolean;
   hasShortTripod?: boolean;
   hasDolly?: boolean;

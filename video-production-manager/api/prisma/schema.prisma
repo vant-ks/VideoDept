@@ -21,6 +21,8 @@ model cameras {
   max_zoom           Float?
   shooting_distance  Float?
   calculated_zoom    Float?
+  has_heavy_tripod   Boolean?
+  has_medium_tripod  Boolean?
   has_tripod         Boolean?
   has_short_tripod   Boolean?
   has_dolly          Boolean?

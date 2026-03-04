@@ -167,6 +167,8 @@ export default function Cameras() {
     maxZoom: undefined,
     shootingDistance: undefined,
     calculatedZoom: undefined,
+    hasHeavyTripod: false,
+    hasMediumTripod: false,
     hasTripod: false,
     hasShortTripod: false,
     hasDolly: false,
@@ -197,7 +199,7 @@ export default function Cameras() {
   }, [cameraSpecs, isModalOpen]);
 
   const camerasWithCCU = cameras.filter(c => c.ccuId).length;
-  const camerasWithSupport = cameras.filter(c => c.hasTripod || c.hasShortTripod || c.hasDolly || c.hasJib).length;
+  const camerasWithSupport = cameras.filter(c => c.hasHeavyTripod || c.hasMediumTripod || c.hasTripod || c.hasShortTripod || c.hasDolly || c.hasJib).length;
 
   const handleAddNew = () => {
     const newId = generateId();
@@ -210,6 +212,8 @@ export default function Cameras() {
       maxZoom: undefined,
       shootingDistance: undefined,
       calculatedZoom: undefined,
+      hasHeavyTripod: false,
+      hasMediumTripod: false,
       hasTripod: false,
       hasShortTripod: false,
       hasDolly: false,
@@ -312,6 +316,8 @@ export default function Cameras() {
           formatMode: finalFormData.formatMode,
           maxZoom: finalFormData.maxZoom,
           shootingDistance: finalFormData.shootingDistance,
+          hasHeavyTripod: finalFormData.hasHeavyTripod,
+          hasMediumTripod: finalFormData.hasMediumTripod,
           hasTripod: finalFormData.hasTripod,
           hasShortTripod: finalFormData.hasShortTripod,
           hasDolly: finalFormData.hasDolly,
@@ -368,6 +374,8 @@ export default function Cameras() {
         manufacturer: '',
         model: '',
         formatMode: '',
+        hasHeavyTripod: false,
+        hasMediumTripod: false,
         hasTripod: false,
         hasShortTripod: false,
         hasDolly: false,
@@ -497,7 +505,9 @@ export default function Cameras() {
 
   const getSupportBadges = (camera: Camera) => {
     const badges: string[] = [];
-    if (camera.hasTripod) badges.push('Tripod');
+    if (camera.hasHeavyTripod) badges.push('Heavy Duty Tripod');
+    if (camera.hasMediumTripod) badges.push('Medium Duty Tripod');
+    if (camera.hasTripod) badges.push('Light Duty Tripod');
     if (camera.hasShortTripod) badges.push('Short Tripod');
     if (camera.hasDolly) badges.push('Dolly');
     if (camera.hasJib) badges.push('Jib');
@@ -867,6 +877,26 @@ export default function Cameras() {
                 <h3 className="text-lg font-semibold text-av-text mb-3">Support Equipment</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div 
+                    onClick={() => setFormData({ ...formData, hasHeavyTripod: !formData.hasHeavyTripod })}
+                    className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                      formData.hasHeavyTripod 
+                        ? 'border-av-accent bg-av-accent/10' 
+                        : 'border-av-border hover:border-av-accent/30'
+                    }`}
+                  >
+                    <span className="text-av-text">Heavy Duty Tripod</span>
+                  </div>
+                  <div 
+                    onClick={() => setFormData({ ...formData, hasMediumTripod: !formData.hasMediumTripod })}
+                    className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                      formData.hasMediumTripod 
+                        ? 'border-av-accent bg-av-accent/10' 
+                        : 'border-av-border hover:border-av-accent/30'
+                    }`}
+                  >
+                    <span className="text-av-text">Medium Duty Tripod</span>
+                  </div>
+                  <div 
                     onClick={() => setFormData({ ...formData, hasTripod: !formData.hasTripod })}
                     className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
                       formData.hasTripod 
@@ -874,7 +904,7 @@ export default function Cameras() {
                         : 'border-av-border hover:border-av-accent/30'
                     }`}
                   >
-                    <span className="text-av-text">Tripod</span>
+                    <span className="text-av-text">Light Duty Tripod</span>
                   </div>
                   <div 
                     onClick={() => setFormData({ ...formData, hasShortTripod: !formData.hasShortTripod })}
