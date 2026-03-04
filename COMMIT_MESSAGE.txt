@@ -1,4 +1,4 @@
-fix: Complete baseEntity signal flow architecture - Fix all Prisma client and field name references
+docs: reorganize documentation structure
 
 Resolves Railway deployment TypeScript compilation errors (72 total errors fixed)
 

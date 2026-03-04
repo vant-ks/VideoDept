@@ -171,6 +171,8 @@ export default function Cameras() {
     hasShortTripod: false,
     hasDolly: false,
     hasJib: false,
+    hasSteadicam: false,
+    hasMagicArm: false,
     ccuId: '',
     smpteCableLength: undefined,
     note: '',
@@ -212,6 +214,8 @@ export default function Cameras() {
       hasShortTripod: false,
       hasDolly: false,
       hasJib: false,
+      hasSteadicam: false,
+      hasMagicArm: false,
       ccuId: '',
       smpteCableLength: undefined,
       note: '',
@@ -312,6 +316,8 @@ export default function Cameras() {
           hasShortTripod: finalFormData.hasShortTripod,
           hasDolly: finalFormData.hasDolly,
           hasJib: finalFormData.hasJib,
+          hasSteadicam: finalFormData.hasSteadicam,
+          hasMagicArm: finalFormData.hasMagicArm,
           ccuId: finalFormData.ccuId,
           smpteCableLength: finalFormData.smpteCableLength,
           equipmentUuid: finalFormData.equipmentUuid,
@@ -366,6 +372,8 @@ export default function Cameras() {
         hasShortTripod: false,
         hasDolly: false,
         hasJib: false,
+        hasSteadicam: false,
+        hasMagicArm: false,
         ccuId: '',
         note: '',
       });
@@ -493,6 +501,8 @@ export default function Cameras() {
     if (camera.hasShortTripod) badges.push('Short Tripod');
     if (camera.hasDolly) badges.push('Dolly');
     if (camera.hasJib) badges.push('Jib');
+    if (camera.hasSteadicam) badges.push('Steadicam');
+    if (camera.hasMagicArm) badges.push('Magic Arm');
     return badges;
   };
 
@@ -895,6 +905,26 @@ export default function Cameras() {
                     }`}
                   >
                     <span className="text-av-text">Jib</span>
+                  </div>
+                  <div 
+                    onClick={() => setFormData({ ...formData, hasSteadicam: !formData.hasSteadicam })}
+                    className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                      formData.hasSteadicam 
+                        ? 'border-av-accent bg-av-accent/10' 
+                        : 'border-av-border hover:border-av-accent/30'
+                    }`}
+                  >
+                    <span className="text-av-text">Steadicam</span>
+                  </div>
+                  <div 
+                    onClick={() => setFormData({ ...formData, hasMagicArm: !formData.hasMagicArm })}
+                    className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                      formData.hasMagicArm 
+                        ? 'border-av-accent bg-av-accent/10' 
+                        : 'border-av-border hover:border-av-accent/30'
+                    }`}
+                  >
+                    <span className="text-av-text">Manfrotto Magic Arm + SuperClamp</span>
                   </div>
                 </div>
               </div>

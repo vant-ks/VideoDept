@@ -25,6 +25,8 @@ model cameras {
   has_short_tripod   Boolean?
   has_dolly          Boolean?
   has_jib            Boolean?
+  has_steadicam      Boolean?
+  has_magic_arm      Boolean?
   ccu_id             String?
   ccu_uuid           String?
   smpte_cable_length Float?

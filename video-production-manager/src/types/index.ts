@@ -421,6 +421,8 @@ export interface Camera {
   hasShortTripod?: boolean;
   hasDolly?: boolean;
   hasJib?: boolean;
+  hasSteadicam?: boolean;
+  hasMagicArm?: boolean;
   // CCU connection
   ccuId?: string; // Connected CCU ID
   smpteCableLength?: number; // SMPTE Fiber cable length in feet/meters

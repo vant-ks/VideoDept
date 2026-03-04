@@ -19,6 +19,8 @@ interface CreateCameraInput {
   hasShortTripod?: boolean;
   hasDolly?: boolean;
   hasJib?: boolean;
+  hasSteadicam?: boolean;
+  hasMagicArm?: boolean;
   ccuId?: string;
   smpteCableLength?: number;
   equipmentUuid?: string;
@@ -81,6 +83,8 @@ export function useCamerasAPI() {
         hasShortTripod: input.hasShortTripod,
         hasDolly: input.hasDolly,
         hasJib: input.hasJib,
+        hasSteadicam: input.hasSteadicam,
+        hasMagicArm: input.hasMagicArm,
         ccuId: input.ccuId,
         smpteCableLength: input.smpteCableLength,
         equipmentUuid: input.equipmentUuid,
@@ -121,6 +125,8 @@ export function useCamerasAPI() {
         hasShortTripod: input.hasShortTripod,
         hasDolly: input.hasDolly,
         hasJib: input.hasJib,
+        hasSteadicam: input.hasSteadicam,
+        hasMagicArm: input.hasMagicArm,
         ccuId: input.ccuId,
         smpteCableLength: input.smpteCableLength,
         equipmentUuid: input.equipmentUuid,

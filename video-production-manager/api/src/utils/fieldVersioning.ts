@@ -77,6 +77,8 @@ export const CAMERA_VERSIONED_FIELDS = [
   'has_short_tripod',
   'has_dolly',
   'has_jib',
+  'has_steadicam',
+  'has_magic_arm',
   'ccu_id',
   'smpte_cable_length',
   'note',
