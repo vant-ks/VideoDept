@@ -2,6 +2,18 @@
 
 ---
 
+## March 4, 2026 (Session 2) — Camera card UX polish
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE
+
+### Changes
+- **Cameras.tsx** — Removed Format Mode column from camera cards (col 6 of 7 grid → 6-col grid)
+- **Cameras.tsx** — Double-click on a camera card opens the edit modal
+- **Cameras.tsx** — SMPTE Fiber Cable Length field moved into right column of CCU Connection section (removed standalone "CCU Connection Details" section below Support Equipment)
+
+---
+
 ## March 4, 2026 (Session 2) — CamSwitcher type alias + Cameras CCU availability indicator
 
 ### Branch: `v0.1.4_signal-flow`

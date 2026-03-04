@@ -533,17 +533,18 @@ export default function Cameras() {
             return (
               <Card
                 key={(camera as any).uuid || camera.id}
-                className={`p-6 transition-colors select-none
+                className={`p-6 transition-colors select-none cursor-pointer
                   ${dragOverIndex === index ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
                   ${draggedIndex === index ? 'opacity-40' : ''}
                 `}
                 draggable
+                onDoubleClick={() => handleEdit(camera)}
                 onDragStart={() => handleDragStart(index)}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragEnd={handleDragEnd}
                 onDragLeave={handleDragLeave}
               >
-                <div className="grid gap-3 items-center" style={{ gridTemplateColumns: '10fr 10fr 10fr 35fr 15fr 10fr 10fr' }}>
+                <div className="grid gap-3 items-center" style={{ gridTemplateColumns: '10fr 10fr 10fr 35fr 15fr 10fr' }}>
                   {/* Col 1: Drag handle + CAM ID */}
                   <div className="flex items-center gap-2 min-w-0">
                     <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
@@ -589,12 +590,7 @@ export default function Cameras() {
                     ))}
                   </div>
 
-                  {/* Col 6: Format Mode */}
-                  <div className="text-sm text-av-text">
-                    {camera.formatMode || '—'}
-                  </div>
-
-                  {/* Col 7: Action Buttons */}
+                  {/* Col 6: Action Buttons */}
                   <div className="flex gap-1 justify-end">
                     <button
                       onClick={() => handleEdit(camera)}
@@ -794,6 +790,18 @@ export default function Cameras() {
                       </p>
                     )}
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      SMPTE Fiber Cable Length (ft)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.smpteCableLength || ''}
+                      onChange={(e) => setFormData({ ...formData, smpteCableLength: parseFloat(e.target.value) })}
+                      className="input-field w-full"
+                      placeholder="e.g., 100"
+                    />
+                  </div>
                 </div>
               </div>
               
@@ -890,25 +898,6 @@ export default function Cameras() {
                   </div>
                 </div>
               </div>
-              
-              {/* SMPTE Cable Length (only show if CCU is connected) */}
-              {formData.ccuId && (
-                <div>
-                  <h3 className="text-lg font-semibold text-av-text mb-3">CCU Connection Details</h3>
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      SMPTE Fiber Cable Length (ft)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.smpteCableLength || ''}
-                      onChange={(e) => setFormData({ ...formData, smpteCableLength: parseFloat(e.target.value) })}
-                      className="input-field w-full"
-                      placeholder="e.g., 100"
-                    />
-                  </div>
-                </div>
-              )}
               
               {/* Notes */}
               <div>
