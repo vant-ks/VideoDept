@@ -187,6 +187,7 @@ model media_servers {
   pair_number      Int?
   is_backup        Boolean     @default(false)
   platform         String?
+  computer_type    String?
   outputs_data     Json?
   manufacturer     String?
   model            String?
