@@ -441,7 +441,7 @@ export default function MediaServers() {
                           : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
                       ) : null}
                       <h3 className="text-lg font-semibold text-av-text truncate">
-                        {pair.main.name.replace(/ A$/, '') || `Server ${pair.main.pairNumber}`}
+                        Server {index + 1}
                       </h3>
                       <span className="text-sm text-av-text-muted flex-shrink-0">{pair.main.platform}</span>
                     </div>
@@ -516,7 +516,7 @@ export default function MediaServers() {
                         <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-semibold text-av-text">
-                              Server {pair.main.pairNumber} A{(pair.main as any).role ? ` (${(pair.main as any).role})` : ''}
+                              Server {index + 1} A
                             </h4>
                             <Badge variant="success">Main</Badge>
                           </div>
@@ -524,7 +524,7 @@ export default function MediaServers() {
                             <div className="space-y-1">
                               {pair.main.outputs.map((output, idx) => (
                                 <div key={`${pair.main.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between gap-2">
-                                  <span className="text-av-text truncate">{output.name}{output.role ? ` — ${output.role}` : ''}</span>
+                                  <span className="text-av-text truncate">{output.name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '')}{output.role ? ` — ${output.role}` : ''}</span>
                                   <div className="flex items-center gap-1.5 flex-shrink-0">
                                     {output.resolution && (
                                       <span className="text-av-text-muted">{output.resolution.width}×{output.resolution.height}{output.frameRate ? ` @ ${output.frameRate}p` : ''}</span>
@@ -543,7 +543,7 @@ export default function MediaServers() {
                         <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-semibold text-av-text">
-                              Server {pair.backup.pairNumber} B{(pair.backup as any).role ? ` (${(pair.backup as any).role})` : ''}
+                              Server {index + 1} B
                             </h4>
                             <Badge variant="warning">Backup</Badge>
                           </div>
@@ -551,7 +551,7 @@ export default function MediaServers() {
                             <div className="space-y-1">
                               {pair.backup.outputs.map((output, idx) => (
                                 <div key={`${pair.backup.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between gap-2">
-                                  <span className="text-av-text truncate">{output.name}{output.role ? ` — ${output.role}` : ''}</span>
+                                  <span className="text-av-text truncate">{output.name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '')}{output.role ? ` — ${output.role}` : ''}</span>
                                   <div className="flex items-center gap-1.5 flex-shrink-0">
                                     {output.resolution && (
                                       <span className="text-av-text-muted">{output.resolution.width}×{output.resolution.height}{output.frameRate ? ` @ ${output.frameRate}p` : ''}</span>
