@@ -89,6 +89,7 @@ async function seedEquipment() {
       const categoryMap: Record<string, EquipmentCategory> = {
         'ccu': EquipmentCategory.CCU,
         'camera': EquipmentCategory.CAMERA,
+        'ptz': EquipmentCategory.CAMERA,
         'cam-switcher': EquipmentCategory.CAM_SWITCHER,
         'vision-switcher': EquipmentCategory.VISION_SWITCHER,
         'router': EquipmentCategory.ROUTER,
