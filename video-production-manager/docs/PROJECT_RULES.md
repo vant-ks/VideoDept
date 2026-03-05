@@ -71,7 +71,9 @@ Camera System  (parent category)
 cd api
 npx prisma validate        # Check syntax
 npm run db:push            # Apply to database (70ms, no crashes)
-# Restart dev server to load new Prisma Client
+# ⚠️ MANDATORY: Restart the API server after db:push.
+# tsx watch does NOT detect Prisma client regeneration.
+# A running server will use stale Prisma client until restarted — causing 500 errors on affected tables.
 ```
 
 **Create migrations ONLY for production deployment:**

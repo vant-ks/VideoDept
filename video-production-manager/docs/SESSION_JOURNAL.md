@@ -8,28 +8,136 @@
 
 ## Active Session Tracking
 
-## Session 2026-03-04-000000
-**Started:** 2026-03-04 (morning)
+## Session 2026-03-05-000000
+**Started:** 2026-03-05 (morning)
 **Status:** IN_PROGRESS
 **Branch:** v0.1.4_signal-flow
 
 ### Prompt 1: Session Kickoff
-**ID:** S20260304-P1-000000
-**Request:** Full session initialization per LAUNCH_SESSION.md kickoff prompt
-**Context:** Continuing from v0.1.4_signal-flow branch; previous session completed API-layer camera/CCU integration tests
+**ID:** S20260305-P1-000000
+**Request:** Full session initialization per LAUNCH_SESSION.md kickoff prompt, including catch-up of DEVLOG and SESSION_JOURNAL for missed entries from previous session
+**Context:** Continuing from last session (March 4, 2026); all 7 camera commits exist locally but 7 commits ahead of origin. Railway at 404 (known issue).
 
 #### Actions Taken:
-1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md (full files)
-2. Read DEVLOG.md (last 60 lines), SESSION_JOURNAL.md (last 50 lines), TODO_NEXT_SESSION.md (full file)
-3. Cleared ports and started API server (port 3010) + Frontend (port 3011)
-4. Verified API health: HTTP 200 ✅
-5. Checked git: branch v0.1.4_signal-flow, up to date with origin, 4 unstaged changes
-6. Checked Railway: HTTP 404 (known issue — still connected to old repo kashea24/VideoDept, Priority 3)
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md (full files)
+2. Read DEVLOG.md (last 60 lines), SESSION_JOURNAL.md (last 50 lines)
+3. Verified API health: HTTP 200 ✅, frontend HTTP 200 ✅
+4. Checked git: branch v0.1.4_signal-flow, 7 commits ahead of origin, clean working tree
+5. Checked Railway: HTTP 404 (known issue — repo switch to vant-ks/VideoDept pending, Priority 3)
+6. Added 5 missed DEVLOG entries for commits 7d172c1, 0bbfa9e, 6374bb4, 62ade27, 606d6c8
+7. Updated SESSION_JOURNAL with March 4 session retrospective
 
 #### Status:
-- **Dev servers:** ✅ Both running
-- **Git:** Clean (unstaged but no pending work)
+- **Dev servers:** ✅ Both running (API 3010, Frontend 3011)
+- **Git:** 7 commits ahead of origin/v0.1.4_signal-flow, clean
 - **Railway:** ⚠️ 404 (known, Priority 3 fix needed)
+
+---
+
+## Session 2026-03-04-000000 (RETROSPECTIVE — logged day after)
+**Started:** 2026-03-04 (morning–evening)
+**Ended:** 2026-03-04 (evening)
+**Status:** COMPLETED ✓
+**Branch:** v0.1.4_signal-flow
+**Note:** DEVLOG and SESSION_JOURNAL were not updated during this session — logged retroactively on 2026-03-05.
+
+### Prompt 1: Session Kickoff
+**ID:** S20260304-P1
+**Request:** Full session initialization
+**Outcome:** COMPLETED — both servers up, git checked, Railway confirmed at 404 (known)
+
+### Prompt 2: Camera/CCU UX Polish
+**ID:** S20260304-P2
+**Request:** Polish Cameras.tsx UX — remove format column, double-click-to-edit, SMPTE field placement
+**Actions Taken:**
+1. Removed Format Mode column from camera cards (7-col → 6-col grid)
+2. Added double-click handler on camera card rows to open edit modal
+3. Moved SMPTE Fiber Cable Length field into right column of CCU Connection section
+**Outcome:** COMPLETED ✓
+**Files Changed:**
+- `src/pages/Cameras.tsx`
+**Git Commit:** `615f0f8` — fix(cameras): remove format col from cards, double-click to edit, SMPTE field into CCU section
+
+### Prompt 3: CamSwitcher type alias + CCU availability indicator
+**ID:** S20260304-P3
+**Request:** Fix CamSwitcher name collision; add CCU availability indicator to camera assignment dropdown
+**Actions Taken:**
+1. Aliased `CamSwitcher` imported type as `CamSwitcherEntity` to resolve collision with component name
+2. Added availability display to CCU dropdown: `⚠ taken — CamId` vs `✓ available`
+3. Fixed `'CAMERA'` → `'camera'` category filter (matches `transformApiEquipment` lowercase contract)
+**Outcome:** COMPLETED ✓
+**Files Changed:**
+- `src/pages/Cameras.tsx`
+- `src/pages/CamSwitcher.tsx`
+**Git Commit:** `70900a0` — fix(cameras): CCU availability indicator + category lowercase + CamSwitcher type alias
+
+### Prompt 4: Add Steadicam, Magic Arm, SuperClamp to equipment seed
+**ID:** S20260304-P4
+**Request:** Add camera support gear to equipment seed data
+**Actions Taken:**
+1. Added Steadicam (support category) to seed-equipment.ts
+2. Added Magic Arm (support category) to seed-equipment.ts
+3. Added SuperClamp (support category) to seed-equipment.ts
+**Outcome:** COMPLETED ✓
+**Files Changed:**
+- `api/scripts/seed-equipment.ts`
+**Git Commit:** `7d172c1` — feat(cameras): add Steadicam and Magic Arm + SuperClamp support equipment options
+
+### Prompt 5: Add Heavy/Medium Duty Tripod; rename Tripod → Light Duty Tripod
+**ID:** S20260304-P5
+**Request:** Expand tripod options in equipment seed
+**Actions Taken:**
+1. Added "Heavy Duty Tripod" and "Medium Duty Tripod" as separate entries
+2. Renamed generic "Tripod" → "Light Duty Tripod"
+**Outcome:** COMPLETED ✓
+**Files Changed:**
+- `api/scripts/seed-equipment.ts`
+**Git Commit:** `0bbfa9e` — feat(cameras): add Heavy/Medium Duty Tripod, rename Tripod to Light Duty Tripod
+
+### Prompt 6: Focal length field, 8" target calculator, PTZ camera models
+**ID:** S20260304-P6
+**Request:** Add focal length to equipment specs, 8" target distance calculator to Cameras page, and PTZ camera model entries
+**Actions Taken:**
+1. Added `focalLength` field to equipment spec form (prime lenses)
+2. Added 8-inch target distance calculator to Cameras.tsx
+3. Added 7 PTZ camera models to seed: Sony BRC-X400, BRC-H800, Panasonic AW-UE150, Canon CR-X500, PTZOptics 30X-SDI, Marshall CV630-BI, Bolin BC-9
+**Outcome:** COMPLETED ✓
+**Files Changed:**
+- `src/pages/Cameras.tsx`
+- `api/scripts/seed-equipment.ts`
+**Git Commit:** `6374bb4` — feat(cameras): focal length field, 8" target calc, PTZ camera models
+
+### Prompt 7: Fix 'ptz' EquipmentSpec type; zoom lens UX improvements
+**ID:** S20260304-P7
+**Request:** TypeScript union type fix for ptz category; UX improvements for zoom vs prime lens inputs
+**Actions Taken:**
+1. Added `'ptz'` to `EquipmentSpec.category` union type in shared types
+2. Made zoom lens fields (`minFocalLength`, `maxFocalLength`) conditional on `lensType === 'zoom'`
+3. Made prime lens `focalLength` field conditional on `lensType === 'prime'`
+**Outcome:** COMPLETED ✓
+**Files Changed:**
+- `src/types/equipment.ts` (or equivalent)
+- `src/pages/Cameras.tsx`
+**Git Commit:** `62ade27` — fix(cameras): add ptz to EquipmentSpec type, lens config UX improvements
+
+### Prompt 8: Fix PTZ seeding — map ptz → CAMERA enum; re-export equipment-data.json
+**ID:** S20260304-P8
+**Request:** Seed script was writing `category: 'ptz'` which fails Prisma enum validation; re-export data file
+**Actions Taken:**
+1. Changed all PTZ entries in seed script: `category: 'ptz'` → `category: 'CAMERA'`
+2. Re-exported `equipment-data.json` to match updated seed data
+3. Re-seeded dev DB: 219 equipment specs total, 7 PTZ cameras now present
+**Outcome:** COMPLETED ✓
+**Files Changed:**
+- `api/scripts/seed-equipment.ts`
+- `api/src/data/equipment-data.json`
+**Git Commit:** `606d6c8` — fix(equipment): map ptz category to CAMERA enum in seed script, re-export equipment-data.json
+
+#### Session Summary
+- 7 total commits on v0.1.4_signal-flow (all unmerged to origin, need push)
+- All camera feature work complete (UX polish + equipment seed data)
+- API-layer integration tests already passing (logged in prior DEVLOG entry)
+- Remaining: manual browser WebSocket sync tests (Priority 2), Railway repo switch (Priority 3)
 
 ---
 

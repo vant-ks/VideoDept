@@ -2,6 +2,86 @@
 
 ---
 
+## March 5, 2026 — Fix: Camera 500 errors caused by stale Prisma client
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE
+
+### Root Cause
+API server had been running for 14+ hours (started previous session). During that session, `db:push` was run to add new columns (`focal_length`, `has_heavy_tripod`, `has_medium_tripod`, `has_steadicam`, `has_magic_arm`). `db:push` regenerates the Prisma client in `node_modules/.prisma/client`, but `tsx watch` only watches `.ts` source files — it does NOT restart when the Prisma client is regenerated. So the running server held a stale Prisma schema definition that didn't match the DB columns, causing all camera endpoints to 500.
+
+### Symptoms
+- `GET /api/cameras/production/:id` → 500 "Failed to fetch cameras"
+- `POST /api/cameras` → 500 "Failed to create camera"
+
+### Fix
+Killed all server processes and restarted via VS Code Tasks. No code changes required.
+
+### Rule (see PROJECT_RULES.md)
+After any `npm run db:push`, always restart the API server. `tsx watch` does NOT auto-restart on Prisma client regeneration.
+
+---
+
+## March 4, 2026 (Session 3) — Fix PTZ seeding: map ptz → CAMERA enum, re-export equipment-data.json
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE
+### Commit: `606d6c8`
+
+### Changes
+- **api/scripts/seed-equipment.ts** — Changed `category: 'ptz'` → `category: 'CAMERA'` for all PTZ camera entries in seed script so they match the Prisma `EquipmentCategory` enum. DB was re-seeded: 219 equipment specs including 7 PTZ cameras now present.
+- **api/src/data/equipment-data.json** — Re-exported (was missing from last push). Ensures seed script data and exported JSON are in sync.
+
+---
+
+## March 4, 2026 (Session 3) — Fix: add 'ptz' to EquipmentSpec category union; zoom lens UX improvements
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE
+### Commit: `62ade27`
+
+### Changes
+- **src/types/equipment.ts** (or shared types) — Added `'ptz'` to the `EquipmentSpec.category` union type so TypeScript no longer errors when the API returns ptz items.
+- **Cameras.tsx** — Lens configuration UX improvements: zoom lens fields (`minFocalLength`, `maxFocalLength`) only show when lens type is `zoom`; prime shows single `focalLength` field. Prevents confusing empty fields.
+
+---
+
+## March 4, 2026 (Session 3) — Focal length field, 8" target calc, PTZ camera models
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE
+### Commit: `6374bb4`
+
+### Changes
+- **Equipment seed / EquipmentFormModal** — Added `focalLength` field to equipment spec form (prime lenses).
+- **Cameras.tsx** — Added "8-inch target distance" calculator: given sensor size + focal length, calculates approximate working distance for an 8" wide subject. Helper for camera operators.
+- **api/scripts/seed-equipment.ts** — Added PTZ camera model entries: Sony BRC-X400, Sony BRC-H800, Panasonic AW-UE150, Canon CR-X500, PTZOptics 30X-SDI, Marshall CV630-BI, Bolin Technology BC-9.
+
+---
+
+## March 4, 2026 (Session 3) — Add Heavy/Medium Duty Tripod; rename Tripod → Light Duty Tripod
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE
+### Commit: `0bbfa9e`
+
+### Changes
+- **api/scripts/seed-equipment.ts** — Added "Heavy Duty Tripod" and "Medium Duty Tripod" as separate equipment specs in the support category.
+- **api/scripts/seed-equipment.ts** — Renamed existing generic "Tripod" entry to "Light Duty Tripod" for clarity and to distinguish from the new additions.
+
+---
+
+## March 4, 2026 (Session 3) — Add Steadicam, Magic Arm, SuperClamp support equipment
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE
+### Commit: `7d172c1`
+
+### Changes
+- **api/scripts/seed-equipment.ts** — Added Steadicam (support), Magic Arm (support), and SuperClamp (support) as equipment spec entries to the camera support gear section of the seed data.
+
+---
+
 ## March 4, 2026 (Session 2) — Camera card UX polish
 
 ### Branch: `v0.1.4_signal-flow`
