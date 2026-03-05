@@ -2,7 +2,21 @@
 
 ---
 
-## March 5, 2026 — Fix: Camera 500 errors caused by stale Prisma client
+## March 5, 2026 — CCU card: single-click reveal/collapse + chevron moved to left of ID
+
+### Branch: `v0.1.4_signal-flow`
+### Status: ✅ COMPLETE
+
+### Changes
+- **CCUs.tsx** — Moved `ChevronDown`/`ChevronUp` indicator from the right-side action button group to the **left column**, between the drag handle and the CCU ID text.
+- **CCUs.tsx** — Made the grid row (`div.grid`) the click target for reveal/collapse. A single click anywhere on the card row toggles the I/O reveal panel. Guard: `isDragInProgress.current` prevents drag operations from triggering a toggle.
+- **CCUs.tsx** — Removed the dedicated standalone reveal button from the right side (now redundant).
+- **CCUs.tsx** — Added `onClick={(e) => e.stopPropagation()}` to the action buttons wrapper (`Edit`, `Copy`, `Delete`) so those clicks don't also fire the card-level reveal toggle.
+- **CCUs.tsx** — Added `onClick={(e) => e.stopPropagation()}` to the `GripVertical` drag handle as well, since clicking the grip (without dragging) should not toggle reveal.
+
+---
+
+
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE

@@ -664,10 +664,21 @@ export default function CCUs() {
               onDragEnd={handleDragEnd}
               onDragLeave={handleDragLeave}
             >
-              <div className="grid grid-cols-3 gap-6 items-center">
-                {/* Left 1/3: Drag handle and ID */}
-                <div className="flex items-center gap-3">
-                  <GripVertical className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0" />
+              <div
+                className="grid grid-cols-3 gap-6 items-center cursor-pointer"
+                onClick={() => { if (!isDragInProgress.current && ccuUuid) toggleReveal(ccuUuid); }}
+              >
+                {/* Left 1/3: Drag handle, chevron, and ID */}
+                <div className="flex items-center gap-2">
+                  <GripVertical
+                    className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  {ccuUuid ? (
+                    isExpanded
+                      ? <ChevronUp className="w-4 h-4 text-av-accent flex-shrink-0" />
+                      : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
+                  ) : null}
                   <h3 className={`text-lg font-semibold ${linkedCameras.length === 0 ? 'text-av-warning' : 'text-av-text'}`}>{ccu.id}</h3>
                 </div>
                 
@@ -688,17 +699,7 @@ export default function CCUs() {
                     {(ccu as any).formatMode || 'N/A'}
                   </span>
                   
-                  <div className="flex gap-2">
-                    {/* Reveal toggle */}
-                    {ccuUuid && (
-                      <button
-                        onClick={() => toggleReveal(ccuUuid)}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
-                        title={isExpanded ? 'Hide I/O ports' : 'Show I/O ports'}
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    )}
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleEdit(ccu)}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
