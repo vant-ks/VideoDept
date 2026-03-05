@@ -838,11 +838,21 @@ export default function MediaServers() {
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSave={(platform, note, computerType) => {
+          onSave={(platform, note, computerType, ports) => {
             if (editingServer && !isDuplicating) {
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
                 const serverName = `Server ${pair.main.pairNumber}`;
+                // Immediately update pairCardPorts so reveal panel reflects changes without a refresh
+                if (ports && ports.length > 0) {
+                  const mainUuid   = (pair.main   as any).uuid as string | undefined;
+                  const backupUuid = (pair.backup as any).uuid as string | undefined;
+                  setPairCardPorts(prev => ({
+                    ...prev,
+                    ...(mainUuid   ? { [mainUuid]:   ports } : {}),
+                    ...(backupUuid ? { [backupUuid]: ports } : {}),
+                  }));
+                }
                 Promise.all([
                   updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs: [], note, computerType }),
                   updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: [], note, computerType }),
@@ -857,11 +867,20 @@ export default function MediaServers() {
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSaveAndDuplicate={(platform, note, computerType) => {
+          onSaveAndDuplicate={(platform, note, computerType, ports) => {
             if (editingServer && !isDuplicating) {
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
                 const serverName = `Server ${pair.main.pairNumber}`;
+                if (ports && ports.length > 0) {
+                  const mainUuid   = (pair.main   as any).uuid as string | undefined;
+                  const backupUuid = (pair.backup as any).uuid as string | undefined;
+                  setPairCardPorts(prev => ({
+                    ...prev,
+                    ...(mainUuid   ? { [mainUuid]:   ports } : {}),
+                    ...(backupUuid ? { [backupUuid]: ports } : {}),
+                  }));
+                }
                 Promise.all([
                   updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs: [], note, computerType }),
                   updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: [], note, computerType }),
@@ -924,8 +943,8 @@ export default function MediaServers() {
 interface ServerPairModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (platform: string, note?: string, computerType?: string) => void;
-  onSaveAndDuplicate?: (platform: string, note?: string, computerType?: string) => void;
+  onSave: (platform: string, note?: string, computerType?: string, ports?: DevicePortDraft[]) => void;
+  onSaveAndDuplicate?: (platform: string, note?: string, computerType?: string, ports?: DevicePortDraft[]) => void;
   editingServer: MediaServer | null;
   backupServer?: MediaServer | null;
   isDuplicating?: boolean;
@@ -1046,9 +1065,9 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
     }
 
     if (action === 'duplicate' && onSaveAndDuplicate) {
-      onSaveAndDuplicate(platform, note, computerType);
+      onSaveAndDuplicate(platform, note, computerType, devicePorts);
     } else {
-      onSave(platform, note, computerType);
+      onSave(platform, note, computerType, devicePorts);
     }
   };
 
