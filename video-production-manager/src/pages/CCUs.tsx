@@ -664,12 +664,14 @@ export default function CCUs() {
               onDragEnd={handleDragEnd}
               onDragLeave={handleDragLeave}
             >
+              {/* 30 / 30 / 30 / 10 collapsed card layout */}
               <div
-                className="grid grid-cols-3 gap-6 items-center cursor-pointer"
+                className="grid gap-4 items-center cursor-pointer"
+                style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
                 onClick={() => { if (!isDragInProgress.current && ccuUuid) toggleReveal(ccuUuid); }}
               >
-                {/* Left 1/3: Drag handle, chevron, and ID */}
-                <div className="flex items-center gap-2">
+                {/* Col 1 (30%): grip + chevron + CCU ID + assigned camera */}
+                <div className="flex items-center gap-2 min-w-0">
                   <GripVertical
                     className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0"
                     onClick={(e) => e.stopPropagation()}
@@ -679,86 +681,85 @@ export default function CCUs() {
                       ? <ChevronUp className="w-4 h-4 text-av-accent flex-shrink-0" />
                       : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
                   ) : null}
-                  <h3 className={`text-lg font-semibold ${linkedCameras.length === 0 ? 'text-av-warning' : 'text-av-text'}`}>{ccu.id}</h3>
+                  <h3 className={`text-lg font-semibold truncate ${linkedCameras.length === 0 ? 'text-av-warning' : 'text-av-text'}`}>
+                    {ccu.id}
+                  </h3>
+                  {linkedCameras.length > 0 && (
+                    <span className="text-sm text-av-text-muted truncate flex-shrink-0">
+                      ← {linkedCameras.map(c => c.id).join(', ')}
+                    </span>
+                  )}
                 </div>
-                
-                {/* Middle 1/3: Badges */}
+
+                {/* Col 2 (30%): note */}
+                <div className="min-w-0">
+                  {(ccu as any).note ? (
+                    <p className="text-sm text-av-text-muted truncate" title={(ccu as any).note}>
+                      {(ccu as any).note}
+                    </p>
+                  ) : (
+                    <span className="text-sm text-av-text-muted/40 italic">—</span>
+                  )}
+                </div>
+
+                {/* Col 3 (30%): tags / badges */}
                 <div className="flex items-center gap-2 flex-wrap">
                   {(ccu as any).manufacturer && <Badge>{(ccu as any).manufacturer}</Badge>}
                   {(ccu as any).model && <Badge>{(ccu as any).model}</Badge>}
-                  {linkedCameras.length > 0 ? (
-                    linkedCameras.map(cam => (
-                      <Badge key={cam.uuid || cam.id} variant="info">{cam.id}</Badge>
-                    ))
-                  ) : null}
+                  {(ccu as any).formatMode && <Badge variant="info">{(ccu as any).formatMode}</Badge>}
                 </div>
-                
-                {/* Right 1/3: Format Mode and Action Buttons */}
-                <div className="flex items-center justify-between">
-                  <span className={`text-sm ${linkedCameras.length === 0 ? 'text-av-warning' : 'text-av-text'}`}>
-                    {(ccu as any).formatMode || 'N/A'}
-                  </span>
-                  
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => handleEdit(ccu)}
-                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
-                      title="Edit"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        // Duplicate CCU by opening modal with duplicated data
-                        const ccuNumbers = ccus
-                          .map(c => {
-                            const match = c.id.match(/^CCU\s*(\d+)$/i);
-                            return match ? parseInt(match[1], 10) : 0;
-                          })
-                          .filter(n => !isNaN(n));
-                        const maxNumber = ccuNumbers.length > 0 ? Math.max(...ccuNumbers) : 0;
-                        const newId = `CCU ${maxNumber + 1}`;
-                        const r = ccu as any;
-                        setFormData({
-                          id: newId,
-                          name: `${r.name || r.id} (Copy)`,
-                          manufacturer: r.manufacturer || '',
-                          model: r.model || '',
-                          formatMode: r.formatMode || '',
-                          fiberInput: r.fiberInput || '',
-                          referenceInput: r.referenceInput || '',
-                          outputs: r.outputs || [],
-                          equipmentUuid: undefined, // don't carry equipmentUuid to dupe
-                          note: r.note || '',
-                        });
-                        setDevicePorts([]);
-                        setEditingCCU(null);
-                        setSelectedCameraUuids([]);
-                        setIsModalOpen(true);
-                      }}
-                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
-                      title="Duplicate"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete((ccu as any).uuid || ccu.id)}
-                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+
+                {/* Col 4 (10%): action buttons */}
+                <div className="flex items-center justify-end gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => handleEdit(ccu)}
+                    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const ccuNumbers = ccus
+                        .map(c => {
+                          const match = c.id.match(/^CCU\s*(\d+)$/i);
+                          return match ? parseInt(match[1], 10) : 0;
+                        })
+                        .filter(n => !isNaN(n));
+                      const maxNumber = ccuNumbers.length > 0 ? Math.max(...ccuNumbers) : 0;
+                      const newId = `CCU ${maxNumber + 1}`;
+                      const r = ccu as any;
+                      setFormData({
+                        id: newId,
+                        name: `${r.name || r.id} (Copy)`,
+                        manufacturer: r.manufacturer || '',
+                        model: r.model || '',
+                        formatMode: r.formatMode || '',
+                        fiberInput: r.fiberInput || '',
+                        referenceInput: r.referenceInput || '',
+                        outputs: r.outputs || [],
+                        equipmentUuid: undefined,
+                        note: r.note || '',
+                      });
+                      setDevicePorts([]);
+                      setEditingCCU(null);
+                      setSelectedCameraUuids([]);
+                      setIsModalOpen(true);
+                    }}
+                    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+                    title="Duplicate"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete((ccu as any).uuid || ccu.id)}
+                    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-              
-              {(ccu as any).note && (
-                <div className="mt-3">
-                  <p className="text-sm text-av-text-muted">
-                    <span className="font-medium">Note:</span> {(ccu as any).note}
-                  </p>
-                </div>
-              )}
 
               {/* ── Reveal Panel ─────────────────────────────────────────────── */}
               {isExpanded && (
