@@ -109,7 +109,7 @@ interface ProjectStoreState {
   
   // Media Server CRUD
   addMediaServer: (server: MediaServer) => void;
-  addMediaServerPair: (platform: string, outputs: any[], note?: string) => Promise<void>;
+  addMediaServerPair: (platform: string, outputs: any[], note?: string, computerType?: string) => Promise<void>;
   updateMediaServer: (id: string, updates: Partial<MediaServer>) => Promise<void>;
   deleteMediaServer: (id: string) => Promise<void>;
   
@@ -1481,7 +1481,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().recordChange('create', 'mediaServer', newServer.id, newServer);
   },
   
-  addMediaServerPair: async (platform: string, outputs: any[], note?: string) => {
+  addMediaServerPair: async (platform: string, outputs: any[], note?: string, computerType?: string) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
@@ -1532,6 +1532,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         platform: mainServer.platform,
         outputs: mainServer.outputs,
         note: mainServer.note,
+        computerType,
         productionId: activeProject.production.id,
         userId,
         userName
@@ -1547,6 +1548,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         platform: backupServer.platform,
         outputs: backupServer.outputs,
         note: backupServer.note,
+        computerType,
         productionId: activeProject.production.id,
         userId,
         userName
@@ -1556,8 +1558,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       get().updateActiveProject({
         mediaServers: [
           ...activeProject.mediaServers.filter(s => s.id !== mainServer.id && s.id !== backupServer.id),
-          { ...mainServer, uuid: savedMainServer.uuid, version: savedMainServer.version },
-          { ...backupServer, uuid: savedBackupServer.uuid, version: savedBackupServer.version }
+          { ...mainServer, uuid: savedMainServer.uuid, version: savedMainServer.version, computerType },
+          { ...backupServer, uuid: savedBackupServer.uuid, version: savedBackupServer.version, computerType }
         ]
       });
       

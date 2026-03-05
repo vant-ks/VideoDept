@@ -2,6 +2,19 @@
 
 ---
 
+## March 5, 2026 — Migrate Media Servers to IOPortsPanel / device_ports (IN PROGRESS)
+
+### Branch: `v0.1.5_source-touchups`
+### Status: 🔄 IN PROGRESS
+
+### Goal
+Replace the legacy `outputs_data` (name/role/type/resolution/frameRate per output row) with the IOPortsPanel / `device_ports` table system. Equipment spec IO is the source of truth; user assigns portLabel + Format per port per production instance.
+
+### Changes
+- TBD on commit
+
+---
+
 ## March 5, 2026 — Switch Railway deploy to db:push (remove migrate deploy)
 
 ### Branch: `v0.1.5_source-touchups`

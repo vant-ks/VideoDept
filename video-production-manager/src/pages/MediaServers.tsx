@@ -9,7 +9,7 @@ import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import type { MediaServer, MediaServerOutput, MediaServerLayer, Format } from '@/types';
-import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
+import { MEDIA_SERVER_PLATFORMS } from '@/types/mediaServer';
 import { IOPortsPanel } from '@/components/IOPortsPanel';
 import type { DevicePortDraft } from '@/components/IOPortsPanel';
 import { FormatFormModal } from '@/components/FormatFormModal';
@@ -48,16 +48,16 @@ export default function MediaServers() {
       .catch(() => {});
   }, []);
 
-  const togglePairReveal = useCallback(async (uuid: string) => {
-    setExpandedPairs(prev => {
-      const next = new Set(prev);
-      if (next.has(uuid)) { next.delete(uuid); } else { next.add(uuid); }
-      return next;
-    });
-    if (!pairCardPorts[uuid]) {
-      setPairCardPortsLoading(prev => new Set(prev).add(uuid));
-      try {
-        const ports = await apiClient.get<any[]>(`/device-ports/device/${uuid}`);
+  // Track which UUIDs we've already requested so the eager-load effect doesn't double-fetch
+  const requestedPortUuids = React.useRef<Set<string>>(new Set());
+
+  // Helper: fetch and cache device_ports for one server UUID
+  const fetchPortsForUuid = useCallback((uuid: string) => {
+    if (requestedPortUuids.current.has(uuid)) return;
+    requestedPortUuids.current.add(uuid);
+    setPairCardPortsLoading(prev => new Set(prev).add(uuid));
+    apiClient.get<any[]>(`/device-ports/device/${uuid}`)
+      .then((ports: any) => {
         setPairCardPorts(prev => ({
           ...prev,
           [uuid]: Array.isArray(ports)
@@ -72,13 +72,31 @@ export default function MediaServers() {
               }))
             : [],
         }));
-      } catch {
-        setPairCardPorts(prev => ({ ...prev, [uuid]: [] }));
-      } finally {
-        setPairCardPortsLoading(prev => { const s = new Set(prev); s.delete(uuid); return s; });
-      }
-    }
-  }, [pairCardPorts]);
+      })
+      .catch(() => { setPairCardPorts(prev => ({ ...prev, [uuid]: [] })); })
+      .finally(() => { setPairCardPortsLoading(prev => { const s = new Set(prev); s.delete(uuid); return s; }); });
+  }, []);
+
+  // Eager-load ports for all pairs on mount / when pair list changes (needed for card count display)
+  useEffect(() => {
+    serverPairs.forEach(pair => {
+      const mainUuid  = (pair.main   as any).uuid as string | undefined;
+      const backupUuid = (pair.backup as any).uuid as string | undefined;
+      if (mainUuid)  fetchPortsForUuid(mainUuid);
+      if (backupUuid) fetchPortsForUuid(backupUuid);
+    });
+  }, [serverPairs, fetchPortsForUuid]);
+
+  const togglePairReveal = useCallback(async (mainUuid: string, backupUuid?: string) => {
+    setExpandedPairs(prev => {
+      const next = new Set(prev);
+      if (next.has(mainUuid)) { next.delete(mainUuid); } else { next.add(mainUuid); }
+      return next;
+    });
+    // fetchPortsForUuid is idempotent — skips if already requested
+    fetchPortsForUuid(mainUuid);
+    if (backupUuid) fetchPortsForUuid(backupUuid);
+  }, [fetchPortsForUuid]);
   useProductionEvents({
     productionId,
     onEntityCreated: useCallback((event) => {
@@ -324,15 +342,6 @@ export default function MediaServers() {
     }
   };
 
-  // Derives backup-server outputs from main-server outputs by swapping the " A" → " B" suffix.
-  // Handles both plain " A" and " A (Role)" formats (role group is optional).
-  const makeBackupOutputs = (mainOutputs: MediaServerOutput[], backupId: string) =>
-    mainOutputs.map((o, i) => ({
-      ...o,
-      id: `${backupId}-OUT${i + 1}`,
-      name: o.name.replace(/\s+A(\s*\([^)]*\))?$/, (_, roleGroup) => roleGroup ? ` B${roleGroup}` : ' B'),
-    }));
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -409,10 +418,12 @@ export default function MediaServers() {
           ) : (
             <div className="space-y-4">
               {serverPairs.map((pair, index) => {
-                const mainUuid = (pair.main as any).uuid as string | undefined;
+                const mainUuid   = (pair.main   as any).uuid as string | undefined;
+                const backupUuid = (pair.backup as any).uuid as string | undefined;
                 const isExpanded = mainUuid ? expandedPairs.has(mainUuid) : false;
                 const isLoadingPorts = mainUuid ? pairCardPortsLoading.has(mainUuid) : false;
-                const revealPorts = mainUuid ? (pairCardPorts[mainUuid] ?? []) : [];
+                const revealPorts     = mainUuid  ? (pairCardPorts[mainUuid]  ?? []) : [];
+                const revealPortsBack = backupUuid ? (pairCardPorts[backupUuid] ?? []) : [];
                 return (
                 <Card 
                   key={pair.main.pairNumber} 
@@ -433,7 +444,7 @@ export default function MediaServers() {
                   <div
                     className="grid gap-4 items-center cursor-pointer"
                     style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
-                    onClick={() => { if (draggedIndex === null && mainUuid) togglePairReveal(mainUuid); }}
+                    onClick={() => { if (draggedIndex === null && mainUuid) togglePairReveal(mainUuid, backupUuid); }}
                   >
                     {/* Col 1 (30%): grip + chevron + pair name + platform (output count) */}
                     <div className="flex items-center gap-2 min-w-0">
@@ -453,7 +464,14 @@ export default function MediaServers() {
                         Server {index + 1}
                       </h3>
                       <span className="text-sm text-av-text-muted flex-shrink-0">
-                        {pair.main.platform}{pair.main.outputs.length > 0 ? ` (${pair.main.outputs.length} output${pair.main.outputs.length !== 1 ? 's' : ''})` : ''}
+                        {(() => {
+                          // Count named+format-assigned OUTPUT ports; fall back to outputs_data length for legacy records
+                          const ports = mainUuid ? pairCardPorts[mainUuid] : undefined;
+                          const count = ports !== undefined
+                            ? ports.filter(p => p.direction === 'OUTPUT' && p.portLabel?.trim() && p.formatUuid).length
+                            : pair.main.outputs.length;
+                          return pair.main.platform + (count > 0 ? ` (${count} output${count !== 1 ? 's' : ''})` : '');
+                        })()}
                       </span>
                     </div>
 
@@ -519,124 +537,84 @@ export default function MediaServers() {
                   {isExpanded && (
                     <div className="mt-4 border-t border-av-border pt-4 space-y-4">
 
-                      {/* Main and Backup Server subcards */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Main Server */}
-                        <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-semibold text-av-text">
-                              Server {index + 1} A
-                            </h4>
-                            <Badge variant="success">Main</Badge>
-                          </div>
-                          {pair.main.outputs.length > 0 ? (
-                            <div className="space-y-1">
-                              {pair.main.outputs.map((output, idx) => (
-                                <div key={`${pair.main.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between gap-2">
-                                  <span className="text-av-text truncate">{output.name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '')}{output.role ? ` — ${output.role}` : ''}</span>
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    {output.resolution && (
-                                      <span className="text-av-text-muted">{output.resolution.width}×{output.resolution.height}{output.frameRate ? ` @ ${output.frameRate}p` : ''}</span>
-                                    )}
-                                    <Badge>{output.type}</Badge>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-av-text-muted italic">No outputs configured</p>
-                          )}
-                        </div>
+                      {/* A/B Server subcards — each shows that server's device_ports */}
+                      {(() => {
+                        // Shared port-table renderer used for both A and B
+                        const renderPortTable = (ports: DevicePortDraft[], loading: boolean, emptyMsg: string) => {
+                          if (loading) return <p className="text-xs text-av-text-muted italic">Loading ports…</p>;
+                          if (ports.length === 0) return <p className="text-xs text-av-text-muted italic">{emptyMsg}</p>;
+                          return (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                                  <th className="text-left pb-1.5 pr-2 font-semibold w-12">Dir</th>
+                                  <th className="text-left pb-1.5 pr-2 font-semibold w-16">Type</th>
+                                  <th className="text-left pb-1.5 pr-2 font-semibold">Label</th>
+                                  <th className="text-left pb-1.5 pr-2 font-semibold">Format</th>
+                                  <th className="text-left pb-1.5 font-semibold">Note</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-av-border/40">
+                                {ports.map((port, i) => {
+                                  const fmtName = port.formatUuid
+                                    ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
+                                    : '—';
+                                  const isOut = port.direction === 'OUTPUT';
+                                  return (
+                                    <tr key={i} className="hover:bg-av-surface-hover/40">
+                                      <td className="py-1.5 pr-2">
+                                        {isOut
+                                          ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                          : <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                        }
+                                      </td>
+                                      <td className="py-1.5 pr-2 font-mono text-av-text-muted">{port.ioType}</td>
+                                      <td className="py-1.5 pr-2 text-av-text">{port.portLabel || <span className="text-av-text-muted/50 italic">unlabelled</span>}</td>
+                                      <td className="py-1.5 pr-2 text-av-info">{isOut ? fmtName : <span className="text-av-text-muted">—</span>}</td>
+                                      <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          );
+                        };
 
-                        {/* Backup Server */}
-                        <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-semibold text-av-text">
-                              Server {index + 1} B
-                            </h4>
-                            <Badge variant="warning">Backup</Badge>
-                          </div>
-                          {pair.backup.outputs.length > 0 ? (
-                            <div className="space-y-1">
-                              {pair.backup.outputs.map((output, idx) => (
-                                <div key={`${pair.backup.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between gap-2">
-                                  <span className="text-av-text truncate">{output.name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '')}{output.role ? ` — ${output.role}` : ''}</span>
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    {output.resolution && (
-                                      <span className="text-av-text-muted">{output.resolution.width}×{output.resolution.height}{output.frameRate ? ` @ ${output.frameRate}p` : ''}</span>
-                                    )}
-                                    <Badge>{output.type}</Badge>
-                                  </div>
-                                </div>
-                              ))}
+                        const isLoadingA = mainUuid   ? pairCardPortsLoading.has(mainUuid)   : false;
+                        const isLoadingB = backupUuid ? pairCardPortsLoading.has(backupUuid) : false;
+
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Server A */}
+                            <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-semibold text-av-text">Server {index + 1} A</h4>
+                                <Badge variant="success">Main</Badge>
+                              </div>
+                              <div className="overflow-x-auto">
+                                {renderPortTable(revealPorts, isLoadingA, 'No ports configured. Open Edit to assign ports.')}
+                              </div>
                             </div>
-                          ) : (
-                            <p className="text-xs text-av-text-muted italic">No outputs configured</p>
-                          )}
-                        </div>
-                      </div>
+
+                            {/* Server B */}
+                            <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-semibold text-av-text">Server {index + 1} B</h4>
+                                <Badge variant="warning">Backup</Badge>
+                              </div>
+                              <div className="overflow-x-auto">
+                                {renderPortTable(revealPortsBack, isLoadingB, 'No ports configured.')}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {pair.main.note && (
                         <div className="border-t border-av-border pt-3">
                           <p className="text-sm text-av-text-muted">
                             <span className="font-medium">Note:</span> {pair.main.note}
                           </p>
-                        </div>
-                      )}
-
-                      {/* I/O Ports table */}
-                      {isLoadingPorts ? (
-                        <p className="text-xs text-av-text-muted italic">Loading ports…</p>
-                      ) : revealPorts.length === 0 ? (
-                        <p className="text-xs text-av-text-muted italic">
-                          No ports configured. Open Edit to assign ports.
-                        </p>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
-                                <th className="text-left pb-1.5 pr-3 font-semibold w-16">Dir</th>
-                                <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
-                                <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
-                                <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
-                                <th className="text-left pb-1.5 font-semibold">Route / Note</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-av-border/40">
-                              {revealPorts
-                                .filter(p => p.direction === 'INPUT')
-                                .map((port, i) => (
-                                  <tr key={`in-${i}`} className="hover:bg-av-surface-hover/40">
-                                    <td className="py-1.5 pr-3">
-                                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
-                                    </td>
-                                    <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
-                                    <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
-                                    <td className="py-1.5 pr-3 text-av-text-muted">—</td>
-                                    <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
-                                  </tr>
-                                ))}
-                              {revealPorts
-                                .filter(p => p.direction === 'OUTPUT')
-                                .map((port, i) => {
-                                  const fmtName = port.formatUuid
-                                    ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
-                                    : '—';
-                                  return (
-                                    <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
-                                      <td className="py-1.5 pr-3">
-                                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
-                                      </td>
-                                      <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
-                                      <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
-                                      <td className="py-1.5 pr-3 text-av-info">{fmtName}</td>
-                                      <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
-                                    </tr>
-                                  );
-                                })}
-                            </tbody>
-                          </table>
                         </div>
                       )}
                     </div>
@@ -860,60 +838,55 @@ export default function MediaServers() {
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSave={(platform, outputs, note, computerType) => {
+          onSave={(platform, note, computerType) => {
             if (editingServer && !isDuplicating) {
-              // Update both main and backup, then re-sync from DB to avoid WS stale-closure flicker
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
                 const serverName = `Server ${pair.main.pairNumber}`;
                 Promise.all([
-                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType }),
-                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: makeBackupOutputs(outputs, pair.backup.id), note, computerType }),
+                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs: [], note, computerType }),
+                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: [], note, computerType }),
                 ]).then(() => {
                   if (activeProject) projectStore.loadProject(activeProject.id);
                 }).catch(() => {});
               }
             } else {
-              addMediaServerPair(platform, outputs, note, computerType);
+              addMediaServerPair(platform, [], note, computerType);
             }
             setIsServerModalOpen(false);
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSaveAndDuplicate={(platform, outputs, note, computerType) => {
-            // Save current pair first
+          onSaveAndDuplicate={(platform, note, computerType) => {
             if (editingServer && !isDuplicating) {
-              // Update both main and backup, then re-sync from DB
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
                 const serverName = `Server ${pair.main.pairNumber}`;
                 Promise.all([
-                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType }),
-                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: makeBackupOutputs(outputs, pair.backup.id), note, computerType }),
+                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs: [], note, computerType }),
+                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: [], note, computerType }),
                 ]).then(() => {
                   if (activeProject) projectStore.loadProject(activeProject.id);
                 }).catch(() => {});
               }
             } else {
-              addMediaServerPair(platform, outputs, note, computerType);
+              addMediaServerPair(platform, [], note, computerType);
             }
-            
-            // Prepare duplicate: create new pair with next number
             const nextPairNum = serverPairs.length + 1;
             setEditingServer({
               id: `Server${nextPairNum}A`,
               name: `Server ${nextPairNum} A`,
               pairNumber: nextPairNum,
               platform,
-              outputs: [], // Reset outputs for new pair
+              outputs: [],
               note: note || '',
               type: 'SERVER',
               category: 'SOURCE'
             } as MediaServer);
             setIsDuplicating(true);
-            // Keep modal open
           }}
           editingServer={editingServer}
+          backupServer={serverPairs.find(p => p.main.pairNumber === editingServer?.pairNumber)?.backup ?? null}
           isDuplicating={isDuplicating}
         />
       )}
@@ -951,15 +924,16 @@ export default function MediaServers() {
 interface ServerPairModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (platform: string, outputs: MediaServerOutput[], note?: string, computerType?: string) => void;
-  onSaveAndDuplicate?: (platform: string, outputs: MediaServerOutput[], note?: string, computerType?: string) => void;
+  onSave: (platform: string, note?: string, computerType?: string) => void;
+  onSaveAndDuplicate?: (platform: string, note?: string, computerType?: string) => void;
   editingServer: MediaServer | null;
+  backupServer?: MediaServer | null;
   isDuplicating?: boolean;
   nextPairNumber?: number;
   productionId?: string;
 }
 
-function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingServer, isDuplicating, nextPairNumber, productionId }: ServerPairModalProps) {
+function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingServer, backupServer, isDuplicating, nextPairNumber, productionId }: ServerPairModalProps) {
   // Use the pairNumber passed from parent (which uses the same logic as main page display)
   // or fall back to the editingServer's pairNumber
   const pairNumber = editingServer?.pairNumber || nextPairNumber || 1;
@@ -971,32 +945,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
   const [computerType, setComputerType] = useState(editingServer?.computerType || '');
-  const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
-    if (editingServer?.outputs) {
-      // Strip A/B suffix (with or without role) when loading for editing.
-      // Uses a single regex: role group `(\([^)]*\))?` is optional — matches " A", " B", " A (Role)", " B (Role)".
-      return editingServer.outputs.map(o => {
-        const nameWithoutSuffix = o.name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '') || o.name;
-        return {
-          name: nameWithoutSuffix,
-          role: o.role,
-          type: o.type, 
-          resolution: o.resolution, 
-          frameRate: o.frameRate 
-        };
-      });
-    }
-    // Default: 1 DP output for new server pairs
-    return [{
-      name: 'MEDIA 1',
-      role: '',
-      type: 'DP',
-      resolution: { width: 1920, height: 1080 },
-      frameRate: 59.94
-    }];
-  });
   const [note, setNote] = useState(editingServer?.note || '');
-  const [customResolutions, setCustomResolutions] = useState<Record<number, boolean>>({});
 
   // device_ports state — tracks signal routing per port
   const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
@@ -1039,104 +988,56 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
     }
   }, [isOpen, editingServer?.uuid]);
   
-  // ── A/B suffix helpers ─────────────────────────────────────────────────────
-  // Three-site transform pattern — all three must use the same regex:
-  //   1. STRIP  (useState init above)       — remove suffix when loading an existing server for editing
-  //   2. APPEND (handleSubmit below)        — append " A" / " A (Role)" before passing outputs to parent
-  //   3. A→B    (makeBackupOutputs, parent) — swap A→B to derive backup-server outputs on save
-  // The role group `(\([^)]*\))?` is optional (?): handles both " A" and " A (Role)".
-  const stripABSuffix = (name: string): string => {
-    return name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '');
-  };
+  // ── Auto-populate device_ports from equipment spec ─────────────────────
+  // When creating a new server and computer type is selected for the first time,
+  // seed devicePorts from the spec's IO port list. On edit, the useEffect above
+  // already loads saved device_ports from the DB, so those take precedence.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (editingServer && !isDuplicating) return; // edit mode: DB ports loaded separately
+    if (!computerType) return;
+    const spec = computerEquipment.find(s => s.model === computerType);
+    if (!spec) return;
+    const specPorts: DevicePortDraft[] = [
+      ...(spec.inputs  ?? []).map(p => ({ portLabel: '', ioType: p.type, direction: 'INPUT'  as const, formatUuid: null, note: null })),
+      ...(spec.outputs ?? []).map(p => ({ portLabel: '', ioType: p.type, direction: 'OUTPUT' as const, formatUuid: null, note: null })),
+    ];
+    if (specPorts.length > 0) setDevicePorts(specPorts);
+  }, [isOpen, computerType, isDuplicating, editingServer, computerEquipment]);
 
-  const appendASuffix = (name: string, role?: string): string => {
-    const stripped = stripABSuffix(name);
-    return role ? `${stripped} A (${role})` : `${stripped} A`;
-  };
+  // ── Output handlers removed ────────────────────────────────────────────
+  // Outputs section replaced by IOPortsPanel / device_ports (see below).
 
-  // Common resolutions
-  const COMMON_RESOLUTIONS = [
-    { label: '1920x1080 (HD)', width: 1920, height: 1080 },
-    { label: '1920x1200 (WUXGA)', width: 1920, height: 1200 },
-    { label: '2560x1440 (QHD)', width: 2560, height: 1440 },
-    { label: '3840x2160 (4K UHD)', width: 3840, height: 2160 },
-    { label: '4096x2160 (DCI 4K)', width: 4096, height: 2160 },
-    { label: '7680x4320 (8K)', width: 7680, height: 4320 },
-    { label: 'Custom', width: 0, height: 0 }
-  ];
-  
-  // Common frame rates
-  const COMMON_FRAME_RATES = [
-    { label: '23.976', value: 23.976 },
-    { label: '24', value: 24 },
-    { label: '25', value: 25 },
-    { label: '29.97', value: 29.97 },
-    { label: '30', value: 30 },
-    { label: '50', value: 50 },
-    { label: '59.94', value: 59.94 },
-    { label: '60', value: 60 },
-    { label: '120', value: 120 }
-  ];
-
-  const handleAddOutput = () => {
-    if (outputs.length >= 8) {
-      alert('Maximum 8 outputs per server');
-      return;
-    }
-    const outputNum = outputs.length + 1;
-    setOutputs([...outputs, { 
-      name: `MEDIA ${outputNum}`,
-      role: '',
-      type: 'DP',
-      resolution: { width: 1920, height: 1080 },
-      frameRate: 59.94
-    }]);
-  };
-
-  const handleRemoveOutput = (index: number) => {
-    setOutputs(outputs.filter((_, i) => i !== index));
-  };
-  
-  const handleDuplicateOutput = (index: number) => {
-    if (outputs.length >= 8) {
-      alert('Maximum 8 outputs per server');
-      return;
-    }
-    const outputToDuplicate = outputs[index];
-    const outputNum = outputs.length + 1;
-    setOutputs([...outputs, { 
-      ...outputToDuplicate,
-      name: `MEDIA ${outputNum}`
-    }]);
-  };
-
-  const handleUpdateOutput = (index: number, updates: Partial<Omit<MediaServerOutput, 'id'>>) => {
-    setOutputs(outputs.map((o, i) => i === index ? { ...o, ...updates } : o));
-  };
+  // ── Common resolutions / frame rates removed ───────────────────────────
+  // Format selection is now handled by IOPortsPanel via the formats table.
 
   const handleSubmit = (e: React.FormEvent, action: 'close' | 'duplicate' = 'close') => {
     e.preventDefault();
-    // Format outputs with A/B suffix (and role in parentheses if present)
-    const outputsWithFormatting = outputs.map((o) => ({
-      ...o,
-      name: appendASuffix(o.name, o.role || undefined)
-    }));
 
-    // Sync device_ports for main server if we have its uuid (edit case)
+    // Sync device_ports for main (A) server
     const mainUuid = editingServer && !editingServer.isBackup ? editingServer.uuid : undefined;
     if (mainUuid && devicePorts.length > 0 && productionId) {
       apiClient.post(`/device-ports/device/${mainUuid}/sync`, {
         productionId,
         deviceDisplayId: editingServer?.id,
         ports: devicePorts,
-      })
-        .catch((err: any) => console.warn('device_ports sync failed (non-fatal):', err));
+      }).catch((err: any) => console.warn('device_ports sync (A) failed (non-fatal):', err));
+    }
+
+    // Sync device_ports for backup (B) server — same ports as A
+    const backupUuid = backupServer?.uuid;
+    if (backupUuid && devicePorts.length > 0 && productionId) {
+      apiClient.post(`/device-ports/device/${backupUuid}/sync`, {
+        productionId,
+        deviceDisplayId: backupServer?.id,
+        ports: devicePorts.map(p => ({ ...p, uuid: undefined })), // new rows for B (no existing uuids)
+      }).catch((err: any) => console.warn('device_ports sync (B) failed (non-fatal):', err));
     }
 
     if (action === 'duplicate' && onSaveAndDuplicate) {
-      onSaveAndDuplicate(platform, outputsWithFormatting as any, note, computerType);
+      onSaveAndDuplicate(platform, note, computerType);
     } else {
-      onSave(platform, outputsWithFormatting as any, note, computerType);
+      onSave(platform, note, computerType);
     }
   };
 
@@ -1187,177 +1088,11 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-av-text">Outputs</h3>
-                  <p className="text-xs text-av-text-muted mt-1">
-                    Output names will be formatted as: OutputName A (Role) / OutputName B (Role)
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddOutput}
-                  className="btn-primary btn-sm flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Output
-                </button>
-              </div>
-              <div className="space-y-3">
-                {outputs.map((output, index) => {
-                  const isCustomRes = customResolutions[index] || 
-                    !COMMON_RESOLUTIONS.find(r => r.width === output.resolution?.width && r.height === output.resolution?.height);
-                  
-                  return (
-                    <Card key={index} className="p-4">
-                      <div className="space-y-3">
-                        {/* Row 1: Name, Role, Type, Duplicate, Delete */}
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-av-text-muted mb-1">
-                              Output Name *
-                            </label>
-                            <input
-                              type="text"
-                              value={output.name}
-                              onChange={(e) => handleUpdateOutput(index, { name: e.target.value })}
-                              placeholder="MEDIA 1"
-                              className="input-field w-full"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-av-text-muted mb-1">Role</label>
-                            <input
-                              type="text"
-                              value={output.role || ''}
-                              onChange={(e) => handleUpdateOutput(index, { role: e.target.value })}
-                              placeholder="LED L, LED R, etc."
-                              className="input-field w-full"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-av-text-muted mb-1">Type</label>
-                            <select
-                              value={output.type}
-                              onChange={(e) => handleUpdateOutput(index, { type: e.target.value as any })}
-                              className="input-field w-full"
-                            >
-                              {OUTPUT_TYPES.map(t => (
-                                <option key={t} value={t}>{t}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="flex items-end">
-                            <button
-                              type="button"
-                              onClick={() => handleDuplicateOutput(index)}
-                              className="w-full p-2 rounded hover:bg-av-info/20 text-av-info transition-colors"
-                              title="Duplicate this output"
-                              disabled={outputs.length >= 8}
-                            >
-                              <Copy className="w-4 h-4 mx-auto" />
-                            </button>
-                          </div>
-                          <div className="flex items-end">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveOutput(index)}
-                              className="w-full p-2 rounded hover:bg-av-danger/20 text-av-danger transition-colors"
-                              title="Delete this output"
-                            >
-                              <Trash2 className="w-4 h-4 mx-auto" />
-                            </button>
-                          </div>
-                        </div>
-                        
-                        {/* Row 2: Resolution Dropdown */}
-                        <div>
-                          <label className="block text-xs font-medium text-av-text-muted mb-1">Resolution</label>
-                          <select
-                            value={isCustomRes ? 'custom' : `${output.resolution?.width}x${output.resolution?.height}`}
-                            onChange={(e) => {
-                              if (e.target.value === 'custom') {
-                                setCustomResolutions({ ...customResolutions, [index]: true });
-                              } else {
-                                const selected = COMMON_RESOLUTIONS.find(r => `${r.width}x${r.height}` === e.target.value);
-                                if (selected) {
-                                  handleUpdateOutput(index, {
-                                    resolution: { width: selected.width, height: selected.height }
-                                  });
-                                  setCustomResolutions({ ...customResolutions, [index]: false });
-                                }
-                              }
-                            }}
-                            className="input-field w-full"
-                          >
-                            {COMMON_RESOLUTIONS.map(res => (
-                              <option key={res.label} value={res.width === 0 ? 'custom' : `${res.width}x${res.height}`}>
-                                {res.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        
-                        {/* Row 3: Custom Resolution Inputs (if custom selected) */}
-                        {isCustomRes && (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-medium text-av-text-muted mb-1">Width</label>
-                              <input
-                                type="number"
-                                value={output.resolution?.width || ''}
-                                onChange={(e) => handleUpdateOutput(index, {
-                                  resolution: { width: parseInt(e.target.value) || 0, height: output.resolution?.height || 0 }
-                                })}
-                                placeholder="Width"
-                                className="input-field w-full"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-av-text-muted mb-1">Height</label>
-                              <input
-                                type="number"
-                                value={output.resolution?.height || ''}
-                                onChange={(e) => handleUpdateOutput(index, {
-                                  resolution: { width: output.resolution?.width || 0, height: parseInt(e.target.value) || 0 }
-                                })}
-                                placeholder="Height"
-                                className="input-field w-full"
-                              />
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Row 4: Frame Rate */}
-                        <div>
-                          <label className="block text-xs font-medium text-av-text-muted mb-1">Frame Rate</label>
-                          <select
-                            value={output.frameRate || ''}
-                            onChange={(e) => handleUpdateOutput(index, { frameRate: parseFloat(e.target.value) || undefined })}
-                            className="input-field w-full"
-                          >
-                            <option value="">Select frame rate...</option>
-                            {COMMON_FRAME_RATES.map(fr => (
-                              <option key={fr.value} value={fr.value}>
-                                {fr.label} fps
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* I/O Ports — Signal Routing */}
+            {/* I/O Ports — from equipment spec */}
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
-                I/O Ports — Signal Routing
-                <span className="text-xs text-av-text-muted ml-2">format &amp; destination per output</span>
+                I/O Ports
+                <span className="text-xs text-av-text-muted ml-2">assign label &amp; format per port</span>
               </label>
               <IOPortsPanel
                 ports={devicePorts}
@@ -1365,9 +1100,14 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
                 formats={formats}
                 isLoading={portsLoading}
                 emptyText={
-                  editingServer?.uuid
-                    ? 'No ports saved for this server yet. Save first, then assign via equipment spec.'
-                    : 'Ports can be configured after the server pair is saved.'
+                  !computerType
+                    ? 'Select a Computer Type above to auto-populate ports from the equipment spec.'
+                    : computerEquipment.find(s => s.model === computerType)?.inputs?.length === 0 &&
+                      computerEquipment.find(s => s.model === computerType)?.outputs?.length === 0
+                    ? 'No I/O defined for this computer type — add ports in the Equipment Library first.'
+                    : editingServer?.uuid
+                    ? 'No ports saved for this server yet. Select a Computer Type to populate from spec.'
+                    : 'Ports will be populated once a Computer Type is selected.'
                 }
                 onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
               />
