@@ -2,16 +2,21 @@
 
 ---
 
-## March 5, 2026 — Migrate Media Servers to IOPortsPanel / device_ports (IN PROGRESS)
+## March 5, 2026 — Migrate Media Servers to IOPortsPanel / device_ports
 
 ### Branch: `v0.1.5_source-touchups`
-### Status: 🔄 IN PROGRESS
+### Status: ✅ COMPLETE
+### Commit: `bd202f3`
 
 ### Goal
 Replace the legacy `outputs_data` (name/role/type/resolution/frameRate per output row) with the IOPortsPanel / `device_ports` table system. Equipment spec IO is the source of truth; user assigns portLabel + Format per port per production instance.
 
 ### Changes
-- TBD on commit
+- **MediaServers.tsx** — Full refactor of `ServerPairModal`: removed `outputs` state, `COMMON_RESOLUTIONS`/`COMMON_FRAME_RATES`, all output handlers (`handleAddOutput/Remove/Duplicate/Update`), `stripABSuffix`/`appendASuffix`, `makeBackupOutputs`. Added `backupServer` prop; updated `onSave`/`onSaveAndDuplicate` to `(platform, note, computerType)`. Spec auto-populate `useEffect` seeds `devicePorts` from `spec.inputs`/`spec.outputs` when `computerType` changes in create mode. `handleSubmit` now syncs `device_ports` for both A and B servers via `/device-ports/sync`. Outputs section JSX replaced with `IOPortsPanel` for both servers.
+- **MediaServers.tsx** — Reveal panel: both A and B subcards now render device_ports via `renderPortTable()` helper using `pairCardPorts[mainUuid]` / `pairCardPorts[backupUuid]`.
+- **MediaServers.tsx** — Card collapsed count: uses `pairCardPorts[mainUuid]?.filter(p => direction=OUTPUT && portLabel.trim() && formatUuid).length`; falls back to `pair.main.outputs.length` for legacy records with no ports yet.
+- **MediaServers.tsx** — `togglePairReveal(mainUuid, backupUuid?)` now fetches ports for both servers; `requestedPortUuids` ref prevents duplicate fetches; eager-load `useEffect` pre-fetches ports for all pairs on mount.
+- **useProjectStore.ts** — `addMediaServerPair` updated to accept optional 4th param `computerType`; forwarded to both main and backup API POST bodies so `computer_type` persists in DB on initial pair creation.
 
 ---
 
