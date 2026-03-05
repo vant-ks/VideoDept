@@ -324,6 +324,15 @@ export default function MediaServers() {
     }
   };
 
+  // Derives backup-server outputs from main-server outputs by swapping the " A" → " B" suffix.
+  // Handles both plain " A" and " A (Role)" formats (role group is optional).
+  const makeBackupOutputs = (mainOutputs: MediaServerOutput[], backupId: string) =>
+    mainOutputs.map((o, i) => ({
+      ...o,
+      id: `${backupId}-OUT${i + 1}`,
+      name: o.name.replace(/\s+A(\s*\([^)]*\))?$/, (_, roleGroup) => roleGroup ? ` B${roleGroup}` : ' B'),
+    }));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -856,16 +865,9 @@ export default function MediaServers() {
               // Update both main and backup
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
-                // The outputs array from modal already has " A (Role)" format
-                // We need to create a " B (Role)" version for the backup server
-                const outputsWithB = outputs.map((o, i) => ({
-                  ...o,
-                  id: `${pair.backup.id}-OUT${i + 1}`, // Generate unique ID for backup outputs
-                  name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B') // Replace " A" with " B", keep role with space
-                }));
                 const serverName = `Server ${pair.main.pairNumber}`;
                 updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
-                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note, computerType });
+                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: makeBackupOutputs(outputs, pair.backup.id), note, computerType });
               }
             } else {
               addMediaServerPair(platform, outputs, note, computerType);
@@ -880,14 +882,9 @@ export default function MediaServers() {
               // Update both main and backup
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
-                const outputsWithB = outputs.map((o, i) => ({
-                  ...o,
-                  id: `${pair.backup.id}-OUT${i + 1}`,
-                  name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B')
-                }));
                 const serverName = `Server ${pair.main.pairNumber}`;
                 updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
-                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note, computerType });
+                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: makeBackupOutputs(outputs, pair.backup.id), note, computerType });
               }
             } else {
               addMediaServerPair(platform, outputs, note, computerType);
@@ -968,9 +965,10 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   const [computerType, setComputerType] = useState(editingServer?.computerType || '');
   const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
     if (editingServer?.outputs) {
-      // Strip A/B suffix and (Role) from output names when loading for editing
+      // Strip A/B suffix (with or without role) when loading for editing.
+      // Uses a single regex: role group `(\([^)]*\))?` is optional — matches " A", " B", " A (Role)", " B (Role)".
       return editingServer.outputs.map(o => {
-        const nameWithoutSuffix = o.name.replace(/\s+[AB]\s*\([^)]*\)$/, '') || o.name.replace(/\s+[AB]$/, '');
+        const nameWithoutSuffix = o.name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '') || o.name;
         return {
           name: nameWithoutSuffix,
           role: o.role,
@@ -1033,15 +1031,19 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
     }
   }, [isOpen, editingServer?.uuid]);
   
-  // Helper functions for A/B suffix handling
+  // ── A/B suffix helpers ─────────────────────────────────────────────────────
+  // Three-site transform pattern — all three must use the same regex:
+  //   1. STRIP  (useState init above)       — remove suffix when loading an existing server for editing
+  //   2. APPEND (handleSubmit below)        — append " A" / " A (Role)" before passing outputs to parent
+  //   3. A→B    (makeBackupOutputs, parent) — swap A→B to derive backup-server outputs on save
+  // The role group `(\([^)]*\))?` is optional (?): handles both " A" and " A (Role)".
   const stripABSuffix = (name: string): string => {
-    return name.replace(/\s+[AB]$/, '');
+    return name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '');
   };
-  
-  const appendASuffix = (name: string): string => {
-    // If name already has A or B, strip it first
+
+  const appendASuffix = (name: string, role?: string): string => {
     const stripped = stripABSuffix(name);
-    return `${stripped} A`;
+    return role ? `${stripped} A (${role})` : `${stripped} A`;
   };
 
   // Common resolutions
@@ -1106,10 +1108,10 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
 
   const handleSubmit = (e: React.FormEvent, action: 'close' | 'duplicate' = 'close') => {
     e.preventDefault();
-    // Format outputs with A/B suffix and role in parentheses
+    // Format outputs with A/B suffix (and role in parentheses if present)
     const outputsWithFormatting = outputs.map((o) => ({
       ...o,
-      name: o.role ? `${o.name} A (${o.role})` : `${o.name} A`
+      name: appendASuffix(o.name, o.role || undefined)
     }));
 
     // Sync device_ports for main server if we have its uuid (edit case)
