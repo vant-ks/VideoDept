@@ -446,11 +446,11 @@ export default function MediaServers() {
                       <span className="text-sm text-av-text-muted flex-shrink-0">{pair.main.platform}</span>
                     </div>
 
-                    {/* Col 2 (30%): output counts A / B */}
+                    {/* Col 2 (30%): output count */}
                     <div className="min-w-0">
-                      {pair.main.outputs.length > 0 || pair.backup.outputs.length > 0 ? (
+                      {pair.main.outputs.length > 0 ? (
                         <span className="text-sm text-av-text-muted">
-                          {pair.main.outputs.length}A / {pair.backup.outputs.length}B outputs
+                          {pair.main.outputs.length} output{pair.main.outputs.length !== 1 ? 's' : ''}
                         </span>
                       ) : (
                         <span className="text-sm text-av-text-muted/40 italic">—</span>
@@ -990,6 +990,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
     }];
   });
   const [note, setNote] = useState(editingServer?.note || '');
+  const [customResolutions, setCustomResolutions] = useState<Record<number, boolean>>({});
 
   // device_ports state — tracks signal routing per port
   const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
