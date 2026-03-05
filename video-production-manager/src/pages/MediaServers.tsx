@@ -44,7 +44,7 @@ export default function MediaServers() {
 
   useEffect(() => {
     apiClient.get('/formats')
-      .then((res: any) => { if (Array.isArray(res.data)) setFormats(res.data); })
+      .then((res: any) => { if (Array.isArray(res)) setFormats(res); })
       .catch(() => {});
   }, []);
 
@@ -955,7 +955,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   useEffect(() => {
     if (!isOpen) return;
     apiClient.get('/formats')
-      .then((res: any) => { if (Array.isArray(res.data)) setFormats(res.data); })
+      .then((res: any) => { if (Array.isArray(res)) setFormats(res); })
       .catch(() => {});
   }, [isOpen]);
 
@@ -967,7 +967,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
       setPortsLoading(true);
       apiClient.get(`/device-ports/device/${mainServer.uuid}`)
         .then((res: any) => {
-          const ports: any[] = Array.isArray(res.data) ? res.data : [];
+          const ports: any[] = Array.isArray(res) ? res : [];
           if (ports.length > 0) {
             // DB has saved ports — use them (they take priority over spec auto-populate)
             setDevicePorts(ports.map((p: any) => ({
