@@ -15187,5 +15187,82 @@
       "720p50"
     ],
     "formatByIO": false
+  },
+  {
+    "id": "pc-laptop-misc",
+    "category": "computer",
+    "manufacturer": "PC",
+    "model": "Laptop - PC MISC",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "pc-laptop-gfx",
+    "category": "computer",
+    "manufacturer": "PC",
+    "model": "Laptop - PC GFX",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "pc-laptop-wide",
+    "category": "computer",
+    "manufacturer": "PC",
+    "model": "Laptop - PC WIDE",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "mac-laptop-misc",
+    "category": "computer",
+    "manufacturer": "Mac",
+    "model": "Laptop - Mac MISC",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "mac-laptop-gfx",
+    "category": "computer",
+    "manufacturer": "Mac",
+    "model": "Laptop - Mac GFX",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "pc-desktop-misc",
+    "category": "computer",
+    "manufacturer": "PC",
+    "model": "Desktop - PC MISC",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "pc-desktop-gfx",
+    "category": "computer",
+    "manufacturer": "PC",
+    "model": "Desktop - PC GFX",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "pc-desktop-server",
+    "category": "computer",
+    "manufacturer": "PC",
+    "model": "Desktop - PC SERVER",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "mac-desktop-misc",
+    "category": "computer",
+    "manufacturer": "Mac",
+    "model": "Desktop - Mac MISC",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "mac-desktop-gfx",
+    "category": "computer",
+    "manufacturer": "Mac",
+    "model": "Desktop - Mac GFX",
+    "ioArchitecture": "direct"
+  },
+  {
+    "id": "mac-desktop-server",
+    "category": "computer",
+    "manufacturer": "Mac",
+    "model": "Desktop - Mac SERVER",
+    "ioArchitecture": "direct"
   }
 ]

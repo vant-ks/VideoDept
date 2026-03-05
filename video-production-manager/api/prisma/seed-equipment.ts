@@ -98,7 +98,8 @@ async function seedEquipment() {
         'projector': EquipmentCategory.PROJECTOR,
         'recorder': EquipmentCategory.RECORDER,
         'monitor': EquipmentCategory.MONITOR,
-        'converter': EquipmentCategory.CONVERTER
+        'converter': EquipmentCategory.CONVERTER,
+        'computer': EquipmentCategory.COMPUTER
       };
       
       // Map ioArchitecture to enum values
