@@ -2,6 +2,74 @@
 
 ---
 
+## March 5, 2026 — Switch Railway deploy to db:push (remove migrate deploy)
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: TBD
+
+### Changes
+- **api/nixpacks.toml** — Changed start command from `npx prisma migrate deploy` → `npx prisma db push`; full cmd: `npx prisma db push && npm run seed:all:prod && npm run start`
+- **docs/RAILWAY_DEPLOYMENT.md** — Updated deploy log line "Migrations deployed" → "Schema pushed (db:push)"; updated troubleshooting section to reference db:push instead of migrate
+
+### Rule Enforced
+Project always uses `prisma db push` — both locally and on Railway. `prisma migrate dev` / `prisma migrate deploy` are never used (causes crashes / Exit Code 137 on dev machine and is not the intended workflow).
+
+---
+
+## March 5, 2026 — Fix computerType not persisting on media server save
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `50b298b`
+
+### Root Cause
+`computer_type` column did not exist in the `media_servers` table. Prisma silently drops unknown fields, so the value was never written to the DB.
+
+### Changes
+- **api/prisma/schema.prisma** — Added `computer_type String?` to `media_servers` model (between `platform` and `outputs_data`)
+- **Dev DB** — `db:push` applied in 83ms; Prisma client regenerated
+- **API server** — Restarted to pick up new Prisma client (tsx watch does not auto-restart on client regeneration)
+- No route changes needed: PUT handler already uses `toSnakeCase(updates)` → `computer_type` is now recognised; `normalizeMediaServer` already uses `toCamelCase(server)` → `computerType` already returned in responses
+
+---
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `5cf3631`
+
+### Changes
+- **api/prisma/equipment-data.json** — Added 11 COMPUTER category entries recovered from `seed-computers.mjs` in commit `036ae3f`: `Laptop - PC MISC`, `Laptop - PC GFX`, `Laptop - PC WIDE`, `Laptop - Mac MISC`, `Laptop - Mac GFX`, `Desktop - PC MISC`, `Desktop - PC GFX`, `Desktop - PC SERVER`, `Desktop - Mac MISC`, `Desktop - Mac GFX`, `Desktop - Mac SERVER`
+- **api/prisma/seed-equipment.ts** — Added `'computer': EquipmentCategory.COMPUTER` to `categoryMap` (was missing — all `category: "computer"` entries in the JSON were being skipped with `undefined` category and not inserted)
+- **Dev DB** — Re-seeded: 230 total specs, COMPUTER: 11 models confirmed
+
+---
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `d002f87`
+
+### Changes
+- **MediaServers.tsx** — Fixed card disappearing after edit-save: `onSave` and `onSaveAndDuplicate` now wrap both `updateMediaServer` calls in `Promise.all().then(() => loadProject())` to force a DB re-sync after save — eliminates WS stale-closure race that dropped the card from the rendered list
+- **MediaServers.tsx** — Fixed empty Computer Type dropdown: changed `spec.category === 'COMPUTER'` → `spec.category === 'computer'` (equipment library normalises categories to lowercase via `toLowerCase()`)
+- **MediaServers.tsx** — Removed "Server ID: N (Drag to reorder servers)" subtitle from edit modal header
+- **MediaServers.tsx** — Card col 1: output count appended in parens after platform (`Resolume (2 outputs)`); Card col 2: now shows note text instead of output count
+
+---
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `0fd54bb`
+
+### Changes
+- **MediaServers.tsx** — Fixed strip regex in `useState` initializer: `/\s+[AB]\s*\([^)]*\)$/` → `/\s+[AB]\s*(\([^)]*\))?$/` — `?` makes role optional, preventing suffix accumulation on repeated edit cycles (bug: `"MEDIA 1"` → `"MEDIA 1 A"` → `"MEDIA 1 A A"`)
+- **MediaServers.tsx** — Fixed `stripABSuffix` helper to use the corrected regex (handles both `" A"` and `" A (Role)"`)
+- **MediaServers.tsx** — Updated `appendASuffix` signature to accept optional `role` param; replaced inline ternary template literal in `handleSubmit` with `appendASuffix(o.name, o.role || undefined)`
+- **MediaServers.tsx** — Extracted duplicated `outputsWithB` map into `makeBackupOutputs(mainOutputs, backupId)` helper; called from both `onSave` and `onSaveAndDuplicate`
+- **MediaServers.tsx** — Added comment block above helpers documenting the three-site transform pattern (STRIP → APPEND → A→B)
+
+---
+
 ## March 5, 2026 — CCU card: single-click reveal/collapse + chevron moved to left of ID
 
 ### Branch: `v0.1.4_signal-flow`
