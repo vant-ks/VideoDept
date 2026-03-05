@@ -211,7 +211,7 @@ export default function Cameras() {
       formatMode: '',
       maxZoom: undefined,
       shootingDistance: undefined,
-      focalLength: undefined,
+      focalLength: 8.5,
       hasHeavyTripod: false,
       hasMediumTripod: false,
       hasTripod: false,
@@ -374,6 +374,9 @@ export default function Cameras() {
         manufacturer: '',
         model: '',
         formatMode: '',
+        focalLength: 8.5,
+        maxZoom: undefined,
+        shootingDistance: undefined,
         hasHeavyTripod: false,
         hasMediumTripod: false,
         hasTripod: false,
@@ -815,56 +818,75 @@ export default function Cameras() {
               {/* Zoom Lens Configuration */}
               <div>
                 <h3 className="text-lg font-semibold text-av-text mb-3">Zoom Lens Configuration</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      Focal Length (mm)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.focalLength || ''}
-                      onChange={(e) => setFormData({ ...formData, focalLength: parseFloat(e.target.value) || undefined })}
-                      className="input-field w-full"
-                      placeholder="e.g., 14"
-                      step="0.1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      Max Zoom
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.maxZoom || ''}
-                      onChange={(e) => setFormData({ ...formData, maxZoom: parseFloat(e.target.value) || undefined })}
-                      className="input-field w-full"
-                      placeholder="e.g., 20"
-                      step="0.1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-av-text mb-2">
-                      Shooting Distance (ft)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.shootingDistance || ''}
-                      onChange={(e) => setFormData({ ...formData, shootingDistance: parseFloat(e.target.value) || undefined })}
-                      className="input-field w-full"
-                      placeholder="e.g., 100"
-                    />
-                  </div>
-                </div>
-                {formData.focalLength && formData.maxZoom && formData.shootingDistance && (() => {
-                  const effFl = formData.focalLength * formData.maxZoom;
-                  const frameHeightIn = (6.6 * formData.shootingDistance * 304.8) / (effFl * 25.4);
-                  const canFrame = frameHeightIn <= 8;
+                {(() => {
+                  const fl = formData.focalLength;
+                  const mz = formData.maxZoom;
+                  const sd = formData.shootingDistance;
+                  // Derive whichever of maxZoom / shootingDistance is missing (8" target at sensor 6.6mm)
+                  // maxZoom = (6.6 * d_ft * 304.8) / (fl * 8 * 25.4)
+                  // distance = (8 * fl * mz * 25.4) / (6.6 * 304.8)
+                  const derivedMaxZoom = fl && sd && !mz
+                    ? Math.round(((6.6 * sd * 304.8) / (fl * 8 * 25.4)) * 10) / 10
+                    : undefined;
+                  const derivedDistance = fl && mz && !sd
+                    ? Math.round(((8 * fl * mz * 25.4) / (6.6 * 304.8)) * 10) / 10
+                    : undefined;
+                  const effMz = mz || derivedMaxZoom;
+                  const effSd = sd || derivedDistance;
+                  const effFl = fl && effMz ? fl * effMz : undefined;
+                  const frameHeightIn = effFl && effSd
+                    ? Math.round(((6.6 * effSd * 304.8) / (effFl * 25.4)) * 10) / 10
+                    : undefined;
                   return (
-                    <div className="mt-3 p-3 rounded-md bg-av-surface-light border border-av-border text-sm text-av-text-muted">
-                      <span className="font-medium text-av-text">{effFl}mm</span> effective focal length
-                      {' · '}frame height at {formData.shootingDistance}ft ≈ <span className="font-medium text-av-text">{Math.round(frameHeightIn * 10) / 10}"</span>
-                      {' · '}8" target: <span className={canFrame ? 'text-av-success font-medium' : 'text-av-warning font-medium'}>{canFrame ? '✓ frameable' : '⚠ too small'}</span>
-                    </div>
+                    <>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-av-text mb-2">
+                            Focal Length (mm)
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.focalLength ?? ''}
+                            onChange={(e) => setFormData({ ...formData, focalLength: parseFloat(e.target.value) || undefined })}
+                            className="input-field w-full"
+                            placeholder="e.g., 8.5"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-yellow-400 mb-2">
+                            Max Zoom{derivedMaxZoom ? ' (calc)' : ''}
+                          </label>
+                          <input
+                            type="number"
+                            value={mz ?? (derivedMaxZoom ?? '')}
+                            onChange={(e) => setFormData({ ...formData, maxZoom: parseFloat(e.target.value) || undefined })}
+                            className={`input-field w-full${derivedMaxZoom ? ' bg-av-surface-light text-av-text-muted' : ''}`}
+                            placeholder="e.g., 20"
+                            readOnly={!!derivedMaxZoom}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-yellow-400 mb-2">
+                            Shooting Distance (ft){derivedDistance ? ' (calc)' : ''}
+                          </label>
+                          <input
+                            type="number"
+                            value={sd ?? (derivedDistance ?? '')}
+                            onChange={(e) => setFormData({ ...formData, shootingDistance: parseFloat(e.target.value) || undefined })}
+                            className={`input-field w-full${derivedDistance ? ' bg-av-surface-light text-av-text-muted' : ''}`}
+                            placeholder="e.g., 100"
+                            readOnly={!!derivedDistance}
+                          />
+                        </div>
+                      </div>
+                      {effFl && effSd && frameHeightIn !== undefined && (
+                        <div className="mt-3 p-3 rounded-md bg-av-surface-light border border-av-border text-sm text-av-text-muted">
+                          <span className="font-medium text-av-text">{effFl}mm</span> effective focal length
+                          {' · '}frame height at {effSd}ft ≈ <span className="font-medium text-av-text">{frameHeightIn}"</span>
+                          {' · '}8" target: <span className={frameHeightIn <= 8 ? 'text-av-success font-medium' : 'text-av-warning font-medium'}>{frameHeightIn <= 8 ? '✓ frameable' : '⚠ too small'}</span>
+                        </div>
+                      )}
+                    </>
                   );
                 })()}
               </div>
