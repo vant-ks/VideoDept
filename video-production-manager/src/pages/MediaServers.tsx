@@ -435,7 +435,7 @@ export default function MediaServers() {
                     style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
                     onClick={() => { if (draggedIndex === null && mainUuid) togglePairReveal(mainUuid); }}
                   >
-                    {/* Col 1 (30%): grip + chevron + pair name + platform */}
+                    {/* Col 1 (30%): grip + chevron + pair name + platform (output count) */}
                     <div className="flex items-center gap-2 min-w-0">
                       <button
                         className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-accent transition-colors flex-shrink-0"
@@ -452,15 +452,15 @@ export default function MediaServers() {
                       <h3 className="text-lg font-semibold text-av-text truncate">
                         Server {index + 1}
                       </h3>
-                      <span className="text-sm text-av-text-muted flex-shrink-0">{pair.main.platform}</span>
+                      <span className="text-sm text-av-text-muted flex-shrink-0">
+                        {pair.main.platform}{pair.main.outputs.length > 0 ? ` (${pair.main.outputs.length} output${pair.main.outputs.length !== 1 ? 's' : ''})` : ''}
+                      </span>
                     </div>
 
-                    {/* Col 2 (30%): output count */}
+                    {/* Col 2 (30%): note */}
                     <div className="min-w-0">
-                      {pair.main.outputs.length > 0 ? (
-                        <span className="text-sm text-av-text-muted">
-                          {pair.main.outputs.length} output{pair.main.outputs.length !== 1 ? 's' : ''}
-                        </span>
+                      {pair.main.note ? (
+                        <span className="text-sm text-av-text-muted truncate block">{pair.main.note}</span>
                       ) : (
                         <span className="text-sm text-av-text-muted/40 italic">—</span>
                       )}
@@ -862,12 +862,16 @@ export default function MediaServers() {
           }}
           onSave={(platform, outputs, note, computerType) => {
             if (editingServer && !isDuplicating) {
-              // Update both main and backup
+              // Update both main and backup, then re-sync from DB to avoid WS stale-closure flicker
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
                 const serverName = `Server ${pair.main.pairNumber}`;
-                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
-                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: makeBackupOutputs(outputs, pair.backup.id), note, computerType });
+                Promise.all([
+                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType }),
+                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: makeBackupOutputs(outputs, pair.backup.id), note, computerType }),
+                ]).then(() => {
+                  if (activeProject) projectStore.loadProject(activeProject.id);
+                }).catch(() => {});
               }
             } else {
               addMediaServerPair(platform, outputs, note, computerType);
@@ -879,12 +883,16 @@ export default function MediaServers() {
           onSaveAndDuplicate={(platform, outputs, note, computerType) => {
             // Save current pair first
             if (editingServer && !isDuplicating) {
-              // Update both main and backup
+              // Update both main and backup, then re-sync from DB
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
                 const serverName = `Server ${pair.main.pairNumber}`;
-                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
-                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: makeBackupOutputs(outputs, pair.backup.id), note, computerType });
+                Promise.all([
+                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType }),
+                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: makeBackupOutputs(outputs, pair.backup.id), note, computerType }),
+                ]).then(() => {
+                  if (activeProject) projectStore.loadProject(activeProject.id);
+                }).catch(() => {});
               }
             } else {
               addMediaServerPair(platform, outputs, note, computerType);
@@ -959,7 +967,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   const oldStoreEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
   const equipmentLibSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
   const equipmentSpecs = equipmentLibSpecs.length > 0 ? equipmentLibSpecs : oldStoreEquipmentSpecs;
-  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'COMPUTER');
+  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'computer');
   
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
   const [computerType, setComputerType] = useState(editingServer?.computerType || '');
@@ -1143,9 +1151,6 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
             <h2 className="text-2xl font-bold text-av-text">
               {editingServer ? `Edit Server ${pairNumber} Pair` : `Add Server ${pairNumber} Pair`}
             </h2>
-            <p className="text-sm text-av-text-muted mt-1">
-              Server ID: {pairNumber} (Drag to reorder servers)
-            </p>
           </div>
 
           <div className="p-6 space-y-6">
