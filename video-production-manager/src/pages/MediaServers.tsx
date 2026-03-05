@@ -77,16 +77,6 @@ export default function MediaServers() {
       .finally(() => { setPairCardPortsLoading(prev => { const s = new Set(prev); s.delete(uuid); return s; }); });
   }, []);
 
-  // Eager-load ports for all pairs on mount / when pair list changes (needed for card count display)
-  useEffect(() => {
-    serverPairs.forEach(pair => {
-      const mainUuid  = (pair.main   as any).uuid as string | undefined;
-      const backupUuid = (pair.backup as any).uuid as string | undefined;
-      if (mainUuid)  fetchPortsForUuid(mainUuid);
-      if (backupUuid) fetchPortsForUuid(backupUuid);
-    });
-  }, [serverPairs, fetchPortsForUuid]);
-
   const togglePairReveal = useCallback(async (mainUuid: string, backupUuid?: string) => {
     setExpandedPairs(prev => {
       const next = new Set(prev);
@@ -180,6 +170,16 @@ export default function MediaServers() {
       .map(([_, pair]) => pair)
       .filter(pair => pair.main && pair.backup);
   }, [mediaServers]);
+
+  // Eager-load ports for all pairs on mount / when pair list changes (needed for card count display)
+  useEffect(() => {
+    serverPairs.forEach(pair => {
+      const mainUuid   = (pair.main   as any).uuid as string | undefined;
+      const backupUuid = (pair.backup as any).uuid as string | undefined;
+      if (mainUuid)   fetchPortsForUuid(mainUuid);
+      if (backupUuid) fetchPortsForUuid(backupUuid);
+    });
+  }, [serverPairs, fetchPortsForUuid]);
 
   const handleAddServerPair = () => {
     setEditingServer(null);
