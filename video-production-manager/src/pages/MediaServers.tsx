@@ -967,8 +967,10 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
       setPortsLoading(true);
       apiClient.get(`/device-ports/device/${mainServer.uuid}`)
         .then((res: any) => {
-          if (Array.isArray(res.data)) {
-            setDevicePorts(res.data.map((p: any) => ({
+          const ports: any[] = Array.isArray(res.data) ? res.data : [];
+          if (ports.length > 0) {
+            // DB has saved ports — use them (they take priority over spec auto-populate)
+            setDevicePorts(ports.map((p: any) => ({
               uuid: p.uuid,
               specPortUuid: p.specPortUuid,
               portLabel: p.portLabel,
@@ -977,11 +979,10 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
               formatUuid: p.formatUuid,
               note: p.note,
             })));
-          } else {
-            setDevicePorts([]);
           }
+          // If DB returned empty, leave devicePorts alone — spec auto-populate handles it
         })
-        .catch(() => setDevicePorts([]))
+        .catch(() => {})
         .finally(() => setPortsLoading(false));
     } else {
       setDevicePorts([]);
@@ -989,21 +990,31 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   }, [isOpen, editingServer?.uuid]);
   
   // ── Auto-populate device_ports from equipment spec ─────────────────────
-  // When creating a new server and computer type is selected for the first time,
-  // seed devicePorts from the spec's IO port list. On edit, the useEffect above
-  // already loads saved device_ports from the DB, so those take precedence.
+  // Seeds devicePorts from the spec whenever computerType changes, but only if
+  // no ports are currently loaded (i.e. DB returned empty). DB-loaded ports always
+  // take precedence — the functional setState form lets us read prev without
+  // adding devicePorts to the deps array (which would cause infinite loops).
+  // Includes both direct ports (spec.inputs/outputs) AND card-based ports
+  // (spec.cards[].inputs/outputs) so cards added in the Equipment Library work.
   useEffect(() => {
     if (!isOpen) return;
-    if (editingServer && !isDuplicating) return; // edit mode: DB ports loaded separately
     if (!computerType) return;
     const spec = computerEquipment.find(s => s.model === computerType);
     if (!spec) return;
+    const mapPort = (p: any, dir: 'INPUT' | 'OUTPUT'): DevicePortDraft =>
+      ({ portLabel: '', ioType: p.type, direction: dir, formatUuid: null, note: null });
     const specPorts: DevicePortDraft[] = [
-      ...(spec.inputs  ?? []).map(p => ({ portLabel: '', ioType: p.type, direction: 'INPUT'  as const, formatUuid: null, note: null })),
-      ...(spec.outputs ?? []).map(p => ({ portLabel: '', ioType: p.type, direction: 'OUTPUT' as const, formatUuid: null, note: null })),
+      ...(spec.inputs  ?? []).map(p => mapPort(p, 'INPUT')),
+      ...(spec.outputs ?? []).map(p => mapPort(p, 'OUTPUT')),
+      ...(spec.cards   ?? []).flatMap(card => [
+        ...(card.inputs  ?? []).map(p => mapPort(p, 'INPUT')),
+        ...(card.outputs ?? []).map(p => mapPort(p, 'OUTPUT')),
+      ]),
     ];
-    if (specPorts.length > 0) setDevicePorts(specPorts);
-  }, [isOpen, computerType, isDuplicating, editingServer, computerEquipment]);
+    if (specPorts.length === 0) return;
+    // Only seed if no ports are currently loaded (DB ports take precedence)
+    setDevicePorts(prev => prev.length > 0 ? prev : specPorts);
+  }, [isOpen, computerType, computerEquipment]);
 
   // ── Output handlers removed ────────────────────────────────────────────
   // Outputs section replaced by IOPortsPanel / device_ports (see below).
