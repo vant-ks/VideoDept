@@ -2698,3 +2698,32 @@ npx prisma migrate status
 ---
 
 **Remember:** This document is **project-specific**. Update it when VideoDept conventions change. Universal patterns belong in `~/Dropbox (Personal)/Development/_Utilities/AI_AGENT_PROTOCOL.md`.
+
+---
+
+## 🃏 Entity Card UI Design Rules
+
+These conventions apply to every entity list card (CCUs, Cameras, Media Servers, etc.):
+
+### Collapsed card layout
+- **Single row only.** No stacked sections or sub-panels in the collapsed state.
+- **4-column grid** using `style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}` (or adjusted ratios):
+  - Col 1 (~30%): grip handle + chevron + primary ID/name + key association (e.g. `← CAM 1`)
+  - Col 2 (~30%): secondary info (note, output count, etc.)
+  - Col 3 (~30%): tags / badges / counts
+  - Col 4 (~10%): action buttons (Edit, Copy, Delete)
+
+### Chevron placement
+- Chevron always sits **left of the entity ID**, between the grip handle and the ID text.
+- `ChevronUp` / `ChevronDown` from `lucide-react`. Accent-colored (`text-av-accent`) when expanded; muted (`text-av-text-muted`) when collapsed.
+- The entire collapsed row (except grip and buttons) is the click target for toggle.
+
+### Click-to-reveal
+- Wrap collapsed grid `div` with `onClick={() => { if (!dragGuard) toggleReveal(uuid); }}`.
+- Drag guard: `isDragInProgress.current` (ref pattern) or `draggedIndex === null` (state pattern).
+- Apply `stopPropagation` on the grip button `onClick` and the action buttons `div` `onClick`.
+
+### Reveal panel
+- Separated from collapsed row by `border-t border-av-border` with `mt-4 pt-4`.
+- Contains detail sub-panels (e.g. A/B server subcards, device ports table).
+- Output/port rows: single-line format — `name[ — role] | WxH @ Xp | [type badge]`.

@@ -155,3 +155,24 @@ These items are not critical for current Phase 5 completion but represent valuab
 ---
 
 **Note:** Review and prioritize these items after Phase 5 (multi-browser sync testing) is complete.
+
+---
+
+## 📷 Camera / CCU Relationships
+
+### One Camera per CCU (and vice versa)
+- [ ] Enforce 1:1 camera↔CCU relationship at DB and API level
+- [ ] Prevent assigning a camera already linked to another CCU
+- [ ] UI validation feedback when constraint is violated
+
+### Camera / CCU Compatibility Data + Validation
+- [ ] Define compatibility matrix (CCU model → supported camera models)
+- [ ] Store compatibility rules in equipment specs or a dedicated table
+- [ ] Warn or block incompatible camera↔CCU pairings on assignment
+- [ ] Display compatibility status on CCU card / camera card
+
+### Camera Lenses & FOV Tool Import
+- [ ] Lens data model (focal length, mount, max aperture, etc.)
+- [ ] Associate lenses with cameras (camera loadout)
+- [ ] FOV calculator tool based on sensor size + focal length
+- [ ] Import lens data from CSV or external spec source

@@ -420,24 +420,59 @@ export default function MediaServers() {
                   onDragEnd={handleDragEnd}
                   onDragLeave={handleDragLeave}
                 >
-                  {/* Pair Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <button 
-                        className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-accent transition-colors"
+                  {/* ── 30/30/30/10 collapsed card ─────────────────────────────── */}
+                  <div
+                    className="grid gap-4 items-center cursor-pointer"
+                    style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
+                    onClick={() => { if (draggedIndex === null && mainUuid) togglePairReveal(mainUuid); }}
+                  >
+                    {/* Col 1 (30%): grip + chevron + pair name + platform */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-accent transition-colors flex-shrink-0"
                         title="Drag to reorder"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <GripVertical className="w-5 h-5" />
                       </button>
-                      <Server className="w-6 h-6 text-av-accent" />
-                      <div>
-                        <h3 className="text-xl font-semibold text-av-text">
-                          Server {index + 1} (A/B Pair)
-                        </h3>
-                        <p className="text-sm text-av-text-muted">{pair.main.platform}</p>
-                      </div>
+                      {mainUuid ? (
+                        isExpanded
+                          ? <ChevronUp className="w-4 h-4 text-av-accent flex-shrink-0" />
+                          : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
+                      ) : null}
+                      <h3 className="text-lg font-semibold text-av-text truncate">
+                        {pair.main.name.replace(/ A$/, '') || `Server ${pair.main.pairNumber}`}
+                      </h3>
+                      <span className="text-sm text-av-text-muted flex-shrink-0">{pair.main.platform}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    {/* Col 2 (30%): output counts A / B */}
+                    <div className="min-w-0">
+                      {pair.main.outputs.length > 0 || pair.backup.outputs.length > 0 ? (
+                        <span className="text-sm text-av-text-muted">
+                          {pair.main.outputs.length}A / {pair.backup.outputs.length}B outputs
+                        </span>
+                      ) : (
+                        <span className="text-sm text-av-text-muted/40 italic">—</span>
+                      )}
+                    </div>
+
+                    {/* Col 3 (30%): layer count */}
+                    <div className="min-w-0">
+                      {(() => {
+                        const layerCount = mediaServerLayers.filter(l =>
+                          l.outputAssignments.some(a => a.serverId === pair.main.id || a.serverId === pair.backup.id)
+                        ).length;
+                        return layerCount > 0 ? (
+                          <span className="text-sm text-av-text-muted">{layerCount} layer{layerCount !== 1 ? 's' : ''}</span>
+                        ) : (
+                          <span className="text-sm text-av-text-muted/40 italic">—</span>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Col 4 (10%): action buttons */}
+                    <div className="flex items-center justify-end gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleEditServer(pair.main)}
                         className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
@@ -447,7 +482,6 @@ export default function MediaServers() {
                       </button>
                       <button
                         onClick={() => {
-                          // Duplicate the server pair by opening modal with duplicated data
                           const nextPairNum = Math.max(...mediaServers.map(s => s.pairNumber)) + 1;
                           setEditingServer({
                             ...pair.main,
@@ -469,84 +503,79 @@ export default function MediaServers() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                      {mainUuid && (
-                        <button
-                          onClick={() => togglePairReveal(mainUuid)}
-                          className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
-                          title={isExpanded ? 'Hide I/O ports' : 'Show I/O ports'}
-                        >
-                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-                      )}
                     </div>
                   </div>
-
-                  {/* Main and Backup Servers */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {/* Main Server */}
-                    <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-av-text">
-                          Server {index + 1} A{pair.main.role ? ` (${pair.main.role})` : ''}
-                        </h4>
-                        <Badge variant="success">Main</Badge>
-                      </div>
-                      {pair.main.outputs.length > 0 && (
-                        <div>
-                          <p className="text-xs text-av-text-muted mb-2">
-                            <Monitor className="w-3 h-3 inline mr-1" />
-                            {pair.main.outputs.length} Output{pair.main.outputs.length !== 1 ? 's' : ''}
-                          </p>
-                          <div className="space-y-1">
-                            {pair.main.outputs.map((output, idx) => (
-                              <div key={`${pair.main.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between">
-                                <span className="text-av-text">{output.name}</span>
-                                <Badge>{output.type}</Badge>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Backup Server */}
-                    <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-av-text">
-                          Server {index + 1} B{pair.backup.role ? ` (${pair.backup.role})` : ''}
-                        </h4>
-                        <Badge variant="warning">Backup</Badge>
-                      </div>
-                      {pair.backup.outputs.length > 0 && (
-                        <div>
-                          <p className="text-xs text-av-text-muted mb-2">
-                            <Monitor className="w-3 h-3 inline mr-1" />
-                            {pair.backup.outputs.length} Output{pair.backup.outputs.length !== 1 ? 's' : ''}
-                          </p>
-                          <div className="space-y-1">
-                            {pair.backup.outputs.map((output, idx) => (
-                              <div key={`${pair.backup.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between">
-                                <span className="text-av-text">{output.name}</span>
-                                <Badge>{output.type}</Badge>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {pair.main.note && (
-                    <div className="pt-4 border-t border-av-border">
-                      <p className="text-sm text-av-text-muted">
-                        <span className="font-medium">Note:</span> {pair.main.note}
-                      </p>
-                    </div>
-                  )}
 
                   {/* ── Reveal Panel ───────────────────────────────────────────────── */}
                   {isExpanded && (
-                    <div className="mt-4 border-t border-av-border pt-4">
+                    <div className="mt-4 border-t border-av-border pt-4 space-y-4">
+
+                      {/* Main and Backup Server subcards */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Main Server */}
+                        <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-av-text">
+                              Server {pair.main.pairNumber} A{(pair.main as any).role ? ` (${(pair.main as any).role})` : ''}
+                            </h4>
+                            <Badge variant="success">Main</Badge>
+                          </div>
+                          {pair.main.outputs.length > 0 ? (
+                            <div className="space-y-1">
+                              {pair.main.outputs.map((output, idx) => (
+                                <div key={`${pair.main.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between gap-2">
+                                  <span className="text-av-text truncate">{output.name}{output.role ? ` — ${output.role}` : ''}</span>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    {output.resolution && (
+                                      <span className="text-av-text-muted">{output.resolution.width}×{output.resolution.height}{output.frameRate ? ` @ ${output.frameRate}p` : ''}</span>
+                                    )}
+                                    <Badge>{output.type}</Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-av-text-muted italic">No outputs configured</p>
+                          )}
+                        </div>
+
+                        {/* Backup Server */}
+                        <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-av-text">
+                              Server {pair.backup.pairNumber} B{(pair.backup as any).role ? ` (${(pair.backup as any).role})` : ''}
+                            </h4>
+                            <Badge variant="warning">Backup</Badge>
+                          </div>
+                          {pair.backup.outputs.length > 0 ? (
+                            <div className="space-y-1">
+                              {pair.backup.outputs.map((output, idx) => (
+                                <div key={`${pair.backup.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between gap-2">
+                                  <span className="text-av-text truncate">{output.name}{output.role ? ` — ${output.role}` : ''}</span>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    {output.resolution && (
+                                      <span className="text-av-text-muted">{output.resolution.width}×{output.resolution.height}{output.frameRate ? ` @ ${output.frameRate}p` : ''}</span>
+                                    )}
+                                    <Badge>{output.type}</Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-av-text-muted italic">No outputs configured</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {pair.main.note && (
+                        <div className="border-t border-av-border pt-3">
+                          <p className="text-sm text-av-text-muted">
+                            <span className="font-medium">Note:</span> {pair.main.note}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* I/O Ports table */}
                       {isLoadingPorts ? (
                         <p className="text-xs text-av-text-muted italic">Loading ports…</p>
                       ) : revealPorts.length === 0 ? (

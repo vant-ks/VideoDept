@@ -785,11 +785,10 @@ export default function Cameras() {
                         const linkedCams = localCameras.filter(
                           c => c.ccuId === ccu.id && (c as any).uuid !== (editingCamera as any)?.uuid
                         );
-                        const isTaken = linkedCams.length > 0;
                         const camLabel = linkedCams.map(c => c.id).join(', ');
                         return (
                           <option key={ccu.id} value={ccu.id}>
-                            {isTaken ? `⚠ ` : `✓ `}{ccu.name} ({ccu.id}){isTaken ? ` — ${camLabel}` : ''}
+                            {ccu.id}{camLabel ? ` ← ${camLabel}` : ''}
                           </option>
                         );
                       })}

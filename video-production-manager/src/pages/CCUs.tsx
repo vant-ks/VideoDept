@@ -706,7 +706,6 @@ export default function CCUs() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {(ccu as any).manufacturer && <Badge>{(ccu as any).manufacturer}</Badge>}
                   {(ccu as any).model && <Badge>{(ccu as any).model}</Badge>}
-                  {(ccu as any).formatMode && <Badge variant="info">{(ccu as any).formatMode}</Badge>}
                 </div>
 
                 {/* Col 4 (10%): action buttons */}
