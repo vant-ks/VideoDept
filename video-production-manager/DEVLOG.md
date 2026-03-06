@@ -2,6 +2,30 @@
 
 ---
 
+## March 6, 2026 — CCU modal: remove I/O Ports header; show all cameras
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `89162e4`
+
+### Changes
+- **CCUs.tsx** — Removed `<div>` wrapper + `<label>` "I/O Ports / format & signal per port" around `IOPortsPanel`; panel renders directly, tables announce themselves
+- **CCUs.tsx** — Removed `.filter(cam => !cam.ccuId || cam.ccuId === formData.id)` from Linked Cameras list — was hiding cameras already assigned to other CCUs, resulting in an empty list; now shows all cameras so any can be assigned/reassigned
+
+---
+
+## March 6, 2026 — CCU modal: fix empty mfr/model dropdowns; remove Format Mode field
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `199cd2c`
+
+### Changes
+- **CCUs.tsx** — `ccuSpecs` filter: `spec.category === 'CCU'` → `spec.category === 'ccu'` (same lowercase-contract fix as cameras, `transformApiEquipment` lowercases all categories)
+- **CCUs.tsx** — Removed `FORMAT_OPTIONS` array, `specFormatOptions` useMemo, and the "Format Mode" `<div>` block from the modal — redundant since IOPortsPanel handles format per port. `formatMode` field preserved in `formData` and API payload for backward compat.
+
+---
+
 ## March 5, 2026 — Migrate Media Servers to IOPortsPanel / device_ports
 
 ### Branch: `v0.1.5_source-touchups`

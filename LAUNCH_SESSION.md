@@ -5,6 +5,20 @@
 
 ---
 
+## ⏸ Last Session Checkpoint — March 6, 2026
+
+**Branch:** `v0.1.5_source-touchups` (13 commits ahead of origin — not yet pushed)
+
+**Last thing completed:** CCU modal polish
+- Fixed empty Manufacturer/Model dropdowns (`'ccu'` category fix)
+- Removed Format Mode field
+- Removed I/O Ports label header
+- Fixed Linked Cameras section showing empty (removed filter hiding assigned cameras)
+
+**Pick up from:** CCU/Camera integration testing (TODO Priority 2) — verify all CRUD + WebSocket sync + equipment_uuid saves correctly. Then consider pushing `v0.1.5_source-touchups` to origin.
+
+---
+
 ## Session Kickoff Prompt
 
 Paste this as the first message of every new AI session:
@@ -32,7 +46,7 @@ Before doing anything else, you are required to:
    git log --oneline -5
 
 4. Verify Railway production:
-   curl -s -o /dev/null -w "%{http_code}" https://videodept-production.up.railway.app
+   curl -s https://api-server-production-9aaf.up.railway.app/health
 
 5. Report back with:
    - Dev servers: up/down + ports (3010 API, 3011 frontend)
@@ -75,7 +89,8 @@ Confirm you have read all required files and are ready to proceed.
 | API server | http://localhost:3010 |
 | Frontend | http://localhost:3011 |
 | Health check | http://localhost:3010/health |
-| Production (Railway) | https://videodept-production.up.railway.app |
+| Production frontend (Railway) | https://videodept-production.up.railway.app |
+| Production API (Railway) | https://api-server-production-9aaf.up.railway.app |
 | GitHub repo | https://github.com/vant-ks/VideoDept |
 | Port block | 3010–3019 (see docs/SERVER_MAP.md) |
 
