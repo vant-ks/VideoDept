@@ -178,7 +178,7 @@ export default function CCUs() {
   
   // Get CCU equipment specs from store — memoized to avoid recompute
   const ccuSpecs = useMemo(
-    () => equipmentSpecs.filter(spec => spec.category === 'CCU'),
+    () => equipmentSpecs.filter(spec => spec.category === 'ccu'),
     [equipmentSpecs]
   );
   
@@ -199,37 +199,6 @@ export default function CCUs() {
     });
     return result;
   }, [CCU_MANUFACTURERS, ccuSpecs]);
-
-  // Format options (static fallback)
-  const FORMAT_OPTIONS = [
-    '1080i59.94',
-    '1080i60',
-    '1080p59.94',
-    '1080p60',
-    '1080p50',
-    '1080p30',
-    '1080p25',
-    '1080p24',
-    '720p59.94',
-    '720p60',
-    '4K 59.94',
-    '4K 60',
-    '4K 50',
-    '4K 30',
-    '4K 25',
-    '4K 24'
-  ];
-
-  // Format options from selected spec — dynamic when model is chosen, static fallback otherwise
-  const specFormatOptions = useMemo(() => {
-    if (!formData.manufacturer || !formData.model) return FORMAT_OPTIONS;
-    const spec = ccuSpecs.find(
-      s => s.manufacturer === formData.manufacturer && s.model === formData.model
-    );
-    return spec?.deviceFormats && (spec.deviceFormats as string[]).length > 0
-      ? (spec.deviceFormats as string[])
-      : FORMAT_OPTIONS;
-  }, [formData.manufacturer, formData.model, ccuSpecs]);
 
   // ── Reveal toggle ────────────────────────────────────────────────────────
   const toggleReveal = useCallback(async (uuid: string) => {
@@ -884,26 +853,6 @@ export default function CCUs() {
                     ))}
                   </select>
                 </div>
-              </div>
-
-              {/* Format Mode: auto-filled from spec, editable dropdown */}
-              <div>
-                <label className="block text-sm font-medium text-av-text mb-2">
-                  Format Mode
-                  {formData.model && specFormatOptions !== FORMAT_OPTIONS && (
-                    <span className="text-xs text-av-text-muted ml-2">(auto-filled from spec)</span>
-                  )}
-                </label>
-                <select
-                  value={formData.formatMode || ''}
-                  onChange={(e) => setFormData({ ...formData, formatMode: e.target.value })}
-                  className="input-field w-full"
-                >
-                  <option value="">Select format mode...</option>
-                  {specFormatOptions.map(format => (
-                    <option key={format} value={format}>{format}</option>
-                  ))}
-                </select>
               </div>
 
               {/* ── I/O Ports Panel ────────────────────────────────────────────── */}
