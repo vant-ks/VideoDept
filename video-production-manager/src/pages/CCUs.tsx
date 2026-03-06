@@ -857,20 +857,14 @@ export default function CCUs() {
 
               {/* ── I/O Ports Panel ────────────────────────────────────────────── */}
               {(portsLoading || devicePorts.length > 0 || formData.model) && (
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-2">
-                    I/O Ports
-                    <span className="text-xs text-av-text-muted ml-2">format &amp; signal per port</span>
-                  </label>
-                  <IOPortsPanel
-                    ports={devicePorts}
-                    onChange={setDevicePorts}
-                    formats={formats}
-                    isLoading={portsLoading}
-                    emptyText={formData.model ? 'No spec ports found for this model.' : undefined}
-                    onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
-                  />
-                </div>
+                <IOPortsPanel
+                  ports={devicePorts}
+                  onChange={setDevicePorts}
+                  formats={formats}
+                  isLoading={portsLoading}
+                  emptyText={formData.model ? 'No spec ports found for this model.' : undefined}
+                  onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                />
               )}
               
               {/* Camera Assignment */}
@@ -882,7 +876,6 @@ export default function CCUs() {
                   </label>
                   <div className="space-y-1 max-h-40 overflow-y-auto border border-av-border rounded-md p-2">
                     {allCameras
-                      .filter(cam => !cam.ccuId || cam.ccuId === formData.id)
                       .map(cam => (
                         <label
                           key={cam.uuid || cam.id}
