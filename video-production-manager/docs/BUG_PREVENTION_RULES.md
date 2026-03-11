@@ -1,4 +1,5 @@
 # Bug Prevention Rules
+<!-- tags: fix, indexeddb, websocket, projects, sync, production-deletion, app-tsx, useprojectstore -->
 
 ## CRITICAL: Reset App & Production Deletion Flow
 

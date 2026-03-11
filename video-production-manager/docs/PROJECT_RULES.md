@@ -219,6 +219,13 @@ git commit -m "feat: add feature_name"
    - **Pattern**: Validate → Check Status → Kill Zombies → ONE Migration → Verify → Pause 2s before next
    - **CRITICAL**: This rule has prevented 3+ crashes. Non-negotiable.
 
+14. **PRODUCTION DELETION MUST CLEAR EVERYWHERE** → When a production is deleted, 4 code sites MUST fire or Browser B gets stuck in a 404 loop. See `docs/BUG_PREVENTION_RULES.md` for exact code.
+   - ✅ `Projects.tsx onProductionDeleted` — removes production from IndexedDB + clears `lastOpenedProjectId`
+   - ✅ `useProjectStore.ts loadProject` (3 locations) — `if (!production || production.is_deleted)` → delete IDB entry + throw `'PRODUCTION_DELETED'`
+   - ✅ `App.tsx` error handler — catches `'PRODUCTION_DELETED'` → clears `lastOpenedProjectId` + navigates to `/projects`
+   - ✅ `useProjectStore.ts syncWithAPI` — removes locally-cached productions missing from API response
+   - Anti-pattern: Only fixing one location. All 4 must stay in sync.
+
 ### Quick Diagnostic Checklist
 
 **When you see an error:**

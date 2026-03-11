@@ -190,7 +190,32 @@ What would you like to work on?
 
 ---
 
-## 🔧 Error Handling
+## �️ Phase 6: Session Close Checklist
+
+Before ending any session, complete these steps in order:
+
+1. **DEVLOG** — ensure the last entry is ✅ COMPLETE (no IN PROGRESS entries left open)
+
+2. **TODO_NEXT_SESSION.md** — update with:
+   - Move completed items to a “Done this sprint” note or remove them
+   - Add any new tasks discovered during the session
+   - Add any blockers or gotchas to “Known Issues”
+
+3. **SESSION_JOURNAL.md** — write the final prompt entry if not already done; update session **Status** from `IN_PROGRESS` to `COMPLETED`
+
+4. **LAUNCH_SESSION.md** — update the “Last Session Checkpoint” block:
+   - Current branch name
+   - Last commit hash + one-line description
+   - What was completed this session
+   - “Pick up from:” — the specific next task
+
+5. **Commit** — `git add -A && git commit -m "docs(session): update session journal, devlog, launch checkpoint"`
+
+> **Why this matters:** The LAUNCH_SESSION.md checkpoint is the first thing read next session. If it’s stale, the next agent starts with wrong context.
+
+---
+
+## �🔧 Error Handling
 
 ### If Servers Fail to Start:
 

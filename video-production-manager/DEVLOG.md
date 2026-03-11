@@ -2,6 +2,23 @@
 
 ---
 
+## March 11, 2026 — v0.2.1 Docs: session-close protocol, production-deletion pillar, LAUNCH_SESSION fix
+
+### Branch: `v0.2.1_docs`
+### Status: ✅ COMPLETE
+### Tags: docs, session-start-protocol, project-rules, bug-prevention, launch-session, session-close
+
+**Files changed:**
+- `LAUNCH_SESSION.md` — fixed Step 1 (grep-first, not "IN FULL"); updated checkpoint to reflect v0.2.1_docs 4-commit state
+- `video-production-manager/docs/SESSION_START_PROTOCOL.md` — added Phase 6 session-end checklist
+- `_Utilities/SESSION_START_PROTOCOL.md` — added Phase 6 session-end checklist (placeholder tokens)
+- `video-production-manager/docs/PROJECT_RULES.md` — added Pillar #14: PRODUCTION DELETION MUST CLEAR EVERYWHERE
+- `video-production-manager/docs/BUG_PREVENTION_RULES.md` — added `<!-- tags: -->` navigation line
+
+**Summary:** Completed final v0.2.1 documentation work. Agents now have a formal session-end checklist (Phase 6) to prevent stale LAUNCH_SESSION.md checkpoints. The production-deletion/IndexedDB sync pattern (4 required code sites) is now a numbered pillar in PROJECT_RULES.md so it cannot be missed. BUG_PREVENTION_RULES.md is now grep-navigable.
+
+---
+
 ## March 11, 2026 — v0.2.1 Docs: tag system + navigation TOC across DEVLOG, SESSION_JOURNAL, SESSION_START_PROTOCOL
 
 ### Branch: `v0.2.1_docs`

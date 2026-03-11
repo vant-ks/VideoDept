@@ -332,7 +332,32 @@
 **Started:** 2026-03-11
 **Status:** COMPLETED
 **Branch:** v0.2.1_docs
-**Tags:** docs, project-rules, card-ui, ports, overflow, modal, branch-setup, v0.2, tagging, session-start-protocol
+**Tags:** docs, project-rules, card-ui, ports, overflow, modal, branch-setup, v0.2, tagging, session-start-protocol, session-close, bug-prevention, production-deletion, launch-session
+
+### Prompt 4: Session-Close Protocol, Production-Deletion Pillar, LAUNCH_SESSION Fix
+**ID:** S20260311-P4-173000
+**Request:** (1) Fix LAUNCH_SESSION.md Step 1 ("IN FULL" → grep-first) and update stale checkpoint block; (2) Add Phase 6 session-end checklist to SESSION_START_PROTOCOL.md in both VideoDept and _Utilities; (3) Add production-deletion/IndexedDB pillar to PROJECT_RULES.md Mission Statement + tag BUG_PREVENTION_RULES.md.
+
+#### Actions Taken:
+1. Updated `LAUNCH_SESSION.md`: Step 1 rewritten to grep-first protocol; checkpoint block updated to reflect `v0.2.1_docs` (4 commits: 8ddd6ba, 17572ea, c88e7ca, this commit); "Pick up from" set to v0.2.2 Sends subcategory work
+2. Added `## 🗓️ Phase 6: Session Close Checklist` to `video-production-manager/docs/SESSION_START_PROTOCOL.md` before Error Handling section (5 steps: DEVLOG close → TODO update → SESSION_JOURNAL close → LAUNCH_SESSION checkpoint → commit)
+3. Added matching Phase 6 with `[PLACEHOLDER]` tokens to `_Utilities/SESSION_START_PROTOCOL.md`
+4. Added Pillar #14 to PROJECT_RULES.md Mission Statement (`PRODUCTION DELETION MUST CLEAR EVERYWHERE`): lists all 4 required code sites (Projects.tsx WS listener, useProjectStore.ts loadProject ×3, App.tsx error handler, syncWithAPI cleanup) + references BUG_PREVENTION_RULES.md
+5. Added `<!-- tags: fix, indexeddb, websocket, projects, sync, production-deletion, app-tsx, useprojectstore -->` to BUG_PREVENTION_RULES.md after heading
+6. Added DEVLOG entry ✅ COMPLETE
+
+#### Files Changed:
+- `LAUNCH_SESSION.md` — Step 1 grep-first + checkpoint updated
+- `video-production-manager/docs/SESSION_START_PROTOCOL.md` — Phase 6 added
+- `_Utilities/SESSION_START_PROTOCOL.md` — Phase 6 added (placeholder tokens)
+- `video-production-manager/docs/PROJECT_RULES.md` — Pillar #14 added
+- `video-production-manager/docs/BUG_PREVENTION_RULES.md` — tags added
+- `video-production-manager/DEVLOG.md` — entry added + closed
+
+#### Outcome: ✅ Complete
+Agents now have a formal session-end checklist (Phase 6) that prevents stale checkpoints. The production-deletion/IndexedDB sync pattern is Pillar #14 in PROJECT_RULES.md — cannot be missed. BUG_PREVENTION_RULES.md is now grep-navigable. LAUNCH_SESSION.md ready for next session.
+
+---
 
 ### Prompt 3: Documentation Tag System + Navigation TOC
 **ID:** S20260311-P3-173000

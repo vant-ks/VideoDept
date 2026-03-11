@@ -9,23 +9,21 @@ CURRENT BRANCH : v0.2.1
 # LAUNCH SESSION — VideoDept
 **Project:** Video Production Manager  
 **Repository:** https://github.com/vant-ks/VideoDept  
-**Last Updated:** March 4, 2026
+**Last Updated:** March 11, 2026
 
 ---
 
 ## ⏸ Last Session Checkpoint — March 11, 2026
 
-**Branch:** `main` (clean, up to date with origin — `5dcdee9`)
+**Branch:** `v0.2.1_docs` (3 commits ahead of `v0.2`; `v0.2` pushed to origin)
 
-**Last thing completed:** v0.1.5 source touchups merged + deployed
-- Port column standard: DIR/TYPE/LABEL/FORMAT/ROUTE across all pages
-- Canonical format ID formula: `hRes x vRes @ rate[i] [blanking]` — 37 formats renamed in DB + seed updated
-- Expansion I/O card column headers added (Computers + MediaServers)
-- table-fixed percentage column widths (10/15/25/25/25) — direct I/O + expansion aligned
-- FormatCascadeSelect: viewport-aware flip (opens upward/leftward near edges); min-w-0 prevents grid blowout; unicode literal fixes
-- Merged `v0.1.5_source-touchups → main`; pushed to origin → Railway deploy triggered
+**Last thing completed:** v0.2.1 documentation sprint — full session
+- `8ddd6ba` — PROJECT_RULES.md: 4 new UI standards sections (card UX, ports, overflow, modal patterns)
+- `17572ea` — Tag system: added `<!-- tags: -->` to all PROJECT_RULES.md sections, `### Tags:` to all DEVLOG entries, `**Tags:**` to all SESSION_JOURNAL entries; grep-first Phase 1 in SESSION_START_PROTOCOL.md
+- `c88e7ca` — Archived 8 stale docs to docs/archive/, deleted root temp files, updated all _Utilities templates (DEVLOG, SESSION_START_PROTOCOL, LAUNCH_SESSION, PROJECT_RULES, AI_AGENT_PROTOCOL), created SESSION_JOURNAL_TEMPLATE.md
+- `c3fc1b9` — docs(session-close): add Phase 6 session-end checklist, production-deletion pillar #14, fix LAUNCH_SESSION checkpoint + Step 1
 
-**Pick up from:** Create `v0.2` branch from main, then checkout `v0.2.1` from it for documentation work.
+**Pick up from:** Merge `v0.2.1_docs → v0.2`, then start `v0.2.2_sends-subcategory` for Sends entity subcategory implementation.
 
 ---
 
@@ -38,13 +36,12 @@ New session starting for VideoDept.
 
 Before doing anything else, you are required to:
 
-1. Read the following files IN FULL using the exact symlink paths in video-production-manager/docs/:
-   - video-production-manager/docs/AI_AGENT_PROTOCOL.md       (universal protocol)
-   - video-production-manager/docs/SESSION_START_PROTOCOL.md
-   - video-production-manager/docs/PROJECT_RULES.md           (project-specific rules)
-   - video-production-manager/DEVLOG.md                       (last 60 lines — find last ✅ COMPLETE and any IN PROGRESS)
-   - video-production-manager/docs/SESSION_JOURNAL.md         (last 50 lines)
-   - TODO_NEXT_SESSION.md                                     (full file)
+1. Review documentation using the grep-first protocol (full procedure in SESSION_START_PROTOCOL.md Phase 1):
+   - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` to orient quickly, then read last 60 lines
+   - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep `<!-- tags:` to jump to relevant sections
+   - grep_search SESSION_JOURNAL.md for latest `### Session` heading, then read ~60 lines from there
+   - read_file TODO_NEXT_SESSION.md in full
+   - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
 
 2. Start the dev servers (background):
    API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
