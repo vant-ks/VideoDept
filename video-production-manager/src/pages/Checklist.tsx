@@ -27,8 +27,10 @@ export const Checklist: React.FC = () => {
   // Use new stores
   const { activeProject, saveProject } = useProjectStore();
   
-  // Always use global (localStorage) preferences for UI state - NOT synced across users
-  const { collapsedCategories, toggleCategoryCollapsed } = usePreferencesStore();
+  // Per-project collapse state — NOT synced across users
+  // expandedCategoriesByProject[productionId] = array of EXPANDED category keys.
+  // Absent/empty entry → all categories collapsed (the default).
+  const { expandedCategoriesByProject, toggleCategoryExpandedForProject } = usePreferencesStore();
   
   // Fallback to old store for backward compatibility
   const oldStore = useProductionStore();
@@ -124,10 +126,11 @@ export const Checklist: React.FC = () => {
   // Handle navigation from Dashboard - scroll to category and reveal it
   React.useEffect(() => {
     const scrollToCategory = sessionStorage.getItem('scrollToCategory');
-    if (scrollToCategory) {
-      // Expand the category if it's collapsed (remove from collapsedCategories)
-      if (collapsedCategories.includes(scrollToCategory)) {
-        toggleCategoryCollapsed(scrollToCategory);
+    if (scrollToCategory && productionId) {
+      const expanded = expandedCategoriesByProject[productionId] ?? [];
+      // Expand the category if it's currently collapsed (not in expanded list)
+      if (!expanded.includes(scrollToCategory)) {
+        toggleCategoryExpandedForProject(productionId, scrollToCategory);
       }
       
       // Scroll to the category card after a short delay
@@ -141,7 +144,7 @@ export const Checklist: React.FC = () => {
       // Clear the sessionStorage
       sessionStorage.removeItem('scrollToCategory');
     }
-  }, [collapsedCategories, toggleCategoryCollapsed]);
+  }, [productionId, expandedCategoriesByProject, toggleCategoryExpandedForProject]);
 
   const categories = React.useMemo(() => {
     const cats = new Set(checklist.map(item => item.category));
@@ -205,8 +208,14 @@ export const Checklist: React.FC = () => {
         productionId,
         title: newItemText.trim(),
         category: addCategory,
-        moreInfo: newItemMoreInfo.trim() || undefined,
+        moreInfo: newItemMoreInfo.trim() ? [{
+          id: `entry-${Date.now()}`,
+          text: newItemMoreInfo.trim(),
+          timestamp: Date.now(),
+          type: 'info' as const
+        }] : undefined,
         daysBeforeShow: newItemDays,
+        dueDate: newItemDate || undefined,
         completed: false
       };
     } else if (selectedDefaultItem) {
@@ -216,13 +225,20 @@ export const Checklist: React.FC = () => {
       // Generate unique ID for new checklist item
       const newId = `chk-${Date.now()}`;
       
+      const moreInfoText = newItemMoreInfo.trim() || defaultItem.moreInfo;
       itemData = {
         id: newId,
         productionId,
         title: defaultItem.title || defaultItem.item,
         category: addCategory,
-        moreInfo: newItemMoreInfo.trim() || defaultItem.moreInfo,
+        moreInfo: moreInfoText ? [{
+          id: `entry-${Date.now()}`,
+          text: moreInfoText,
+          timestamp: Date.now(),
+          type: 'info' as const
+        }] : undefined,
         daysBeforeShow: newItemDays !== undefined ? newItemDays : defaultItem.daysBeforeShow,
+        dueDate: newItemDate || undefined,
         reference: defaultItem.reference,
         completed: false
       };
@@ -394,6 +410,7 @@ export const Checklist: React.FC = () => {
       title: editItemText.trim(),
       assignedTo: editItemAssignedTo || undefined,
       daysBeforeShow: editItemDays,
+      dueDate: editItemDate || undefined,
       version: item.version
     };
     
@@ -611,12 +628,13 @@ export const Checklist: React.FC = () => {
       {/* Checklist Items */}
       <div className="space-y-6">
         {Object.entries(groupedChecklist).map(([category, items]) => {
-          const isCollapsed = collapsedCategories.includes(category);
+          const expanded = productionId ? (expandedCategoriesByProject[productionId] ?? []) : [];
+          const isCollapsed = !expanded.includes(category);
           return (
             <Card key={category} id={`category-${category}`} className="overflow-hidden">
               <div 
                 className="px-4 py-3 bg-av-surface-light border-b border-av-border flex items-center justify-between cursor-pointer hover:bg-av-surface transition-colors"
-                onClick={() => toggleCategoryCollapsed(category)}
+                onClick={() => productionId && toggleCategoryExpandedForProject(productionId, category)}
               >
                 <div className="flex items-center gap-2">
                   {isCollapsed ? (

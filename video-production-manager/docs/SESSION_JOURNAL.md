@@ -8,6 +8,77 @@
 
 ## Active Session Tracking
 
+## Session 2026-03-10-000000
+**Started:** 2026-03-10
+**Status:** IN_PROGRESS
+**Branch:** v0.1.5_source-touchups
+
+### Prompt 1: Session Kickoff
+**ID:** S20260310-P1-000000
+**Request:** Full session initialization per LAUNCH_SESSION.md kickoff prompt
+**Context:** Continuing from March 7 session. No work done Mar 7 beyond kickoff. Branch 14 commits ahead of origin, one dirty file (SESSION_JOURNAL.md).
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md (full files)
+2. Read DEVLOG.md (top 60 lines — recent entries), SESSION_JOURNAL.md (last 80 lines)
+3. Killed stale server processes; started API server (port 3010) ✅ and Frontend (port 3011) ✅
+4. Verified Railway health: HTTP 200, database connected (474ms latency) ✅
+5. Checked git: branch v0.1.5_source-touchups, 14 commits ahead of origin, dirty (SESSION_JOURNAL.md modified)
+
+#### Status:
+- **Dev servers:** ✅ Both running (API :3010, Frontend :3011)
+- **Git:** branch `v0.1.5_source-touchups`, 14 commits ahead of `origin/v0.1.5_source-touchups`, dirty (SESSION_JOURNAL.md only)
+- **Railway:** ✅ UP — healthy, DB connected (474ms latency)
+- **Last DEVLOG checkpoint:** March 6, 2026 — `89162e4` fix(ccus): remove I/O Ports label header; show all cameras — ✅ COMPLETE
+- **IN PROGRESS tasks:** None found
+### Prompt 2: Browser hanging on load
+**ID:** S20260310-P2-000000
+**Request:** One browser hanging at `🔄 Syncing with local database...` — console shows no output after that line
+**Root Cause:** IndexedDB `VideoDeptDB` locked/corrupted from a prior interrupted session. `clear-storage.html` only cleared `localStorage`, leaving IndexedDB intact. Two stale `projectDB.projects.put()` calls (Dexie-style API, never valid on raw-IDB `ProjectDatabase`) also found in conflict-resolution paths.
+
+#### Actions Taken:
+1. Confirmed `/api/productions` responds in <1s (not an API hang)
+2. Located log message at `useProjectStore.ts:835` — immediately before `projectDB.getAllProjects()`
+3. Found `clear-storage.html` only clears localStorage, not IndexedDB
+4. Found `projectDB.projects.put()` at lines 626 and 696 (stale Dexie calls, would TypeError at runtime)
+5. Fixed `clear-storage.html` to delete `VideoDeptDB` via `indexedDB.deleteDatabase()`
+6. Fixed both stale `.projects.put()` calls → `projectDB.updateProject(activeProjectId, ...)`
+7. Updated DEVLOG ✅ COMPLETE
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Files Changed:**
+  - `clear-storage.html` — now deletes IndexedDB + localStorage + sessionStorage; shows progress
+  - `src/hooks/useProjectStore.ts` — lines 626 and 696: fix stale `projectDB.projects.put()` → `projectDB.updateProject()`
+- **Immediate Fix for User:** `indexedDB.deleteDatabase('VideoDeptDB'); location.reload()` in DevTools console, or navigate to http://localhost:3011/clear-storage.html
+---
+
+## Session 2026-03-07-000000
+**Started:** 2026-03-07
+**Status:** IN_PROGRESS
+**Branch:** v0.1.5_source-touchups
+
+### Prompt 1: Session Kickoff
+**ID:** S20260307-P1-000000
+**Request:** Full session initialization per LAUNCH_SESSION.md kickoff prompt
+**Context:** Continuing from March 6, 2026 — CCU modal polish complete. Branch is 14 commits ahead of origin.
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md (full files)
+2. Read DEVLOG.md (first block — recent entries), SESSION_JOURNAL.md (last sessions)
+3. Killed stale server processes; started API server (port 3010) ✅ and Frontend (port 3011) ✅
+4. Verified Railway health: HTTP 200, database connected (85ms latency) ✅
+5. Checked git: branch v0.1.5_source-touchups, 14 commits ahead of origin, clean working tree
+
+#### Status:
+- **Dev servers:** ✅ Both running (API :3010, Frontend :3011)
+- **Git:** branch `v0.1.5_source-touchups`, 14 commits ahead of `origin/v0.1.5_source-touchups`, clean
+- **Railway:** ✅ UP — healthy, DB connected (85ms latency)
+- **Last DEVLOG checkpoint:** March 6, 2026 — `89162e4` fix(ccus): remove I/O Ports label header; show all cameras — ✅ COMPLETE
+- **IN PROGRESS tasks:** None found
+
+---
+
 ## Session 2026-03-06-000000
 **Started:** 2026-03-06
 **Status:** IN_PROGRESS

@@ -623,7 +623,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                 });
                 
                 // Also update IndexedDB
-                await projectDB.projects.put(freshUpdatedProject);
+                await projectDB.updateProject(activeProjectId, freshUpdatedProject);
                 
                 console.log('✅ Force saved (overwrote conflicting fields)');
                 alert('✅ Your changes were saved (overwrote conflicting fields)');
@@ -693,7 +693,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               });
               
               // Also update IndexedDB
-              await projectDB.projects.put(freshUpdatedProject);
+              await projectDB.updateProject(activeProjectId, freshUpdatedProject);
               
               console.log('✅ Force saved (overwrote other changes)');
               alert('✅ Your changes were saved (overwrote their changes)');

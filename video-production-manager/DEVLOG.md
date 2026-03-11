@@ -2,6 +2,43 @@
 
 ---
 
+## March 10, 2026 — Checklist: per-project collapse state (default all collapsed) + fix notes/dueDate not saving
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **usePreferencesStore.ts** — Added `expandedCategoriesByProject: Record<string, string[]>` (persisted to localStorage under `app-preferences`). Empty/absent entry for a projectId means all categories collapsed (desired default). Added `toggleCategoryExpandedForProject(projectId, category)` action which adds to/removes from the expanded set.
+- **Checklist.tsx** — Replaced global `collapsedCategories/toggleCategoryCollapsed` with per-project `expandedCategoriesByProject/toggleCategoryExpandedForProject`. Per-project expanded set derives from `productionId`; absent entry → all collapsed by default.
+- **Checklist.tsx `handleAddItem`** — Fixed `moreInfo` being sent as a plain string (was always discarded by the `Array.isArray()` render guard). Now wrapped as `[{ id, text, timestamp, type: 'info' }]`. Also added missing `dueDate: newItemDate || undefined` (both custom and default-item branches).
+- **Checklist.tsx `handleSaveEdit`** — Added missing `dueDate: editItemDate || undefined` to the updates object.
+
+---
+
+## March 10, 2026 — Fix clear-storage.html
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Root Cause
+Browser hang at `🔄 Syncing with local database...` was caused by IndexedDB getting into a locked/bad state (readwrite transaction from a previous interrupted session). `clear-storage.html` only cleared `localStorage`, leaving the `VideoDeptDB` IndexedDB intact and still locked.
+
+Additionally, two lines in the conflict-resolution paths of `useProjectStore.ts` used `projectDB.projects.put()` — a Dexie-style API that never existed on `ProjectDatabase` (the raw IDB wrapper). These would throw `TypeError: Cannot read properties of undefined (reading 'put')` if the user ever triggered force-save during a version conflict.
+
+### Changes
+- **clear-storage.html** — Rewrote script to: (1) clear localStorage, (2) clear sessionStorage, (3) call `indexedDB.deleteDatabase('VideoDeptDB')` with onsuccess/onerror/onblocked handlers, then show status and redirect after 1.5s. Adds `<ul id="log">` to show clearing progress in the page.
+- **useProjectStore.ts** line 626 — `await projectDB.projects.put(freshUpdatedProject)` → `await projectDB.updateProject(activeProjectId, freshUpdatedProject)`
+- **useProjectStore.ts** line 696 — same fix (second conflict-resolution branch)
+
+### Immediate Fix for User
+In the hanging browser's DevTools console:
+```
+indexedDB.deleteDatabase('VideoDeptDB'); location.reload();
+```
+Or navigate to http://localhost:3011/clear-storage.html
+
+---
+
 ## March 6, 2026 — CCU modal: remove I/O Ports header; show all cameras
 
 ### Branch: `v0.1.5_source-touchups`
