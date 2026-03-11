@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, X, ChevronDown, ChevronRight, Copy } from 'lucide-react';
+import { Plus, Edit2, X, ChevronDown, ChevronRight, Copy, Archive, ArchiveRestore } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
@@ -34,6 +34,8 @@ export default function Equipment() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedSpecs, setArchivedSpecs] = useState<EquipmentSpec[]>([]);
 
   // Fetch fresh data on mount to ensure store has latest API shape
   useEffect(() => {
@@ -162,6 +164,36 @@ export default function Equipment() {
   const handleEditSpec = (spec: EquipmentSpec) => {
     setEditingSpec(spec);
     setIsModalOpen(true);
+  };
+
+  const handleArchiveSpec = async (spec: EquipmentSpec) => {
+    const uuid = (spec as any).uuid || spec.id;
+    try {
+      await apiClient.archiveEquipment(uuid);
+      await equipmentLib.fetchFromAPI();
+    } catch (error) {
+      console.error('Failed to archive equipment:', error);
+    }
+  };
+
+  const handleUnarchiveSpec = async (spec: EquipmentSpec) => {
+    const uuid = (spec as any).uuid || spec.id;
+    try {
+      await apiClient.unarchiveEquipment(uuid);
+      await equipmentLib.fetchFromAPI();
+      const archived = await apiClient.getArchivedEquipment() as EquipmentSpec[];
+      setArchivedSpecs(archived);
+    } catch (error) {
+      console.error('Failed to unarchive equipment:', error);
+    }
+  };
+
+  const handleToggleArchived = async () => {
+    if (!showArchived) {
+      const archived = await apiClient.getArchivedEquipment() as EquipmentSpec[];
+      setArchivedSpecs(archived);
+    }
+    setShowArchived(prev => !prev);
   };
 
   const handleDuplicateSpec = async (spec: EquipmentSpec) => {
@@ -346,6 +378,7 @@ export default function Equipment() {
         }}
         onSave={handleSaveEquipment}
         onDuplicate={handleDuplicateSpec}
+        onArchive={handleArchiveSpec}
         editingEquipment={editingSpec}
       />
 
@@ -354,10 +387,19 @@ export default function Equipment() {
         <div>
           <h1 className="text-3xl font-bold text-av-text">Equipment Specifications</h1>
         </div>
-        <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">
-          <Plus className="w-5 h-5 mr-2" />
-          Add Equipment
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleToggleArchived}
+            className={`btn-secondary flex items-center gap-2 ${showArchived ? 'text-amber-400 border-amber-400/50' : ''}`}
+          >
+            <Archive className="w-4 h-4" />
+            {showArchived ? 'Hide Archived' : 'Show Archived'}
+          </button>
+          <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">
+            <Plus className="w-5 h-5 mr-2" />
+            Add Equipment
+          </button>
+        </div>
       </div>
 
       {/* Search and Category Filter */}
@@ -498,6 +540,13 @@ export default function Equipment() {
                       title="Duplicate"
                     >
                       <Copy className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleArchiveSpec(spec); }}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-amber-400 transition-colors"
+                      title="Archive"
+                    >
+                      <Archive className="w-5 h-5" />
                     </button>
                     <button
                       onClick={(e) => {
@@ -870,6 +919,45 @@ export default function Equipment() {
             })
         )}
       </div>
+
+      {/* Archived Equipment */}
+      {showArchived && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Archive className="w-5 h-5 text-amber-400" />
+            <h2 className="text-lg font-semibold text-amber-400">Archived Equipment</h2>
+            <span className="text-xs text-av-text-muted">({archivedSpecs.length})</span>
+          </div>
+          {archivedSpecs.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-av-text-muted">No archived equipment</p>
+            </Card>
+          ) : (
+            archivedSpecs.map((spec) => {
+              const uuid = (spec as any).uuid || spec.id;
+              return (
+                <Card key={uuid} className="p-4 border-amber-500/20 opacity-70">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-av-text font-semibold">{spec.manufacturer} {spec.model}</span>
+                      <span className={`text-xs px-2 py-1 rounded border ${getCategoryColor(spec.category)}`}>
+                        {getCategoryLabel(spec.category)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleUnarchiveSpec(spec)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors"
+                      title="Unarchive"
+                    >
+                      <ArchiveRestore className="w-4 h-4" /> Unarchive
+                    </button>
+                  </div>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }

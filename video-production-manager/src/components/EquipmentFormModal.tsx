@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Copy } from 'lucide-react';
+import { X, Plus, Copy, Archive } from 'lucide-react';
 import type { EquipmentSpec, IOPort } from '@/types';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 
@@ -8,10 +8,11 @@ interface EquipmentFormModalProps {
   onClose: () => void;
   onSave: (equipment: Omit<EquipmentSpec, 'id'>) => void;
   onDuplicate?: (equipment: EquipmentSpec) => void;
+  onArchive?: (equipment: EquipmentSpec) => void;
   editingEquipment?: EquipmentSpec | null;
 }
 
-export default function EquipmentFormModal({ isOpen, onClose, onSave, onDuplicate, editingEquipment }: EquipmentFormModalProps) {
+export default function EquipmentFormModal({ isOpen, onClose, onSave, onDuplicate, onArchive, editingEquipment }: EquipmentFormModalProps) {
   const { connectorTypes } = useEquipmentLibrary();
   const portTypes = connectorTypes.length > 0 ? connectorTypes : ['SDI', 'HDMI', 'DisplayPort', 'NDI'];
   
@@ -497,6 +498,15 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, onDuplicat
                 className="btn-secondary flex items-center gap-2"
               >
                 <Copy className="w-4 h-4" /> Duplicate
+              </button>
+            )}
+            {editingEquipment && onArchive && (
+              <button
+                type="button"
+                onClick={() => { onArchive(editingEquipment); onClose(); }}
+                className="btn-secondary flex items-center gap-2 hover:text-amber-400 hover:border-amber-400/50"
+              >
+                <Archive className="w-4 h-4" /> Archive
               </button>
             )}
             <button
