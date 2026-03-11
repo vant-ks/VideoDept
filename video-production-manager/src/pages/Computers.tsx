@@ -738,13 +738,23 @@ export const Computers: React.FC = () => {
                             return (
                               <div key={card.id ?? card.slotNumber} className="border border-av-border rounded-md p-2">
                                 <p className="text-xs font-medium text-av-text mb-1.5">Card {card.slotNumber}</p>
+                                <div className="overflow-x-auto">
                                 <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                                      <th className="text-left pb-1.5 pr-3 font-semibold w-16">Dir</th>
+                                      <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
+                                      <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
+                                      <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
+                                      <th className="text-left pb-1.5 font-semibold">Route</th>
+                                    </tr>
+                                  </thead>
                                   <tbody className="divide-y divide-av-border/40">
                                     {savedPorts.length > 0 ? (
                                       <>
                                         {savedPorts.filter(p => p.direction === 'INPUT').map((port, pi) => (
                                           <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
-                                            <td className="py-1 pr-3 w-14">
+                                            <td className="py-1 pr-3 w-16">
                                               <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
                                             </td>
                                             <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
@@ -759,7 +769,7 @@ export const Computers: React.FC = () => {
                                             : '—';
                                           return (
                                             <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
-                                              <td className="py-1 pr-3 w-14">
+                                              <td className="py-1 pr-3 w-16">
                                                 <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
                                               </td>
                                               <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
@@ -774,7 +784,7 @@ export const Computers: React.FC = () => {
                                       <>
                                         {specInputs.map((p: any, pi: number) => (
                                           <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
-                                            <td className="py-1 pr-3 w-14">
+                                            <td className="py-1 pr-3 w-16">
                                               <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
                                             </td>
                                             <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
@@ -785,7 +795,7 @@ export const Computers: React.FC = () => {
                                         ))}
                                         {specOutputs.map((p: any, pi: number) => (
                                           <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
-                                            <td className="py-1 pr-3 w-14">
+                                            <td className="py-1 pr-3 w-16">
                                               <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
                                             </td>
                                             <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
@@ -798,6 +808,7 @@ export const Computers: React.FC = () => {
                                     )}
                                   </tbody>
                                 </table>
+                                </div>
                               </div>
                             );
                           })}

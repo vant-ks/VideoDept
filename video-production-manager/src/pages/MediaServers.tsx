@@ -670,6 +670,15 @@ export default function MediaServers() {
                                         ? renderPortTable(savedPorts, false, '')
                                         : (
                                           <table className="w-full text-xs">
+                                            <thead>
+                                              <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-12">Dir</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-16">Type</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold">Label</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold">Format</th>
+                                                <th className="text-left pb-1.5 font-semibold">Route</th>
+                                              </tr>
+                                            </thead>
                                             <tbody className="divide-y divide-av-border/40">
                                               {specInputs.map((p: any, pi: number) => (
                                                 <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
