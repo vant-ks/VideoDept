@@ -5,17 +5,19 @@
 
 ---
 
-## ⏸ Last Session Checkpoint — March 6, 2026
+## ⏸ Last Session Checkpoint — March 11, 2026
 
-**Branch:** `v0.1.5_source-touchups` (13 commits ahead of origin — not yet pushed)
+**Branch:** `main` (clean, up to date with origin — `5dcdee9`)
 
-**Last thing completed:** CCU modal polish
-- Fixed empty Manufacturer/Model dropdowns (`'ccu'` category fix)
-- Removed Format Mode field
-- Removed I/O Ports label header
-- Fixed Linked Cameras section showing empty (removed filter hiding assigned cameras)
+**Last thing completed:** v0.1.5 source touchups merged + deployed
+- Port column standard: DIR/TYPE/LABEL/FORMAT/ROUTE across all pages
+- Canonical format ID formula: `hRes x vRes @ rate[i] [blanking]` — 37 formats renamed in DB + seed updated
+- Expansion I/O card column headers added (Computers + MediaServers)
+- table-fixed percentage column widths (10/15/25/25/25) — direct I/O + expansion aligned
+- FormatCascadeSelect: viewport-aware flip (opens upward/leftward near edges); min-w-0 prevents grid blowout; unicode literal fixes
+- Merged `v0.1.5_source-touchups → main`; pushed to origin → Railway deploy triggered
 
-**Pick up from:** CCU/Camera integration testing (TODO Priority 2) — verify all CRUD + WebSocket sync + equipment_uuid saves correctly. Then consider pushing `v0.1.5_source-touchups` to origin.
+**Pick up from:** Create `v0.2` branch from main, then checkout `v0.2.1` from it for documentation work.
 
 ---
 
