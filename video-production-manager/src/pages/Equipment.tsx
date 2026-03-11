@@ -459,17 +459,15 @@ export default function Equipment() {
                           onClick={(e) => e.stopPropagation()}
                           className="text-xs px-2 py-1 rounded border bg-av-surface-light text-av-text border-av-border"
                         >
-                          <option value="direct">Direct I/O</option>
-                          <option value="card-based">Card-Based</option>
+                          <option value="direct">Direct I/O Only</option>
+                          <option value="card-based">Expansion I/O</option>
                         </select>
                       ) : (
-                        <span className={`text-xs px-2 py-1 rounded border ${
-                          spec.ioArchitecture === 'direct' 
-                            ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
-                            : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                        }`}>
-                          {spec.ioArchitecture === 'direct' ? 'Direct I/O' : 'Card-Based'}
-                        </span>
+                          spec.ioArchitecture === 'card-based' && (
+                          <span className="text-xs px-2 py-1 rounded border bg-amber-500/20 text-amber-400 border-amber-500/30">
+                            Expansion I/O
+                          </span>
+                          )
                       )}
                     </div>
                   </div>

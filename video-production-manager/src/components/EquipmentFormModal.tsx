@@ -156,7 +156,7 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                 className="input-field w-full"
               >
                 <option value="direct">Direct I/O Only</option>
-                <option value="card-based">Optional I/O Cards</option>
+                <option value="card-based">Expansion I/O</option>
               </select>
             </div>
           </div>
@@ -189,24 +189,178 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             </div>
           </div>
 
-          {/* Card Slots (for optional i/o cards architecture) */}
+          {/* Expansion I/O Cards */}
           {formData.ioArchitecture === 'card-based' && (
             <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                Total Card Slots
-              </label>
-              <input
-                type="number"
-                value={formData.cardSlots || 0}
-                onChange={(e) => setFormData({ ...formData, cardSlots: parseInt(e.target.value) || 0 })}
-                className="input-field w-full"
-                min="0"
-              />
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-av-text">Expansion I/O Cards</label>
+                <button
+                  type="button"
+                  onClick={() => setFormData(f => ({
+                    ...f,
+                    cards: [...(f.cards || []), { id: `card-${Date.now()}`, slotNumber: (f.cards || []).length + 1, inputs: [], outputs: [] }]
+                  }))}
+                  className="text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" /> Add Card
+                </button>
+              </div>
+              {(formData.cards || []).length === 0 && (
+                <p className="text-xs text-av-text-muted">No cards added</p>
+              )}
+              <div className="space-y-3">
+                {(formData.cards || []).map((card, cardIdx) => (
+                  <div key={card.id} className="border border-av-border rounded-md overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 bg-av-surface-light">
+                      <span className="text-sm font-medium text-av-text">Card {cardIdx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(f => ({ ...f, cards: (f.cards || []).filter(c => c.id !== card.id) }))}
+                        className="p-1 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="p-3 space-y-3">
+                      {/* Card Inputs */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-av-text-muted">Inputs</span>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(f => ({
+                              ...f,
+                              cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                ...c,
+                                inputs: [...c.inputs, { id: `in-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
+                              })
+                            }))}
+                            className="text-xs px-1.5 py-0.5 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add
+                          </button>
+                        </div>
+                        {card.inputs.length === 0 && <p className="text-xs text-av-text-muted">No inputs</p>}
+                        <div className="space-y-1.5">
+                          {card.inputs.map(port => (
+                            <div key={port.id} className="flex items-center gap-2">
+                              <select
+                                value={port.type}
+                                onChange={(e) => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    inputs: c.inputs.map(p => p.id !== port.id ? p : { ...p, type: e.target.value })
+                                  })
+                                }))}
+                                className="input-field flex-1 text-sm"
+                              >
+                                {portTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                              <input
+                                type="text"
+                                value={port.label || ''}
+                                onChange={(e) => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    inputs: c.inputs.map(p => p.id !== port.id ? p : { ...p, label: e.target.value })
+                                  })
+                                }))}
+                                placeholder="Label"
+                                className="input-field flex-1 text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    inputs: c.inputs.filter(p => p.id !== port.id)
+                                  })
+                                }))}
+                                className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Card Outputs */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-av-text-muted">Outputs</span>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(f => ({
+                              ...f,
+                              cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                ...c,
+                                outputs: [...c.outputs, { id: `out-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
+                              })
+                            }))}
+                            className="text-xs px-1.5 py-0.5 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add
+                          </button>
+                        </div>
+                        {card.outputs.length === 0 && <p className="text-xs text-av-text-muted">No outputs</p>}
+                        <div className="space-y-1.5">
+                          {card.outputs.map(port => (
+                            <div key={port.id} className="flex items-center gap-2">
+                              <select
+                                value={port.type}
+                                onChange={(e) => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    outputs: c.outputs.map(p => p.id !== port.id ? p : { ...p, type: e.target.value })
+                                  })
+                                }))}
+                                className="input-field flex-1 text-sm"
+                              >
+                                {portTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                              <input
+                                type="text"
+                                value={port.label || ''}
+                                onChange={(e) => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    outputs: c.outputs.map(p => p.id !== port.id ? p : { ...p, label: e.target.value })
+                                  })
+                                }))}
+                                placeholder="Label"
+                                className="input-field flex-1 text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    outputs: c.outputs.filter(p => p.id !== port.id)
+                                  })
+                                }))}
+                                className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Direct I/O Ports — always shown */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-4">
               {/* Inputs */}
               <div>
                 <div className="flex items-center justify-between mb-2">
