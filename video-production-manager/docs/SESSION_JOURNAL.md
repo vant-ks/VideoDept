@@ -12,6 +12,7 @@
 **Started:** 2026-03-11
 **Status:** IN PROGRESS
 **Branch:** v0.1.5_source-touchups
+**Tags:** session-start, port-column, format-id, media-servers, ioportspanel, layers, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260311-P1-000000
@@ -93,6 +94,7 @@
 **Started:** 2026-03-10
 **Status:** COMPLETED
 **Branch:** v0.1.5_source-touchups
+**Tags:** computers, equipment, checklist, indexeddb, ccus, expansion-cards, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260310-P1-000000
@@ -326,10 +328,114 @@
 
 ---
 
+## Session 2026-03-11-173000
+**Started:** 2026-03-11
+**Status:** COMPLETED
+**Branch:** v0.2.1_docs
+**Tags:** docs, project-rules, card-ui, ports, overflow, modal, branch-setup, v0.2, tagging, session-start-protocol, session-close, bug-prevention, production-deletion, launch-session
+
+### Prompt 4: Session-Close Protocol, Production-Deletion Pillar, LAUNCH_SESSION Fix
+**ID:** S20260311-P4-173000
+**Request:** (1) Fix LAUNCH_SESSION.md Step 1 ("IN FULL" → grep-first) and update stale checkpoint block; (2) Add Phase 6 session-end checklist to SESSION_START_PROTOCOL.md in both VideoDept and _Utilities; (3) Add production-deletion/IndexedDB pillar to PROJECT_RULES.md Mission Statement + tag BUG_PREVENTION_RULES.md.
+
+#### Actions Taken:
+1. Updated `LAUNCH_SESSION.md`: Step 1 rewritten to grep-first protocol; checkpoint block updated to reflect `v0.2.1_docs` (4 commits: 8ddd6ba, 17572ea, c88e7ca, this commit); "Pick up from" set to v0.2.2 Sends subcategory work
+2. Added `## 🗓️ Phase 6: Session Close Checklist` to `video-production-manager/docs/SESSION_START_PROTOCOL.md` before Error Handling section (5 steps: DEVLOG close → TODO update → SESSION_JOURNAL close → LAUNCH_SESSION checkpoint → commit)
+3. Added matching Phase 6 with `[PLACEHOLDER]` tokens to `_Utilities/SESSION_START_PROTOCOL.md`
+4. Added Pillar #14 to PROJECT_RULES.md Mission Statement (`PRODUCTION DELETION MUST CLEAR EVERYWHERE`): lists all 4 required code sites (Projects.tsx WS listener, useProjectStore.ts loadProject ×3, App.tsx error handler, syncWithAPI cleanup) + references BUG_PREVENTION_RULES.md
+5. Added `<!-- tags: fix, indexeddb, websocket, projects, sync, production-deletion, app-tsx, useprojectstore -->` to BUG_PREVENTION_RULES.md after heading
+6. Added DEVLOG entry ✅ COMPLETE
+
+#### Files Changed:
+- `LAUNCH_SESSION.md` — Step 1 grep-first + checkpoint updated
+- `video-production-manager/docs/SESSION_START_PROTOCOL.md` — Phase 6 added
+- `_Utilities/SESSION_START_PROTOCOL.md` — Phase 6 added (placeholder tokens)
+- `video-production-manager/docs/PROJECT_RULES.md` — Pillar #14 added
+- `video-production-manager/docs/BUG_PREVENTION_RULES.md` — tags added
+- `video-production-manager/DEVLOG.md` — entry added + closed
+
+#### Outcome: ✅ Complete
+Agents now have a formal session-end checklist (Phase 6) that prevents stale checkpoints. The production-deletion/IndexedDB sync pattern is Pillar #14 in PROJECT_RULES.md — cannot be missed. BUG_PREVENTION_RULES.md is now grep-navigable. LAUNCH_SESSION.md ready for next session.
+
+---
+
+### Prompt 3: Documentation Tag System + Navigation TOC
+**ID:** S20260311-P3-173000
+**Request:** Implement a grep-navigable tag + TOC system across PROJECT_RULES.md, DEVLOG.md, SESSION_JOURNAL.md, and SESSION_START_PROTOCOL.md so future sessions can find relevant sections without reading whole files.
+
+#### Actions Taken:
+1. Added `<!-- DOCUMENT NAVIGATION -->` TOC block (lines 13–52) to PROJECT_RULES.md with all 28 section names, approximate line numbers, sizes, and key tags
+2. Added `<!-- tags: ... -->` on line after each of the 28 `## ` section headings + 3 key `### ` sub-sections in PROJECT_RULES.md (handled garbled-emoji headings via surrounding ASCII anchor context)
+3. Added `### Tags:` line after `### Status:` in 37 recent DEVLOG entries (March 3–11, 2026) — mix of title-based and commit-hash-based anchors
+4. Added `**Tags:**` line after `**Branch:**` in all 16 SESSION_JOURNAL session headers (Jan 30 – Mar 11, 2026)
+5. Rewrote SESSION_START_PROTOCOL.md Phase 1 from "read these files wholesale" → 5-step grep-first targeted reading approach
+6. Updated SESSION_START_PROTOCOL.md "Last Updated" date to March 11, 2026
+
+#### Files Changed:
+- `video-production-manager/docs/PROJECT_RULES.md` — navigation TOC + all section tags (already committed in `8ddd6ba` for UI standards; nav+tags uncommitted)
+- `video-production-manager/DEVLOG.md` — 37 entries tagged + new entry for this task
+- `video-production-manager/docs/SESSION_JOURNAL.md` — 16 session headers tagged + this Prompt 3 entry
+- `video-production-manager/docs/SESSION_START_PROTOCOL.md` — Phase 1 rewritten
+
+#### Outcome: ✅ Complete
+All 4 target files now have machine-navigable tag metadata. Session start protocol updated to use grep-first reading. Future agents can use `grep_search "tags:.*<topic>"` to instantly locate relevant sections without reading thousands of lines.
+
+---
+
+### Prompt 2: PROJECT_RULES.md — v0.1.x UI Pattern Audit
+**ID:** S20260311-P2-173000
+**Request:** Verify the 2 MediaServers TODO bugs (card-collapse-on-save, direct-I/O-disabled-when-card-based). Then audit Computers/CCUs/MediaServers/IOPortsPanel and codify all UI conventions into PROJECT_RULES.md for: card UX (drag/reveal/columns), ID handling, port data/display, note/secondary device placement, overflow rules.
+
+#### Actions Taken:
+1. Read MediaServers.tsx (1680 lines), Computers.tsx (1096), CCUs.tsx (944), IOPortsPanel.tsx (348)
+2. Verified Bug 1 (card collapse): `expandedPairs` is `useState<Set<string>>` keyed by UUID — survives `updateActiveProject()` re-renders. Bug was fixed by UUID architecture in v0.1.x — UUIDs are stable, old `id`-keyed approach would have collapsed. ✅ Resolved.
+3. Verified Bug 2 (direct I/O disabled): `output_mode` / `card_based` form field is gone. Modal uses `spec.cards.length > 0` to show expansion sections; Direct I/O always active. ✅ Resolved.
+4. Audited and documented in PROJECT_RULES.md:
+   - `Entity Card UI Design Rules` — fully rewritten with 8 sub-rules
+   - `Port Data Model, Edit Rules, Display Standards` — new section
+   - `Overflow Permitted Use and Restrictions` — new section
+   - `Modal Layout Standard` — new section
+
+#### Files Changed:
+- `video-production-manager/docs/PROJECT_RULES.md`
+- `video-production-manager/DEVLOG.md`
+
+#### Outcome: ✅ Complete
+Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJECT_RULES.md — ready to serve as the spec for building Sends subcategory pages in v0.2.2.
+
+---
+
+### Prompt 1: Session Kickoff + v0.2 Branch Setup
+**ID:** S20260311-P1-173000
+**Request:** Full session init per LAUNCH_SESSION.md. Read all protocol files, start servers, set up v0.2/v0.2.1_docs branch structure, verify git/Railway, report back.
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md in full
+2. Read DEVLOG.md (last 60 lines), SESSION_JOURNAL.md (last 50 lines)
+3. Verified API server :3010 ✅ (already running, 4ms latency), Frontend :3011 ✅
+4. Checked git: `main`, clean, up-to-date with origin at `046e2cd`
+5. Checked Railway: ✅ UP — healthy, DB connected (209ms latency)
+6. Created branch `v0.2` from `main`, pushed to `origin/v0.2`
+7. Created branch `v0.2.1_docs` from `v0.2` — HEAD confirmed on `v0.2.1_docs`
+8. Added DEVLOG entry ✅ COMPLETE
+
+#### Files Changed:
+- `video-production-manager/DEVLOG.md` — added session start + branch setup entry
+- `video-production-manager/docs/SESSION_JOURNAL.md` — this entry
+
+#### Outcome:
+- **Dev servers:** ✅ API :3010, Frontend :3011
+- **Git:** `v0.2.1_docs` (HEAD), branched from `v0.2` → `main`, clean
+- **Railway:** ✅ UP (209ms)
+- **Branch structure:** main → v0.2 (pushed to origin) → v0.2.1_docs ✅
+
+---
+
 ## Session 2026-03-11-000000
 **Started:** 2026-03-11
-**Status:** IN_PROGRESS
+**Status:** COMPLETE
 **Branch:** v0.1.5_source-touchups
+**Tags:** session-start, port-column, format-id, media-servers, ioportspanel, layers, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260311-P1-000000
@@ -357,6 +463,7 @@
 **Started:** 2026-03-07
 **Status:** IN_PROGRESS
 **Branch:** v0.1.5_source-touchups
+**Tags:** session-start, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260307-P1-000000
@@ -383,6 +490,7 @@
 **Started:** 2026-03-06
 **Status:** IN_PROGRESS
 **Branch:** v0.1.5_source-touchups
+**Tags:** ccus, modal, cameras, media-servers, ioportspanel, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260306-P1-000000
@@ -410,6 +518,7 @@
 **Started:** 2026-03-05 (morning)
 **Status:** IN_PROGRESS
 **Branch:** v0.1.4_signal-flow
+**Tags:** media-servers, ioportspanel, device-ports, railway, deployment, db-push, v0.1.4
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260305-P1-000000
@@ -437,6 +546,7 @@
 **Ended:** 2026-03-04 (evening)
 **Status:** COMPLETED ✓
 **Branch:** v0.1.4_signal-flow
+**Tags:** cameras, ccus, equipment, seed, signal-flow, routers, cam-switcher, monitors, v0.1.4
 **Note:** DEVLOG and SESSION_JOURNAL were not updated during this session — logged retroactively on 2026-03-05.
 
 ### Prompt 1: Session Kickoff
@@ -543,6 +653,7 @@
 **Started:** 2026-02-12 22:00:00 PST
 **Status:** IN_PROGRESS
 **Branch:** main
+**Tags:** schema, database, migration, uuid, railway
 
 ### Context: Schema/Database Sync & Crash Prevention
 **Current Status:**
@@ -639,6 +750,7 @@
 **Started:** 2026-02-03 [timestamp]
 **Status:** IN_PROGRESS
 **Branch:** main
+**Tags:** testing, multi-browser, websocket, sync, field-versioning
 
 ### Context: Phase 5 - Multi-Browser Real-Time Sync Testing
 **Current Status:**
@@ -691,6 +803,7 @@
 **Started:** 2026-02-01 [timestamp]
 **Status:** IN_PROGRESS
 **Branch:** main
+**Tags:** fix, settings, render-loop, field-versioning
 
 ### Context: Field-Level Versioning Testing Blocked by UI Bug
 **Phase 3 Status:**
@@ -833,6 +946,7 @@
 **Ended:** 2026-01-30 18:35:00 PST
 **Status:** COMPLETED
 **Branch:** feature/signal-flow-development
+**Tags:** infrastructure, project-rules, architecture, protocol, split-docs
 
 ### Prompt 1: Refactor Protocol Documents for Universal Use
 **ID:** S20260130182600-P1-182600
@@ -898,6 +1012,7 @@
 **Ended:** 2026-01-30 18:42:00 PST
 **Status:** COMPLETED
 **Branch:** feature/signal-flow-development
+**Tags:** protocol, architecture
 
 ### Prompt 1: Add Meta-Instructions to Universal Protocol
 **ID:** S20260130183800-P1-183800
@@ -951,6 +1066,7 @@
 **Ended:** 2026-01-30 18:25:00 PST
 **Status:** COMPLETED
 **Branch:** main
+**Tags:** docs, prevention, architecture, lessons
 
 ### Prompt 1: Document Learnings & Create Prevention Tools
 **ID:** S20260130181500-P1-181500
@@ -1013,6 +1129,7 @@
 **Ended:** 2026-01-30 18:10:00 PST  
 **Status:** COMPLETED
 **Branch:** main
+**Tags:** fix, crash-recovery, routes, prisma
 
 ### Prompt 1: Crash Recovery - Fix Route Generation Syntax Errors
 **ID:** S20260130180600-P1-180600
@@ -1081,6 +1198,7 @@
 **Ended:** 2026-01-30 16:30:00 PST (approx)
 **Status:** COMPLETED
 **Branch:** main → feature/signal-flow-development
+**Tags:** session-tracking, protocol, infrastructure, git
 
 ### Prompt 1: Develop Session Tracking System
 **ID:** S20260130153000-P1-153000

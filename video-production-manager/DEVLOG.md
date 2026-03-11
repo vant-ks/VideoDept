@@ -2,10 +2,97 @@
 
 ---
 
+## March 11, 2026 — v0.2.1 Docs: session-close protocol, production-deletion pillar, LAUNCH_SESSION fix
+
+### Branch: `v0.2.1_docs`
+### Status: ✅ COMPLETE
+### Tags: docs, session-start-protocol, project-rules, bug-prevention, launch-session, session-close
+
+**Files changed:**
+- `LAUNCH_SESSION.md` — fixed Step 1 (grep-first, not "IN FULL"); updated checkpoint to reflect v0.2.1_docs 4-commit state
+- `video-production-manager/docs/SESSION_START_PROTOCOL.md` — added Phase 6 session-end checklist
+- `_Utilities/SESSION_START_PROTOCOL.md` — added Phase 6 session-end checklist (placeholder tokens)
+- `video-production-manager/docs/PROJECT_RULES.md` — added Pillar #14: PRODUCTION DELETION MUST CLEAR EVERYWHERE
+- `video-production-manager/docs/BUG_PREVENTION_RULES.md` — added `<!-- tags: -->` navigation line
+
+**Summary:** Completed final v0.2.1 documentation work. Agents now have a formal session-end checklist (Phase 6) to prevent stale LAUNCH_SESSION.md checkpoints. The production-deletion/IndexedDB sync pattern (4 required code sites) is now a numbered pillar in PROJECT_RULES.md so it cannot be missed. BUG_PREVENTION_RULES.md is now grep-navigable.
+
+---
+
+## March 11, 2026 — v0.2.1 Docs: tag system + navigation TOC across DEVLOG, SESSION_JOURNAL, SESSION_START_PROTOCOL
+
+### Branch: `v0.2.1_docs`
+### Status: ✅ COMPLETE
+### Tags: docs, devlog, session-journal, session-start-protocol, tagging, navigation
+
+Added `<!-- tags: ... -->` navigation system and `<!-- DOCUMENT NAVIGATION -->` TOC to make all core docs grep-navigable.
+
+### Problem
+PROJECT_RULES.md reached 3281 lines (now ~3320). Critical rules added late in long sessions had near-zero recall probability — agents read the first 100 lines and skip the rest. DEVLOG and SESSION_JOURNAL similarly lacked any way to find relevant entries without reading huge swaths.
+
+### Solution
+- **Tag format in PROJECT_RULES.md:** `<!-- tags: keyword1, keyword2 -->` on line after each `## ` heading
+- **Navigation TOC:** `<!-- DOCUMENT NAVIGATION -->` block at lines 13–52 with all 28 sections, line numbers, sizes, and key tags
+- **Tag format in DEVLOG.md:** `### Tags:` line after `### Status:` in each entry
+- **Tag format in SESSION_JOURNAL.md:** `**Tags:**` line after `**Branch:**` in each session header
+- **SESSION_START_PROTOCOL.md Phase 1:** Rewritten from "read these files wholesale" to grep-first targeted reading
+
+### Files Changed
+- `video-production-manager/docs/PROJECT_RULES.md` — navigation TOC block (lines 13–52) + `<!-- tags: ... -->` on all 28 `## ` sections + 3 key `### ` sub-sections
+- `video-production-manager/DEVLOG.md` — `### Tags:` added to 37 recent entries (March 3–11, 2026)
+- `video-production-manager/docs/SESSION_JOURNAL.md` — `**Tags:**` added to all 16 session headers
+- `video-production-manager/docs/SESSION_START_PROTOCOL.md` — Phase 1 rewritten to grep-first approach; Last Updated → March 11, 2026
+
+### Usage Going Forward
+```
+# Find relevant PROJECT_RULES section
+grep_search "tags:.*card-ui" in PROJECT_RULES.md
+# → returns line numbers, then read_file only that range
+
+# Find relevant DEVLOG entries
+grep_search "### Tags:.*media-servers" in DEVLOG.md
+
+# Find SESSION_JOURNAL sessions about a topic
+grep_search "Tags:.*v0.2" in SESSION_JOURNAL.md
+```
+
+---
+
+## March 11, 2026 — v0.2.1 Docs: PROJECT_RULES.md UI patterns audit
+
+### Branch: `v0.2.1_docs`
+### Status: ✅ COMPLETE
+### Tags: docs, project-rules, card-ui, ports, overflow, modal, media-servers, computers, ccus, ioportspanel
+
+Audited Computers.tsx, CCUs.tsx, MediaServers.tsx, IOPortsPanel.tsx. Confirmed both TODO bugs (card-collapse-on-save, direct-I/O-disabled-when-card-based) already resolved by UUID architecture + modal refactor in v0.1.5. Extracted and codified UI standards into PROJECT_RULES.md:
+- `## 🃏 Entity Card UI Design Rules` — fully rewritten (8 sub-rules: layout, columns, expand state, drag, reveal panel)
+- `## 🔌 Port Data — Model, Edit Rules, and Display Standards` — new section (DevicePortDraft shape, slot-split rule, IOPortsPanel edit mode, reveal table standard, loading pattern)
+- `## 📐 Overflow — Permitted Use and Restrictions` — new section (overflow-x-auto OK on tables, overflow-y-auto on modals, overflow-hidden FORBIDDEN on dropdown containers, viewport-aware FormatCascadeSelect rule)
+- `## 📋 Modal Layout Standard` — new section (structure, field ordering, note field standard)
+
+### Files Changed
+- `video-production-manager/docs/PROJECT_RULES.md` — 4 new/expanded sections (~180 lines added)
+
+---
+
+## March 11, 2026 — Session Start + v0.2 Branch Setup
+
+### Branch: `v0.2.1_docs`
+### Status: ✅ COMPLETE
+### Tags: session-start, git, branch, railway, v0.2
+
+Session initialized. Read all protocol files (AI_AGENT_PROTOCOL, SESSION_START_PROTOCOL, PROJECT_RULES, DEVLOG, SESSION_JOURNAL, TODO_NEXT_SESSION). Verified dev servers (API :3010 ✅, Frontend :3011 ✅), Railway health ✅ (209ms), git clean on `main` at `046e2cd`.
+
+Branch structure created:
+- `main` → `v0.2` (pushed to origin) → `v0.2.1_docs` (HEAD)
+
+---
+
 ## March 11, 2026 — Port column standardization + Format ID formula revision
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: ports, format-id, ioportspanel, media-servers, computers, ccus, formats, seed
 
 ### Changes
 - **All port display tables** (Computers, MediaServers, CCUs, Routers, CamSwitcher): 5th column header renamed from "Note" / "Route / Note" → **Route**; `displayFormatId(...)` replaced with `format.id` directly in FORMAT column
@@ -23,6 +110,7 @@
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: session-start
 
 Session initialized. Read all protocol files. Verified dev servers (API :3010 ✅, Frontend :3011 ✅), Railway health ✅, git state ✅.
 
@@ -32,6 +120,7 @@ Session initialized. Read all protocol files. Verified dev servers (API :3010 �
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: media-servers, overflow, layers, card-ui, drag-reorder
 
 ### Changes
 - **src/pages/MediaServers.tsx (ServerPairModal)** — removed `overflow-hidden` from expansion slot card container; `absolute`-positioned format dropdown now escapes its parent instead of being clipped
@@ -42,6 +131,7 @@ Session initialized. Read all protocol files. Verified dev servers (API :3010 �
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: ioportspanel, format-label, media-servers, layers, indexeddb
 
 ### Changes
 - **src/components/IOPortsPanel.tsx** — exported `formatLabel(f: Format): string` helper: `"hRes x vRes @ rate [blanking]"` formula using `SCAN_RATES` label (e.g. "59.94" not "59"); blanking appended only when not 'NONE'
@@ -54,6 +144,7 @@ Session initialized. Read all protocol files. Verified dev servers (API :3010 �
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: fix, media-servers, computers, layers, ports
 ### Commit: `2ef7d9c`
 
 ### Changes
@@ -66,6 +157,7 @@ Session initialized. Read all protocol files. Verified dev servers (API :3010 �
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: computers, media-servers, ccus, card-ui, reveal-panel, ports, modal
 ### Commit: `df37728`
 
 ### Changes
@@ -79,6 +171,7 @@ Session initialized. Read all protocol files. Verified dev servers (API :3010 �
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: computers, expansion-cards, ports, reveal-panel, modal
 ### Commit: `6a1cda8`
 
 ### Changes
@@ -91,6 +184,7 @@ Session initialized. Read all protocol files. Verified dev servers (API :3010 �
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: equipment, archive, soft-delete
 ### Commit: `afc532a`
 
 ### Changes
@@ -105,6 +199,7 @@ Session initialized. Read all protocol files. Verified dev servers (API :3010 �
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: equipment, duplicate, modal
 ### Commit: `3bbe588`
 
 ### Changes
@@ -117,6 +212,7 @@ Session initialized. Read all protocol files. Verified dev servers (API :3010 �
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: fix, equipment, modal, expansion-cards
 ### Commit: `84630ea`
 
 ### Root Cause
@@ -131,6 +227,7 @@ Previous commit removed the `ioArchitecture === 'card-based'` conditional gate b
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: equipment, modal, expansion-cards
 ### Commit: `3d8b88d`
 
 ### Changes
@@ -142,6 +239,7 @@ Previous commit removed the `ioArchitecture === 'card-based'` conditional gate b
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: equipment, modal, ports, expansion-cards, card-ui
 ### Commit: `1e57083`
 
 ### Changes
@@ -154,6 +252,7 @@ Previous commit removed the `ioArchitecture === 'card-based'` conditional gate b
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: fix, equipment, modal
 ### Commit: `b77ec2b`
 
 ### Root Cause
@@ -168,6 +267,7 @@ Previous commit removed the `ioArchitecture === 'card-based'` conditional gate b
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: computers, drag-reorder, modal, ioportspanel, ports
 
 ### Changes
 - **src/pages/Computers.tsx** — Full rewrite. Replaced generic `SourceFormModal` with inline modal (same pattern as CCUs.tsx). Removed ID field from modal; IDs are now auto-assigned as `COMP #` (max + 1). Added drag-to-reorder using `GripVertical` with same renumber-on-drag pattern as CCUs: on drop, all shifted cards get new `COMP 1`, `COMP 2`, … IDs via parallel PUT requests, then refetch. Modal first row is now Name + Computer Type. I/O Ports section follows CCU standard: `IOPortsPanel` shown conditionally when type is selected or ports exist; selecting a computer type auto-populates port drafts from the equipment spec (`buildPortsFromSpec`); editing loads saved ports from DB with spec fallback. Cards now display grip handle with `COMP #` ID in first column.
@@ -178,6 +278,7 @@ Previous commit removed the `ioArchitecture === 'card-based'` conditional gate b
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: checklist, preferences, fix
 
 ### Changes
 - **usePreferencesStore.ts** — Added `expandedCategoriesByProject: Record<string, string[]>` (persisted to localStorage under `app-preferences`). Empty/absent entry for a projectId means all categories collapsed (desired default). Added `toggleCategoryExpandedForProject(projectId, category)` action which adds to/removes from the expanded set.
@@ -191,6 +292,7 @@ Previous commit removed the `ioArchitecture === 'card-based'` conditional gate b
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: fix, indexeddb, clear-storage
 
 ### Root Cause
 Browser hang at `🔄 Syncing with local database...` was caused by IndexedDB getting into a locked/bad state (readwrite transaction from a previous interrupted session). `clear-storage.html` only cleared `localStorage`, leaving the `VideoDeptDB` IndexedDB intact and still locked.
@@ -215,6 +317,7 @@ Or navigate to http://localhost:3011/clear-storage.html
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: ccus, modal, cameras, ioportspanel
 ### Commit: `89162e4`
 
 ### Changes
@@ -227,6 +330,7 @@ Or navigate to http://localhost:3011/clear-storage.html
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: fix, ccus, modal, equipment
 ### Commit: `199cd2c`
 
 ### Changes
@@ -239,6 +343,7 @@ Or navigate to http://localhost:3011/clear-storage.html
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: media-servers, ioportspanel, device-ports, ports, modal
 ### Commit: `bd202f3`
 
 ### Goal
@@ -257,6 +362,7 @@ Replace the legacy `outputs_data` (name/role/type/resolution/frameRate per outpu
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: railway, deployment, prisma, db-push
 ### Commit: TBD
 
 ### Changes
@@ -272,6 +378,7 @@ Project always uses `prisma db push` — both locally and on Railway. `prisma mi
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: fix, media-servers, prisma, schema
 ### Commit: `50b298b`
 
 ### Root Cause
@@ -287,6 +394,7 @@ Project always uses `prisma db push` — both locally and on Railway. `prisma mi
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: fix, equipment, seed, computers
 ### Commit: `5cf3631`
 
 ### Changes
@@ -298,6 +406,7 @@ Project always uses `prisma db push` — both locally and on Railway. `prisma mi
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: fix, media-servers, card-ui, equipment
 ### Commit: `d002f87`
 
 ### Changes
@@ -310,6 +419,7 @@ Project always uses `prisma db push` — both locally and on Railway. `prisma mi
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE
+### Tags: fix, media-servers
 ### Commit: `0fd54bb`
 
 ### Changes
@@ -325,6 +435,7 @@ Project always uses `prisma db push` — both locally and on Railway. `prisma mi
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE
+### Tags: ccus, card-ui, reveal-panel
 
 ### Changes
 - **CCUs.tsx** — Moved `ChevronDown`/`ChevronUp` indicator from the right-side action button group to the **left column**, between the drag handle and the CCU ID text.
@@ -339,6 +450,7 @@ Project always uses `prisma db push` — both locally and on Railway. `prisma mi
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE
+### Tags: fix, api-server, prisma
 
 ### Root Cause
 API server had been running for 14+ hours (started previous session). During that session, `db:push` was run to add new columns (`focal_length`, `has_heavy_tripod`, `has_medium_tripod`, `has_steadicam`, `has_magic_arm`). `db:push` regenerates the Prisma client in `node_modules/.prisma/client`, but `tsx watch` only watches `.ts` source files — it does NOT restart when the Prisma client is regenerated. So the running server held a stale Prisma schema definition that didn't match the DB columns, causing all camera endpoints to 500.
@@ -359,6 +471,7 @@ After any `npm run db:push`, always restart the API server. `tsx watch` does NOT
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE
+### Tags: fix, equipment, seed, cameras
 ### Commit: `606d6c8`
 
 ### Changes
@@ -371,6 +484,7 @@ After any `npm run db:push`, always restart the API server. `tsx watch` does NOT
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE
+### Tags: fix, equipment, cameras, typescript
 ### Commit: `62ade27`
 
 ### Changes
@@ -383,6 +497,7 @@ After any `npm run db:push`, always restart the API server. `tsx watch` does NOT
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE
+### Tags: cameras, equipment, seed
 ### Commit: `6374bb4`
 
 ### Changes
@@ -396,6 +511,7 @@ After any `npm run db:push`, always restart the API server. `tsx watch` does NOT
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE
+### Tags: equipment, seed
 ### Commit: `0bbfa9e`
 
 ### Changes
@@ -408,6 +524,7 @@ After any `npm run db:push`, always restart the API server. `tsx watch` does NOT
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE
+### Tags: equipment, seed
 ### Commit: `7d172c1`
 
 ### Changes
@@ -419,6 +536,7 @@ After any `npm run db:push`, always restart the API server. `tsx watch` does NOT
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE
+### Tags: cameras, card-ui, modal
 
 ### Changes
 - **Cameras.tsx** — Removed Format Mode column from camera cards (col 6 of 7 grid → 6-col grid)
@@ -431,6 +549,7 @@ After any `npm run db:push`, always restart the API server. `tsx watch` does NOT
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE
+### Tags: fix, cam-switcher, cameras, ccus, typescript
 
 ### Changes Committed
 - **CamSwitcher.tsx** — Fixed name collision between `CamSwitcher` component and `CamSwitcher` imported type. Aliased import as `CamSwitcherEntity`.
@@ -444,6 +563,7 @@ After any `npm run db:push`, always restart the API server. `tsx watch` does NOT
 
 ### Branch: `v0.1.4_signal-flow`
 ### Status: ✅ COMPLETE (API layer)
+### Tags: cameras, ccus, api, testing
 
 ### API Tests — All Passed
 | Test | Result |
@@ -471,6 +591,7 @@ After any `npm run db:push`, always restart the API server. `tsx watch` does NOT
 
 ### Branch: `v0.1.4_signal-flow`
 ### Commits: `703f03d`, `5ad3937`, `c3c7816`, `72734f3`
+### Tags: routers, cam-switcher, monitors, device-ports, ioportspanel, signal-flow, formats
 
 ### Overview
 Completed the connection management standardisation for Routers, CamSwitchers, and
