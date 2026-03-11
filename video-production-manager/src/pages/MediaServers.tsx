@@ -604,14 +604,14 @@ export default function MediaServers() {
                               <th className="text-left pb-1.5 pr-2 font-semibold w-16">Type</th>
                               <th className="text-left pb-1.5 pr-2 font-semibold">Label</th>
                               <th className="text-left pb-1.5 pr-2 font-semibold">Format</th>
-                              <th className="text-left pb-1.5 font-semibold">Note</th>
+                              <th className="text-left pb-1.5 font-semibold">Route</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-av-border/40">
                             {[...inputs, ...outputs].map((port, i) => {
                               const isOut = port.direction === 'OUTPUT';
                               const fmt = port.formatUuid ? formats.find(f => f.uuid === port.formatUuid) : null;
-                              const fmtName = fmt ? formatLabel(fmt) : '—';
+                              const fmtName = fmt ? fmt.id : '—';
                               return (
                                 <tr key={i} className="hover:bg-av-surface-hover/40">
                                   <td className="py-1.5 pr-2">

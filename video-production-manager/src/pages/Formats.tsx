@@ -6,7 +6,7 @@ import { apiClient } from '@/services/apiClient';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import type { Format } from '@/types';
 import { deriveVideoStandard } from '@/types';
-import { FormatFormModal, displayRate, displayFormatId } from '@/components/FormatFormModal';
+import { FormatFormModal, displayRate } from '@/components/FormatFormModal';
 
 const STD_ORDER: Record<string, number> = { SD: 0, HD: 1, UHD: 2, '4K': 3 };
 
@@ -77,7 +77,7 @@ export default function Formats() {
     const dir = sortDir === 'asc' ? 1 : -1;
     return [...filteredFormats].sort((a, b) => {
       switch (sortKey) {
-        case 'id':       return dir * displayFormatId(a.id).localeCompare(displayFormatId(b.id));
+        case 'id':       return dir * a.id.localeCompare(b.id);
         case 'res':      return dir * (a.hRes * 10000 + a.vRes - (b.hRes * 10000 + b.vRes));
         case 'rate':     return dir * (a.frameRate - b.frameRate);
         case 'blanking': return dir * a.blanking.localeCompare(b.blanking);
@@ -238,7 +238,7 @@ export default function Formats() {
                   <div className="w-[35%] flex items-center gap-2 min-w-0">
                     <MonitorPlay className="w-4 h-4 text-av-accent flex-shrink-0" />
                     <span className={`font-semibold truncate ${f.isSystem ? 'text-av-text' : 'text-av-warning'}`}>
-                      {displayFormatId(f.id)}
+                      {f.id}
                     </span>
                   </div>
 

@@ -10,7 +10,7 @@ import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import type { Source, Format } from '@/types';
 import { IOPortsPanel, type DevicePortDraft } from '@/components/IOPortsPanel';
-import { FormatFormModal, displayFormatId } from '@/components/FormatFormModal';
+import { FormatFormModal } from '@/components/FormatFormModal';
 
 interface ComputerFormFields {
   name?: string;
@@ -683,7 +683,7 @@ export const Computers: React.FC = () => {
                               <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
                               <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
                               <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
-                              <th className="text-left pb-1.5 font-semibold">Route / Note</th>
+                              <th className="text-left pb-1.5 font-semibold">Route</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-av-border/40">
@@ -704,7 +704,7 @@ export const Computers: React.FC = () => {
                               .filter(p => p.direction === 'OUTPUT')
                               .map((port, i) => {
                                 const fmtName = port.formatUuid
-                                  ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid!)
+                                  ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—')
                                   : '—';
                                 return (
                                   <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
@@ -755,7 +755,7 @@ export const Computers: React.FC = () => {
                                         ))}
                                         {savedPorts.filter(p => p.direction === 'OUTPUT').map((port, pi) => {
                                           const fmtName = port.formatUuid
-                                            ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid!)
+                                            ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—')
                                             : '—';
                                           return (
                                             <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">

@@ -11,7 +11,7 @@ import { io as socketIO } from 'socket.io-client';
 import { apiClient } from '@/services';
 import { getCurrentUserId, getCurrentUserName } from '@/utils/userUtils';
 import { IOPortsPanel, DevicePortDraft } from '@/components/IOPortsPanel';
-import { FormatFormModal, displayFormatId } from '@/components/FormatFormModal';
+import { FormatFormModal } from '@/components/FormatFormModal';
 import type { Send, Format } from '@/types';
 
 // Monitor placement / purpose types

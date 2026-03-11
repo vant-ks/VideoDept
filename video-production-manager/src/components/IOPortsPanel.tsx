@@ -217,7 +217,7 @@ export function IOPortsPanel({
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Type</span>
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Label</span>
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Format In</span>
-            <span className="text-[10px] text-av-text-muted uppercase font-semibold">← Connected from</span>
+            <span className="text-[10px] text-av-text-muted uppercase font-semibold">Route</span>
           </div>
           <div className="space-y-1.5">
             {ports.map((port, idx) => {
@@ -278,7 +278,7 @@ export function IOPortsPanel({
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Type</span>
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Label</span>
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Format Out</span>
-            <span className="text-[10px] text-av-text-muted uppercase font-semibold">→ Destination</span>
+            <span className="text-[10px] text-av-text-muted uppercase font-semibold">Route</span>
           </div>
           <div className="space-y-1.5">
             {ports.map((port, idx) => {

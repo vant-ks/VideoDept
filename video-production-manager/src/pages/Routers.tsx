@@ -7,7 +7,7 @@ import { useRouterAPI, type Router } from '@/hooks/useRouterAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { IOPortsPanel, type DevicePortDraft } from '@/components/IOPortsPanel';
-import { FormatFormModal, displayFormatId } from '@/components/FormatFormModal';
+import { FormatFormModal } from '@/components/FormatFormModal';
 import { apiClient } from '@/services';
 import type { Format } from '@/types';
 
@@ -293,7 +293,7 @@ export default function Routers() {
                             <th className="text-left pb-1 pr-3">Type</th>
                             <th className="text-left pb-1 pr-3">Label</th>
                             <th className="text-left pb-1 pr-3">Format</th>
-                            <th className="text-left pb-1">Note</th>
+                            <th className="text-left pb-1">Route</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -305,9 +305,9 @@ export default function Routers() {
                               <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
                               <td className="py-1 pr-3 text-av-text">{port.portLabel}</td>
                               <td className="py-1 pr-3 text-av-info">
-                                {port.formatUuid ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid) : '\u2014'}
+                                {port.formatUuid ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—') : '—'}
                               </td>
-                              <td className="py-1 text-av-text-muted">{port.note || '\u2014'}</td>
+                              <td className="py-1 text-av-text-muted">{port.note || '—'}</td>
                             </tr>
                           ))}
                           {ports.filter(p => p.direction === 'OUTPUT').map((port: any, i: number) => (
@@ -318,7 +318,7 @@ export default function Routers() {
                               <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
                               <td className="py-1 pr-3 text-av-text">{port.portLabel}</td>
                               <td className="py-1 pr-3 text-av-info">
-                                {port.formatUuid ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid) : '\u2014'}
+                                {port.formatUuid ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—') : '—'}
                               </td>
                               <td className="py-1 text-av-text-muted">{port.note || '\u2014'}</td>
                             </tr>

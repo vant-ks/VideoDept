@@ -6,7 +6,7 @@ import { useCamSwitcherAPI, CamSwitcher as CamSwitcherEntity } from '@/hooks/use
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { IOPortsPanel, DevicePortDraft } from '@/components/IOPortsPanel';
-import { FormatFormModal, displayFormatId } from '@/components/FormatFormModal';
+import { FormatFormModal } from '@/components/FormatFormModal';
 import { apiClient } from '@/services';
 import type { Format } from '@/types';
 import { Tv2, Plus, Edit2, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
@@ -279,7 +279,7 @@ export const CamSwitcher: React.FC = () => {
                             <th className="text-left pb-1 pr-3">Type</th>
                             <th className="text-left pb-1 pr-3">Label</th>
                             <th className="text-left pb-1 pr-3">Format</th>
-                            <th className="text-left pb-1">Note</th>
+                            <th className="text-left pb-1">Route</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -291,7 +291,7 @@ export const CamSwitcher: React.FC = () => {
                               <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
                               <td className="py-1 pr-3 text-av-text">{port.portLabel}</td>
                               <td className="py-1 pr-3 text-av-info">
-                                {port.formatUuid ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid) : '—'}
+                                {port.formatUuid ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—') : '—'}
                               </td>
                               <td className="py-1 text-av-text-muted">{port.note || '—'}</td>
                             </tr>
@@ -304,7 +304,7 @@ export const CamSwitcher: React.FC = () => {
                               <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
                               <td className="py-1 pr-3 text-av-text">{port.portLabel}</td>
                               <td className="py-1 pr-3 text-av-info">
-                                {port.formatUuid ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid) : '—'}
+                                {port.formatUuid ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—') : '—'}
                               </td>
                               <td className="py-1 text-av-text-muted">{port.note || '—'}</td>
                             </tr>

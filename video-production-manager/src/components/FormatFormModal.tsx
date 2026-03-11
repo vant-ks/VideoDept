@@ -17,12 +17,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Lock } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
 import type { Format } from '@/types';
-import { deriveVideoStandard } from '@/types';
 
 // ── Scan rate registry ────────────────────────────────────────────────────────
 // value   = stored in DB (exact float)
-// label   = shown in the rate dropdown and the Rate column
-// idSuffix = used in auto-generated format id string
+// label   = shown in the rate dropdown, Rate column, and format ID auto-suggestion
+// idSuffix = legacy short code kept for reference only (not used in format ID generation)
 export const SCAN_RATES = [
   { value: 23.976, label: '23.98', idSuffix: '23'  },
   { value: 24,     label: '24',    idSuffix: '24'   },
@@ -62,22 +61,23 @@ export function displayFormatId(id: string): string {
     .replace(/([^_])RB/g, '$1_RB');
 }
 
-/** Auto-generate a format id string from specs (uses short suffixes for 29.97/59.94). */
+/**
+ * Generate a format id string from specs using the canonical display formula:
+ *   "hRes x vRes @ rate[i]" or "hRes x vRes @ rate[i] [blanking]"
+ * This is also the formula used in formatLabel() in IOPortsPanel.tsx.
+ */
 export function suggestFormatId(
   hRes: number,
   vRes: number,
   frameRate: number,
   isInterlaced: boolean,
+  blanking: BlankingOption = 'NONE',
 ): string {
-  const std = deriveVideoStandard(hRes, vRes);
-  const prefix =
-    std === '4K'  ? `${hRes}` :
-    std === 'UHD' ? '4K' :
-    `${vRes}`;
   const entry = SCAN_RATES.find(r => r.value === frameRate);
-  const suffix = entry ? entry.idSuffix : frameRate.toString().replace('.', '');
-  const scan   = isInterlaced ? 'i' : 'p';
-  return `${prefix}${scan}${suffix}`;
+  const rate = (entry ? entry.label : frameRate.toString()) + (isInterlaced ? 'i' : '');
+  return blanking !== 'NONE'
+    ? `${hRes} x ${vRes} @ ${rate} [${blanking}]`
+    : `${hRes} x ${vRes} @ ${rate}`;
 }
 
 // ── Blank form factory ────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ export function FormatFormModal({
         frameRate:    (frameRate ?? 59.94) as ScanRateValue,
         isInterlaced,
         blanking:     (blanking ?? 'NONE') as BlankingOption,
-        id:           suggestFormatId(hRes, vRes, frameRate ?? 59.94, isInterlaced),
+        id:           suggestFormatId(hRes, vRes, frameRate ?? 59.94, isInterlaced, (blanking ?? 'NONE') as BlankingOption),
       });
     } else {
       setFormData(blankForm());
@@ -149,7 +149,7 @@ export function FormatFormModal({
       setFormData(prev => {
         const next = { ...prev, ...updates };
         if (!editingFormat) {
-          next.id = suggestFormatId(next.hRes, next.vRes, next.frameRate, next.isInterlaced);
+          next.id = suggestFormatId(next.hRes, next.vRes, next.frameRate, next.isInterlaced, next.blanking);
         }
         return next;
       });
@@ -291,7 +291,7 @@ export function FormatFormModal({
               <label className="block text-xs font-medium text-av-text-muted mb-1">Blanking</label>
               <select
                 value={formData.blanking}
-                onChange={e => setFormData(prev => ({ ...prev, blanking: e.target.value as BlankingOption }))}
+                onChange={e => handleSpecChange({ blanking: e.target.value as BlankingOption })}
                 disabled={readOnly}
                 className="input-field w-full disabled:opacity-60"
               >
@@ -328,7 +328,7 @@ export function FormatFormModal({
                 type="text"
                 value={formData.id}
                 onChange={e => setFormData(prev => ({ ...prev, id: e.target.value }))}
-                placeholder="e.g. 1080p59"
+                placeholder="e.g. 1920 x 1080 @ 59.94"
                 disabled={readOnly}
                 className="input-field w-full disabled:opacity-60"
               />

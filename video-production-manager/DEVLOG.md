@@ -2,6 +2,23 @@
 
 ---
 
+## March 11, 2026 — Port column standardization + Format ID formula revision
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **All port display tables** (Computers, MediaServers, CCUs, Routers, CamSwitcher): 5th column header renamed from "Note" / "Route / Note" → **Route**; `displayFormatId(...)` replaced with `format.id` directly in FORMAT column
+- **src/components/IOPortsPanel.tsx**: edit-form column headers updated to **Route** (was "← Connected from" / "→ Destination")
+- **src/components/FormatFormModal.tsx**: `suggestFormatId()` rewritten to use canonical display formula (`"hRes x vRes @ rate[i] [blanking]"`); blanking change now also regenerates the ID in create mode; `deriveVideoStandard` import removed; placeholder updated
+- **api/prisma/seed-formats.ts**: all 37 system format IDs updated to new formula; header comment updated
+- **api/prisma/script-rename-format-ids.ts** (new): one-time migration script — renames all 37 format IDs in DB; UUID FKs unaffected; idempotent
+- **src/pages/Formats.tsx**: `displayFormatId` import removed; sort and display now use `f.id` directly
+- **Monitors.tsx**: dead `displayFormatId` import removed
+- DB migration: all 37 formats renamed successfully (37 updated, 0 not found)
+
+---
+
 ## March 11, 2026 — Session Start
 
 ### Branch: `v0.1.5_source-touchups`
