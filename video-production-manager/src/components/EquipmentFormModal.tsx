@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus } from 'lucide-react';
 import type { EquipmentSpec, IOPort } from '@/types';
-import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 
 interface EquipmentFormModalProps {
@@ -12,7 +11,6 @@ interface EquipmentFormModalProps {
 }
 
 export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEquipment }: EquipmentFormModalProps) {
-  const { resolutions = [], frameRates = [] } = useProductionStore();
   const { connectorTypes } = useEquipmentLibrary();
   const portTypes = connectorTypes.length > 0 ? connectorTypes : ['SDI', 'HDMI', 'DisplayPort', 'NDI'];
   
@@ -152,8 +150,8 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             </div>
           )}
 
-          {/* Basic Info - Category, I/O Architecture, and Format Assign */}
-          <div className="grid grid-cols-3 gap-4">
+        {/* Basic Info - Category and I/O Architecture */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
                 Category *
@@ -178,68 +176,11 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                 onChange={(e) => setFormData({ ...formData, ioArchitecture: e.target.value as 'direct' | 'card-based' })}
                 className="input-field w-full"
               >
-                <option value="direct">Direct I/O</option>
-                <option value="card-based">Card-Based</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                Format Assign *
-              </label>
-              <select
-                value={formData.formatByIO ? 'per-io' : 'device-wide'}
-                onChange={(e) => setFormData({ ...formData, formatByIO: e.target.value === 'per-io' })}
-                className="input-field w-full"
-              >
-                <option value="per-io">Per I/O</option>
-                <option value="device-wide">Device-wide</option>
+                <option value="direct">Direct I/O Only</option>
+                <option value="card-based">Optional I/O Cards</option>
               </select>
             </div>
           </div>
-
-          {/* Device-wide Format Settings */}
-          {!formData.formatByIO && (
-            <div className="grid grid-cols-[2fr,1fr] gap-4">
-              <div>
-                <label className="block text-sm font-medium text-av-text mb-2">
-                  Resolution Preset *
-                </label>
-                <select
-                  value={deviceResolution}
-                  onChange={(e) => {
-                    setDeviceResolution(e.target.value);
-                    setFormData({ ...formData, deviceFormats: [`${e.target.value}${deviceRate}`] });
-                  }}
-                  className="input-field w-full"
-                  required={!formData.formatByIO}
-                >
-                  {resolutions.map(res => (
-                    <option key={res} value={res}>{res}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-av-text mb-2">
-                  Rate *
-                </label>
-                <select
-                  value={deviceRate}
-                  onChange={(e) => {
-                    setDeviceRate(e.target.value);
-                    setFormData({ ...formData, deviceFormats: [`${deviceResolution}${e.target.value}`] });
-                  }}
-                  className="input-field w-full"
-                  required={!formData.formatByIO}
-                >
-                  {frameRates.map(rate => (
-                    <option key={rate} value={rate}>{rate}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -269,7 +210,7 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             </div>
           </div>
 
-          {/* Card Slots (for card-based) */}
+          {/* Card Slots (for optional i/o cards architecture) */}
           {formData.ioArchitecture === 'card-based' && (
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
@@ -285,27 +226,8 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             </div>
           )}
 
-          {/* Secondary Device Checkbox */}
-          <div className="bg-av-surface-light border border-av-border rounded-md p-4">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.isSecondaryDevice || false}
-                onChange={(e) => setFormData({ ...formData, isSecondaryDevice: e.target.checked })}
-                className="mt-0.5 w-4 h-4 text-av-accent rounded border-av-border focus:ring-2 focus:ring-av-accent"
-              />
-              <div>
-                <span className="text-sm font-medium text-av-text">Available as Secondary Device</span>
-                <p className="text-xs text-av-text-muted mt-1">
-                  Check this if this equipment can be used as a secondary device for sources (e.g., converters, scalers, processors)
-                </p>
-              </div>
-            </label>
-          </div>
-
-          {/* Direct I/O Ports */}
-          {formData.ioArchitecture === 'direct' && (
-            <div className="grid grid-cols-2 gap-6">
+          {/* Direct I/O Ports — always shown */}
+          <div className="grid grid-cols-2 gap-6">
               {/* Inputs */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -408,7 +330,24 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                 </div>
               </div>
             </div>
-          )}
+
+          {/* Secondary Device — always at bottom */}
+          <div className="bg-av-surface-light border border-av-border rounded-md p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.isSecondaryDevice || false}
+                onChange={(e) => setFormData({ ...formData, isSecondaryDevice: e.target.checked })}
+                className="mt-0.5 w-4 h-4 text-av-accent rounded border-av-border focus:ring-2 focus:ring-av-accent"
+              />
+              <div>
+                <span className="text-sm font-medium text-av-text">Available as Secondary Device</span>
+                <p className="text-xs text-av-text-muted mt-1">
+                  Check this if this equipment can be used as a secondary device for sources (e.g., converters, scalers, processors)
+                </p>
+              </div>
+            </label>
+          </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-av-border">
