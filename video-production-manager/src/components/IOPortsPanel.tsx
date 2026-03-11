@@ -13,7 +13,8 @@
  *   emptyText  — message shown when ports is empty (override default)
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { Format } from '@/types';
 import { SCAN_RATES } from '@/components/FormatFormModal';
 
@@ -23,6 +24,106 @@ function rateLabel(f: Format): string {
   const entry = SCAN_RATES.find(r => r.value === f.frameRate);
   const rate = (entry ? entry.idSuffix : Math.round(f.frameRate).toString()) + (f.isInterlaced ? 'i' : '');
   return f.blanking !== 'NONE' ? `${rate}  [${f.blanking}]` : rate;
+}
+
+// ── FormatCascadeSelect ───────────────────────────────────────────────────────
+
+interface FormatGroup { key: string; label: string; formats: Format[]; }
+
+function FormatCascadeSelect({
+  value,
+  formatGroups,
+  onSelect,
+  onCreateCustomFormat,
+}: {
+  value: string;
+  formatGroups: FormatGroup[];
+  onSelect: (uuid: string | null) => void;
+  onCreateCustomFormat?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setHoveredGroup(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  let currentLabel = '\u2014 format \u2014';
+  for (const g of formatGroups) {
+    const f = g.formats.find(f => f.uuid === value);
+    if (f) { currentLabel = `${g.label} @ ${rateLabel(f)}`; break; }
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => { setOpen(o => !o); setHoveredGroup(null); }}
+        className="input-field text-xs py-1 w-full text-left flex justify-between items-center gap-1"
+      >
+        <span className="truncate">{currentLabel}</span>
+        <ChevronDown className="w-3 h-3 flex-shrink-0 text-av-text-muted" />
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full left-0 mt-1 bg-av-surface border border-av-border rounded-lg shadow-xl min-w-[160px]">
+          <div
+            className="px-3 py-1.5 text-xs text-av-text-muted cursor-pointer hover:bg-av-surface-hover rounded-t-lg"
+            onClick={() => { onSelect(null); setOpen(false); }}
+          >
+            \u2014 clear \u2014
+          </div>
+          <div className="border-t border-av-border" />
+          {formatGroups.map(g => (
+            <div
+              key={g.key}
+              className="relative"
+              onMouseEnter={() => setHoveredGroup(g.key)}
+            >
+              <div className="px-3 py-1.5 text-xs flex justify-between items-center cursor-default hover:bg-av-surface-hover">
+                <span className="font-medium text-av-text">{g.label}</span>
+                <ChevronRight className="w-3 h-3 text-av-text-muted" />
+              </div>
+              {hoveredGroup === g.key && (
+                <div className="absolute left-full top-0 ml-0.5 bg-av-surface border border-av-border rounded-lg shadow-xl min-w-[120px] z-50">
+                  {g.formats.map(f => (
+                    <div
+                      key={f.uuid}
+                      className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-av-surface-hover ${
+                        value === f.uuid ? 'text-av-accent font-semibold' : 'text-av-text'
+                      }`}
+                      onClick={() => { onSelect(f.uuid); setOpen(false); setHoveredGroup(null); }}
+                    >
+                      {rateLabel(f)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          {onCreateCustomFormat && (
+            <>
+              <div className="border-t border-av-border" />
+              <div
+                className="px-3 py-1.5 text-xs cursor-pointer hover:bg-av-surface-hover text-av-text-muted rounded-b-lg"
+                onClick={() => { onCreateCustomFormat(); setOpen(false); }}
+              >
+                + Create custom\u2026
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── DevicePortDraft ──────────────────────────────────────────────────────────
@@ -66,7 +167,7 @@ export function IOPortsPanel({
     onChange(next);
   };
 
-  // Group formats by resolution for optgroup select
+  // Group formats by resolution for cascading select
   const formatGroups = useMemo(() => {
     const groups: Array<{ key: string; label: string; formats: Format[] }> = [];
     const seen = new Map<string, number>();
@@ -131,33 +232,16 @@ export function IOPortsPanel({
                     placeholder="Port label"
                     className="input-field text-xs py-1"
                   />
-                  {/* format — grouped by resolution */}
-                  <select
+                  {/* format — cascading flyout */}
+                  <FormatCascadeSelect
                     value={port.formatUuid || ''}
-                    onChange={e => {
-                      if (e.target.value === '__create__') {
-                        onCreateCustomFormat?.();
-                      } else {
-                        update(idx, { formatUuid: e.target.value || null });
-                      }
+                    formatGroups={formatGroups}
+                    onSelect={uuid => {
+                      if (uuid === '__create__') { onCreateCustomFormat?.(); }
+                      else { update(idx, { formatUuid: uuid }); }
                     }}
-                    className="input-field text-xs py-1"
-                  >
-                    <option value="">— format —</option>
-                    {formatGroups.map(g => (
-                      <optgroup key={g.key} label={g.label}>
-                        {g.formats.map(f => (
-                          <option key={f.uuid} value={f.uuid}>{rateLabel(f)}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                    {onCreateCustomFormat && (
-                      <>
-                        <option disabled value="">──────────</option>
-                        <option value="__create__">+ Create custom…</option>
-                      </>
-                    )}
-                  </select>
+                    onCreateCustomFormat={onCreateCustomFormat}
+                  />
                   {/* connected-from note */}
                   <input
                     type="text"
@@ -209,33 +293,16 @@ export function IOPortsPanel({
                     placeholder="Port label"
                     className="input-field text-xs py-1"
                   />
-                  {/* format — grouped by resolution */}
-                  <select
+                  {/* format — cascading flyout */}
+                  <FormatCascadeSelect
                     value={port.formatUuid || ''}
-                    onChange={e => {
-                      if (e.target.value === '__create__') {
-                        onCreateCustomFormat?.();
-                      } else {
-                        update(idx, { formatUuid: e.target.value || null });
-                      }
+                    formatGroups={formatGroups}
+                    onSelect={uuid => {
+                      if (uuid === '__create__') { onCreateCustomFormat?.(); }
+                      else { update(idx, { formatUuid: uuid }); }
                     }}
-                    className="input-field text-xs py-1"
-                  >
-                    <option value="">— format —</option>
-                    {formatGroups.map(g => (
-                      <optgroup key={g.key} label={g.label}>
-                        {g.formats.map(f => (
-                          <option key={f.uuid} value={f.uuid}>{rateLabel(f)}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                    {onCreateCustomFormat && (
-                      <>
-                        <option disabled value="">──────────</option>
-                        <option value="__create__">+ Create custom…</option>
-                      </>
-                    )}
-                  </select>
+                    onCreateCustomFormat={onCreateCustomFormat}
+                  />
                   {/* destination note */}
                   <input
                     type="text"

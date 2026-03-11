@@ -142,8 +142,8 @@ async function seedEquipment() {
       await prisma.equipment_cards.deleteMany({ where: { equipment_uuid: equipment.uuid } });
       await prisma.equipment_io_ports.deleteMany({ where: { equipment_uuid: equipment.uuid } });
 
-      // Create IO ports for direct architecture
-      if (ioArchitecture === 'direct' && (inputs || outputs)) {
+      // Create direct IO ports if defined (regardless of io_architecture)
+      if (inputs || outputs) {
         if (inputs) {
           for (const [index, input] of inputs.entries()) {
             await prisma.equipment_io_ports.create({
@@ -181,8 +181,8 @@ async function seedEquipment() {
         }
       }
       
-      // Create cards for card-based architecture
-      if (ioArchitecture === 'card-based' && cards && cards.length > 0) {
+      // Create cards if defined (regardless of io_architecture — devices may have both direct ports and cards)
+      if (cards && cards.length > 0) {
         for (const card of cards) {
           const dbCard = await prisma.equipment_cards.create({
             data: {
