@@ -52,7 +52,10 @@ function FormatCascadeSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
+  const [openUpward, setOpenUpward] = useState(false);
+  const [submenuFlip, setSubmenuFlip] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -66,6 +69,19 @@ function FormatCascadeSelect({
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  const handleToggle = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setOpenUpward(window.innerHeight - rect.bottom < 280);
+      setSubmenuFlip(window.innerWidth - rect.right < 160);
+    }
+    setOpen(o => !o);
+    setHoveredGroup(null);
+  };
+
+  const dropdownPos = openUpward ? 'bottom-full mb-1' : 'top-full mt-1';
+  const submenuPos  = submenuFlip ? 'right-full mr-0.5' : 'left-full ml-0.5';
+
   let currentLabel = '\u2014 format \u2014';
   for (const g of formatGroups) {
     const f = g.formats.find(f => f.uuid === value);
@@ -73,22 +89,22 @@ function FormatCascadeSelect({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative min-w-0">
       <button
         type="button"
-        onClick={() => { setOpen(o => !o); setHoveredGroup(null); }}
+        onClick={handleToggle}
         className="input-field text-xs py-1 w-full text-left flex justify-between items-center gap-1"
       >
         <span className="truncate">{currentLabel}</span>
         <ChevronDown className="w-3 h-3 flex-shrink-0 text-av-text-muted" />
       </button>
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 bg-av-surface border border-av-border rounded-lg shadow-xl min-w-[160px]">
+        <div ref={dropdownRef} className={`absolute z-50 ${dropdownPos} left-0 bg-av-surface border border-av-border rounded-lg shadow-xl min-w-[160px]`}>
           <div
             className="px-3 py-1.5 text-xs text-av-text-muted cursor-pointer hover:bg-av-surface-hover rounded-t-lg"
             onClick={() => { onSelect(null); setOpen(false); }}
           >
-            \u2014 clear \u2014
+            — clear —
           </div>
           <div className="border-t border-av-border" />
           {formatGroups.map(g => (
@@ -102,7 +118,7 @@ function FormatCascadeSelect({
                 <ChevronRight className="w-3 h-3 text-av-text-muted" />
               </div>
               {hoveredGroup === g.key && (
-                <div className="absolute left-full top-0 ml-0.5 bg-av-surface border border-av-border rounded-lg shadow-xl min-w-[120px] z-50">
+                <div className={`absolute ${submenuPos} top-0 bg-av-surface border border-av-border rounded-lg shadow-xl min-w-[120px] z-50`}>
                   {g.formats.map(f => (
                     <div
                       key={f.uuid}
@@ -125,7 +141,7 @@ function FormatCascadeSelect({
                 className="px-3 py-1.5 text-xs cursor-pointer hover:bg-av-surface-hover text-av-text-muted rounded-b-lg"
                 onClick={() => { onCreateCustomFormat(); setOpen(false); }}
               >
-                + Create custom\u2026
+                + Create custom…
               </div>
             </>
           )}
@@ -240,7 +256,7 @@ export function IOPortsPanel({
                     value={port.portLabel}
                     onChange={e => update(idx, { portLabel: e.target.value })}
                     placeholder="Port label"
-                    className="input-field text-xs py-1"
+                    className="input-field text-xs py-1 min-w-0"
                   />
                   {/* format — cascading flyout */}
                   <FormatCascadeSelect
@@ -258,7 +274,7 @@ export function IOPortsPanel({
                     value={port.note || ''}
                     onChange={e => update(idx, { note: e.target.value || null })}
                     placeholder="Source signal or device"
-                    className="input-field text-xs py-1"
+                    className="input-field text-xs py-1 min-w-0"
                   />
                 </div>
               );
@@ -301,7 +317,7 @@ export function IOPortsPanel({
                     value={port.portLabel}
                     onChange={e => update(idx, { portLabel: e.target.value })}
                     placeholder="Port label"
-                    className="input-field text-xs py-1"
+                    className="input-field text-xs py-1 min-w-0"
                   />
                   {/* format — cascading flyout */}
                   <FormatCascadeSelect
@@ -319,7 +335,7 @@ export function IOPortsPanel({
                     value={port.note || ''}
                     onChange={e => update(idx, { note: e.target.value || null })}
                     placeholder="Destination device or input"
-                    className="input-field text-xs py-1"
+                    className="input-field text-xs py-1 min-w-0"
                   />
                 </div>
               );

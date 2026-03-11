@@ -597,14 +597,14 @@ export default function MediaServers() {
                       const inputs  = ports.filter(p => p.direction === 'INPUT');
                       const outputs = ports.filter(p => p.direction === 'OUTPUT');
                       return (
-                        <table className="w-full text-xs">
+                        <table className="w-full text-xs table-fixed">
                           <thead>
                             <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
-                              <th className="text-left pb-1.5 pr-2 font-semibold w-12">Dir</th>
-                              <th className="text-left pb-1.5 pr-2 font-semibold w-16">Type</th>
-                              <th className="text-left pb-1.5 pr-2 font-semibold">Label</th>
-                              <th className="text-left pb-1.5 pr-2 font-semibold">Format</th>
-                              <th className="text-left pb-1.5 font-semibold">Route</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-[10%]">Dir</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-[15%]">Type</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-[25%]">Label</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-[25%]">Format</th>
+                              <th className="text-left pb-1.5 font-semibold w-[25%]">Route</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-av-border/40">
@@ -620,10 +620,10 @@ export default function MediaServers() {
                                       : <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
                                     }
                                   </td>
-                                  <td className="py-1.5 pr-2 font-mono text-av-text-muted">{port.ioType}</td>
-                                  <td className="py-1.5 pr-2 text-av-text">{port.portLabel || <span className="text-av-text-muted/50 italic">unlabelled</span>}</td>
-                                  <td className="py-1.5 pr-2 text-av-info">{isOut ? fmtName : <span className="text-av-text-muted">—</span>}</td>
-                                  <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                                  <td className="py-1.5 pr-2 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                  <td className="py-1.5 pr-2 text-av-text truncate">{port.portLabel || <span className="text-av-text-muted/50 italic">unlabelled</span>}</td>
+                                  <td className="py-1.5 pr-2 text-av-info truncate">{isOut ? fmtName : <span className="text-av-text-muted">—</span>}</td>
+                                  <td className="py-1.5 text-av-text-muted truncate">{port.note || '—'}</td>
                                 </tr>
                               );
                             })}
@@ -648,7 +648,7 @@ export default function MediaServers() {
                             )}
                             {direct.length === 0 && ports.length === 0
                               ? <p className="text-xs text-av-text-muted italic">{emptyMsg}</p>
-                              : renderPortTable(direct, false, emptyMsg)
+                              : <div className="px-2">{renderPortTable(direct, false, emptyMsg)}</div>
                             }
                           </div>
 
@@ -669,31 +669,31 @@ export default function MediaServers() {
                                       {savedPorts.length > 0
                                         ? renderPortTable(savedPorts, false, '')
                                         : (
-                                          <table className="w-full text-xs">
+                                          <table className="w-full text-xs table-fixed">
                                             <thead>
                                               <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
-                                                <th className="text-left pb-1.5 pr-2 font-semibold w-12">Dir</th>
-                                                <th className="text-left pb-1.5 pr-2 font-semibold w-16">Type</th>
-                                                <th className="text-left pb-1.5 pr-2 font-semibold">Label</th>
-                                                <th className="text-left pb-1.5 pr-2 font-semibold">Format</th>
-                                                <th className="text-left pb-1.5 font-semibold">Route</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-[10%]">Dir</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-[15%]">Type</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-[25%]">Label</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-[25%]">Format</th>
+                                                <th className="text-left pb-1.5 font-semibold w-[25%]">Route</th>
                                               </tr>
                                             </thead>
                                             <tbody className="divide-y divide-av-border/40">
                                               {specInputs.map((p: any, pi: number) => (
                                                 <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
-                                                  <td className="py-1 pr-2 w-12"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span></td>
-                                                  <td className="py-1 pr-2 font-mono text-av-text-muted">{p.type}</td>
-                                                  <td className="py-1 pr-2 text-av-text">{p.label || p.id}</td>
+                                                  <td className="py-1 pr-2"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span></td>
+                                                  <td className="py-1 pr-2 font-mono text-av-text-muted truncate">{p.type}</td>
+                                                  <td className="py-1 pr-2 text-av-text truncate">{p.label || p.id}</td>
                                                   <td className="py-1 pr-2 text-av-text-muted">—</td>
                                                   <td className="py-1 text-av-text-muted">—</td>
                                                 </tr>
                                               ))}
                                               {specOutputs.map((p: any, pi: number) => (
                                                 <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
-                                                  <td className="py-1 pr-2 w-12"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span></td>
-                                                  <td className="py-1 pr-2 font-mono text-av-text-muted">{p.type}</td>
-                                                  <td className="py-1 pr-2 text-av-text">{p.label || p.id}</td>
+                                                  <td className="py-1 pr-2"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span></td>
+                                                  <td className="py-1 pr-2 font-mono text-av-text-muted truncate">{p.type}</td>
+                                                  <td className="py-1 pr-2 text-av-text truncate">{p.label || p.id}</td>
                                                   <td className="py-1 pr-2 text-av-text-muted">—</td>
                                                   <td className="py-1 text-av-text-muted">—</td>
                                                 </tr>

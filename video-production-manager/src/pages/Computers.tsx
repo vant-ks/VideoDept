@@ -675,15 +675,15 @@ export const Computers: React.FC = () => {
                         No ports configured. Open Edit to assign ports.
                       </p>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
+                      <div className="overflow-x-auto px-2">
+                        <table className="w-full text-xs table-fixed">
                           <thead>
                             <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
-                              <th className="text-left pb-1.5 pr-3 font-semibold w-16">Dir</th>
-                              <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
-                              <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
-                              <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
-                              <th className="text-left pb-1.5 font-semibold">Route</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[10%]">Dir</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[15%]">Type</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Label</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Format</th>
+                              <th className="text-left pb-1.5 font-semibold w-[25%]">Route</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-av-border/40">
@@ -694,10 +694,10 @@ export const Computers: React.FC = () => {
                                   <td className="py-1.5 pr-3">
                                     <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
                                   </td>
-                                  <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
-                                  <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
+                                  <td className="py-1.5 pr-3 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                  <td className="py-1.5 pr-3 text-av-text truncate">{port.portLabel}</td>
                                   <td className="py-1.5 pr-3 text-av-text-muted">—</td>
-                                  <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                                  <td className="py-1.5 text-av-text-muted truncate">{port.note || '—'}</td>
                                 </tr>
                               ))}
                             {directRevealPorts
@@ -711,10 +711,10 @@ export const Computers: React.FC = () => {
                                     <td className="py-1.5 pr-3">
                                       <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
                                     </td>
-                                    <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
-                                    <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
-                                    <td className="py-1.5 pr-3 text-av-info">{fmtName}</td>
-                                    <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
+                                    <td className="py-1.5 pr-3 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                    <td className="py-1.5 pr-3 text-av-text truncate">{port.portLabel}</td>
+                                    <td className="py-1.5 pr-3 text-av-info truncate">{fmtName}</td>
+                                    <td className="py-1.5 text-av-text-muted truncate">{port.note || '—'}</td>
                                   </tr>
                                 );
                               })}
@@ -739,14 +739,14 @@ export const Computers: React.FC = () => {
                               <div key={card.id ?? card.slotNumber} className="border border-av-border rounded-md p-2">
                                 <p className="text-xs font-medium text-av-text mb-1.5">Card {card.slotNumber}</p>
                                 <div className="overflow-x-auto">
-                                <table className="w-full text-xs">
+                                <table className="w-full text-xs table-fixed">
                                   <thead>
                                     <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
-                                      <th className="text-left pb-1.5 pr-3 font-semibold w-16">Dir</th>
-                                      <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
-                                      <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
-                                      <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
-                                      <th className="text-left pb-1.5 font-semibold">Route</th>
+                                      <th className="text-left pb-1.5 pr-3 font-semibold w-[10%]">Dir</th>
+                                      <th className="text-left pb-1.5 pr-3 font-semibold w-[15%]">Type</th>
+                                      <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Label</th>
+                                      <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Format</th>
+                                      <th className="text-left pb-1.5 font-semibold w-[25%]">Route</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-av-border/40">
@@ -754,13 +754,13 @@ export const Computers: React.FC = () => {
                                       <>
                                         {savedPorts.filter(p => p.direction === 'INPUT').map((port, pi) => (
                                           <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
-                                            <td className="py-1 pr-3 w-16">
+                                            <td className="py-1 pr-3">
                                               <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
                                             </td>
-                                            <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
-                                            <td className="py-1 pr-3 text-av-text">{port.portLabel}</td>
+                                            <td className="py-1 pr-3 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                            <td className="py-1 pr-3 text-av-text truncate">{port.portLabel}</td>
                                             <td className="py-1 pr-3 text-av-text-muted">—</td>
-                                            <td className="py-1 text-av-text-muted">{port.note || '—'}</td>
+                                            <td className="py-1 text-av-text-muted truncate">{port.note || '—'}</td>
                                           </tr>
                                         ))}
                                         {savedPorts.filter(p => p.direction === 'OUTPUT').map((port, pi) => {
@@ -769,13 +769,13 @@ export const Computers: React.FC = () => {
                                             : '—';
                                           return (
                                             <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
-                                              <td className="py-1 pr-3 w-16">
+                                              <td className="py-1 pr-3">
                                                 <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
                                               </td>
-                                              <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
-                                              <td className="py-1 pr-3 text-av-text">{port.portLabel}</td>
-                                              <td className="py-1 pr-3 text-av-info">{fmtName}</td>
-                                              <td className="py-1 text-av-text-muted">{port.note || '—'}</td>
+                                              <td className="py-1 pr-3 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                              <td className="py-1 pr-3 text-av-text truncate">{port.portLabel}</td>
+                                              <td className="py-1 pr-3 text-av-info truncate">{fmtName}</td>
+                                              <td className="py-1 text-av-text-muted truncate">{port.note || '—'}</td>
                                             </tr>
                                           );
                                         })}
@@ -784,22 +784,22 @@ export const Computers: React.FC = () => {
                                       <>
                                         {specInputs.map((p: any, pi: number) => (
                                           <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
-                                            <td className="py-1 pr-3 w-16">
+                                            <td className="py-1 pr-3">
                                               <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
                                             </td>
-                                            <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
-                                            <td className="py-1 pr-3 text-av-text">{p.label || p.id}</td>
+                                            <td className="py-1 pr-3 font-mono text-av-text-muted truncate">{p.type}</td>
+                                            <td className="py-1 pr-3 text-av-text truncate">{p.label || p.id}</td>
                                             <td className="py-1 pr-3 text-av-text-muted">—</td>
                                             <td className="py-1 text-av-text-muted">—</td>
                                           </tr>
                                         ))}
                                         {specOutputs.map((p: any, pi: number) => (
                                           <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
-                                            <td className="py-1 pr-3 w-16">
+                                            <td className="py-1 pr-3">
                                               <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
                                             </td>
-                                            <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
-                                            <td className="py-1 pr-3 text-av-text">{p.label || p.id}</td>
+                                            <td className="py-1 pr-3 font-mono text-av-text-muted truncate">{p.type}</td>
+                                            <td className="py-1 pr-3 text-av-text truncate">{p.label || p.id}</td>
                                             <td className="py-1 pr-3 text-av-text-muted">—</td>
                                             <td className="py-1 text-av-text-muted">—</td>
                                           </tr>
@@ -957,7 +957,7 @@ export const Computers: React.FC = () => {
                             {sortedCards.map(card => {
                               const slotPorts = getSlotPorts(card.slotNumber);
                               return (
-                                <div key={card.id || card.slotNumber} className="border border-av-border rounded-md overflow-hidden">
+                                <div key={card.id || card.slotNumber} className="border border-av-border rounded-md">
                                   <div className="flex items-center gap-2 px-3 py-2 bg-av-surface-light border-b border-av-border">
                                     <span className="text-xs font-semibold text-av-text">Slot {card.slotNumber}</span>
                                     <span className="text-xs text-av-text-muted">
