@@ -92,6 +92,103 @@
 - **Files Changed:**
   - `src/pages/Computers.tsx` — Full rewrite (was 600-line component using SourceFormModal, now 808-line standalone inline modal matching CCU pattern)
 
+### Prompt 5: fix(equipment-modal): remove dangling resolutions/frameRates refs
+**ID:** S20260310-P5
+**Request:** (crash fix) EquipmentFormModal crashing — `resolutions is not defined`
+**Root Cause:** `useState(resolutions[0] || '1080p')` + related `useEffect` still referenced `resolutions`/`frameRates` after `useProductionStore` was removed from the component.
+
+#### Actions Taken:
+1. Read EquipmentFormModal.tsx — found dangling `deviceResolution` + `deviceRate` state and associated useEffect
+2. Removed both state hooks and useEffect entirely
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `b77ec2b`
+- **Files Changed:** `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 6: Equipment modal — stack I/O ports, rename Expansion I/O, Add Card + per-card I/O
+**ID:** S20260310-P6
+**Request:** "stack inputs and outputs, single line per port. rename 'optional i/o cards' to 'expansion i/o'. update tags to display 'expansion i/o' but not 'direct i/o'. dont ask how many cards, give me an 'add card' button and let me add inputs and outputs to that card"
+
+#### Actions Taken:
+1. Refactored Inputs/Outputs to full-width stacked rows (type select + label + X per port)
+2. Renamed `card-based` label → "Expansion I/O"; updated arch select option
+3. Replaced card slot count input with "Add Card" button; each card gets inner per-port editors
+4. Equipment.tsx: removed "Direct I/O" tag; renamed "Card-Based" badge → "Expansion I/O" (amber)
+5. Committed `1e57083`
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `1e57083`
+- **Files Changed:** `src/components/EquipmentFormModal.tsx`, `src/pages/Equipment.tsx`
+
+---
+
+### Prompt 7: Expansion cards should display below direct I/O ports
+**ID:** S20260310-P7
+**Request:** "expansion cards should display below the direct io ports of any device"
+
+#### Actions Taken:
+1. Found `ioArchitecture === 'card-based'` conditional gate still wrapping expansion cards section
+2. Removed the conditional wrapper so expansion cards always render
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `3d8b88d`
+- **Files Changed:** `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 8: Fix Vite JSX syntax error after expansion card gate removal
+**ID:** S20260310-P8
+**Request:** (auto-triggered by Vite error) `The character "}" is not valid inside a JSX element` at line 378
+**Root Cause:** Removing the conditional gate left orphan `)` closing the old wrapper. Expansion section was also above Direct I/O in the file.
+
+#### Actions Taken:
+1. Identified orphan `)` from removed conditional wrapper
+2. Rewrote both sections in correct order: Direct I/O (inputs/outputs) → Expansion I/O cards, removed orphan `)`
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `84630ea`
+- **Files Changed:** `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 9: Add duplicate button to equipment cards and edit modal
+**ID:** S20260310-P9
+**Request:** "can we add a duplicate button to the action buttons in equipment cards and to the action buttons in the add/edit modal"
+
+#### Actions Taken:
+1. Added `handleDuplicateSpec(spec)` in Equipment.tsx: strips id/uuid, appends "(Copy)", `apiClient.createEquipment`, refetch
+2. Added `Copy` icon button to card header (next to Edit)
+3. Added `onDuplicate?` prop to EquipmentFormModal; "Duplicate" button in footer (editing-only)
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `3bbe588`
+- **Files Changed:** `src/pages/Equipment.tsx`, `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 10: Add archive (not delete) to equipment cards and edit modal
+**ID:** S20260310-P10
+**Request:** "lets also add archive buttons. not delete because we will need to keep equipment for historical record"
+
+#### Actions Taken:
+1. Confirmed `is_deleted` column exists on `equipment_specs`; existing DELETE route already soft-deletes via `is_deleted: true`
+2. Updated `GET /equipment` to support `?archived=true` query param → returns `is_deleted: true` records
+3. Added `archiveEquipment`, `unarchiveEquipment`, `getArchivedEquipment` to apiClient
+4. Equipment.tsx: Archive button on each card (amber); "Show Archived" toggle in page header; archived items section at bottom with Unarchive button per item
+5. EquipmentFormModal: `onArchive?` prop; Archive button in footer (amber, editing-only)
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `afc532a`
+- **Files Changed:** `api/src/routes/equipment.ts`, `src/services/apiClient.ts`, `src/pages/Equipment.tsx`, `src/components/EquipmentFormModal.tsx`
+
 ---
 
 ## Session 2026-03-07-000000

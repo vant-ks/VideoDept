@@ -2727,3 +2727,47 @@ These conventions apply to every entity list card (CCUs, Cameras, Media Servers,
 - Separated from collapsed row by `border-t border-av-border` with `mt-4 pt-4`.
 - Contains detail sub-panels (e.g. A/B server subcards, device ports table).
 - Output/port rows: single-line format — `name[ — role] | WxH @ Xp | [type badge]`.
+
+---
+
+## 🗂️ apiClient Service — Critical Gotchas
+
+### `apiClient.get<T>()` returns T directly — NEVER use `.data`
+
+`src/services/apiClient.ts` wraps `fetch` and already unwraps the response body before return. The generic type parameter IS the return type.
+
+```typescript
+// ✅ CORRECT
+const specs = await apiClient.get<EquipmentSpec[]>('/equipment');
+
+// ❌ WRONG — `.data` does not exist; TypeScript may not catch this at runtime
+const res = await apiClient.get<{ data: EquipmentSpec[] }>('/equipment');
+const specs = res.data; // undefined at runtime
+```
+
+This applies to all methods: `get`, `post`, `put`, `delete`, `patch`.
+
+---
+
+## 🗄️ Equipment Soft-Delete & Archive Pattern
+
+Equipment records are **never hard-deleted**. Historical association with productions must be preserved.
+
+### Schema
+- `equipment_specs.is_deleted: Boolean @default(false)`
+- `DELETE /equipment/:uuid` → sets `is_deleted: true` (soft-delete)
+- `GET /equipment` → filters `is_deleted: false` (active only)
+- `GET /equipment?archived=true` → returns `is_deleted: true` records
+
+### apiClient methods
+```typescript
+apiClient.archiveEquipment(id)       // soft-delete via DELETE /:uuid
+apiClient.unarchiveEquipment(id)     // PUT /:uuid { isDeleted: false }
+apiClient.getArchivedEquipment()     // GET /equipment?archived=true
+```
+
+### UI pattern
+- Equipment cards: Archive button (amber `Archive` icon) in card header actions
+- Equipment.tsx: "Show Archived" toggle in page header (amber when active); archived items section at bottom with `ArchiveRestore` buttons
+- EquipmentFormModal: `onArchive?` prop; Archive button in footer (amber, editing-only)
+- `PUT /equipment/:uuid` uses `toSnakeCase(req.body)` — `{ isDeleted: false }` maps correctly to `is_deleted: false`

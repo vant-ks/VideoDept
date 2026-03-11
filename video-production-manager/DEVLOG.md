@@ -2,6 +2,83 @@
 
 ---
 
+## March 10, 2026 — Equipment: add archive/unarchive with Show Archived toggle
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `afc532a`
+
+### Changes
+- **api/src/routes/equipment.ts** — `GET /equipment` now accepts `?archived=true` query param; passes `is_deleted: true` to `findMany` when set (default filters `is_deleted: false`)
+- **src/services/apiClient.ts** — Added `archiveEquipment(id)` (uses existing DELETE soft-delete), `unarchiveEquipment(id)` (PUT with `{ isDeleted: false }`), `getArchivedEquipment()` (GET `/equipment?archived=true`)
+- **src/pages/Equipment.tsx** — Added `showArchived` + `archivedSpecs` state; `handleArchiveSpec`, `handleUnarchiveSpec`, `handleToggleArchived` handlers; Archive button on each card (amber `Archive` icon); "Show Archived" toggle in page header (amber when active); archived items section at bottom with `ArchiveRestore` buttons per item
+- **src/components/EquipmentFormModal.tsx** — Added `onArchive?` prop; Archive button in modal footer (amber, editing-only)
+
+---
+
+## March 10, 2026 — Equipment: add duplicate button to card actions and edit modal
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `3bbe588`
+
+### Changes
+- **src/pages/Equipment.tsx** — Added `handleDuplicateSpec`: strips `id`/`uuid`, appends "(Copy)" to model, POSTs via `apiClient.createEquipment`, refetches list. Added `Copy` icon button in card header next to Edit.
+- **src/components/EquipmentFormModal.tsx** — Added `onDuplicate?` prop; "Duplicate" button in footer (editing-only, `Copy` icon)
+
+---
+
+## March 10, 2026 — fix(equipment-modal): remove stray `)}` syntax error, reorder sections
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `84630ea`
+
+### Root Cause
+Previous commit removed the `ioArchitecture === 'card-based'` conditional gate but left its orphan `)` in place, causing Vite to throw `The character "}" is not valid inside a JSX element`. Additionally, the Expansion I/O section was positioned above the Direct I/O sections in the file.
+
+### Changes
+- **src/components/EquipmentFormModal.tsx** — Removed orphan `)` from expansion cards block; reordered sections so Direct I/O (inputs/outputs) renders before Expansion I/O cards
+
+---
+
+## March 10, 2026 — Equipment modal: always show expansion cards below direct I/O
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `3d8b88d`
+
+### Changes
+- **src/components/EquipmentFormModal.tsx** — Removed `ioArchitecture === 'card-based'` gate from the Expansion I/O Cards section so it always renders, regardless of I/O architecture selection
+
+---
+
+## March 10, 2026 — Equipment modal: stack I/O ports, rename Expansion I/O, Add Card + per-card I/O
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `1e57083`
+
+### Changes
+- **src/components/EquipmentFormModal.tsx** — Inputs and Outputs now full-width stacked sections (single-line rows: type select + label input + X button). Renamed `card-based` arch option label from "Optional I/O Cards" to "Expansion I/O". Replaced card slots number input with "Add Card" button; each card has its own inner Inputs/Outputs editors with Add buttons and per-port rows.
+- **src/pages/Equipment.tsx** — Removed "Direct I/O" tag from card display. Renamed `card-based` badge from "Card-Based" to "Expansion I/O" (amber). Updated inline select labels to match.
+
+---
+
+## March 10, 2026 — fix(equipment-modal): remove dangling resolutions/frameRates refs
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `b77ec2b`
+
+### Root Cause
+`EquipmentFormModal` still referenced `resolutions` and `frameRates` via `useState(resolutions[0] || '1080p')` and a `useEffect` after `useProductionStore` was removed from the component in a previous refactor, causing a crash ("resolutions is not defined").
+
+### Changes
+- **src/components/EquipmentFormModal.tsx** — Removed `deviceResolution` and `deviceRate` state and their `useEffect`; removed all references to `resolutions` and `frameRates`
+
+---
+
 ## March 10, 2026 — Computers: COMP # auto-ID, drag-to-reorder, inline modal, CCU-style I/O
 
 ### Branch: `v0.1.5_source-touchups`
