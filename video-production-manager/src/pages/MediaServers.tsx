@@ -757,10 +757,14 @@ export default function MediaServers() {
                           <div className="flex flex-wrap gap-2">
                             {layer.outputAssignments.map((assignment: any) => {
                               const server = mediaServers.find((s: any) => s.id === assignment.serverId);
-                              const output = server?.outputs.find((o: any) => o.id === assignment.outputId);
+                              const serverUuid = (server as any)?.uuid;
+                              const port = serverUuid
+                                ? pairCardPorts[serverUuid]?.find((p: any) => p.uuid === assignment.outputId)
+                                : null;
+                              const portName = port ? (port.portLabel || port.ioType) : assignment.outputId;
                               return (
                                 <span key={`${assignment.serverId}-${assignment.outputId}`} className="text-xs bg-av-surface-light px-3 py-1.5 rounded border border-av-border">
-                                  {server?.name} → {output?.name || assignment.outputId}
+                                  {server?.name} → {portName}
                                 </span>
                               );
                             })}
@@ -818,25 +822,34 @@ export default function MediaServers() {
                 {/* Output Headers - Server Columns */}
                 <div className="overflow-x-auto">
                   <div className="min-w-max">
-                    {/* Header Row - Only Main Servers */}
+                    {/* Header Row - Only Main Servers (use device_ports OUTPUTs as columns) */}
                     <div className="flex gap-2 mb-4">
                       <div className="w-48 flex-shrink-0" />
-                      {serverPairs.map((pair) => (
-                        <React.Fragment key={pair.main.pairNumber}>
-                          {/* Main Server Outputs Only */}
-                          {pair.main.outputs.map((output) => (
-                            <div key={output.id} className="w-32 flex-shrink-0">
-                              <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center">
-                                <div className="text-xs font-semibold text-av-text truncate">
-                                  Server {pair.main.pairNumber}
+                      {serverPairs.map((pair) => {
+                        const mainUuid = (pair.main as any).uuid as string | undefined;
+                        const outputPorts = (mainUuid ? (pairCardPorts[mainUuid] ?? []) : [])
+                          .filter((p: DevicePortDraft) => p.direction === 'OUTPUT');
+                        return (
+                          <React.Fragment key={pair.main.pairNumber}>
+                            {outputPorts.length === 0 ? (
+                              <div className="w-32 flex-shrink-0">
+                                <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center">
+                                  <div className="text-xs font-semibold text-av-text truncate">Server {pair.main.pairNumber}</div>
+                                  <div className="text-xs text-av-text-muted italic mt-1">no outputs</div>
                                 </div>
-                                <div className="text-xs text-av-text-muted truncate mt-1">{output.name}</div>
-                                <Badge className="mt-1 text-xs">{output.type}</Badge>
                               </div>
-                            </div>
-                          ))}
-                        </React.Fragment>
-                      ))}
+                            ) : outputPorts.map((port: DevicePortDraft) => (
+                              <div key={port.uuid || port.portLabel} className="w-32 flex-shrink-0">
+                                <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center">
+                                  <div className="text-xs font-semibold text-av-text truncate">Server {pair.main.pairNumber}</div>
+                                  <div className="text-xs text-av-text-muted truncate mt-1">{port.portLabel || port.ioType}</div>
+                                  <Badge className="mt-1 text-xs">{port.ioType}</Badge>
+                                </div>
+                              </div>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
 
                     {/* Layer Rows */}
@@ -857,37 +870,41 @@ export default function MediaServers() {
                               <div className="text-xs text-av-text-muted truncate mt-1">{layer.content}</div>
                             </div>
 
-                            {/* Output Assignment Cells - Only Main Servers */}
-                            {serverPairs.map((pair) => (
-                              <React.Fragment key={pair.main.pairNumber}>
-                                {/* Main Server Output Cells Only */}
-                                {pair.main.outputs.map((output) => {
-                                  const isAssigned = layer.outputAssignments.some(
-                                    a => a.serverId === pair.main.id && a.outputId === output.id
-                                  );
-                                  return (
-                                    <div 
-                                      key={output.id} 
-                                      className="w-32 flex-shrink-0 flex items-center justify-center"
-                                    >
-                                      {isAssigned ? (
-                                        <div 
-                                          className="w-full h-16 bg-gradient-to-br from-av-accent/20 to-av-accent/40 border-2 border-av-accent rounded-md flex items-center justify-center"
-                                          style={{
-                                            backgroundColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%, 0.2)`,
-                                            borderColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%)`
-                                          }}
-                                        >
-                                          <Layers className="w-6 h-6" style={{ color: `hsl(${(layerIndex * 137.5) % 360}, 70%, 40%)` }} />
-                                        </div>
-                                      ) : (
-                                        <div className="w-full h-16 bg-av-surface border border-av-border/30 rounded-md" />
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            ))}
+                            {/* Output Assignment Cells - Only Main Servers (device_ports OUTPUTs) */}
+                            {serverPairs.map((pair) => {
+                              const mainUuid = (pair.main as any).uuid as string | undefined;
+                              const outputPorts = (mainUuid ? (pairCardPorts[mainUuid] ?? []) : [])
+                                .filter((p: DevicePortDraft) => p.direction === 'OUTPUT');
+                              return (
+                                <React.Fragment key={pair.main.pairNumber}>
+                                  {outputPorts.map((port: DevicePortDraft) => {
+                                    const isAssigned = layer.outputAssignments.some(
+                                      a => a.serverId === pair.main.id && a.outputId === port.uuid
+                                    );
+                                    return (
+                                      <div
+                                        key={port.uuid || port.portLabel}
+                                        className="w-32 flex-shrink-0 flex items-center justify-center"
+                                      >
+                                        {isAssigned ? (
+                                          <div
+                                            className="w-full h-16 bg-gradient-to-br from-av-accent/20 to-av-accent/40 border-2 border-av-accent rounded-md flex items-center justify-center"
+                                            style={{
+                                              backgroundColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%, 0.2)`,
+                                              borderColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%)`
+                                            }}
+                                          >
+                                            <Layers className="w-6 h-6" style={{ color: `hsl(${(layerIndex * 137.5) % 360}, 70%, 40%)` }} />
+                                          </div>
+                                        ) : (
+                                          <div className="w-full h-16 bg-av-surface border border-av-border/30 rounded-md" />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </React.Fragment>
+                              );
+                            })}
                           </div>
                         ))}
                       </div>
@@ -1030,6 +1047,7 @@ export default function MediaServers() {
           }}
           editingLayer={editingLayer}
           availableServers={mediaServers}
+          serverPorts={pairCardPorts}
         />
       )}
     </div>
@@ -1124,10 +1142,15 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
     if (!computerType) return;
     const spec = computerEquipment.find(s => s.model === computerType);
     if (!spec) return;
+    const specPortLabel = (p: any): string => {
+      const label = p.label || '';
+      const isGeneric = label === 'Input' || label === 'Output';
+      return (!isGeneric && label) ? label : (p.type || p.id || '');
+    };
     const mapDirect = (p: any, dir: 'INPUT' | 'OUTPUT'): DevicePortDraft =>
-      ({ portLabel: '', ioType: p.type, direction: dir, formatUuid: null, note: null });
+      ({ portLabel: specPortLabel(p), ioType: p.type, direction: dir, formatUuid: null, note: null });
     const mapCard = (p: any, dir: 'INPUT' | 'OUTPUT', slotNumber: number): DevicePortDraft =>
-      ({ portLabel: '', ioType: p.type, direction: dir, formatUuid: null, note: null, cardSlot: slotNumber });
+      ({ portLabel: specPortLabel(p), ioType: p.type, direction: dir, formatUuid: null, note: null, cardSlot: slotNumber });
     const specPorts: DevicePortDraft[] = [
       ...(spec.inputs  ?? []).map(p => mapDirect(p, 'INPUT')),
       ...(spec.outputs ?? []).map(p => mapDirect(p, 'OUTPUT')),
@@ -1363,15 +1386,22 @@ interface LayerModalProps {
   onSave: (layer: Omit<MediaServerLayer, 'id'>) => void;
   editingLayer: MediaServerLayer | null;
   availableServers: MediaServer[];
+  serverPorts: Record<string, DevicePortDraft[]>;
 }
 
-function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers }: LayerModalProps) {
+function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers, serverPorts }: LayerModalProps) {
   const [name, setName] = useState(editingLayer?.name || '');
   const [content, setContent] = useState(editingLayer?.content || '');
   const [outputAssignments, setOutputAssignments] = useState(editingLayer?.outputAssignments || []);
 
   // Only show main servers (not backups) since layer config will be mirrored to backups
   const mainServers = availableServers.filter(s => !s.isBackup);
+
+  // Get OUTPUT device_ports for a server by UUID
+  const getServerOutputPorts = (server: MediaServer): DevicePortDraft[] => {
+    const uuid = (server as any).uuid as string | undefined;
+    return uuid ? (serverPorts[uuid] ?? []).filter(p => p.direction === 'OUTPUT') : [];
+  };
 
   const toggleOutputAssignment = (serverId: string, outputId: string) => {
     const exists = outputAssignments.find(a => a.serverId === serverId && a.outputId === outputId);
@@ -1385,20 +1415,20 @@ function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers }:
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Mirror assignments from A servers to B servers
+    // Mirror assignments from A servers to B servers by positional index
     const mirroredAssignments = [...outputAssignments];
     outputAssignments.forEach(assignment => {
-      // Find the corresponding B server
       const mainServer = availableServers.find(s => s.id === assignment.serverId && !s.isBackup);
       if (mainServer) {
         const backupServer = availableServers.find(s => s.pairNumber === mainServer.pairNumber && s.isBackup);
         if (backupServer) {
-          // Find the corresponding output on the backup server
-          const mainOutputIndex = mainServer.outputs.findIndex(o => o.id === assignment.outputId);
-          if (mainOutputIndex >= 0 && backupServer.outputs[mainOutputIndex]) {
+          const mainOutputPorts = getServerOutputPorts(mainServer);
+          const mainOutputIndex = mainOutputPorts.findIndex(p => p.uuid === assignment.outputId);
+          const backupOutputPorts = getServerOutputPorts(backupServer);
+          if (mainOutputIndex >= 0 && backupOutputPorts[mainOutputIndex]) {
             mirroredAssignments.push({
               serverId: backupServer.id,
-              outputId: backupServer.outputs[mainOutputIndex].id
+              outputId: backupOutputPorts[mainOutputIndex].uuid as string,
             });
           }
         }
@@ -1460,28 +1490,35 @@ function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers }:
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {mainServers.map(server => (
-                    <Card key={server.id} className="p-4">
-                      <h4 className="font-semibold text-av-text mb-3 flex items-center gap-2">
-                        <Server className="w-4 h-4" />
-                        {server.name}
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {server.outputs.map(output => (
-                          <label key={output.id} className="flex items-center gap-2 bg-av-surface-light px-3 py-2 rounded cursor-pointer hover:bg-av-surface">
-                            <input
-                              type="checkbox"
-                              checked={outputAssignments.some(a => a.serverId === server.id && a.outputId === output.id)}
-                              onChange={() => toggleOutputAssignment(server.id, output.id)}
-                              className="rounded"
-                            />
-                            <span className="text-sm text-av-text flex-1">{output.name}</span>
-                            <Badge>{output.type}</Badge>
-                          </label>
-                        ))}
-                      </div>
-                    </Card>
-                  ))}
+                  {mainServers.map(server => {
+                    const outputPorts = getServerOutputPorts(server);
+                    return (
+                      <Card key={server.id} className="p-4">
+                        <h4 className="font-semibold text-av-text mb-3 flex items-center gap-2">
+                          <Server className="w-4 h-4" />
+                          {server.name}
+                        </h4>
+                        {outputPorts.length === 0 ? (
+                          <p className="text-sm text-av-text-muted italic">No output ports found. Save server ports in the Edit modal first.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {outputPorts.map(port => (
+                              <label key={port.uuid || port.portLabel} className="flex items-center gap-2 bg-av-surface-light px-3 py-2 rounded cursor-pointer hover:bg-av-surface">
+                                <input
+                                  type="checkbox"
+                                  checked={outputAssignments.some(a => a.serverId === server.id && a.outputId === port.uuid)}
+                                  onChange={() => toggleOutputAssignment(server.id, port.uuid as string)}
+                                  className="rounded"
+                                />
+                                <span className="text-sm text-av-text flex-1">{port.portLabel || port.ioType}</span>
+                                <Badge>{port.ioType}</Badge>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>

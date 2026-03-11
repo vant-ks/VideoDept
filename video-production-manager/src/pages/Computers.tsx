@@ -185,15 +185,24 @@ export const Computers: React.FC = () => {
   // Build a flat DevicePortDraft array from an equipment spec.
   // Direct ports have no cardSlot; card ports are tagged with their slotNumber.
   // Order: direct inputs → direct outputs → [card N inputs → card N outputs] per slot.
+  // portLabel: use spec label only if it's meaningful (not the generic "Input"/"Output" default);
+  //            fall back to the connector type (e.g. "Ethernet", "HDMI", "DP") so the port
+  //            display matches the equipment library.
+  const specPortLabel = (p: any): string => {
+    const label = p.label || '';
+    const isGeneric = label === 'Input' || label === 'Output';
+    return (!isGeneric && label) ? label : (p.type || p.id || '');
+  };
+
   const buildPortsFromSpec = (spec: { inputs?: any[]; outputs?: any[]; cards?: any[] }): DevicePortDraft[] => {
     const direct: DevicePortDraft[] = [
       ...(spec.inputs || []).map((p: any) => ({
-        portLabel: p.label || p.id || p.type,
+        portLabel: specPortLabel(p),
         ioType:    p.type || p.id,
         direction: 'INPUT' as const,
       })),
       ...(spec.outputs || []).map((p: any) => ({
-        portLabel: p.label || p.id || p.type,
+        portLabel: specPortLabel(p),
         ioType:    p.type || p.id,
         direction: 'OUTPUT' as const,
       })),
@@ -202,13 +211,13 @@ export const Computers: React.FC = () => {
       .sort((a: any, b: any) => a.slotNumber - b.slotNumber)
       .flatMap((card: any) => [
         ...(card.inputs || []).map((p: any) => ({
-          portLabel: p.label || p.id || p.type,
+          portLabel: specPortLabel(p),
           ioType:    p.type || p.id,
           direction: 'INPUT' as const,
           cardSlot:  card.slotNumber as number,
         })),
         ...(card.outputs || []).map((p: any) => ({
-          portLabel: p.label || p.id || p.type,
+          portLabel: specPortLabel(p),
           ioType:    p.type || p.id,
           direction: 'OUTPUT' as const,
           cardSlot:  card.slotNumber as number,
