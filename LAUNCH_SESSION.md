@@ -1,3 +1,11 @@
+
+
+
+CURRENT BRANCH : v0.2.1
+
+
+
+
 # LAUNCH SESSION — VideoDept
 **Project:** Video Production Manager  
 **Repository:** https://github.com/vant-ks/VideoDept  

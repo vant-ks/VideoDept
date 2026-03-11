@@ -12,6 +12,7 @@
 **Started:** 2026-03-11
 **Status:** IN PROGRESS
 **Branch:** v0.1.5_source-touchups
+**Tags:** session-start, port-column, format-id, media-servers, ioportspanel, layers, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260311-P1-000000
@@ -93,6 +94,7 @@
 **Started:** 2026-03-10
 **Status:** COMPLETED
 **Branch:** v0.1.5_source-touchups
+**Tags:** computers, equipment, checklist, indexeddb, ccus, expansion-cards, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260310-P1-000000
@@ -328,8 +330,32 @@
 
 ## Session 2026-03-11-173000
 **Started:** 2026-03-11
-**Status:** IN_PROGRESS
+**Status:** COMPLETED
 **Branch:** v0.2.1_docs
+**Tags:** docs, project-rules, card-ui, ports, overflow, modal, branch-setup, v0.2, tagging, session-start-protocol
+
+### Prompt 3: Documentation Tag System + Navigation TOC
+**ID:** S20260311-P3-173000
+**Request:** Implement a grep-navigable tag + TOC system across PROJECT_RULES.md, DEVLOG.md, SESSION_JOURNAL.md, and SESSION_START_PROTOCOL.md so future sessions can find relevant sections without reading whole files.
+
+#### Actions Taken:
+1. Added `<!-- DOCUMENT NAVIGATION -->` TOC block (lines 13–52) to PROJECT_RULES.md with all 28 section names, approximate line numbers, sizes, and key tags
+2. Added `<!-- tags: ... -->` on line after each of the 28 `## ` section headings + 3 key `### ` sub-sections in PROJECT_RULES.md (handled garbled-emoji headings via surrounding ASCII anchor context)
+3. Added `### Tags:` line after `### Status:` in 37 recent DEVLOG entries (March 3–11, 2026) — mix of title-based and commit-hash-based anchors
+4. Added `**Tags:**` line after `**Branch:**` in all 16 SESSION_JOURNAL session headers (Jan 30 – Mar 11, 2026)
+5. Rewrote SESSION_START_PROTOCOL.md Phase 1 from "read these files wholesale" → 5-step grep-first targeted reading approach
+6. Updated SESSION_START_PROTOCOL.md "Last Updated" date to March 11, 2026
+
+#### Files Changed:
+- `video-production-manager/docs/PROJECT_RULES.md` — navigation TOC + all section tags (already committed in `8ddd6ba` for UI standards; nav+tags uncommitted)
+- `video-production-manager/DEVLOG.md` — 37 entries tagged + new entry for this task
+- `video-production-manager/docs/SESSION_JOURNAL.md` — 16 session headers tagged + this Prompt 3 entry
+- `video-production-manager/docs/SESSION_START_PROTOCOL.md` — Phase 1 rewritten
+
+#### Outcome: ✅ Complete
+All 4 target files now have machine-navigable tag metadata. Session start protocol updated to use grep-first reading. Future agents can use `grep_search "tags:.*<topic>"` to instantly locate relevant sections without reading thousands of lines.
+
+---
 
 ### Prompt 2: PROJECT_RULES.md — v0.1.x UI Pattern Audit
 **ID:** S20260311-P2-173000
@@ -384,6 +410,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Started:** 2026-03-11
 **Status:** COMPLETE
 **Branch:** v0.1.5_source-touchups
+**Tags:** session-start, port-column, format-id, media-servers, ioportspanel, layers, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260311-P1-000000
@@ -411,6 +438,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Started:** 2026-03-07
 **Status:** IN_PROGRESS
 **Branch:** v0.1.5_source-touchups
+**Tags:** session-start, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260307-P1-000000
@@ -437,6 +465,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Started:** 2026-03-06
 **Status:** IN_PROGRESS
 **Branch:** v0.1.5_source-touchups
+**Tags:** ccus, modal, cameras, media-servers, ioportspanel, v0.1.5
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260306-P1-000000
@@ -464,6 +493,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Started:** 2026-03-05 (morning)
 **Status:** IN_PROGRESS
 **Branch:** v0.1.4_signal-flow
+**Tags:** media-servers, ioportspanel, device-ports, railway, deployment, db-push, v0.1.4
 
 ### Prompt 1: Session Kickoff
 **ID:** S20260305-P1-000000
@@ -491,6 +521,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Ended:** 2026-03-04 (evening)
 **Status:** COMPLETED ✓
 **Branch:** v0.1.4_signal-flow
+**Tags:** cameras, ccus, equipment, seed, signal-flow, routers, cam-switcher, monitors, v0.1.4
 **Note:** DEVLOG and SESSION_JOURNAL were not updated during this session — logged retroactively on 2026-03-05.
 
 ### Prompt 1: Session Kickoff
@@ -597,6 +628,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Started:** 2026-02-12 22:00:00 PST
 **Status:** IN_PROGRESS
 **Branch:** main
+**Tags:** schema, database, migration, uuid, railway
 
 ### Context: Schema/Database Sync & Crash Prevention
 **Current Status:**
@@ -693,6 +725,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Started:** 2026-02-03 [timestamp]
 **Status:** IN_PROGRESS
 **Branch:** main
+**Tags:** testing, multi-browser, websocket, sync, field-versioning
 
 ### Context: Phase 5 - Multi-Browser Real-Time Sync Testing
 **Current Status:**
@@ -745,6 +778,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Started:** 2026-02-01 [timestamp]
 **Status:** IN_PROGRESS
 **Branch:** main
+**Tags:** fix, settings, render-loop, field-versioning
 
 ### Context: Field-Level Versioning Testing Blocked by UI Bug
 **Phase 3 Status:**
@@ -887,6 +921,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Ended:** 2026-01-30 18:35:00 PST
 **Status:** COMPLETED
 **Branch:** feature/signal-flow-development
+**Tags:** infrastructure, project-rules, architecture, protocol, split-docs
 
 ### Prompt 1: Refactor Protocol Documents for Universal Use
 **ID:** S20260130182600-P1-182600
@@ -952,6 +987,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Ended:** 2026-01-30 18:42:00 PST
 **Status:** COMPLETED
 **Branch:** feature/signal-flow-development
+**Tags:** protocol, architecture
 
 ### Prompt 1: Add Meta-Instructions to Universal Protocol
 **ID:** S20260130183800-P1-183800
@@ -1005,6 +1041,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Ended:** 2026-01-30 18:25:00 PST
 **Status:** COMPLETED
 **Branch:** main
+**Tags:** docs, prevention, architecture, lessons
 
 ### Prompt 1: Document Learnings & Create Prevention Tools
 **ID:** S20260130181500-P1-181500
@@ -1067,6 +1104,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Ended:** 2026-01-30 18:10:00 PST  
 **Status:** COMPLETED
 **Branch:** main
+**Tags:** fix, crash-recovery, routes, prisma
 
 ### Prompt 1: Crash Recovery - Fix Route Generation Syntax Errors
 **ID:** S20260130180600-P1-180600
@@ -1135,6 +1173,7 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
 **Ended:** 2026-01-30 16:30:00 PST (approx)
 **Status:** COMPLETED
 **Branch:** main → feature/signal-flow-development
+**Tags:** session-tracking, protocol, infrastructure, git
 
 ### Prompt 1: Develop Session Tracking System
 **ID:** S20260130153000-P1-153000

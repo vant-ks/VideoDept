@@ -1,14 +1,57 @@
 # Video Production Manager - Project Rules
 
 **Project:** VideoDept Video Production Manager  
-**Last Updated:** February 26, 2026  
+**Last Updated:** March 11, 2026  
 **Maintained By:** Kevin @ GJS Media
 
 This document contains **project-specific** rules and conventions for this codebase. For universal AI agent protocols, see the symlinked `AI_AGENT_PROTOCOL.md` or `~/Dropbox (Personal)/Development/_Utilities/AI_AGENT_PROTOCOL.md`.
 
 ---
 
+<!-- DOCUMENT NAVIGATION — ~3281 lines total
+     HOW TO USE: grep_search for  tags:.*<keyword>  to jump to relevant sections.
+     Then read_file from the section's start line for only what you need.
+
+     SECTION                               LINE    ~SIZE    KEY TAGS
+     ─────────────────────────────────────────────────────────────────────────
+     Entity Terminology & Naming            11      ~50     entity-naming, computers, sends, cameras, ccus, hierarchy
+     CRITICAL: DB Schema Changes            61      ~33     migration, db-push, prisma, critical
+     MISSION STATEMENT — Pillars 1–13       94     ~202     transform, uuid, toSnakeCase, spread-operator, websocket, seed, diagnostic, critical
+     Critical Project Rules                296      ~24     railway, deploy, project-rules
+     Database Development Workflow         320      ~72     migration, dev-workflow, db-push, prisma
+     Architecture                          392      ~33     architecture, tech-stack
+     File & Directory Standards            425      ~32     file-structure
+     UI/UX Conventions                     457      ~29     ui-ux, typography, layout
+     Code Standards [DATA FLOW SECTION]    486    ~1591     transforms, data-flow, indexeddb, cache, websocket, uuid, equipment, ports, api-routes, toSnakeCase, spread-operator
+       ↳ Data Flow Architecture            488     ~479     transforms, toCamelCase, toSnakeCase, BigInt, DateTime, snake-case
+       ↳ IndexedDB Cache Management        967     ~241     indexeddb, cache, loadProject, dual-path, invalidation
+       ↳ Spread Operator Safety           1193     ~209     spread-operator, explicit-fields, uuid-bug, productionId
+       ↳ Multi-User Conflict Handling     1402     ~172     multi-user, websocket, conflict, version, clock-skew
+     Database Conventions                 2077      ~48     database, field-names, snake-case
+     Entity Generation Protocol           2125      ~49     new-entity, entity-generation, checklist
+     Testing Strategy                     2174      ~19     testing
+     Deployment                           2193      ~17     railway, deployment, production
+     Current Project State                2210      ~39     project-state
+     Project-Specific Safety Rules        2249      ~29     safety, critical, migration
+     Project Documentation                2278      ~24     docs-structure
+     Schema & Route Consistency           2302     ~158     schema, routes, api-routes, audit, consistency, entities
+     Meta-Rule: Docs Updates              2460      ~40     meta, documentation, project-rules-update
+     DB Migration Safety                  2500      ~78     migration, safety, schema-engine, critical
+     Schema Drift Resolution              2578     ~109     schema-drift, recovery, migration, db-reset
+     When to Update This Document         2687      ~17     meta
+     Entity Card UI Design Rules          2704     ~232     card-ui, drag-reorder, reveal-panel, expand-state, sends, computers, ccus, media-servers, cameras
+     apiClient Service Gotchas            2936      ~19     apiClient, api-service, fetch, gotcha
+     Equipment Soft-Delete & Archive      2955      ~25     equipment, soft-delete, archive
+     Port Data & Display Standards        2980     ~169     device-ports, io-ports, ioportspanel, format-select, direct-io, expansion, slot-split, sends
+     Overflow Rules                       3149      ~76     overflow, overflow-hidden, dropdown, css, clip-bug, format-cascade
+     Modal Layout Standard                3225      ~56     modal, layout, notes, field-order, sends
+     ─────────────────────────────────────────────────────────────────────────
+-->
+
+---
+
 ## �️ CRITICAL: Entity Terminology & Naming
+<!-- tags: entity-naming, terminology, computers, media-servers, sends, cameras, ccus, hierarchy, sources-table, legacy-naming, critical -->
 
 **Last Updated:** February 28, 2026
 
@@ -59,6 +102,7 @@ Camera System  (parent category)
 ---
 
 ## �🚨 CRITICAL: Database Schema Changes
+<!-- tags: migration, db-push, prisma, schema, critical, db-migrate-dev, exit-137, vs-code-crash -->
 
 **Last Updated:** February 27, 2026
 
@@ -92,6 +136,7 @@ git commit -m "feat: add feature_name"
 ---
 
 ## 🎯 MISSION STATEMENT - READ BEFORE CODING
+<!-- tags: critical, transform, uuid, toSnakeCase, spread-operator, cache, websocket, seed, entity-data-flow, diagnostic, fk-uuid, toCamelCase -->
 
 **Every bug we've encountered traces back to violating one of these core principles:**
 
@@ -294,6 +339,7 @@ subscribe('checklist-item:created', (data) => {
 ---
 
 ## 🚫 Critical Project Rules
+<!-- tags: railway, deploy, project-rules, conventions -->
 
 ### Railway Deployments
 - **NEVER** automatically deploy to Railway
@@ -318,6 +364,7 @@ subscribe('checklist-item:created', (data) => {
 ---
 
 ## 🗄️ Database Development Workflow
+<!-- tags: migration, dev-workflow, db-push, prisma, db-push, local-dev, schema -->
 
 ### Local vs Production Separation
 
@@ -390,6 +437,7 @@ Browser Storage (cache only)
 ---
 
 ## 🏗️ Architecture
+<!-- tags: architecture, tech-stack, react, typescript, express, prisma, postgresql -->
 
 ### Stack
 - **Frontend:** React + TypeScript + Vite
@@ -423,6 +471,7 @@ video-production-manager/
 ---
 
 ## 📁 File & Directory Standards
+<!-- tags: file-structure, directories, git, version-control -->
 
 ### Git & Version Control
 - **Frequent local commits:** After each logical unit of work (WIP commits)
@@ -455,6 +504,7 @@ Video Production Info*.xlsx
 ---
 
 ## 🎨 UI/UX Conventions
+<!-- tags: ui-ux, typography, layout, statistics, fonts, components -->
 
 ### Typography
 - **Monospace fonts ONLY in Logs page** (`Logs.tsx`)
@@ -484,8 +534,10 @@ Video Production Info*.xlsx
 ---
 
 ## 🛠️ Code Standards
+<!-- tags: code-standards, transforms, data-flow, indexeddb, cache, websocket, uuid, equipment, ports, api-routes, toSnakeCase, toCamelCase, spread-operator, productions, send, entity-data-flow -->
 
 ### Data Flow Architecture - CRITICAL PATTERNS
+<!-- tags: data-flow, transforms, toCamelCase, toSnakeCase, BigInt, DateTime, snake-case, camelCase, api-routes, critical -->
 
 **Learned from Checklist Item Debugging (Feb 2026):**
 
@@ -965,6 +1017,7 @@ curl http://localhost:3010/api/entities/production/ID | jq .
 ---
 
 ### IndexedDB Cache Management - CRITICAL PATTERNS
+<!-- tags: indexeddb, cache, loadProject, dual-path, cache-invalidation, browser-sync, local-storage -->
 
 **Learned from "Browser B can't see checklist items" bug (Feb 2026):**
 
@@ -1191,6 +1244,7 @@ interface ChecklistItem {
 ---
 
 ### Spread Operator Safety - CRITICAL PATTERN
+<!-- tags: spread-operator, explicit-fields, uuid-bug, productionId, api-hooks, critical -->
 
 **Learned from "UUID split into numeric keys" bug (Feb 2026):**
 
@@ -2075,6 +2129,7 @@ All changes are logged to `events` table:
 ---
 
 ## 🗄️ Database Conventions
+<!-- tags: database, field-names, snake-case, prisma, schema, naming -->
 
 ### Prisma Schema Rules
 - **Table names:** `snake_case` (matches PostgreSQL convention)
@@ -2123,6 +2178,7 @@ hooks/useChecklistItemAPI.ts
 ---
 
 ## 🏗️ Entity Generation Protocol
+<!-- tags: new-entity, entity-generation, checklist, scaffold, generate -->
 
 **CRITICAL:** The `generate-entity.sh` script has known issues. See [DB_DEVELOPMENT_LESSONS.md](../../docs/DB_DEVELOPMENT_LESSONS.md) for details.
 
@@ -2172,6 +2228,7 @@ cd api
 ---
 
 ## 🧪 Testing Strategy
+<!-- tags: testing, manual-testing, browser-sync, multi-browser -->
 
 ### Manual Testing
 - Test in browser at http://localhost:3011
@@ -2191,6 +2248,7 @@ cd api
 ---
 
 ## 📦 Deployment
+<!-- tags: railway, deployment, production, git-push, main-branch -->
 
 ### Railway (Production)
 - **Manual deployment ONLY**
@@ -2208,6 +2266,7 @@ cd api
 ---
 
 ## 🎯 Current Project State
+<!-- tags: project-state, implemented, in-progress, roadmap -->
 
 ### Implemented Features
 - Production management (CRUD)
@@ -2247,6 +2306,7 @@ cd api
 ---
 
 ## ⚠️ Project-Specific Safety Rules
+<!-- tags: safety, critical, migration, deploy, prisma-studio -->
 
 ### Prisma Studio
 - **NEVER** run `npx prisma studio` from VS Code terminal
@@ -2276,6 +2336,7 @@ cd video-production-manager && npm run dev
 ---
 
 ## 📚 Project Documentation
+<!-- tags: docs-structure, documentation, symlinks, doc-files -->
 
 ### Key Documents
 - `AI_AGENT_PROTOCOL.md` - Universal AI agent protocols (symlinked from _Utilities)
@@ -2300,6 +2361,7 @@ cd video-production-manager && npm run dev
 ---
 
 ## 🏗️ Schema & Route Consistency - CRITICAL PATTERNS
+<!-- tags: schema, routes, api-routes, audit, consistency, entities, standard-fields, updated-at, uuid -->
 
 **Reference Document:** `api/SCHEMA_AUDIT.md` - Comprehensive schema analysis
 
@@ -2458,6 +2520,7 @@ grep -B5 "prepareVersionedUpdate" *.ts | grep -v "updated_at"
 ---
 
 ## 📋 Meta-Rule: Documentation Updates
+<!-- tags: meta, documentation, project-rules-update, audit, knowledge-capture -->
 
 **RULE:** When you conduct an audit and discover novel patterns or issues, immediately document them in PROJECT_RULES.md.
 
@@ -2498,6 +2561,7 @@ New patterns should include:
 ---
 
 ## � Database Migration Safety - Critical Patterns
+<!-- tags: migration, safety, schema-engine, prisma, zombie-process, pre-migration-check, critical, exit-137 -->
 
 **PILLAR #9: ALWAYS USE PRE-MIGRATION SAFETY CHECKS**
 
@@ -2576,6 +2640,7 @@ ps aux | grep -E '(prisma|schema-engine)' | grep -v grep
 ---
 
 ## 🔄 Schema Drift Resolution - Critical Patterns
+<!-- tags: schema-drift, recovery, migration, db-reset, prisma, rollback, critical -->
 
 **PILLAR #10: SCHEMA DRIFT = DATABASE RESET IN DEV**
 
@@ -2685,6 +2750,7 @@ npx prisma migrate status
 ---
 
 ## �🔄 When to Update This Document
+<!-- tags: meta, documentation, when-to-update -->
 
 - New project-specific conventions are established
 - Architecture decisions are made
@@ -2702,6 +2768,7 @@ npx prisma migrate status
 ---
 
 ## 🃏 Entity Card UI Design Rules
+<!-- tags: card-ui, drag-reorder, reveal-panel, expand-state, uuid-keyed-set, columns, chevron, action-buttons, sends, computers, ccus, media-servers, cameras, select-none, single-click, double-click -->
 
 **Last Updated:** March 11, 2026 — codified from Computers, CCUs, MediaServers (v0.1.x)
 
@@ -2934,6 +3001,7 @@ const handleDragEnd    = () => {
 ---
 
 ## 🗂️ apiClient Service — Critical Gotchas
+<!-- tags: apiClient, api-service, fetch, gotcha, dot-data, typescript -->
 
 ### `apiClient.get<T>()` returns T directly — NEVER use `.data`
 
@@ -2953,6 +3021,7 @@ This applies to all methods: `get`, `post`, `put`, `delete`, `patch`.
 ---
 
 ## 🗄️ Equipment Soft-Delete & Archive Pattern
+<!-- tags: equipment, soft-delete, archive, is-deleted, unarchive -->
 
 Equipment records are **never hard-deleted**. Historical association with productions must be preserved.
 
@@ -2978,6 +3047,7 @@ apiClient.getArchivedEquipment()     // GET /equipment?archived=true
 ---
 
 ## 🔌 Port Data — Model, Edit Rules, and Display Standards
+<!-- tags: device-ports, io-ports, ioportspanel, format-select, direct-io, expansion-io, slot-split, reveal-table, port-label, route-field, sends, computers, media-servers, ccus -->
 
 **Last Updated:** March 11, 2026 — codified from IOPortsPanel, Computers, CCUs, MediaServers (v0.1.x)
 
@@ -3147,6 +3217,7 @@ const toggleReveal = useCallback(async (uuid: string) => {
 ---
 
 ## 📐 Overflow — Permitted Use and Restrictions
+<!-- tags: overflow, overflow-hidden, overflow-x-auto, overflow-y-auto, dropdown, format-cascade, clip-bug, css, ioportspanel -->
 
 **Last Updated:** March 11, 2026 — codified from v0.1.x overflow-related bugs
 
@@ -3223,6 +3294,7 @@ This is handled internally in `IOPortsPanel.tsx`. Do not disable or override it.
 ---
 
 ## 📋 Modal Layout Standard
+<!-- tags: modal, layout, sticky-header, sticky-footer, field-order, notes, textarea, sends, form -->
 
 **Last Updated:** March 11, 2026
 

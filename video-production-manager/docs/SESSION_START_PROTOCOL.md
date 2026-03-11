@@ -1,7 +1,7 @@
 # Session Start Protocol
 
 **Purpose:** Standard procedure for AI agents when user says "Let's start a new session"  
-**Last Updated:** February 9, 2026  
+**Last Updated:** March 11, 2026  
 **Maintained By:** Kevin @ GJS Media
 
 ---
@@ -20,34 +20,32 @@ Execute this protocol automatically.
 
 ## 📋 Session Start Checklist
 
-### Phase 1: Review Documentation (Parallel)
+### Phase 1: Review Documentation (Grep-First)
 
-Read the following files to establish context:
+Use **targeted reading** — do NOT read large file sections wholesale. The tag system lets you navigate precisely.
 
-1. **`video-production-manager/docs/SESSION_JOURNAL.md`** (last 100 lines)
-   - Review most recent session
-   - Check current status and active work
-   - Note any in-progress tasks
+**Step 1 — DEVLOG recent state:**
+- `grep_search` for `"✅ COMPLETE|### Status"` in `video-production-manager/DEVLOG.md` (last 60 lines)
+- Shows what was last completed and any in-progress tasks
 
-2. **`video-production-manager/docs/AI_AGENT_PROTOCOL.md`** (lines 1-100)
-   - Confirm protocol version
-   - Review critical rules
-   - Check for any recent updates
+**Step 2 — PROJECT_RULES.md navigation TOC:**
+- `read_file` lines 1–70 of `video-production-manager/docs/PROJECT_RULES.md` (the `<!-- DOCUMENT NAVIGATION -->` block)
+- The nav block contains exact line numbers and tags for all sections
+- For task-specific rules: `grep_search "tags:.*<topic>"` then `read_file` only that range
+- **Always read these critical sections** (check nav block for current line numbers):
+  - `Entity Terminology & Naming` — naming rules + UUID contract (CRITICAL)
+  - `Database Schema Changes` — migration safety (CRITICAL)
+  - `Mission Statement / Pillars 1–13` + `Pre-Implementation Diagnostic Checklist`
 
-3. **`video-production-manager/docs/PROJECT_RULES.md`** (lines 1-100)
-   - Review project-specific rules
-   - Note deployment restrictions
-   - Check port assignments (API: 3010, Frontend: 3011)
+**Step 3 — SESSION_JOURNAL most recent session:**
+- `grep_search "^## Session 20"` in `SESSION_JOURNAL.md` to find the newest session heading line
+- `read_file` ~60 lines from that line number
 
-4. **`TODO_NEXT_SESSION.md`** (full file)
-   - Read near-term priorities
-   - Read far-term roadmap
-   - Note completed items
+**Step 4 — TODO_NEXT_SESSION.md (full file — always small):**
+- `read_file` full file — this file is always compact
 
-5. **`video-production-manager/DEVLOG.md`** (last 50 lines)
-   - Review recent changes
-   - Check for known issues
-   - Note last working state
+**Step 5 — AI_AGENT_PROTOCOL.md (lines 1–100 only):**
+- Check for protocol updates or critical rules that apply to this session
 
 ---
 
