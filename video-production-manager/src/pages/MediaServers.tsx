@@ -10,7 +10,7 @@ import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import type { MediaServer, MediaServerOutput, MediaServerLayer, Format } from '@/types';
 import { MEDIA_SERVER_PLATFORMS } from '@/types/mediaServer';
-import { IOPortsPanel } from '@/components/IOPortsPanel';
+import { IOPortsPanel, formatLabel } from '@/components/IOPortsPanel';
 import type { DevicePortDraft } from '@/components/IOPortsPanel';
 import { FormatFormModal } from '@/components/FormatFormModal';
 
@@ -176,6 +176,27 @@ export default function MediaServers() {
       .map(([_, pair]) => pair)
       .filter(pair => pair.main && pair.backup);
   }, [mediaServers]);
+
+  // Layer-eligible ports — expansion-only outputs when the server has expansion cards, otherwise all outputs
+  const layerEligiblePorts = React.useMemo(() => {
+    const result: Record<string, DevicePortDraft[]> = {};
+    serverPairs.forEach(pair => {
+      [pair.main, pair.backup].forEach(server => {
+        const uuid = (server as any).uuid as string | undefined;
+        if (!uuid) return;
+        const allPorts = pairCardPorts[uuid] ?? [];
+        const spec = computerEquipment.find((s: any) => s.model === (server as any).computerType);
+        const specCards: any[] = spec?.cards ?? [];
+        if (specCards.length > 0) {
+          const directCount = (spec?.inputs?.length ?? 0) + (spec?.outputs?.length ?? 0);
+          result[uuid] = allPorts.slice(directCount).filter(p => p.direction === 'OUTPUT');
+        } else {
+          result[uuid] = allPorts.filter(p => p.direction === 'OUTPUT');
+        }
+      });
+    });
+    return result;
+  }, [serverPairs, pairCardPorts, computerEquipment]);
 
   // Eager-load ports for all pairs on mount / when pair list changes (needed for card count display)
   useEffect(() => {
@@ -583,9 +604,8 @@ export default function MediaServers() {
                           <tbody className="divide-y divide-av-border/40">
                             {[...inputs, ...outputs].map((port, i) => {
                               const isOut = port.direction === 'OUTPUT';
-                              const fmtName = port.formatUuid
-                                ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
-                                : '—';
+                              const fmt = port.formatUuid ? formats.find(f => f.uuid === port.formatUuid) : null;
+                              const fmtName = fmt ? formatLabel(fmt) : '—';
                               return (
                                 <tr key={i} className="hover:bg-av-surface-hover/40">
                                   <td className="py-1.5 pr-2">
@@ -1047,7 +1067,7 @@ export default function MediaServers() {
           }}
           editingLayer={editingLayer}
           availableServers={mediaServers}
-          serverPorts={pairCardPorts}
+          serverPorts={layerEligiblePorts}
         />
       )}
     </div>

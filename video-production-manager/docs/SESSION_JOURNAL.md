@@ -8,6 +8,57 @@
 
 ## Active Session Tracking
 
+## Session 2026-03-11-000000
+**Started:** 2026-03-11
+**Status:** IN PROGRESS
+**Branch:** v0.1.5_source-touchups
+
+### Prompt 1: Session Kickoff
+**ID:** S20260311-P1-000000
+**Request:** Full session initialization per LAUNCH_SESSION.md kickoff prompt
+**Context:** Continuing from March 10-11 session. Branch 32 commits ahead of origin, clean working tree.
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md (full files)
+2. Read DEVLOG.md (top 60 lines), SESSION_JOURNAL.md (last 55 lines)
+3. Dev servers already running (API :3010 ✅, Frontend :3011 ✅) — confirmed via health check
+4. Verified Railway health: HTTP 200, database connected ✅
+5. Checked git: branch v0.1.5_source-touchups, 32 commits ahead of origin, clean
+
+#### Outcome: COMPLETED ✓
+- **Dev servers:** ✅ Both running (API :3010, Frontend :3011)
+- **Git:** `v0.1.5_source-touchups`, 32 commits ahead of origin, clean
+- **Railway:** ✅ UP — healthy, DB connected
+- **Last DEVLOG checkpoint:** March 10-11 `2ef7d9c` fix(media-servers,computers): fix layer system and port label matching ✅ COMPLETE
+- **IN PROGRESS tasks:** None found
+
+---
+
+### Prompt 2: Media Server format label, layer persistence, expansion I/O filtering
+**ID:** S20260311-P2-000000
+**Request:** (1) Format display should follow "hRes x vRes @ frameRate [if:blanking]" formula — no need to change Format IDs; (2) What is collapsed view third item; (3) Layers don't persist after refresh; (4) Layers should only be assigned to expansion I/O if present
+
+#### Root Causes:
+1. **Format display:** Reveal panel was showing `format.id` (e.g. "1080i5994") instead of the computed formula from numeric fields
+2. **Collapsed third item:** Layer count column — shows "N layers" or "—"
+3. **Layer persistence:** `addMediaServerLayer` / `updateMediaServerLayer` / `deleteMediaServerLayer` only updated Zustand state; `updateActiveProject` has debounced save disabled, so changes never reached IndexedDB; `loadProject` always resets from IndexedDB cache (never fetches layers from API since no layer API exists)
+4. **Expansion I/O only:** LayerModal was offered ALL output ports (direct + expansion). Users want direct I/O ports excluded when expansion cards are present
+
+#### Actions Taken:
+1. Added `export function formatLabel(f: Format): string` to `IOPortsPanel.tsx` — uses `SCAN_RATES` label values ("59.94" not "59"), appends blanking if not 'NONE'
+2. Updated `renderPortTable` in `MediaServers.tsx` reveal panel: `fmtName` now uses `formatLabel(fmt)` instead of `format.id`
+3. Added `layerEligiblePorts` memo in `MediaServers.tsx`: for each server UUID, returns only expansion I/O OUTPUT ports when spec has cards (positional slicing: `ports.slice(directCount)`) — falls back to all outputs for non-card specs; passed to `LayerModal` as `serverPorts` prop
+4. Updated `addMediaServerLayer`, `updateMediaServerLayer`, `deleteMediaServerLayer` in `useProjectStore.ts` to call `projectDB.updateProject(activeProjectId, { mediaServerLayers: updatedLayers })` after each change — layers now written to IndexedDB and survive refresh
+
+#### Outcome: COMPLETED ✓
+- **Files Changed:**
+  - `src/components/IOPortsPanel.tsx` — `formatLabel()` export added
+  - `src/pages/MediaServers.tsx` — format label formula, `layerEligiblePorts` memo, LayerModal prop update
+  - `src/hooks/useProjectStore.ts` — layer CRUD adds IndexedDB persistence
+- Zero TypeScript errors
+
+---
+
 ## Session 2026-03-10-000000
 **Started:** 2026-03-10
 **Status:** COMPLETED

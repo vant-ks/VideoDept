@@ -26,6 +26,15 @@ function rateLabel(f: Format): string {
   return f.blanking !== 'NONE' ? `${rate}  [${f.blanking}]` : rate;
 }
 
+/** Full display label using the project formula: "hRes x vRes @ frameRate [blanking]" */
+export function formatLabel(f: Format): string {
+  const entry = SCAN_RATES.find(r => r.value === f.frameRate);
+  const rate = (entry ? entry.label : f.frameRate.toString()) + (f.isInterlaced ? 'i' : '');
+  return f.blanking !== 'NONE'
+    ? `${f.hRes} x ${f.vRes} @ ${rate} [${f.blanking}]`
+    : `${f.hRes} x ${f.vRes} @ ${rate}`;
+}
+
 // ── FormatCascadeSelect ───────────────────────────────────────────────────────
 
 interface FormatGroup { key: string; label: string; formats: Format[]; }

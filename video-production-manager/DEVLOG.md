@@ -2,6 +2,27 @@
 
 ---
 
+## March 11, 2026 — Session Start
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+Session initialized. Read all protocol files. Verified dev servers (API :3010 ✅, Frontend :3011 ✅), Railway health ✅, git state ✅.
+
+---
+
+## March 11, 2026 — Media Servers: format label formula, layer persistence, expansion-I/O-only layer assignment
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **src/components/IOPortsPanel.tsx** — exported `formatLabel(f: Format): string` helper: `"hRes x vRes @ rate [blanking]"` formula using `SCAN_RATES` label (e.g. "59.94" not "59"); blanking appended only when not 'NONE'
+- **src/pages/MediaServers.tsx** — reveal panel `renderPortTable` now uses `formatLabel(fmt)` instead of `format.id`; added `layerEligiblePorts` memo that returns only expansion-card OUTPUT ports when the server has expansion cards (direct I/O outputs excluded from layer assignment), falling back to all outputs when no cards; `LayerModal` receives `layerEligiblePorts` instead of raw `pairCardPorts`
+- **src/hooks/useProjectStore.ts** — `addMediaServerLayer`, `updateMediaServerLayer`, `deleteMediaServerLayer` now call `projectDB.updateProject(activeProjectId, { mediaServerLayers })` after each change so layers survive page refresh (IndexedDB persistence)
+
+---
+
 ## March 10–11, 2026 — fix(media-servers,computers): fix layer system and port label matching
 
 ### Branch: `v0.1.5_source-touchups`
