@@ -2,6 +2,325 @@
 
 ---
 
+## March 11, 2026 — Port column standardization + Format ID formula revision
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **All port display tables** (Computers, MediaServers, CCUs, Routers, CamSwitcher): 5th column header renamed from "Note" / "Route / Note" → **Route**; `displayFormatId(...)` replaced with `format.id` directly in FORMAT column
+- **src/components/IOPortsPanel.tsx**: edit-form column headers updated to **Route** (was "← Connected from" / "→ Destination")
+- **src/components/FormatFormModal.tsx**: `suggestFormatId()` rewritten to use canonical display formula (`"hRes x vRes @ rate[i] [blanking]"`); blanking change now also regenerates the ID in create mode; `deriveVideoStandard` import removed; placeholder updated
+- **api/prisma/seed-formats.ts**: all 37 system format IDs updated to new formula; header comment updated
+- **api/prisma/script-rename-format-ids.ts** (new): one-time migration script — renames all 37 format IDs in DB; UUID FKs unaffected; idempotent
+- **src/pages/Formats.tsx**: `displayFormatId` import removed; sort and display now use `f.id` directly
+- **Monitors.tsx**: dead `displayFormatId` import removed
+- DB migration: all 37 formats renamed successfully (37 updated, 0 not found)
+
+---
+
+## March 11, 2026 — Session Start
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+Session initialized. Read all protocol files. Verified dev servers (API :3010 ✅, Frontend :3011 ✅), Railway health ✅, git state ✅.
+
+---
+
+## March 11, 2026 — Media Servers: dropdown overflow fix, layer card UX (collapse/drag/A-B split)
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **src/pages/MediaServers.tsx (ServerPairModal)** — removed `overflow-hidden` from expansion slot card container; `absolute`-positioned format dropdown now escapes its parent instead of being clipped
+- **src/pages/MediaServers.tsx (Layers tab)** — fully rewritten: collapsed rows show grip + chevron + name + content + output count in 30/30/30/10 grid; single-click to reveal/collapse; drag-to-reorder via HTML5 drag events; expanded panel shows A/B server split per pair using same labels for main and mirrored backup (no UUID fallback)
+- **src/hooks/useProjectStore.ts** — added `reorderMediaServerLayers(orderedLayers)` action with IndexedDB persistence
+
+---
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **src/components/IOPortsPanel.tsx** — exported `formatLabel(f: Format): string` helper: `"hRes x vRes @ rate [blanking]"` formula using `SCAN_RATES` label (e.g. "59.94" not "59"); blanking appended only when not 'NONE'
+- **src/pages/MediaServers.tsx** — reveal panel `renderPortTable` now uses `formatLabel(fmt)` instead of `format.id`; added `layerEligiblePorts` memo that returns only expansion-card OUTPUT ports when the server has expansion cards (direct I/O outputs excluded from layer assignment), falling back to all outputs when no cards; `LayerModal` receives `layerEligiblePorts` instead of raw `pairCardPorts`
+- **src/hooks/useProjectStore.ts** — `addMediaServerLayer`, `updateMediaServerLayer`, `deleteMediaServerLayer` now call `projectDB.updateProject(activeProjectId, { mediaServerLayers })` after each change so layers survive page refresh (IndexedDB persistence)
+
+---
+
+## March 10–11, 2026 — fix(media-servers,computers): fix layer system and port label matching
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `2ef7d9c`
+
+### Changes
+- **MediaServers.tsx** — LayerModal `serverPorts` prop now correctly receives only OUTPUT-direction ports from `pairCardPorts`; `outputId` is now `port.uuid` (not legacy output ID); fixed `specPortLabel()` fallback so generic "Input"/"Output" labels fall back to `port.type` (e.g. Ethernet, HDMI)
+- **Computers.tsx** — Same `specPortLabel()` helper applied to reveal panel port tables; port label matching aligned with equipment spec contract
+
+---
+
+## March 10–11, 2026 — feat(computers,media-servers,ccus): split Direct/Expansion I/O in cards+modals; single-click reveal, double-click edit
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `df37728`
+
+### Changes
+- **Computers.tsx** — Reveal panel splits ports into Direct I/O vs Expansion I/O sections; modal IIFE split into direct-ports block and expansion-cards block
+- **CCUs.tsx** — Card interaction standard applied: `cursor-pointer select-none` + `onClick` (reveal) + `onDoubleClick` (edit) on Card level; action buttons use `stopPropagation`
+- **MediaServers.tsx** — Reveal panel split per server A+B using `splitPorts()` + `renderServerPorts()` helpers; card interaction standard applied; Direct I/O vs Expansion I/O sections rendered separately
+
+---
+
+## March 10–11, 2026 — feat(computers): fix expansion cards in reveal panel; add secondary/primary device port fields
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `6a1cda8`
+
+### Changes
+- **Computers.tsx** — Expansion card ports now rendered correctly in reveal panel via `tagPortsWithSlots()` grouping by `cardSlot`; `cardSlot` is frontend-only (not persisted to DB)
+- **Computers.tsx** — Secondary and primary device port fields added to modal; `buildPortsFromSpec()` helper seeds port drafts from equipment spec on computer type change
+
+---
+
+## March 10, 2026 — Equipment: add archive/unarchive with Show Archived toggle
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `afc532a`
+
+### Changes
+- **api/src/routes/equipment.ts** — `GET /equipment` now accepts `?archived=true` query param; passes `is_deleted: true` to `findMany` when set (default filters `is_deleted: false`)
+- **src/services/apiClient.ts** — Added `archiveEquipment(id)` (uses existing DELETE soft-delete), `unarchiveEquipment(id)` (PUT with `{ isDeleted: false }`), `getArchivedEquipment()` (GET `/equipment?archived=true`)
+- **src/pages/Equipment.tsx** — Added `showArchived` + `archivedSpecs` state; `handleArchiveSpec`, `handleUnarchiveSpec`, `handleToggleArchived` handlers; Archive button on each card (amber `Archive` icon); "Show Archived" toggle in page header (amber when active); archived items section at bottom with `ArchiveRestore` buttons per item
+- **src/components/EquipmentFormModal.tsx** — Added `onArchive?` prop; Archive button in modal footer (amber, editing-only)
+
+---
+
+## March 10, 2026 — Equipment: add duplicate button to card actions and edit modal
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `3bbe588`
+
+### Changes
+- **src/pages/Equipment.tsx** — Added `handleDuplicateSpec`: strips `id`/`uuid`, appends "(Copy)" to model, POSTs via `apiClient.createEquipment`, refetches list. Added `Copy` icon button in card header next to Edit.
+- **src/components/EquipmentFormModal.tsx** — Added `onDuplicate?` prop; "Duplicate" button in footer (editing-only, `Copy` icon)
+
+---
+
+## March 10, 2026 — fix(equipment-modal): remove stray `)}` syntax error, reorder sections
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `84630ea`
+
+### Root Cause
+Previous commit removed the `ioArchitecture === 'card-based'` conditional gate but left its orphan `)` in place, causing Vite to throw `The character "}" is not valid inside a JSX element`. Additionally, the Expansion I/O section was positioned above the Direct I/O sections in the file.
+
+### Changes
+- **src/components/EquipmentFormModal.tsx** — Removed orphan `)` from expansion cards block; reordered sections so Direct I/O (inputs/outputs) renders before Expansion I/O cards
+
+---
+
+## March 10, 2026 — Equipment modal: always show expansion cards below direct I/O
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `3d8b88d`
+
+### Changes
+- **src/components/EquipmentFormModal.tsx** — Removed `ioArchitecture === 'card-based'` gate from the Expansion I/O Cards section so it always renders, regardless of I/O architecture selection
+
+---
+
+## March 10, 2026 — Equipment modal: stack I/O ports, rename Expansion I/O, Add Card + per-card I/O
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `1e57083`
+
+### Changes
+- **src/components/EquipmentFormModal.tsx** — Inputs and Outputs now full-width stacked sections (single-line rows: type select + label input + X button). Renamed `card-based` arch option label from "Optional I/O Cards" to "Expansion I/O". Replaced card slots number input with "Add Card" button; each card has its own inner Inputs/Outputs editors with Add buttons and per-port rows.
+- **src/pages/Equipment.tsx** — Removed "Direct I/O" tag from card display. Renamed `card-based` badge from "Card-Based" to "Expansion I/O" (amber). Updated inline select labels to match.
+
+---
+
+## March 10, 2026 — fix(equipment-modal): remove dangling resolutions/frameRates refs
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `b77ec2b`
+
+### Root Cause
+`EquipmentFormModal` still referenced `resolutions` and `frameRates` via `useState(resolutions[0] || '1080p')` and a `useEffect` after `useProductionStore` was removed from the component in a previous refactor, causing a crash ("resolutions is not defined").
+
+### Changes
+- **src/components/EquipmentFormModal.tsx** — Removed `deviceResolution` and `deviceRate` state and their `useEffect`; removed all references to `resolutions` and `frameRates`
+
+---
+
+## March 10, 2026 — Computers: COMP # auto-ID, drag-to-reorder, inline modal, CCU-style I/O
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **src/pages/Computers.tsx** — Full rewrite. Replaced generic `SourceFormModal` with inline modal (same pattern as CCUs.tsx). Removed ID field from modal; IDs are now auto-assigned as `COMP #` (max + 1). Added drag-to-reorder using `GripVertical` with same renumber-on-drag pattern as CCUs: on drop, all shifted cards get new `COMP 1`, `COMP 2`, … IDs via parallel PUT requests, then refetch. Modal first row is now Name + Computer Type. I/O Ports section follows CCU standard: `IOPortsPanel` shown conditionally when type is selected or ports exist; selecting a computer type auto-populates port drafts from the equipment spec (`buildPortsFromSpec`); editing loads saved ports from DB with spec fallback. Cards now display grip handle with `COMP #` ID in first column.
+
+---
+
+## March 10, 2026 — Checklist: per-project collapse state (default all collapsed) + fix notes/dueDate not saving
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **usePreferencesStore.ts** — Added `expandedCategoriesByProject: Record<string, string[]>` (persisted to localStorage under `app-preferences`). Empty/absent entry for a projectId means all categories collapsed (desired default). Added `toggleCategoryExpandedForProject(projectId, category)` action which adds to/removes from the expanded set.
+- **Checklist.tsx** — Replaced global `collapsedCategories/toggleCategoryCollapsed` with per-project `expandedCategoriesByProject/toggleCategoryExpandedForProject`. Per-project expanded set derives from `productionId`; absent entry → all collapsed by default.
+- **Checklist.tsx `handleAddItem`** — Fixed `moreInfo` being sent as a plain string (was always discarded by the `Array.isArray()` render guard). Now wrapped as `[{ id, text, timestamp, type: 'info' }]`. Also added missing `dueDate: newItemDate || undefined` (both custom and default-item branches).
+- **Checklist.tsx `handleSaveEdit`** — Added missing `dueDate: editItemDate || undefined` to the updates object.
+
+---
+
+## March 10, 2026 — Fix clear-storage.html
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Root Cause
+Browser hang at `🔄 Syncing with local database...` was caused by IndexedDB getting into a locked/bad state (readwrite transaction from a previous interrupted session). `clear-storage.html` only cleared `localStorage`, leaving the `VideoDeptDB` IndexedDB intact and still locked.
+
+Additionally, two lines in the conflict-resolution paths of `useProjectStore.ts` used `projectDB.projects.put()` — a Dexie-style API that never existed on `ProjectDatabase` (the raw IDB wrapper). These would throw `TypeError: Cannot read properties of undefined (reading 'put')` if the user ever triggered force-save during a version conflict.
+
+### Changes
+- **clear-storage.html** — Rewrote script to: (1) clear localStorage, (2) clear sessionStorage, (3) call `indexedDB.deleteDatabase('VideoDeptDB')` with onsuccess/onerror/onblocked handlers, then show status and redirect after 1.5s. Adds `<ul id="log">` to show clearing progress in the page.
+- **useProjectStore.ts** line 626 — `await projectDB.projects.put(freshUpdatedProject)` → `await projectDB.updateProject(activeProjectId, freshUpdatedProject)`
+- **useProjectStore.ts** line 696 — same fix (second conflict-resolution branch)
+
+### Immediate Fix for User
+In the hanging browser's DevTools console:
+```
+indexedDB.deleteDatabase('VideoDeptDB'); location.reload();
+```
+Or navigate to http://localhost:3011/clear-storage.html
+
+---
+
+## March 6, 2026 — CCU modal: remove I/O Ports header; show all cameras
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `89162e4`
+
+### Changes
+- **CCUs.tsx** — Removed `<div>` wrapper + `<label>` "I/O Ports / format & signal per port" around `IOPortsPanel`; panel renders directly, tables announce themselves
+- **CCUs.tsx** — Removed `.filter(cam => !cam.ccuId || cam.ccuId === formData.id)` from Linked Cameras list — was hiding cameras already assigned to other CCUs, resulting in an empty list; now shows all cameras so any can be assigned/reassigned
+
+---
+
+## March 6, 2026 — CCU modal: fix empty mfr/model dropdowns; remove Format Mode field
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `199cd2c`
+
+### Changes
+- **CCUs.tsx** — `ccuSpecs` filter: `spec.category === 'CCU'` → `spec.category === 'ccu'` (same lowercase-contract fix as cameras, `transformApiEquipment` lowercases all categories)
+- **CCUs.tsx** — Removed `FORMAT_OPTIONS` array, `specFormatOptions` useMemo, and the "Format Mode" `<div>` block from the modal — redundant since IOPortsPanel handles format per port. `formatMode` field preserved in `formData` and API payload for backward compat.
+
+---
+
+## March 5, 2026 — Migrate Media Servers to IOPortsPanel / device_ports
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `bd202f3`
+
+### Goal
+Replace the legacy `outputs_data` (name/role/type/resolution/frameRate per output row) with the IOPortsPanel / `device_ports` table system. Equipment spec IO is the source of truth; user assigns portLabel + Format per port per production instance.
+
+### Changes
+- **MediaServers.tsx** — Full refactor of `ServerPairModal`: removed `outputs` state, `COMMON_RESOLUTIONS`/`COMMON_FRAME_RATES`, all output handlers (`handleAddOutput/Remove/Duplicate/Update`), `stripABSuffix`/`appendASuffix`, `makeBackupOutputs`. Added `backupServer` prop; updated `onSave`/`onSaveAndDuplicate` to `(platform, note, computerType)`. Spec auto-populate `useEffect` seeds `devicePorts` from `spec.inputs`/`spec.outputs` when `computerType` changes in create mode. `handleSubmit` now syncs `device_ports` for both A and B servers via `/device-ports/sync`. Outputs section JSX replaced with `IOPortsPanel` for both servers.
+- **MediaServers.tsx** — Reveal panel: both A and B subcards now render device_ports via `renderPortTable()` helper using `pairCardPorts[mainUuid]` / `pairCardPorts[backupUuid]`.
+- **MediaServers.tsx** — Card collapsed count: uses `pairCardPorts[mainUuid]?.filter(p => direction=OUTPUT && portLabel.trim() && formatUuid).length`; falls back to `pair.main.outputs.length` for legacy records with no ports yet.
+- **MediaServers.tsx** — `togglePairReveal(mainUuid, backupUuid?)` now fetches ports for both servers; `requestedPortUuids` ref prevents duplicate fetches; eager-load `useEffect` pre-fetches ports for all pairs on mount.
+- **useProjectStore.ts** — `addMediaServerPair` updated to accept optional 4th param `computerType`; forwarded to both main and backup API POST bodies so `computer_type` persists in DB on initial pair creation.
+
+---
+
+## March 5, 2026 — Switch Railway deploy to db:push (remove migrate deploy)
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: TBD
+
+### Changes
+- **api/nixpacks.toml** — Changed start command from `npx prisma migrate deploy` → `npx prisma db push`; full cmd: `npx prisma db push && npm run seed:all:prod && npm run start`
+- **docs/RAILWAY_DEPLOYMENT.md** — Updated deploy log line "Migrations deployed" → "Schema pushed (db:push)"; updated troubleshooting section to reference db:push instead of migrate
+
+### Rule Enforced
+Project always uses `prisma db push` — both locally and on Railway. `prisma migrate dev` / `prisma migrate deploy` are never used (causes crashes / Exit Code 137 on dev machine and is not the intended workflow).
+
+---
+
+## March 5, 2026 — Fix computerType not persisting on media server save
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `50b298b`
+
+### Root Cause
+`computer_type` column did not exist in the `media_servers` table. Prisma silently drops unknown fields, so the value was never written to the DB.
+
+### Changes
+- **api/prisma/schema.prisma** — Added `computer_type String?` to `media_servers` model (between `platform` and `outputs_data`)
+- **Dev DB** — `db:push` applied in 83ms; Prisma client regenerated
+- **API server** — Restarted to pick up new Prisma client (tsx watch does not auto-restart on client regeneration)
+- No route changes needed: PUT handler already uses `toSnakeCase(updates)` → `computer_type` is now recognised; `normalizeMediaServer` already uses `toCamelCase(server)` → `computerType` already returned in responses
+
+---
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `5cf3631`
+
+### Changes
+- **api/prisma/equipment-data.json** — Added 11 COMPUTER category entries recovered from `seed-computers.mjs` in commit `036ae3f`: `Laptop - PC MISC`, `Laptop - PC GFX`, `Laptop - PC WIDE`, `Laptop - Mac MISC`, `Laptop - Mac GFX`, `Desktop - PC MISC`, `Desktop - PC GFX`, `Desktop - PC SERVER`, `Desktop - Mac MISC`, `Desktop - Mac GFX`, `Desktop - Mac SERVER`
+- **api/prisma/seed-equipment.ts** — Added `'computer': EquipmentCategory.COMPUTER` to `categoryMap` (was missing — all `category: "computer"` entries in the JSON were being skipped with `undefined` category and not inserted)
+- **Dev DB** — Re-seeded: 230 total specs, COMPUTER: 11 models confirmed
+
+---
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `d002f87`
+
+### Changes
+- **MediaServers.tsx** — Fixed card disappearing after edit-save: `onSave` and `onSaveAndDuplicate` now wrap both `updateMediaServer` calls in `Promise.all().then(() => loadProject())` to force a DB re-sync after save — eliminates WS stale-closure race that dropped the card from the rendered list
+- **MediaServers.tsx** — Fixed empty Computer Type dropdown: changed `spec.category === 'COMPUTER'` → `spec.category === 'computer'` (equipment library normalises categories to lowercase via `toLowerCase()`)
+- **MediaServers.tsx** — Removed "Server ID: N (Drag to reorder servers)" subtitle from edit modal header
+- **MediaServers.tsx** — Card col 1: output count appended in parens after platform (`Resolume (2 outputs)`); Card col 2: now shows note text instead of output count
+
+---
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `0fd54bb`
+
+### Changes
+- **MediaServers.tsx** — Fixed strip regex in `useState` initializer: `/\s+[AB]\s*\([^)]*\)$/` → `/\s+[AB]\s*(\([^)]*\))?$/` — `?` makes role optional, preventing suffix accumulation on repeated edit cycles (bug: `"MEDIA 1"` → `"MEDIA 1 A"` → `"MEDIA 1 A A"`)
+- **MediaServers.tsx** — Fixed `stripABSuffix` helper to use the corrected regex (handles both `" A"` and `" A (Role)"`)
+- **MediaServers.tsx** — Updated `appendASuffix` signature to accept optional `role` param; replaced inline ternary template literal in `handleSubmit` with `appendASuffix(o.name, o.role || undefined)`
+- **MediaServers.tsx** — Extracted duplicated `outputsWithB` map into `makeBackupOutputs(mainOutputs, backupId)` helper; called from both `onSave` and `onSaveAndDuplicate`
+- **MediaServers.tsx** — Added comment block above helpers documenting the three-site transform pattern (STRIP → APPEND → A→B)
+
+---
+
 ## March 5, 2026 — CCU card: single-click reveal/collapse + chevron moved to left of ID
 
 ### Branch: `v0.1.4_signal-flow`

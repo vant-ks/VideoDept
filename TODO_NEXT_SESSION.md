@@ -1,6 +1,57 @@
 # TODO List - Next Work Session
 
-## 📍 Current Branch Structure
+---
+
+## 🔴 BUG — Media Servers: Card collapses on every output add/edit (reveal mode)
+
+**Branch to fix on:** next branch after `v0.1.5_source-touchups`
+**Reported:** 2026-03-05 while adding PC Desktop records
+
+**Symptom:** When a Media Server card is in "reveal mode" (expanded to show outputs), adding a new output or editing an existing output causes the card to collapse back after each save. User has to re-expand the card to continue editing further outputs — makes building out a machine's output list very tedious.
+
+**Suspected cause:** The same WS stale-closure / `loadProject` race that caused cards to disappear on save (fixed in `d002f87`). The expand/collapse state is likely local React state that gets wiped when `loadProject` re-renders the list. The card's expanded state is probably keyed to index or ID and not persisted across re-renders triggered by the DB sync.
+
+**Fix approach:** Track expand state outside the list render — e.g. a `Set<string>` of expanded server UUIDs held in `useRef` or `useState` at the page level, keyed by server UUID so it survives list re-renders after `loadProject`.
+
+---
+
+## 🔴 BUG — Media Servers: Direct I/O edit disabled when device is card-based
+
+**Branch to fix on:** next branch after `v0.1.5_source-touchups`
+**Reported:** 2026-03-05
+
+**Symptom:** When a server's output mode is set to "card-based", the direct I/O edit section is visible but inactive/disabled. It should be fully active — card-based devices routinely also have direct I/O ports (e.g. a video switcher with expansion card slots still has onboard SDI/HDMI outputs). Hiding the edit UI is correct UX, but disabling it when it's shown is wrong.
+
+**Fix approach:** Remove whatever condition is disabling the direct I/O inputs when `card-based` is selected. The visibility toggle (show/hide) is the right control; enabled state should not depend on the output mode.
+
+---
+
+## 🏗️ DESIGN — Media Servers: outputs_data vs. IOPortsPanel (two I/O layers)
+
+**Branch to address on:** TBD (architecture decision before rework)
+**Raised:** 2026-03-05
+
+### Current State
+The ServerPairModal has two separate I/O systems:
+
+1. **`outputs_data` section** (old) — *software/logical output layer*  
+   Fields: Name, Role, Type, Resolution, FrameRate per output channel  
+   Purpose: describes what the media server *application* (Resolume, Disguise, Pixera) assigns each output to — e.g. "MEDIA 1 → LED Left @ 1920×1080 59.94". Also drives the A/B suffix logic for backup pairs.
+
+2. **`IOPortsPanel` section** (new) — *physical connector layer*  
+   Fields: portLabel, ioType (SDI/HDMI/DP…), direction, formatUuid  
+   Purpose: describes the physical hardware connectors on the box and what signal format each carries. Part of the port/cable/format routing system.
+
+### The Overlap
+The old Type / Resolution / FrameRate fields per output are now covered by the new IOPortsPanel's `ioType` + `formatUuid`. Those three fields are legacy from before the format system existed.
+
+### Intended End State
+- Keep **Name + Role** on outputs_data — media-server-specific, still needed, drive the A/B backup logic
+- **Remove Type / Resolution / FrameRate** from outputs_data rows — redundant with the port/format layer
+- Eventually add a **linkage field** on each logical output pointing to a `device_port` UUID — so the logical output (software channel) maps to a physical connector, completing the signal chain
+- That logical→physical linkage is the "signal flow" connection layer not yet built
+
+---
 - **`v0.1_sends`** — long-running parent branch for all sends-related work. DO NOT merge to main until explicitly instructed.
 - **`v0.1.2_toDosCatchUp`** ← you are here. Branch off `v0.1_sends`. Merge into `v0.1_sends` when done.
 

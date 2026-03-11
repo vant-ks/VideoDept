@@ -37,7 +37,7 @@
    - ✅ npm install
    - ✅ Prisma generate
    - ✅ Build completed
-   - ✅ Migrations deployed
+   - ✅ Schema pushed (db:push)
    - ✅ Seeds completed
    - ✅ Server listening
 
@@ -134,9 +134,9 @@ curl https://[api-url].railway.app/api/sources
 - Check `DATABASE_URL` is connected to PostgreSQL service
 - Verify PostgreSQL service is running
 
-**Migration fails:**
+**Schema push fails:**
 - Check database credentials
-- Ensure migrations folder is committed to git
+- Verify `DATABASE_URL` is connected to the PostgreSQL service
 
 **Server won't start:**
 - Check logs for `PORT` variable

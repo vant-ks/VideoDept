@@ -2,11 +2,409 @@
 
 **Purpose:** Track all AI agent work sessions, prompts, milestones, and outcomes for historical reference and crash recovery.
 
-**Last Updated:** February 12, 2026
+**Last Updated:** March 11, 2026
 
 ---
 
 ## Active Session Tracking
+
+## Session 2026-03-11-000000
+**Started:** 2026-03-11
+**Status:** IN PROGRESS
+**Branch:** v0.1.5_source-touchups
+
+### Prompt 1: Session Kickoff
+**ID:** S20260311-P1-000000
+**Request:** Full session initialization per LAUNCH_SESSION.md kickoff prompt
+**Context:** Continuing from March 10-11 session. Branch 32 commits ahead of origin, clean working tree.
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md (full files)
+2. Read DEVLOG.md (top 60 lines), SESSION_JOURNAL.md (last 55 lines)
+3. Dev servers already running (API :3010 ✅, Frontend :3011 ✅) — confirmed via health check
+4. Verified Railway health: HTTP 200, database connected ✅
+5. Checked git: branch v0.1.5_source-touchups, 32 commits ahead of origin, clean
+
+#### Outcome: COMPLETED ✓
+- **Dev servers:** ✅ Both running (API :3010, Frontend :3011)
+- **Git:** `v0.1.5_source-touchups`, 32 commits ahead of origin, clean
+- **Railway:** ✅ UP — healthy, DB connected
+- **Last DEVLOG checkpoint:** March 10-11 `2ef7d9c` fix(media-servers,computers): fix layer system and port label matching ✅ COMPLETE
+- **IN PROGRESS tasks:** None found
+
+---
+
+### Prompt 2: Media Server format label, layer persistence, expansion I/O filtering
+**ID:** S20260311-P2-000000
+**Request:** (1) Format display should follow "hRes x vRes @ frameRate [if:blanking]" formula — no need to change Format IDs; (2) What is collapsed view third item; (3) Layers don't persist after refresh; (4) Layers should only be assigned to expansion I/O if present
+
+#### Root Causes:
+1. **Format display:** Reveal panel was showing `format.id` (e.g. "1080i5994") instead of the computed formula from numeric fields
+2. **Collapsed third item:** Layer count column — shows "N layers" or "—"
+3. **Layer persistence:** `addMediaServerLayer` / `updateMediaServerLayer` / `deleteMediaServerLayer` only updated Zustand state; `updateActiveProject` has debounced save disabled, so changes never reached IndexedDB; `loadProject` always resets from IndexedDB cache (never fetches layers from API since no layer API exists)
+4. **Expansion I/O only:** LayerModal was offered ALL output ports (direct + expansion). Users want direct I/O ports excluded when expansion cards are present
+
+#### Actions Taken:
+1. Added `export function formatLabel(f: Format): string` to `IOPortsPanel.tsx` — uses `SCAN_RATES` label values ("59.94" not "59"), appends blanking if not 'NONE'
+2. Updated `renderPortTable` in `MediaServers.tsx` reveal panel: `fmtName` now uses `formatLabel(fmt)` instead of `format.id`
+3. Added `layerEligiblePorts` memo in `MediaServers.tsx`: for each server UUID, returns only expansion I/O OUTPUT ports when spec has cards (positional slicing: `ports.slice(directCount)`) — falls back to all outputs for non-card specs; passed to `LayerModal` as `serverPorts` prop
+4. Updated `addMediaServerLayer`, `updateMediaServerLayer`, `deleteMediaServerLayer` in `useProjectStore.ts` to call `projectDB.updateProject(activeProjectId, { mediaServerLayers: updatedLayers })` after each change — layers now written to IndexedDB and survive refresh
+
+#### Outcome: COMPLETED ✓
+- **Files Changed:**
+  - `src/components/IOPortsPanel.tsx` — `formatLabel()` export added
+  - `src/pages/MediaServers.tsx` — format label formula, `layerEligiblePorts` memo, LayerModal prop update
+  - `src/hooks/useProjectStore.ts` — layer CRUD adds IndexedDB persistence
+- Zero TypeScript errors
+
+---
+
+### Prompt 3: Dropdown overflow, layer card UX (collapse/drag/A-B split), UUID in B tags
+**ID:** S20260311-P3-000000
+**Request:** (1) Format cascade dropdown in ServerPairModal gets clipped by expansion I/O card bottom edge; (2) Add reveal/collapse and drag-to-reorder for layer cards; (3) UUID strings appearing in B server assignment tags; (4) Show A/B server split in layer expanded panel like server pair cards
+
+#### Root Causes:
+1. **Dropdown clipped:** Expansion slot card container had `overflow-hidden` on its wrapper `className` — this clipped the absolutely-positioned cascade dropdown that extended below the card boundary
+2. **No collapse/drag:** Layers tab had static flat cards with no interactivity
+3. **UUID in B tags:** Backup server device_ports are synced with `uuid: undefined` → new UUIDs generated each save; `pairCardPorts[backupUuid]` lookup was returning undefined for stale assignment UUIDs → fell back to raw UUID string in template
+4. **No A/B split:** Assignments were rendered as a flat list of `serverId → portLabel` pairs with no pair grouping
+
+#### Actions Taken:
+1. Removed `overflow-hidden` from expansion slot card container in `MediaServers.tsx` (ServerPairModal render) so absolute-positioned dropdown escapes the card boundary
+2. Added state: `expandedLayers: Set<string>`, `draggedLayerIndex: number | null`, `dragOverLayerIndex: number | null`
+3. Added `reorderMediaServerLayers` to `useProjectStore.ts` interface + implementation (reorders `mediaServerLayers` array in Zustand + persists to IndexedDB)
+4. Wired `reorderMediaServerLayers` in MediaServers.tsx CRUD section
+5. Replaced entire Layers tab with new card design:
+   - Collapsed row: 30/30/30/10 grid — grip handle + chevron + name | content | output count | edit/delete
+   - Drag-to-reorder: `onDragStart`/`onDragOver`/`onDrop` handlers; ghost opacity during drag; calls `reorderMediaServerLayers`
+   - Expanded panel: groups assignments by `pairNumber`; each pair shows A (Main) sub-card via direct `pairCardPorts` UUID lookup, and B (Backup) sub-card that derives port labels positionally from A's resolved labels — eliminates UUID fallback entirely
+
+#### Outcome: COMPLETED ✓
+- **Files Changed:**
+  - `src/pages/MediaServers.tsx` — overflow fix, 3 new state vars, reorder wire-up, entire Layers tab replaced
+  - `src/hooks/useProjectStore.ts` — `reorderMediaServerLayers` interface + implementation
+  - `video-production-manager/DEVLOG.md` — entry updated to ✅ COMPLETE
+- Zero TypeScript errors
+- Commit: `7eb9c24` — "fix/feat(media-servers): dropdown overflow, layer collapse/drag/A-B split"
+
+---
+
+## Session 2026-03-10-000000
+**Started:** 2026-03-10
+**Status:** COMPLETED
+**Branch:** v0.1.5_source-touchups
+
+### Prompt 1: Session Kickoff
+**ID:** S20260310-P1-000000
+**Request:** Full session initialization per LAUNCH_SESSION.md kickoff prompt
+**Context:** Continuing from March 7 session. No work done Mar 7 beyond kickoff. Branch 14 commits ahead of origin, one dirty file (SESSION_JOURNAL.md).
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md (full files)
+2. Read DEVLOG.md (top 60 lines — recent entries), SESSION_JOURNAL.md (last 80 lines)
+3. Killed stale server processes; started API server (port 3010) ✅ and Frontend (port 3011) ✅
+4. Verified Railway health: HTTP 200, database connected (474ms latency) ✅
+5. Checked git: branch v0.1.5_source-touchups, 14 commits ahead of origin, dirty (SESSION_JOURNAL.md modified)
+
+#### Status:
+- **Dev servers:** ✅ Both running (API :3010, Frontend :3011)
+- **Git:** branch `v0.1.5_source-touchups`, 14 commits ahead of `origin/v0.1.5_source-touchups`, dirty (SESSION_JOURNAL.md only)
+- **Railway:** ✅ UP — healthy, DB connected (474ms latency)
+- **Last DEVLOG checkpoint:** March 6, 2026 — `89162e4` fix(ccus): remove I/O Ports label header; show all cameras — ✅ COMPLETE
+- **IN PROGRESS tasks:** None found
+### Prompt 2: Browser hanging on load
+**ID:** S20260310-P2-000000
+**Request:** One browser hanging at `🔄 Syncing with local database...` — console shows no output after that line
+**Root Cause:** IndexedDB `VideoDeptDB` locked/corrupted from a prior interrupted session. `clear-storage.html` only cleared `localStorage`, leaving IndexedDB intact. Two stale `projectDB.projects.put()` calls (Dexie-style API, never valid on raw-IDB `ProjectDatabase`) also found in conflict-resolution paths.
+
+#### Actions Taken:
+1. Confirmed `/api/productions` responds in <1s (not an API hang)
+2. Located log message at `useProjectStore.ts:835` — immediately before `projectDB.getAllProjects()`
+3. Found `clear-storage.html` only clears localStorage, not IndexedDB
+4. Found `projectDB.projects.put()` at lines 626 and 696 (stale Dexie calls, would TypeError at runtime)
+5. Fixed `clear-storage.html` to delete `VideoDeptDB` via `indexedDB.deleteDatabase()`
+6. Fixed both stale `.projects.put()` calls → `projectDB.updateProject(activeProjectId, ...)`
+7. Updated DEVLOG ✅ COMPLETE
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Files Changed:**
+  - `clear-storage.html` — now deletes IndexedDB + localStorage + sessionStorage; shows progress
+  - `src/hooks/useProjectStore.ts` — lines 626 and 696: fix stale `projectDB.projects.put()` → `projectDB.updateProject()`
+- **Immediate Fix for User:** `indexedDB.deleteDatabase('VideoDeptDB'); location.reload()` in DevTools console, or navigate to http://localhost:3011/clear-storage.html
+
+### Prompt 3: Checklist bugs — collapse state, notes not saving, due date not saving
+**ID:** S20260310-P3-000000
+**Request:** (1) All checklist groups collapsed by default, persisted per-project; (2) Notes not saving when adding new checklist items; (3) Due date not saving on one server
+
+#### Root Causes:
+1. **Collapse state:** `collapsedCategories: string[]` in `usePreferencesStore` was a global flat list (no project scoping) initialized to `[]` (= all expanded). No per-project persistence.
+2. **Notes not saving:** `handleAddItem` sent `moreInfo: newItemMoreInfo.trim() || undefined` — a plain string. Component only renders via `Array.isArray(item.moreInfo)`, so the string was always discarded.
+3. **Due date not saving:** `handleAddItem` included `daysBeforeShow: newItemDays` but never `dueDate: newItemDate`. `handleSaveEdit` also omitted `dueDate`. The `due_date DateTime?` column was never written from either path.
+
+#### Actions Taken:
+1. Added `expandedCategoriesByProject: Record<string, string[]>` to `usePreferencesStore` interface + initial state; added `toggleCategoryExpandedForProject(projectId, category)` action. Empty/absent entry = all categories collapsed (desired default).
+2. Updated `Checklist.tsx` to use per-project expanded set. `isCollapsed = !projectExpanded.includes(category)`. scrollToCategory effect updated accordingly.
+3. Fixed `handleAddItem` (both custom + default-item branches): wrapped `moreInfo` as `[{id, text, timestamp, type: 'info'}]`; added `dueDate: newItemDate || undefined`.
+4. Fixed `handleSaveEdit`: added `dueDate: editItemDate || undefined` to updates object.
+5. Committed: `a30b8e9` fix(checklist): per-project collapse state (default all collapsed), fix notes/dueDate not saving on create/edit
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Files Changed:**
+  - `src/hooks/usePreferencesStore.ts` — new `expandedCategoriesByProject` field + `toggleCategoryExpandedForProject` action
+  - `src/pages/Checklist.tsx` — per-project collapse wiring, `moreInfo` array fix, `dueDate` fix in both create and edit paths
+---
+
+### Prompt 4: Computers — COMP# auto-ID, drag reorder, inline modal, CCU-style I/O
+**ID:** S20260310-P4-000000
+**Request:** Auto-assign COMP # IDs (auto-increment, renumber on drag reorder). Remove ID field from modal. First row = Name + Computer Type. I/O ports section to follow CCU standard.
+
+#### Actions Taken:
+1. Read Computers.tsx, CCUs.tsx, SourceFormModal.tsx, computers.ts API route, Prisma schema, SourceService.ts, useEquipmentLibrary.ts
+2. Full rewrite of Computers.tsx: removed generic SourceFormModal dependency
+3. Auto-ID: `generateId()` finds max `COMP N` number in existing sources, returns `COMP N+1`
+4. Drag-to-reorder: mirrors CCUs.tsx pattern — on drop, renumbers affected cards as `COMP 1…N` via parallel PUT requests, refetches fresh state
+5. Inline modal: Name + Computer Type as first row (no ID field); I/O Ports Panel shown conditionally (CCU standard: shown when type selected or ports exist); selecting type auto-seeds port drafts from equipment spec; editing loads saved ports from DB with spec fallback
+6. Committed: `08dfd20` feat(computers): COMP# auto-ID, drag-to-reorder renumber, inline modal, CCU-style I/O port spec seeding
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Files Changed:**
+  - `src/pages/Computers.tsx` — Full rewrite (was 600-line component using SourceFormModal, now 808-line standalone inline modal matching CCU pattern)
+
+### Prompt 5: fix(equipment-modal): remove dangling resolutions/frameRates refs
+**ID:** S20260310-P5
+**Request:** (crash fix) EquipmentFormModal crashing — `resolutions is not defined`
+**Root Cause:** `useState(resolutions[0] || '1080p')` + related `useEffect` still referenced `resolutions`/`frameRates` after `useProductionStore` was removed from the component.
+
+#### Actions Taken:
+1. Read EquipmentFormModal.tsx — found dangling `deviceResolution` + `deviceRate` state and associated useEffect
+2. Removed both state hooks and useEffect entirely
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `b77ec2b`
+- **Files Changed:** `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 6: Equipment modal — stack I/O ports, rename Expansion I/O, Add Card + per-card I/O
+**ID:** S20260310-P6
+**Request:** "stack inputs and outputs, single line per port. rename 'optional i/o cards' to 'expansion i/o'. update tags to display 'expansion i/o' but not 'direct i/o'. dont ask how many cards, give me an 'add card' button and let me add inputs and outputs to that card"
+
+#### Actions Taken:
+1. Refactored Inputs/Outputs to full-width stacked rows (type select + label + X per port)
+2. Renamed `card-based` label → "Expansion I/O"; updated arch select option
+3. Replaced card slot count input with "Add Card" button; each card gets inner per-port editors
+4. Equipment.tsx: removed "Direct I/O" tag; renamed "Card-Based" badge → "Expansion I/O" (amber)
+5. Committed `1e57083`
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `1e57083`
+- **Files Changed:** `src/components/EquipmentFormModal.tsx`, `src/pages/Equipment.tsx`
+
+---
+
+### Prompt 7: Expansion cards should display below direct I/O ports
+**ID:** S20260310-P7
+**Request:** "expansion cards should display below the direct io ports of any device"
+
+#### Actions Taken:
+1. Found `ioArchitecture === 'card-based'` conditional gate still wrapping expansion cards section
+2. Removed the conditional wrapper so expansion cards always render
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `3d8b88d`
+- **Files Changed:** `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 8: Fix Vite JSX syntax error after expansion card gate removal
+**ID:** S20260310-P8
+**Request:** (auto-triggered by Vite error) `The character "}" is not valid inside a JSX element` at line 378
+**Root Cause:** Removing the conditional gate left orphan `)` closing the old wrapper. Expansion section was also above Direct I/O in the file.
+
+#### Actions Taken:
+1. Identified orphan `)` from removed conditional wrapper
+2. Rewrote both sections in correct order: Direct I/O (inputs/outputs) → Expansion I/O cards, removed orphan `)`
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `84630ea`
+- **Files Changed:** `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 9: Add duplicate button to equipment cards and edit modal
+**ID:** S20260310-P9
+**Request:** "can we add a duplicate button to the action buttons in equipment cards and to the action buttons in the add/edit modal"
+
+#### Actions Taken:
+1. Added `handleDuplicateSpec(spec)` in Equipment.tsx: strips id/uuid, appends "(Copy)", `apiClient.createEquipment`, refetch
+2. Added `Copy` icon button to card header (next to Edit)
+3. Added `onDuplicate?` prop to EquipmentFormModal; "Duplicate" button in footer (editing-only)
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `3bbe588`
+- **Files Changed:** `src/pages/Equipment.tsx`, `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 10: Add archive (not delete) to equipment cards and edit modal
+**ID:** S20260310-P10
+**Request:** "lets also add archive buttons. not delete because we will need to keep equipment for historical record"
+
+#### Actions Taken:
+1. Confirmed `is_deleted` column exists on `equipment_specs`; existing DELETE route already soft-deletes via `is_deleted: true`
+2. Updated `GET /equipment` to support `?archived=true` query param → returns `is_deleted: true` records
+3. Added `archiveEquipment`, `unarchiveEquipment`, `getArchivedEquipment` to apiClient
+4. Equipment.tsx: Archive button on each card (amber); "Show Archived" toggle in page header; archived items section at bottom with Unarchive button per item
+5. EquipmentFormModal: `onArchive?` prop; Archive button in footer (amber, editing-only)
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `afc532a`
+- **Files Changed:** `api/src/routes/equipment.ts`, `src/services/apiClient.ts`, `src/pages/Equipment.tsx`, `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 11: Computers — fix expansion cards in reveal panel; add secondary/primary device port fields
+**ID:** S20260310-P11
+**Request:** Expansion cards not rendering in the reveal panel; add secondary/primary device port fields to modal
+
+#### Actions Taken:
+1. Added `tagPortsWithSlots()` helper to group ports by `cardSlot` for reveal panel rendering
+2. Added `buildPortsFromSpec()` to seed port drafts from equipment spec when computer type changes in create mode
+3. Added secondary and primary device port fields to Computer modal
+4. `cardSlot` is frontend-only, not persisted to DB — documented in architecture notes
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `6a1cda8`
+- **Files Changed:** `src/pages/Computers.tsx`
+
+---
+
+### Prompt 12: feat — split Direct/Expansion I/O in cards+modals; single-click reveal, double-click edit on Computers/MediaServers/CCUs
+**ID:** S20260310-P12
+**Request:** Reveal panel to split port display into Direct I/O vs Expansion I/O sections; apply single-click=reveal, double-click=edit card interaction standard across CCUs and MediaServers
+
+#### Actions Taken:
+1. Computers.tsx: reveal panel splits ports into Direct I/O vs Expansion I/O; modal IIFE split into direct-ports block and expansion-cards block
+2. CCUs.tsx: card interaction standard (`cursor-pointer select-none`, `onClick`=reveal, `onDoubleClick`=edit); action buttons use `stopPropagation`
+3. MediaServers.tsx: reveal panel split per server A+B using `splitPorts()` + `renderServerPorts()` helpers; card interaction standard applied
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `df37728`
+- **Files Changed:** `src/pages/Computers.tsx`, `src/pages/CCUs.tsx`, `src/pages/MediaServers.tsx`
+
+---
+
+### Prompt 13: fix — layer system and port label matching (MediaServers + Computers)
+**ID:** S20260310-P13
+**Request:** LayerModal not receiving correct ports; port labels showing generic "Input"/"Output" instead of connector type
+
+#### Actions Taken:
+1. MediaServers.tsx: `serverPorts` prop for LayerModal now filters to OUTPUT-direction ports only from `pairCardPorts`; `outputId` is `port.uuid` (not legacy output ID)
+2. Added `specPortLabel(p)` helper: if label is generic "Input"/"Output", falls back to `p.type` (e.g. Ethernet, HDMI)
+3. Applied `specPortLabel()` in both MediaServers reveal panel and Computers reveal panel
+
+#### Architecture Notes:
+- `cardSlot?: number` on DevicePortDraft is frontend-only, NOT persisted to DB
+- All layer `outputId` values are now `port.uuid` from `device_ports`, not legacy output IDs
+- `specPortLabel(p)`: generic "Input"/"Output" labels fall back to `p.type`
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `2ef7d9c`
+- **Files Changed:** `src/pages/MediaServers.tsx`, `src/pages/Computers.tsx`
+
+---
+
+## Session 2026-03-11-000000
+**Started:** 2026-03-11
+**Status:** IN_PROGRESS
+**Branch:** v0.1.5_source-touchups
+
+### Prompt 1: Session Kickoff
+**ID:** S20260311-P1-000000
+**Request:** Full session initialization. Context provided from last session (March 10–11). Read AI_AGENT_PROTOCOL.md, PROJECT_RULES.md, DEVLOG.md, SESSION_JOURNAL.md, TODO_NEXT_SESSION.md. Start servers, verify git/Railway, report back.
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md in full
+2. Read DEVLOG.md (top ~120 lines — recent entries), SESSION_JOURNAL.md (top 80 lines)
+3. Verified both dev servers already running: API :3010 ✅ (3ms latency), Frontend :3011 ✅
+4. Checked git: branch `v0.1.5_source-touchups`, 31 commits ahead of origin, CLEAN
+5. Verified Railway: ✅ UP — healthy, DB connected (319ms latency)
+6. Backfilled DEVLOG entries for commits 6a1cda8, df37728, 2ef7d9c (last session housekeeping not done)
+7. Backfilled SESSION_JOURNAL entries for Prompts 11–13 of March 10 session
+
+#### Status:
+- **Dev servers:** ✅ Both running (API :3010, Frontend :3011)
+- **Git:** branch `v0.1.5_source-touchups`, 31 commits ahead of `origin/v0.1.5_source-touchups`, CLEAN
+- **Railway:** ✅ UP — healthy, DB connected (319ms latency)
+- **Last DEVLOG checkpoint:** `2ef7d9c` fix(media-servers,computers): fix layer system and port label matching — ✅ COMPLETE
+- **IN PROGRESS tasks:** None
+
+---
+
+## Session 2026-03-07-000000
+**Started:** 2026-03-07
+**Status:** IN_PROGRESS
+**Branch:** v0.1.5_source-touchups
+
+### Prompt 1: Session Kickoff
+**ID:** S20260307-P1-000000
+**Request:** Full session initialization per LAUNCH_SESSION.md kickoff prompt
+**Context:** Continuing from March 6, 2026 — CCU modal polish complete. Branch is 14 commits ahead of origin.
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md (full files)
+2. Read DEVLOG.md (first block — recent entries), SESSION_JOURNAL.md (last sessions)
+3. Killed stale server processes; started API server (port 3010) ✅ and Frontend (port 3011) ✅
+4. Verified Railway health: HTTP 200, database connected (85ms latency) ✅
+5. Checked git: branch v0.1.5_source-touchups, 14 commits ahead of origin, clean working tree
+
+#### Status:
+- **Dev servers:** ✅ Both running (API :3010, Frontend :3011)
+- **Git:** branch `v0.1.5_source-touchups`, 14 commits ahead of `origin/v0.1.5_source-touchups`, clean
+- **Railway:** ✅ UP — healthy, DB connected (85ms latency)
+- **Last DEVLOG checkpoint:** March 6, 2026 — `89162e4` fix(ccus): remove I/O Ports label header; show all cameras — ✅ COMPLETE
+- **IN PROGRESS tasks:** None found
+
+---
+
+## Session 2026-03-06-000000
+**Started:** 2026-03-06
+**Status:** IN_PROGRESS
+**Branch:** v0.1.5_source-touchups
+
+### Prompt 1: Session Kickoff
+**ID:** S20260306-P1-000000
+**Request:** Full session initialization per LAUNCH_SESSION.md kickoff prompt
+**Context:** Continuing work on v0.1.5_source-touchups; 11 commits ahead of origin.
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md (full files)
+2. Read DEVLOG.md section headers + last entries, SESSION_JOURNAL.md last sessions
+3. Killed stale server processes; started API server (port 3010) ✅ and Frontend (port 3011) ✅
+4. Verified API health: HTTP 200, database connected (14ms latency) ✅
+5. Checked git: branch v0.1.5_source-touchups, 11 commits ahead of origin, one modified file (SESSION_JOURNAL.md)
+6. Checked Railway /health: 404 "Application not found" ⚠️ (known — Railway still on old repo kashea24/VideoDept, Priority 3)
+
+#### Status:
+- **Dev servers:** ✅ Both running (API :3010, Frontend :3011)
+- **Git:** branch `v0.1.5_source-touchups`, 11 commits ahead of `origin/v0.1.5_source-touchups`, dirty (SESSION_JOURNAL.md only)
+- **Railway:** ✅ UP — API: https://api-server-production-9aaf.up.railway.app/health | Frontend: https://videodept-production.up.railway.app (URL had drifted to a temp domain; restored manually)
+- **Last DEVLOG checkpoint:** March 5, 2026 — `4dba836` fix(media-servers): update reveal panel instantly on save — ✅ COMPLETE
+- **IN PROGRESS tasks:** None found
+
+---
 
 ## Session 2026-03-05-000000
 **Started:** 2026-03-05 (morning)

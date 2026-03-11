@@ -186,6 +186,18 @@ export class ApiClient {
     return this.delete(`/equipment/${id}`);
   }
 
+  async archiveEquipment(id: string) {
+    return this.delete(`/equipment/${id}`);
+  }
+
+  async unarchiveEquipment(id: string) {
+    return this.put(`/equipment/${id}`, { isDeleted: false });
+  }
+
+  async getArchivedEquipment() {
+    return this.get('/equipment?archived=true');
+  }
+
   // Sources
   async getSources(productionId: string) {
     return this.get(`/sources/production/${productionId}`);

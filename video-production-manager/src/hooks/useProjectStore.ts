@@ -109,7 +109,7 @@ interface ProjectStoreState {
   
   // Media Server CRUD
   addMediaServer: (server: MediaServer) => void;
-  addMediaServerPair: (platform: string, outputs: any[], note?: string) => Promise<void>;
+  addMediaServerPair: (platform: string, outputs: any[], note?: string, computerType?: string) => Promise<void>;
   updateMediaServer: (id: string, updates: Partial<MediaServer>) => Promise<void>;
   deleteMediaServer: (id: string) => Promise<void>;
   
@@ -117,6 +117,7 @@ interface ProjectStoreState {
   addMediaServerLayer: (layer: MediaServerLayer) => void;
   updateMediaServerLayer: (id: string, updates: Partial<MediaServerLayer>) => void;
   deleteMediaServerLayer: (id: string) => void;
+  reorderMediaServerLayers: (orderedLayers: MediaServerLayer[]) => void;
   
   // IP Address CRUD
   addIPAddress: (ip: IPAddress) => void;
@@ -623,7 +624,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
                 });
                 
                 // Also update IndexedDB
-                await projectDB.projects.put(freshUpdatedProject);
+                await projectDB.updateProject(activeProjectId, freshUpdatedProject);
                 
                 console.log('✅ Force saved (overwrote conflicting fields)');
                 alert('✅ Your changes were saved (overwrote conflicting fields)');
@@ -693,7 +694,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
               });
               
               // Also update IndexedDB
-              await projectDB.projects.put(freshUpdatedProject);
+              await projectDB.updateProject(activeProjectId, freshUpdatedProject);
               
               console.log('✅ Force saved (overwrote other changes)');
               alert('✅ Your changes were saved (overwrote their changes)');
@@ -1481,7 +1482,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().recordChange('create', 'mediaServer', newServer.id, newServer);
   },
   
-  addMediaServerPair: async (platform: string, outputs: any[], note?: string) => {
+  addMediaServerPair: async (platform: string, outputs: any[], note?: string, computerType?: string) => {
     const { activeProject } = get();
     if (!activeProject) return;
     
@@ -1532,6 +1533,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         platform: mainServer.platform,
         outputs: mainServer.outputs,
         note: mainServer.note,
+        computerType,
         productionId: activeProject.production.id,
         userId,
         userName
@@ -1547,6 +1549,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         platform: backupServer.platform,
         outputs: backupServer.outputs,
         note: backupServer.note,
+        computerType,
         productionId: activeProject.production.id,
         userId,
         userName
@@ -1556,8 +1559,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       get().updateActiveProject({
         mediaServers: [
           ...activeProject.mediaServers.filter(s => s.id !== mainServer.id && s.id !== backupServer.id),
-          { ...mainServer, uuid: savedMainServer.uuid, version: savedMainServer.version },
-          { ...backupServer, uuid: savedBackupServer.uuid, version: savedBackupServer.version }
+          { ...mainServer, uuid: savedMainServer.uuid, version: savedMainServer.version, computerType },
+          { ...backupServer, uuid: savedBackupServer.uuid, version: savedBackupServer.version, computerType }
         ]
       });
       
@@ -1698,35 +1701,43 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   
   // ===== MEDIA SERVER LAYER CRUD =====
   addMediaServerLayer: (layer) => {
-    const { activeProject } = get();
-    if (!activeProject) return;
+    const { activeProject, activeProjectId } = get();
+    if (!activeProject || !activeProjectId) return;
     
     const newLayer = { ...layer, id: layer.id || uuidv4() };
-    get().updateActiveProject({
-      mediaServerLayers: [...(activeProject.mediaServerLayers || []), newLayer]
-    });
+    const updatedLayers = [...(activeProject.mediaServerLayers || []), newLayer];
+    get().updateActiveProject({ mediaServerLayers: updatedLayers });
     get().recordChange('create', 'mediaServerLayer', newLayer.id, newLayer);
+    // Persist to IndexedDB so layers survive page refresh
+    projectDB.updateProject(activeProjectId, { mediaServerLayers: updatedLayers }).catch(() => {});
     console.log('Media server layer added:', newLayer.id);
   },
   
   updateMediaServerLayer: (id, updates) => {
-    const { activeProject } = get();
-    if (!activeProject) return;
+    const { activeProject, activeProjectId } = get();
+    if (!activeProject || !activeProjectId) return;
     
-    get().updateActiveProject({
-      mediaServerLayers: (activeProject.mediaServerLayers || []).map(l => l.id === id ? { ...l, ...updates } : l)
-    });
+    const updatedLayers = (activeProject.mediaServerLayers || []).map(l => l.id === id ? { ...l, ...updates } : l);
+    get().updateActiveProject({ mediaServerLayers: updatedLayers });
     get().recordChange('update', 'mediaServerLayer', id, updates);
+    projectDB.updateProject(activeProjectId, { mediaServerLayers: updatedLayers }).catch(() => {});
   },
   
   deleteMediaServerLayer: (id) => {
-    const { activeProject } = get();
-    if (!activeProject) return;
+    const { activeProject, activeProjectId } = get();
+    if (!activeProject || !activeProjectId) return;
     
-    get().updateActiveProject({
-      mediaServerLayers: (activeProject.mediaServerLayers || []).filter(l => l.id !== id)
-    });
+    const updatedLayers = (activeProject.mediaServerLayers || []).filter(l => l.id !== id);
+    get().updateActiveProject({ mediaServerLayers: updatedLayers });
     get().recordChange('delete', 'mediaServerLayer', id, {});
+    projectDB.updateProject(activeProjectId, { mediaServerLayers: updatedLayers }).catch(() => {});
+  },
+
+  reorderMediaServerLayers: (orderedLayers) => {
+    const { activeProject, activeProjectId } = get();
+    if (!activeProject || !activeProjectId) return;
+    get().updateActiveProject({ mediaServerLayers: orderedLayers });
+    projectDB.updateProject(activeProjectId, { mediaServerLayers: orderedLayers }).catch(() => {});
   },
   
   // ===== IP ADDRESS CRUD =====

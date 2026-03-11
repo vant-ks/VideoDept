@@ -2,13 +2,57 @@
 <html>
 <head>
     <title>Clear Storage</title>
+    <style>body{font-family:sans-serif;padding:2rem;} li{margin:.25rem 0;}</style>
 </head>
 <body>
-    <h1>Storage Cleared</h1>
+    <h1>⏳ Clearing storage...</h1>
+    <ul id="log"></ul>
     <script>
-        localStorage.clear();
-        console.log('LocalStorage cleared');
-        setTimeout(() => window.location.href = '/', 1000);
+        const log = (msg) => {
+            const li = document.createElement('li');
+            li.textContent = msg;
+            document.getElementById('log').appendChild(li);
+        };
+
+        async function clearAll() {
+            // 1. Clear localStorage
+            localStorage.clear();
+            log('✅ localStorage cleared');
+
+            // 2. Clear sessionStorage
+            sessionStorage.clear();
+            log('✅ sessionStorage cleared');
+
+            // 3. Delete IndexedDB databases
+            // First: force-close any open connections by opening the DB and sending
+            // a versionchange event, so the delete doesn't get blocked.
+            const dbNames = ['VideoDeptDB'];
+            for (const name of dbNames) {
+                // Open the DB first so we can immediately close it, releasing any
+                // connection held by this page, then delete.
+                await new Promise((resolve) => {
+                    const openReq = indexedDB.open(name);
+                    openReq.onsuccess = () => { openReq.result.close(); resolve(); };
+                    openReq.onerror = () => resolve(); // DB may not exist yet
+                });
+
+                await new Promise((resolve) => {
+                    const req = indexedDB.deleteDatabase(name);
+                    req.onsuccess = () => { log(`✅ IndexedDB '${name}' deleted`); resolve(); };
+                    req.onerror   = () => { log(`⚠️ Could not delete IndexedDB '${name}'`); resolve(); };
+                    req.onblocked = () => {
+                        log(`🚨 IndexedDB '${name}' blocked — close ALL other ${name.includes('Video') ? 'app' : ''} tabs in this browser, then reload this page.`);
+                        document.querySelector('h1').textContent = '🚨 Blocked — close other tabs first';
+                        // Don't resolve — keep page alive so user reads the message
+                    };
+                });
+            }
+
+            document.querySelector('h1').textContent = '✅ Storage cleared — redirecting...';
+            setTimeout(() => window.location.href = '/', 1500);
+        }
+
+        clearAll();
     </script>
 </body>
 </html>

@@ -9,8 +9,8 @@ import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import type { MediaServer, MediaServerOutput, MediaServerLayer, Format } from '@/types';
-import { MEDIA_SERVER_PLATFORMS, OUTPUT_TYPES } from '@/types/mediaServer';
-import { IOPortsPanel } from '@/components/IOPortsPanel';
+import { MEDIA_SERVER_PLATFORMS } from '@/types/mediaServer';
+import { IOPortsPanel, formatLabel } from '@/components/IOPortsPanel';
 import type { DevicePortDraft } from '@/components/IOPortsPanel';
 import { FormatFormModal } from '@/components/FormatFormModal';
 
@@ -24,6 +24,12 @@ export default function MediaServers() {
   
   // Get production ID for WebSocket events
   const productionId = activeProject?.production?.id || oldStore.production?.id;
+
+  // Equipment specs — used in reveal panel to split direct vs expansion I/O
+  const _oldEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const _libEquipmentSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
+  const computerEquipment = (_libEquipmentSpecs.length > 0 ? _libEquipmentSpecs : _oldEquipmentSpecs)
+    .filter((spec: any) => spec.category === 'computer');
   
   // State declarations - MUST be before useProductionEvents to avoid initialization errors
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
@@ -36,6 +42,11 @@ export default function MediaServers() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isDragInProgress, setIsDragInProgress] = useState(false);
 
+  // ── Layer panel state ──────────────────────────────────────────────────
+  const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
+  const [draggedLayerIndex, setDraggedLayerIndex] = useState<number | null>(null);
+  const [dragOverLayerIndex, setDragOverLayerIndex] = useState<number | null>(null);
+
   // ── Reveal panel state ─────────────────────────────────────────────────
   const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
   const [pairCardPorts, setPairCardPorts] = useState<Record<string, DevicePortDraft[]>>({});
@@ -44,20 +55,20 @@ export default function MediaServers() {
 
   useEffect(() => {
     apiClient.get('/formats')
-      .then((res: any) => { if (Array.isArray(res.data)) setFormats(res.data); })
+      .then((res: any) => { if (Array.isArray(res)) setFormats(res); })
       .catch(() => {});
   }, []);
 
-  const togglePairReveal = useCallback(async (uuid: string) => {
-    setExpandedPairs(prev => {
-      const next = new Set(prev);
-      if (next.has(uuid)) { next.delete(uuid); } else { next.add(uuid); }
-      return next;
-    });
-    if (!pairCardPorts[uuid]) {
-      setPairCardPortsLoading(prev => new Set(prev).add(uuid));
-      try {
-        const ports = await apiClient.get<any[]>(`/device-ports/device/${uuid}`);
+  // Track which UUIDs we've already requested so the eager-load effect doesn't double-fetch
+  const requestedPortUuids = React.useRef<Set<string>>(new Set());
+
+  // Helper: fetch and cache device_ports for one server UUID
+  const fetchPortsForUuid = useCallback((uuid: string) => {
+    if (requestedPortUuids.current.has(uuid)) return;
+    requestedPortUuids.current.add(uuid);
+    setPairCardPortsLoading(prev => new Set(prev).add(uuid));
+    apiClient.get<any[]>(`/device-ports/device/${uuid}`)
+      .then((ports: any) => {
         setPairCardPorts(prev => ({
           ...prev,
           [uuid]: Array.isArray(ports)
@@ -72,13 +83,21 @@ export default function MediaServers() {
               }))
             : [],
         }));
-      } catch {
-        setPairCardPorts(prev => ({ ...prev, [uuid]: [] }));
-      } finally {
-        setPairCardPortsLoading(prev => { const s = new Set(prev); s.delete(uuid); return s; });
-      }
-    }
-  }, [pairCardPorts]);
+      })
+      .catch(() => { setPairCardPorts(prev => ({ ...prev, [uuid]: [] })); })
+      .finally(() => { setPairCardPortsLoading(prev => { const s = new Set(prev); s.delete(uuid); return s; }); });
+  }, []);
+
+  const togglePairReveal = useCallback(async (mainUuid: string, backupUuid?: string) => {
+    setExpandedPairs(prev => {
+      const next = new Set(prev);
+      if (next.has(mainUuid)) { next.delete(mainUuid); } else { next.add(mainUuid); }
+      return next;
+    });
+    // fetchPortsForUuid is idempotent — skips if already requested
+    fetchPortsForUuid(mainUuid);
+    if (backupUuid) fetchPortsForUuid(backupUuid);
+  }, [fetchPortsForUuid]);
   useProductionEvents({
     productionId,
     onEntityCreated: useCallback((event) => {
@@ -142,6 +161,7 @@ export default function MediaServers() {
   const addMediaServerLayer = activeProject ? projectStore.addMediaServerLayer : oldStore.addMediaServerLayer;
   const updateMediaServerLayer = activeProject ? projectStore.updateMediaServerLayer : oldStore.updateMediaServerLayer;
   const deleteMediaServerLayer = activeProject ? projectStore.deleteMediaServerLayer : oldStore.deleteMediaServerLayer;
+  const reorderMediaServerLayers = activeProject ? projectStore.reorderMediaServerLayers : null;
   
   // Group servers by pair
   const serverPairs = React.useMemo(() => {
@@ -162,6 +182,37 @@ export default function MediaServers() {
       .map(([_, pair]) => pair)
       .filter(pair => pair.main && pair.backup);
   }, [mediaServers]);
+
+  // Layer-eligible ports — expansion-only outputs when the server has expansion cards, otherwise all outputs
+  const layerEligiblePorts = React.useMemo(() => {
+    const result: Record<string, DevicePortDraft[]> = {};
+    serverPairs.forEach(pair => {
+      [pair.main, pair.backup].forEach(server => {
+        const uuid = (server as any).uuid as string | undefined;
+        if (!uuid) return;
+        const allPorts = pairCardPorts[uuid] ?? [];
+        const spec = computerEquipment.find((s: any) => s.model === (server as any).computerType);
+        const specCards: any[] = spec?.cards ?? [];
+        if (specCards.length > 0) {
+          const directCount = (spec?.inputs?.length ?? 0) + (spec?.outputs?.length ?? 0);
+          result[uuid] = allPorts.slice(directCount).filter(p => p.direction === 'OUTPUT');
+        } else {
+          result[uuid] = allPorts.filter(p => p.direction === 'OUTPUT');
+        }
+      });
+    });
+    return result;
+  }, [serverPairs, pairCardPorts, computerEquipment]);
+
+  // Eager-load ports for all pairs on mount / when pair list changes (needed for card count display)
+  useEffect(() => {
+    serverPairs.forEach(pair => {
+      const mainUuid   = (pair.main   as any).uuid as string | undefined;
+      const backupUuid = (pair.backup as any).uuid as string | undefined;
+      if (mainUuid)   fetchPortsForUuid(mainUuid);
+      if (backupUuid) fetchPortsForUuid(backupUuid);
+    });
+  }, [serverPairs, fetchPortsForUuid]);
 
   const handleAddServerPair = () => {
     setEditingServer(null);
@@ -400,14 +451,16 @@ export default function MediaServers() {
           ) : (
             <div className="space-y-4">
               {serverPairs.map((pair, index) => {
-                const mainUuid = (pair.main as any).uuid as string | undefined;
+                const mainUuid   = (pair.main   as any).uuid as string | undefined;
+                const backupUuid = (pair.backup as any).uuid as string | undefined;
                 const isExpanded = mainUuid ? expandedPairs.has(mainUuid) : false;
                 const isLoadingPorts = mainUuid ? pairCardPortsLoading.has(mainUuid) : false;
-                const revealPorts = mainUuid ? (pairCardPorts[mainUuid] ?? []) : [];
+                const revealPorts     = mainUuid  ? (pairCardPorts[mainUuid]  ?? []) : [];
+                const revealPortsBack = backupUuid ? (pairCardPorts[backupUuid] ?? []) : [];
                 return (
                 <Card 
                   key={pair.main.pairNumber} 
-                  className={`p-6 transition-all ${
+                  className={`p-6 transition-all select-none cursor-pointer ${
                     draggedIndex === index 
                       ? 'opacity-50 scale-95' 
                       : dragOverIndex === index 
@@ -419,14 +472,15 @@ export default function MediaServers() {
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
                   onDragLeave={handleDragLeave}
+                  onClick={() => { if (draggedIndex === null && mainUuid) togglePairReveal(mainUuid, backupUuid); }}
+                  onDoubleClick={(e) => { e.stopPropagation(); handleEditServer(pair.main); }}
                 >
                   {/* ── 30/30/30/10 collapsed card ─────────────────────────────── */}
                   <div
-                    className="grid gap-4 items-center cursor-pointer"
+                    className="grid gap-4 items-center"
                     style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
-                    onClick={() => { if (draggedIndex === null && mainUuid) togglePairReveal(mainUuid); }}
                   >
-                    {/* Col 1 (30%): grip + chevron + pair name + platform */}
+                    {/* Col 1 (30%): grip + chevron + pair name + platform (output count) */}
                     <div className="flex items-center gap-2 min-w-0">
                       <button
                         className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-accent transition-colors flex-shrink-0"
@@ -443,15 +497,22 @@ export default function MediaServers() {
                       <h3 className="text-lg font-semibold text-av-text truncate">
                         Server {index + 1}
                       </h3>
-                      <span className="text-sm text-av-text-muted flex-shrink-0">{pair.main.platform}</span>
+                      <span className="text-sm text-av-text-muted flex-shrink-0">
+                        {(() => {
+                          // Count named+format-assigned OUTPUT ports; fall back to outputs_data length for legacy records
+                          const ports = mainUuid ? pairCardPorts[mainUuid] : undefined;
+                          const count = ports !== undefined
+                            ? ports.filter(p => p.direction === 'OUTPUT' && p.portLabel?.trim() && p.formatUuid).length
+                            : pair.main.outputs.length;
+                          return pair.main.platform + (count > 0 ? ` (${count} output${count !== 1 ? 's' : ''})` : '');
+                        })()}
+                      </span>
                     </div>
 
-                    {/* Col 2 (30%): output count */}
+                    {/* Col 2 (30%): note */}
                     <div className="min-w-0">
-                      {pair.main.outputs.length > 0 ? (
-                        <span className="text-sm text-av-text-muted">
-                          {pair.main.outputs.length} output{pair.main.outputs.length !== 1 ? 's' : ''}
-                        </span>
+                      {pair.main.note ? (
+                        <span className="text-sm text-av-text-muted truncate block">{pair.main.note}</span>
                       ) : (
                         <span className="text-sm text-av-text-muted/40 italic">—</span>
                       )}
@@ -507,131 +568,189 @@ export default function MediaServers() {
                   </div>
 
                   {/* ── Reveal Panel ───────────────────────────────────────────────── */}
-                  {isExpanded && (
-                    <div className="mt-4 border-t border-av-border pt-4 space-y-4">
+                  {isExpanded && (() => {
+                    // Look up the equipment spec by the server's computerType field
+                    const specEntry = computerEquipment.find((s: any) => s.model === (pair.main as any).computerType);
+                    const specCards = specEntry?.cards ?? [];
+                    const sortedSpecCards = [...specCards].sort((a: any, b: any) => a.slotNumber - b.slotNumber);
+                    const directCount = (specEntry?.inputs?.length ?? 0) + (specEntry?.outputs?.length ?? 0);
 
-                      {/* Main and Backup Server subcards */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Main Server */}
-                        <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-semibold text-av-text">
-                              Server {index + 1} A
-                            </h4>
-                            <Badge variant="success">Main</Badge>
+                    // Split a flat port array into direct + per-slot card sections (positional)
+                    const splitPorts = (ports: DevicePortDraft[]) => {
+                      const direct = specCards.length > 0 ? ports.slice(0, directCount) : ports;
+                      const bySlot = new Map<number, DevicePortDraft[]>();
+                      if (specCards.length > 0) {
+                        let offset = directCount;
+                        for (const card of sortedSpecCards) {
+                          const count = (card.inputs?.length ?? 0) + (card.outputs?.length ?? 0);
+                          bySlot.set(card.slotNumber, ports.slice(offset, offset + count));
+                          offset += count;
+                        }
+                      }
+                      return { direct, bySlot };
+                    };
+
+                    // Render a port table (inputs first, then outputs)
+                    const renderPortTable = (ports: DevicePortDraft[], loading: boolean, emptyMsg: string) => {
+                      if (loading) return <p className="text-xs text-av-text-muted italic">Loading ports…</p>;
+                      if (ports.length === 0) return <p className="text-xs text-av-text-muted italic">{emptyMsg}</p>;
+                      const inputs  = ports.filter(p => p.direction === 'INPUT');
+                      const outputs = ports.filter(p => p.direction === 'OUTPUT');
+                      return (
+                        <table className="w-full text-xs table-fixed">
+                          <thead>
+                            <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-[10%]">Dir</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-[15%]">Type</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-[25%]">Label</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-[25%]">Format</th>
+                              <th className="text-left pb-1.5 font-semibold w-[25%]">Route</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-av-border/40">
+                            {[...inputs, ...outputs].map((port, i) => {
+                              const isOut = port.direction === 'OUTPUT';
+                              const fmt = port.formatUuid ? formats.find(f => f.uuid === port.formatUuid) : null;
+                              const fmtName = fmt ? fmt.id : '—';
+                              return (
+                                <tr key={i} className="hover:bg-av-surface-hover/40">
+                                  <td className="py-1.5 pr-2">
+                                    {isOut
+                                      ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                      : <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                    }
+                                  </td>
+                                  <td className="py-1.5 pr-2 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                  <td className="py-1.5 pr-2 text-av-text truncate">{port.portLabel || <span className="text-av-text-muted/50 italic">unlabelled</span>}</td>
+                                  <td className="py-1.5 pr-2 text-av-info truncate">{isOut ? fmtName : <span className="text-av-text-muted">—</span>}</td>
+                                  <td className="py-1.5 text-av-text-muted truncate">{port.note || '—'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    };
+
+                    // Render Direct I/O + per-slot Expansion I/O for one server subcard
+                    const renderServerPorts = (ports: DevicePortDraft[], loading: boolean, emptyMsg: string) => {
+                      if (loading) return <p className="text-xs text-av-text-muted italic">Loading ports…</p>;
+                      if (ports.length === 0 && specCards.length === 0)
+                        return <p className="text-xs text-av-text-muted italic">{emptyMsg}</p>;
+
+                      const { direct, bySlot } = splitPorts(ports);
+                      return (
+                        <div className="space-y-3">
+                          {/* Direct I/O */}
+                          <div>
+                            {specCards.length > 0 && (
+                              <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">Direct I/O</p>
+                            )}
+                            {direct.length === 0 && ports.length === 0
+                              ? <p className="text-xs text-av-text-muted italic">{emptyMsg}</p>
+                              : <div className="px-2">{renderPortTable(direct, false, emptyMsg)}</div>
+                            }
                           </div>
-                          {pair.main.outputs.length > 0 ? (
-                            <div className="space-y-1">
-                              {pair.main.outputs.map((output, idx) => (
-                                <div key={`${pair.main.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between gap-2">
-                                  <span className="text-av-text truncate">{output.name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '')}{output.role ? ` — ${output.role}` : ''}</span>
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    {output.resolution && (
-                                      <span className="text-av-text-muted">{output.resolution.width}×{output.resolution.height}{output.frameRate ? ` @ ${output.frameRate}p` : ''}</span>
-                                    )}
-                                    <Badge>{output.type}</Badge>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-av-text-muted italic">No outputs configured</p>
-                          )}
-                        </div>
 
-                        {/* Backup Server */}
-                        <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-semibold text-av-text">
-                              Server {index + 1} B
-                            </h4>
-                            <Badge variant="warning">Backup</Badge>
-                          </div>
-                          {pair.backup.outputs.length > 0 ? (
-                            <div className="space-y-1">
-                              {pair.backup.outputs.map((output, idx) => (
-                                <div key={`${pair.backup.id}-${output.id}-${idx}`} className="text-xs bg-av-surface px-2 py-1 rounded flex items-center justify-between gap-2">
-                                  <span className="text-av-text truncate">{output.name.replace(/\s+[AB]\s*(\([^)]*\))?$/, '')}{output.role ? ` — ${output.role}` : ''}</span>
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    {output.resolution && (
-                                      <span className="text-av-text-muted">{output.resolution.width}×{output.resolution.height}{output.frameRate ? ` @ ${output.frameRate}p` : ''}</span>
-                                    )}
-                                    <Badge>{output.type}</Badge>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-av-text-muted italic">No outputs configured</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {pair.main.note && (
-                        <div className="border-t border-av-border pt-3">
-                          <p className="text-sm text-av-text-muted">
-                            <span className="font-medium">Note:</span> {pair.main.note}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* I/O Ports table */}
-                      {isLoadingPorts ? (
-                        <p className="text-xs text-av-text-muted italic">Loading ports…</p>
-                      ) : revealPorts.length === 0 ? (
-                        <p className="text-xs text-av-text-muted italic">
-                          No ports configured. Open Edit to assign ports.
-                        </p>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
-                                <th className="text-left pb-1.5 pr-3 font-semibold w-16">Dir</th>
-                                <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
-                                <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
-                                <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
-                                <th className="text-left pb-1.5 font-semibold">Route / Note</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-av-border/40">
-                              {revealPorts
-                                .filter(p => p.direction === 'INPUT')
-                                .map((port, i) => (
-                                  <tr key={`in-${i}`} className="hover:bg-av-surface-hover/40">
-                                    <td className="py-1.5 pr-3">
-                                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
-                                    </td>
-                                    <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
-                                    <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
-                                    <td className="py-1.5 pr-3 text-av-text-muted">—</td>
-                                    <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
-                                  </tr>
-                                ))}
-                              {revealPorts
-                                .filter(p => p.direction === 'OUTPUT')
-                                .map((port, i) => {
-                                  const fmtName = port.formatUuid
-                                    ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
-                                    : '—';
+                          {/* Expansion I/O — per slot */}
+                          {sortedSpecCards.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">
+                                Expansion I/O — {sortedSpecCards.length} card{sortedSpecCards.length !== 1 ? 's' : ''}
+                              </p>
+                              <div className="space-y-2">
+                                {sortedSpecCards.map((card: any, ci: number) => {
+                                  const savedPorts = bySlot.get(card.slotNumber) ?? [];
+                                  const specInputs: any[] = card.inputs ?? [];
+                                  const specOutputs: any[] = card.outputs ?? [];
                                   return (
-                                    <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
-                                      <td className="py-1.5 pr-3">
-                                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
-                                      </td>
-                                      <td className="py-1.5 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
-                                      <td className="py-1.5 pr-3 text-av-text">{port.portLabel}</td>
-                                      <td className="py-1.5 pr-3 text-av-info">{fmtName}</td>
-                                      <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
-                                    </tr>
+                                    <div key={card.id ?? card.slotNumber} className="border border-av-border rounded-md p-2">
+                                      <p className="text-xs font-medium text-av-text mb-1.5">Card {card.slotNumber}</p>
+                                      {savedPorts.length > 0
+                                        ? renderPortTable(savedPorts, false, '')
+                                        : (
+                                          <table className="w-full text-xs table-fixed">
+                                            <thead>
+                                              <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-[10%]">Dir</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-[15%]">Type</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-[25%]">Label</th>
+                                                <th className="text-left pb-1.5 pr-2 font-semibold w-[25%]">Format</th>
+                                                <th className="text-left pb-1.5 font-semibold w-[25%]">Route</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-av-border/40">
+                                              {specInputs.map((p: any, pi: number) => (
+                                                <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
+                                                  <td className="py-1 pr-2"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span></td>
+                                                  <td className="py-1 pr-2 font-mono text-av-text-muted truncate">{p.type}</td>
+                                                  <td className="py-1 pr-2 text-av-text truncate">{p.label || p.id}</td>
+                                                  <td className="py-1 pr-2 text-av-text-muted">—</td>
+                                                  <td className="py-1 text-av-text-muted">—</td>
+                                                </tr>
+                                              ))}
+                                              {specOutputs.map((p: any, pi: number) => (
+                                                <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
+                                                  <td className="py-1 pr-2"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span></td>
+                                                  <td className="py-1 pr-2 font-mono text-av-text-muted truncate">{p.type}</td>
+                                                  <td className="py-1 pr-2 text-av-text truncate">{p.label || p.id}</td>
+                                                  <td className="py-1 pr-2 text-av-text-muted">—</td>
+                                                  <td className="py-1 text-av-text-muted">—</td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        )
+                                      }
+                                    </div>
                                   );
                                 })}
-                            </tbody>
-                          </table>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )}
+                      );
+                    };
+
+                    const isLoadingA = mainUuid   ? pairCardPortsLoading.has(mainUuid)   : false;
+                    const isLoadingB = backupUuid ? pairCardPortsLoading.has(backupUuid) : false;
+
+                    return (
+                      <div className="mt-4 border-t border-av-border pt-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Server A */}
+                          <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-semibold text-av-text">Server {index + 1} A</h4>
+                              <Badge variant="success">Main</Badge>
+                            </div>
+                            <div className="overflow-x-auto">
+                              {renderServerPorts(revealPorts, isLoadingA, 'No ports configured. Open Edit to assign ports.')}
+                            </div>
+                          </div>
+
+                          {/* Server B */}
+                          <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-semibold text-av-text">Server {index + 1} B</h4>
+                              <Badge variant="warning">Backup</Badge>
+                            </div>
+                            <div className="overflow-x-auto">
+                              {renderServerPorts(revealPortsBack, isLoadingB, 'No ports configured.')}
+                            </div>
+                          </div>
+                        </div>
+
+                        {pair.main.note && (
+                          <div className="border-t border-av-border pt-3">
+                            <p className="text-sm text-av-text-muted">
+                              <span className="font-medium">Note:</span> {pair.main.note}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </Card>
                 );
               })}
@@ -654,56 +773,166 @@ export default function MediaServers() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {mediaServerLayers.map((layer) => (
-                <Card key={layer.id} className="p-6 hover:border-av-accent/30 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Layers className="w-5 h-5 text-av-accent" />
-                        <h3 className="text-lg font-semibold text-av-text">{layer.name}</h3>
-                      </div>
-                      <p className="text-sm text-av-text-muted mb-3">{layer.content}</p>
-                      
-                      {layer.outputAssignments.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-av-text-muted mb-2">
-                            Assigned to {layer.outputAssignments.length} output{layer.outputAssignments.length !== 1 ? 's' : ''}
-                            {layer.outputAssignments.length > 1 && ' (spanning)'}:
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {layer.outputAssignments.map((assignment: any) => {
-                              const server = mediaServers.find((s: any) => s.id === assignment.serverId);
-                              const output = server?.outputs.find((o: any) => o.id === assignment.outputId);
-                              return (
-                                <span key={`${assignment.serverId}-${assignment.outputId}`} className="text-xs bg-av-surface-light px-3 py-1.5 rounded border border-av-border">
-                                  {server?.name} → {output?.name || assignment.outputId}
-                                </span>
-                              );
-                            })}
-                          </div>
+              {mediaServerLayers.map((layer, layerIndex) => {
+                const isExpanded = expandedLayers.has(layer.id);
+
+                // Group assignments by server pair; A side = label lookup, B side = mirror of A
+                const groupedAssignments = (() => {
+                  const map: Record<number, { pairNumber: number; mainPorts: string[]; hasMirror: boolean }> = {};
+                  layer.outputAssignments.forEach((assignment: any) => {
+                    const server = mediaServers.find((s: any) => s.id === assignment.serverId);
+                    if (!server) return;
+                    const pairNum = (server as any).pairNumber;
+                    if (!map[pairNum]) map[pairNum] = { pairNumber: pairNum, mainPorts: [], hasMirror: false };
+                    if (!(server as any).isBackup) {
+                      const uuid = (server as any).uuid as string | undefined;
+                      const port = uuid ? pairCardPorts[uuid]?.find((p: any) => p.uuid === assignment.outputId) : null;
+                      map[pairNum].mainPorts.push(port?.portLabel || port?.ioType || assignment.outputId);
+                    } else {
+                      map[pairNum].hasMirror = true;
+                    }
+                  });
+                  return Object.values(map).sort((a, b) => a.pairNumber - b.pairNumber);
+                })();
+
+                const totalOutputCount = groupedAssignments.reduce((n, g) => n + g.mainPorts.length, 0);
+
+                return (
+                  <Card
+                    key={layer.id}
+                    className={`p-4 select-none cursor-pointer transition-all ${
+                      draggedLayerIndex === layerIndex
+                        ? 'opacity-50 scale-95'
+                        : dragOverLayerIndex === layerIndex
+                        ? 'border-av-accent border-2'
+                        : 'hover:border-av-accent/30'
+                    }`}
+                    draggable
+                    onDragStart={() => setDraggedLayerIndex(layerIndex)}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverLayerIndex(layerIndex); }}
+                    onDragEnd={() => {
+                      if (draggedLayerIndex !== null && dragOverLayerIndex !== null && draggedLayerIndex !== dragOverLayerIndex) {
+                        const next = [...mediaServerLayers];
+                        const [moved] = next.splice(draggedLayerIndex, 1);
+                        next.splice(dragOverLayerIndex, 0, moved);
+                        reorderMediaServerLayers?.(next);
+                      }
+                      setDraggedLayerIndex(null);
+                      setDragOverLayerIndex(null);
+                    }}
+                    onDragLeave={() => setDragOverLayerIndex(null)}
+                    onClick={() => setExpandedLayers(prev => {
+                      const next = new Set(prev);
+                      next.has(layer.id) ? next.delete(layer.id) : next.add(layer.id);
+                      return next;
+                    })}
+                  >
+                    {/* ── Collapsed row ─────────────────────────────────────── */}
+                    <div className="grid gap-4 items-center" style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}>
+                      {/* Col 1: grip + chevron + name */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <button
+                          className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-accent flex-shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <GripVertical className="w-5 h-5" />
+                        </button>
+                        {isExpanded
+                          ? <ChevronUp className="w-4 h-4 text-av-accent flex-shrink-0" />
+                          : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
+                        }
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Layers className="w-4 h-4 text-av-accent flex-shrink-0" />
+                          <span className="font-semibold text-av-text truncate">{layer.name}</span>
                         </div>
-                      )}
+                      </div>
+
+                      {/* Col 2: content description */}
+                      <div className="min-w-0">
+                        {layer.content
+                          ? <span className="text-sm text-av-text-muted truncate block">{layer.content}</span>
+                          : <span className="text-sm text-av-text-muted/40 italic">—</span>
+                        }
+                      </div>
+
+                      {/* Col 3: output / pair summary */}
+                      <div className="min-w-0">
+                        {groupedAssignments.length > 0 ? (
+                          <span className="text-sm text-av-text-muted">
+                            {totalOutputCount} output{totalOutputCount !== 1 ? 's' : ''}
+                            {groupedAssignments.length > 1 ? ` (${groupedAssignments.length} pairs)` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-av-text-muted/40 italic">—</span>
+                        )}
+                      </div>
+
+                      {/* Col 4: actions */}
+                      <div className="flex items-center justify-end gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleEditLayer(layer)}
+                          className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteLayer(layer.id)}
+                          className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    
-                    <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => handleEditLayer(layer)}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteLayer(layer.id)}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+
+                    {/* ── Expanded panel: A/B split per server pair ─────────── */}
+                    {isExpanded && groupedAssignments.length > 0 && (
+                      <div className="mt-4 border-t border-av-border pt-4 space-y-4">
+                        {groupedAssignments.map(group => (
+                          <div key={group.pairNumber}>
+                            <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-2">
+                              Server {group.pairNumber}
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {/* A — Main */}
+                              <div className="bg-av-surface-light p-3 rounded-md border border-av-border">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-xs font-semibold text-av-text">Server {group.pairNumber} A</p>
+                                  <Badge variant="success">Main</Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {group.mainPorts.map((label, i) => (
+                                    <span key={i} className="text-xs bg-av-surface px-2 py-1 rounded border border-av-border">
+                                      {label}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              {/* B — Backup (mirrored) */}
+                              {group.hasMirror && (
+                                <div className="bg-av-surface-light p-3 rounded-md border border-av-border">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <p className="text-xs font-semibold text-av-text">Server {group.pairNumber} B</p>
+                                    <Badge variant="warning">Backup</Badge>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {group.mainPorts.map((label, i) => (
+                                      <span key={i} className="text-xs bg-av-surface px-2 py-1 rounded border border-av-border text-av-text-muted">
+                                        {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </>
@@ -734,25 +963,34 @@ export default function MediaServers() {
                 {/* Output Headers - Server Columns */}
                 <div className="overflow-x-auto">
                   <div className="min-w-max">
-                    {/* Header Row - Only Main Servers */}
+                    {/* Header Row - Only Main Servers (use device_ports OUTPUTs as columns) */}
                     <div className="flex gap-2 mb-4">
                       <div className="w-48 flex-shrink-0" />
-                      {serverPairs.map((pair) => (
-                        <React.Fragment key={pair.main.pairNumber}>
-                          {/* Main Server Outputs Only */}
-                          {pair.main.outputs.map((output) => (
-                            <div key={output.id} className="w-32 flex-shrink-0">
-                              <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center">
-                                <div className="text-xs font-semibold text-av-text truncate">
-                                  Server {pair.main.pairNumber}
+                      {serverPairs.map((pair) => {
+                        const mainUuid = (pair.main as any).uuid as string | undefined;
+                        const outputPorts = (mainUuid ? (pairCardPorts[mainUuid] ?? []) : [])
+                          .filter((p: DevicePortDraft) => p.direction === 'OUTPUT');
+                        return (
+                          <React.Fragment key={pair.main.pairNumber}>
+                            {outputPorts.length === 0 ? (
+                              <div className="w-32 flex-shrink-0">
+                                <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center">
+                                  <div className="text-xs font-semibold text-av-text truncate">Server {pair.main.pairNumber}</div>
+                                  <div className="text-xs text-av-text-muted italic mt-1">no outputs</div>
                                 </div>
-                                <div className="text-xs text-av-text-muted truncate mt-1">{output.name}</div>
-                                <Badge className="mt-1 text-xs">{output.type}</Badge>
                               </div>
-                            </div>
-                          ))}
-                        </React.Fragment>
-                      ))}
+                            ) : outputPorts.map((port: DevicePortDraft) => (
+                              <div key={port.uuid || port.portLabel} className="w-32 flex-shrink-0">
+                                <div className="bg-av-surface-light border border-av-border rounded-md p-2 text-center">
+                                  <div className="text-xs font-semibold text-av-text truncate">Server {pair.main.pairNumber}</div>
+                                  <div className="text-xs text-av-text-muted truncate mt-1">{port.portLabel || port.ioType}</div>
+                                  <Badge className="mt-1 text-xs">{port.ioType}</Badge>
+                                </div>
+                              </div>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
 
                     {/* Layer Rows */}
@@ -773,37 +1011,41 @@ export default function MediaServers() {
                               <div className="text-xs text-av-text-muted truncate mt-1">{layer.content}</div>
                             </div>
 
-                            {/* Output Assignment Cells - Only Main Servers */}
-                            {serverPairs.map((pair) => (
-                              <React.Fragment key={pair.main.pairNumber}>
-                                {/* Main Server Output Cells Only */}
-                                {pair.main.outputs.map((output) => {
-                                  const isAssigned = layer.outputAssignments.some(
-                                    a => a.serverId === pair.main.id && a.outputId === output.id
-                                  );
-                                  return (
-                                    <div 
-                                      key={output.id} 
-                                      className="w-32 flex-shrink-0 flex items-center justify-center"
-                                    >
-                                      {isAssigned ? (
-                                        <div 
-                                          className="w-full h-16 bg-gradient-to-br from-av-accent/20 to-av-accent/40 border-2 border-av-accent rounded-md flex items-center justify-center"
-                                          style={{
-                                            backgroundColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%, 0.2)`,
-                                            borderColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%)`
-                                          }}
-                                        >
-                                          <Layers className="w-6 h-6" style={{ color: `hsl(${(layerIndex * 137.5) % 360}, 70%, 40%)` }} />
-                                        </div>
-                                      ) : (
-                                        <div className="w-full h-16 bg-av-surface border border-av-border/30 rounded-md" />
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </React.Fragment>
-                            ))}
+                            {/* Output Assignment Cells - Only Main Servers (device_ports OUTPUTs) */}
+                            {serverPairs.map((pair) => {
+                              const mainUuid = (pair.main as any).uuid as string | undefined;
+                              const outputPorts = (mainUuid ? (pairCardPorts[mainUuid] ?? []) : [])
+                                .filter((p: DevicePortDraft) => p.direction === 'OUTPUT');
+                              return (
+                                <React.Fragment key={pair.main.pairNumber}>
+                                  {outputPorts.map((port: DevicePortDraft) => {
+                                    const isAssigned = layer.outputAssignments.some(
+                                      a => a.serverId === pair.main.id && a.outputId === port.uuid
+                                    );
+                                    return (
+                                      <div
+                                        key={port.uuid || port.portLabel}
+                                        className="w-32 flex-shrink-0 flex items-center justify-center"
+                                      >
+                                        {isAssigned ? (
+                                          <div
+                                            className="w-full h-16 bg-gradient-to-br from-av-accent/20 to-av-accent/40 border-2 border-av-accent rounded-md flex items-center justify-center"
+                                            style={{
+                                              backgroundColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%, 0.2)`,
+                                              borderColor: `hsl(${(layerIndex * 137.5) % 360}, 70%, 50%)`
+                                            }}
+                                          >
+                                            <Layers className="w-6 h-6" style={{ color: `hsl(${(layerIndex * 137.5) % 360}, 70%, 40%)` }} />
+                                          </div>
+                                        ) : (
+                                          <div className="w-full h-16 bg-av-surface border border-av-border/30 rounded-md" />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </React.Fragment>
+                              );
+                            })}
                           </div>
                         ))}
                       </div>
@@ -851,64 +1093,74 @@ export default function MediaServers() {
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSave={(platform, outputs, note, computerType) => {
+          onSave={(platform, note, computerType, ports) => {
             if (editingServer && !isDuplicating) {
-              // Update both main and backup
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
-                // The outputs array from modal already has " A (Role)" format
-                // We need to create a " B (Role)" version for the backup server
-                const outputsWithB = outputs.map((o, i) => ({
-                  ...o,
-                  id: `${pair.backup.id}-OUT${i + 1}`, // Generate unique ID for backup outputs
-                  name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B') // Replace " A" with " B", keep role with space
-                }));
                 const serverName = `Server ${pair.main.pairNumber}`;
-                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
-                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note, computerType });
+                // Immediately update pairCardPorts so reveal panel reflects changes without a refresh
+                if (ports && ports.length > 0) {
+                  const mainUuid   = (pair.main   as any).uuid as string | undefined;
+                  const backupUuid = (pair.backup as any).uuid as string | undefined;
+                  setPairCardPorts(prev => ({
+                    ...prev,
+                    ...(mainUuid   ? { [mainUuid]:   ports } : {}),
+                    ...(backupUuid ? { [backupUuid]: ports } : {}),
+                  }));
+                }
+                Promise.all([
+                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs: [], note, computerType }),
+                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: [], note, computerType }),
+                ]).then(() => {
+                  if (activeProject) projectStore.loadProject(activeProject.id);
+                }).catch(() => {});
               }
             } else {
-              addMediaServerPair(platform, outputs, note, computerType);
+              addMediaServerPair(platform, [], note, computerType);
             }
             setIsServerModalOpen(false);
             setEditingServer(null);
             setIsDuplicating(false);
           }}
-          onSaveAndDuplicate={(platform, outputs, note, computerType) => {
-            // Save current pair first
+          onSaveAndDuplicate={(platform, note, computerType, ports) => {
             if (editingServer && !isDuplicating) {
-              // Update both main and backup
               const pair = serverPairs.find(p => p.main.pairNumber === editingServer.pairNumber);
               if (pair) {
-                const outputsWithB = outputs.map((o, i) => ({
-                  ...o,
-                  id: `${pair.backup.id}-OUT${i + 1}`,
-                  name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B')
-                }));
                 const serverName = `Server ${pair.main.pairNumber}`;
-                updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs, note, computerType });
-                updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: outputsWithB, note, computerType });
+                if (ports && ports.length > 0) {
+                  const mainUuid   = (pair.main   as any).uuid as string | undefined;
+                  const backupUuid = (pair.backup as any).uuid as string | undefined;
+                  setPairCardPorts(prev => ({
+                    ...prev,
+                    ...(mainUuid   ? { [mainUuid]:   ports } : {}),
+                    ...(backupUuid ? { [backupUuid]: ports } : {}),
+                  }));
+                }
+                Promise.all([
+                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs: [], note, computerType }),
+                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: [], note, computerType }),
+                ]).then(() => {
+                  if (activeProject) projectStore.loadProject(activeProject.id);
+                }).catch(() => {});
               }
             } else {
-              addMediaServerPair(platform, outputs, note, computerType);
+              addMediaServerPair(platform, [], note, computerType);
             }
-            
-            // Prepare duplicate: create new pair with next number
             const nextPairNum = serverPairs.length + 1;
             setEditingServer({
               id: `Server${nextPairNum}A`,
               name: `Server ${nextPairNum} A`,
               pairNumber: nextPairNum,
               platform,
-              outputs: [], // Reset outputs for new pair
+              outputs: [],
               note: note || '',
               type: 'SERVER',
               category: 'SOURCE'
             } as MediaServer);
             setIsDuplicating(true);
-            // Keep modal open
           }}
           editingServer={editingServer}
+          backupServer={serverPairs.find(p => p.main.pairNumber === editingServer?.pairNumber)?.backup ?? null}
           isDuplicating={isDuplicating}
         />
       )}
@@ -936,6 +1188,7 @@ export default function MediaServers() {
           }}
           editingLayer={editingLayer}
           availableServers={mediaServers}
+          serverPorts={layerEligiblePorts}
         />
       )}
     </div>
@@ -946,15 +1199,16 @@ export default function MediaServers() {
 interface ServerPairModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (platform: string, outputs: MediaServerOutput[], note?: string, computerType?: string) => void;
-  onSaveAndDuplicate?: (platform: string, outputs: MediaServerOutput[], note?: string, computerType?: string) => void;
+  onSave: (platform: string, note?: string, computerType?: string, ports?: DevicePortDraft[]) => void;
+  onSaveAndDuplicate?: (platform: string, note?: string, computerType?: string, ports?: DevicePortDraft[]) => void;
   editingServer: MediaServer | null;
+  backupServer?: MediaServer | null;
   isDuplicating?: boolean;
   nextPairNumber?: number;
   productionId?: string;
 }
 
-function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingServer, isDuplicating, nextPairNumber, productionId }: ServerPairModalProps) {
+function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingServer, backupServer, isDuplicating, nextPairNumber, productionId }: ServerPairModalProps) {
   // Use the pairNumber passed from parent (which uses the same logic as main page display)
   // or fall back to the editingServer's pairNumber
   const pairNumber = editingServer?.pairNumber || nextPairNumber || 1;
@@ -962,35 +1216,11 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   const oldStoreEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
   const equipmentLibSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
   const equipmentSpecs = equipmentLibSpecs.length > 0 ? equipmentLibSpecs : oldStoreEquipmentSpecs;
-  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'COMPUTER');
+  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'computer');
   
   const [platform, setPlatform] = useState(editingServer?.platform || MEDIA_SERVER_PLATFORMS[0]);
   const [computerType, setComputerType] = useState(editingServer?.computerType || '');
-  const [outputs, setOutputs] = useState<Omit<MediaServerOutput, 'id'>[]>(() => {
-    if (editingServer?.outputs) {
-      // Strip A/B suffix and (Role) from output names when loading for editing
-      return editingServer.outputs.map(o => {
-        const nameWithoutSuffix = o.name.replace(/\s+[AB]\s*\([^)]*\)$/, '') || o.name.replace(/\s+[AB]$/, '');
-        return {
-          name: nameWithoutSuffix,
-          role: o.role,
-          type: o.type, 
-          resolution: o.resolution, 
-          frameRate: o.frameRate 
-        };
-      });
-    }
-    // Default: 1 DP output for new server pairs
-    return [{
-      name: 'MEDIA 1',
-      role: '',
-      type: 'DP',
-      resolution: { width: 1920, height: 1080 },
-      frameRate: 59.94
-    }];
-  });
   const [note, setNote] = useState(editingServer?.note || '');
-  const [customResolutions, setCustomResolutions] = useState<Record<number, boolean>>({});
 
   // device_ports state — tracks signal routing per port
   const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
@@ -1000,7 +1230,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   useEffect(() => {
     if (!isOpen) return;
     apiClient.get('/formats')
-      .then((res: any) => { if (Array.isArray(res.data)) setFormats(res.data); })
+      .then((res: any) => { if (Array.isArray(res)) setFormats(res); })
       .catch(() => {});
   }, [isOpen]);
 
@@ -1012,121 +1242,101 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
       setPortsLoading(true);
       apiClient.get(`/device-ports/device/${mainServer.uuid}`)
         .then((res: any) => {
-          if (Array.isArray(res.data)) {
-            setDevicePorts(res.data.map((p: any) => ({
-              uuid: p.uuid,
-              specPortUuid: p.specPortUuid,
-              portLabel: p.portLabel,
-              ioType: p.ioType,
-              direction: p.direction,
-              formatUuid: p.formatUuid,
-              note: p.note,
-            })));
-          } else {
-            setDevicePorts([]);
+          const ports: any[] = Array.isArray(res) ? res : [];
+          if (ports.length > 0) {
+            const spec = computerEquipment.find(s => s.model === computerType);
+            const directCount = (spec?.inputs?.length || 0) + (spec?.outputs?.length || 0);
+            const sortedCards = [...(spec?.cards || [])].sort((a: any, b: any) => a.slotNumber - b.slotNumber);
+            let offset = directCount;
+            const cardRanges: Array<{ slotNumber: number; start: number; end: number }> = [];
+            for (const card of sortedCards) {
+              const count = (card.inputs?.length || 0) + (card.outputs?.length || 0);
+              cardRanges.push({ slotNumber: card.slotNumber, start: offset, end: offset + count });
+              offset += count;
+            }
+            setDevicePorts(ports.map((p: any, i: number) => {
+              const range = cardRanges.find(r => i >= r.start && i < r.end);
+              return {
+                uuid: p.uuid,
+                specPortUuid: p.specPortUuid,
+                portLabel: p.portLabel,
+                ioType: p.ioType,
+                direction: p.direction,
+                formatUuid: p.formatUuid,
+                note: p.note,
+                ...(range ? { cardSlot: range.slotNumber } : {}),
+              };
+            }));
           }
+          // If DB returned empty, leave devicePorts alone — spec auto-populate handles it
         })
-        .catch(() => setDevicePorts([]))
+        .catch(() => {})
         .finally(() => setPortsLoading(false));
     } else {
       setDevicePorts([]);
     }
   }, [isOpen, editingServer?.uuid]);
   
-  // Helper functions for A/B suffix handling
-  const stripABSuffix = (name: string): string => {
-    return name.replace(/\s+[AB]$/, '');
-  };
-  
-  const appendASuffix = (name: string): string => {
-    // If name already has A or B, strip it first
-    const stripped = stripABSuffix(name);
-    return `${stripped} A`;
-  };
+  // ── Auto-populate device_ports from equipment spec ─────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!computerType) return;
+    const spec = computerEquipment.find(s => s.model === computerType);
+    if (!spec) return;
+    const specPortLabel = (p: any): string => {
+      const label = p.label || '';
+      const isGeneric = label === 'Input' || label === 'Output';
+      return (!isGeneric && label) ? label : (p.type || p.id || '');
+    };
+    const mapDirect = (p: any, dir: 'INPUT' | 'OUTPUT'): DevicePortDraft =>
+      ({ portLabel: specPortLabel(p), ioType: p.type, direction: dir, formatUuid: null, note: null });
+    const mapCard = (p: any, dir: 'INPUT' | 'OUTPUT', slotNumber: number): DevicePortDraft =>
+      ({ portLabel: specPortLabel(p), ioType: p.type, direction: dir, formatUuid: null, note: null, cardSlot: slotNumber });
+    const specPorts: DevicePortDraft[] = [
+      ...(spec.inputs  ?? []).map(p => mapDirect(p, 'INPUT')),
+      ...(spec.outputs ?? []).map(p => mapDirect(p, 'OUTPUT')),
+      ...[...(spec.cards ?? [])].sort((a, b) => a.slotNumber - b.slotNumber).flatMap(card => [
+        ...(card.inputs  ?? []).map(p => mapCard(p, 'INPUT',  card.slotNumber)),
+        ...(card.outputs ?? []).map(p => mapCard(p, 'OUTPUT', card.slotNumber)),
+      ]),
+    ];
+    if (specPorts.length === 0) return;
+    setDevicePorts(prev => prev.length > 0 ? prev : specPorts);
+  }, [isOpen, computerType, computerEquipment]);
 
-  // Common resolutions
-  const COMMON_RESOLUTIONS = [
-    { label: '1920x1080 (HD)', width: 1920, height: 1080 },
-    { label: '1920x1200 (WUXGA)', width: 1920, height: 1200 },
-    { label: '2560x1440 (QHD)', width: 2560, height: 1440 },
-    { label: '3840x2160 (4K UHD)', width: 3840, height: 2160 },
-    { label: '4096x2160 (DCI 4K)', width: 4096, height: 2160 },
-    { label: '7680x4320 (8K)', width: 7680, height: 4320 },
-    { label: 'Custom', width: 0, height: 0 }
-  ];
-  
-  // Common frame rates
-  const COMMON_FRAME_RATES = [
-    { label: '23.976', value: 23.976 },
-    { label: '24', value: 24 },
-    { label: '25', value: 25 },
-    { label: '29.97', value: 29.97 },
-    { label: '30', value: 30 },
-    { label: '50', value: 50 },
-    { label: '59.94', value: 59.94 },
-    { label: '60', value: 60 },
-    { label: '120', value: 120 }
-  ];
+  // ── Output handlers removed ────────────────────────────────────────────
+  // Outputs section replaced by IOPortsPanel / device_ports (see below).
 
-  const handleAddOutput = () => {
-    if (outputs.length >= 8) {
-      alert('Maximum 8 outputs per server');
-      return;
-    }
-    const outputNum = outputs.length + 1;
-    setOutputs([...outputs, { 
-      name: `MEDIA ${outputNum}`,
-      role: '',
-      type: 'DP',
-      resolution: { width: 1920, height: 1080 },
-      frameRate: 59.94
-    }]);
-  };
-
-  const handleRemoveOutput = (index: number) => {
-    setOutputs(outputs.filter((_, i) => i !== index));
-  };
-  
-  const handleDuplicateOutput = (index: number) => {
-    if (outputs.length >= 8) {
-      alert('Maximum 8 outputs per server');
-      return;
-    }
-    const outputToDuplicate = outputs[index];
-    const outputNum = outputs.length + 1;
-    setOutputs([...outputs, { 
-      ...outputToDuplicate,
-      name: `MEDIA ${outputNum}`
-    }]);
-  };
-
-  const handleUpdateOutput = (index: number, updates: Partial<Omit<MediaServerOutput, 'id'>>) => {
-    setOutputs(outputs.map((o, i) => i === index ? { ...o, ...updates } : o));
-  };
+  // ── Common resolutions / frame rates removed ───────────────────────────
+  // Format selection is now handled by IOPortsPanel via the formats table.
 
   const handleSubmit = (e: React.FormEvent, action: 'close' | 'duplicate' = 'close') => {
     e.preventDefault();
-    // Format outputs with A/B suffix and role in parentheses
-    const outputsWithFormatting = outputs.map((o) => ({
-      ...o,
-      name: o.role ? `${o.name} A (${o.role})` : `${o.name} A`
-    }));
 
-    // Sync device_ports for main server if we have its uuid (edit case)
+    // Sync device_ports for main (A) server
     const mainUuid = editingServer && !editingServer.isBackup ? editingServer.uuid : undefined;
     if (mainUuid && devicePorts.length > 0 && productionId) {
       apiClient.post(`/device-ports/device/${mainUuid}/sync`, {
         productionId,
         deviceDisplayId: editingServer?.id,
         ports: devicePorts,
-      })
-        .catch((err: any) => console.warn('device_ports sync failed (non-fatal):', err));
+      }).catch((err: any) => console.warn('device_ports sync (A) failed (non-fatal):', err));
+    }
+
+    // Sync device_ports for backup (B) server — same ports as A
+    const backupUuid = backupServer?.uuid;
+    if (backupUuid && devicePorts.length > 0 && productionId) {
+      apiClient.post(`/device-ports/device/${backupUuid}/sync`, {
+        productionId,
+        deviceDisplayId: backupServer?.id,
+        ports: devicePorts.map(p => ({ ...p, uuid: undefined })), // new rows for B (no existing uuids)
+      }).catch((err: any) => console.warn('device_ports sync (B) failed (non-fatal):', err));
     }
 
     if (action === 'duplicate' && onSaveAndDuplicate) {
-      onSaveAndDuplicate(platform, outputsWithFormatting as any, note, computerType);
+      onSaveAndDuplicate(platform, note, computerType, devicePorts);
     } else {
-      onSave(platform, outputsWithFormatting as any, note, computerType);
+      onSave(platform, note, computerType, devicePorts);
     }
   };
 
@@ -1141,9 +1351,6 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
             <h2 className="text-2xl font-bold text-av-text">
               {editingServer ? `Edit Server ${pairNumber} Pair` : `Add Server ${pairNumber} Pair`}
             </h2>
-            <p className="text-sm text-av-text-muted mt-1">
-              Server ID: {pairNumber} (Drag to reorder servers)
-            </p>
           </div>
 
           <div className="p-6 space-y-6">
@@ -1180,191 +1387,92 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-av-text">Outputs</h3>
-                  <p className="text-xs text-av-text-muted mt-1">
-                    Output names will be formatted as: OutputName A (Role) / OutputName B (Role)
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddOutput}
-                  className="btn-primary btn-sm flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Output
-                </button>
-              </div>
-              <div className="space-y-3">
-                {outputs.map((output, index) => {
-                  const isCustomRes = customResolutions[index] || 
-                    !COMMON_RESOLUTIONS.find(r => r.width === output.resolution?.width && r.height === output.resolution?.height);
-                  
-                  return (
-                    <Card key={index} className="p-4">
-                      <div className="space-y-3">
-                        {/* Row 1: Name, Role, Type, Duplicate, Delete */}
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-av-text-muted mb-1">
-                              Output Name *
-                            </label>
-                            <input
-                              type="text"
-                              value={output.name}
-                              onChange={(e) => handleUpdateOutput(index, { name: e.target.value })}
-                              placeholder="MEDIA 1"
-                              className="input-field w-full"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-av-text-muted mb-1">Role</label>
-                            <input
-                              type="text"
-                              value={output.role || ''}
-                              onChange={(e) => handleUpdateOutput(index, { role: e.target.value })}
-                              placeholder="LED L, LED R, etc."
-                              className="input-field w-full"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-av-text-muted mb-1">Type</label>
-                            <select
-                              value={output.type}
-                              onChange={(e) => handleUpdateOutput(index, { type: e.target.value as any })}
-                              className="input-field w-full"
-                            >
-                              {OUTPUT_TYPES.map(t => (
-                                <option key={t} value={t}>{t}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="flex items-end">
-                            <button
-                              type="button"
-                              onClick={() => handleDuplicateOutput(index)}
-                              className="w-full p-2 rounded hover:bg-av-info/20 text-av-info transition-colors"
-                              title="Duplicate this output"
-                              disabled={outputs.length >= 8}
-                            >
-                              <Copy className="w-4 h-4 mx-auto" />
-                            </button>
-                          </div>
-                          <div className="flex items-end">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveOutput(index)}
-                              className="w-full p-2 rounded hover:bg-av-danger/20 text-av-danger transition-colors"
-                              title="Delete this output"
-                            >
-                              <Trash2 className="w-4 h-4 mx-auto" />
-                            </button>
-                          </div>
-                        </div>
-                        
-                        {/* Row 2: Resolution Dropdown */}
-                        <div>
-                          <label className="block text-xs font-medium text-av-text-muted mb-1">Resolution</label>
-                          <select
-                            value={isCustomRes ? 'custom' : `${output.resolution?.width}x${output.resolution?.height}`}
-                            onChange={(e) => {
-                              if (e.target.value === 'custom') {
-                                setCustomResolutions({ ...customResolutions, [index]: true });
-                              } else {
-                                const selected = COMMON_RESOLUTIONS.find(r => `${r.width}x${r.height}` === e.target.value);
-                                if (selected) {
-                                  handleUpdateOutput(index, {
-                                    resolution: { width: selected.width, height: selected.height }
-                                  });
-                                  setCustomResolutions({ ...customResolutions, [index]: false });
-                                }
-                              }
-                            }}
-                            className="input-field w-full"
-                          >
-                            {COMMON_RESOLUTIONS.map(res => (
-                              <option key={res.label} value={res.width === 0 ? 'custom' : `${res.width}x${res.height}`}>
-                                {res.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        
-                        {/* Row 3: Custom Resolution Inputs (if custom selected) */}
-                        {isCustomRes && (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-medium text-av-text-muted mb-1">Width</label>
-                              <input
-                                type="number"
-                                value={output.resolution?.width || ''}
-                                onChange={(e) => handleUpdateOutput(index, {
-                                  resolution: { width: parseInt(e.target.value) || 0, height: output.resolution?.height || 0 }
-                                })}
-                                placeholder="Width"
-                                className="input-field w-full"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-av-text-muted mb-1">Height</label>
-                              <input
-                                type="number"
-                                value={output.resolution?.height || ''}
-                                onChange={(e) => handleUpdateOutput(index, {
-                                  resolution: { width: output.resolution?.width || 0, height: parseInt(e.target.value) || 0 }
-                                })}
-                                placeholder="Height"
-                                className="input-field w-full"
-                              />
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Row 4: Frame Rate */}
-                        <div>
-                          <label className="block text-xs font-medium text-av-text-muted mb-1">Frame Rate</label>
-                          <select
-                            value={output.frameRate || ''}
-                            onChange={(e) => handleUpdateOutput(index, { frameRate: parseFloat(e.target.value) || undefined })}
-                            className="input-field w-full"
-                          >
-                            <option value="">Select frame rate...</option>
-                            {COMMON_FRAME_RATES.map(fr => (
-                              <option key={fr.value} value={fr.value}>
-                                {fr.label} fps
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
+            {/* I/O Ports — Direct + Expansion sections */}
+            {(() => {
+              const spec = computerEquipment.find(s => s.model === computerType);
+              const sortedCards = [...(spec?.cards || [])].sort((a, b) => a.slotNumber - b.slotNumber);
 
-            {/* I/O Ports — Signal Routing */}
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                I/O Ports — Signal Routing
-                <span className="text-xs text-av-text-muted ml-2">format &amp; destination per output</span>
-              </label>
-              <IOPortsPanel
-                ports={devicePorts}
-                onChange={setDevicePorts}
-                formats={formats}
-                isLoading={portsLoading}
-                emptyText={
-                  editingServer?.uuid
-                    ? 'No ports saved for this server yet. Save first, then assign via equipment spec.'
-                    : 'Ports can be configured after the server pair is saved.'
-                }
-                onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
-              />
-            </div>
+              const directPorts = devicePorts.filter(p => p.cardSlot == null);
+              const setDirectPorts = (updated: DevicePortDraft[]) =>
+                setDevicePorts([...updated, ...devicePorts.filter(p => p.cardSlot != null)]);
+
+              const getSlotPorts = (slotNumber: number) =>
+                devicePorts.filter(p => p.cardSlot === slotNumber);
+              const setSlotPorts = (slotNumber: number, updated: DevicePortDraft[]) =>
+                setDevicePorts(prev => {
+                  const allSlots = [...new Set(prev.filter(p => p.cardSlot != null).map(p => p.cardSlot!))].sort((a, b) => a - b);
+                  const newCards = allSlots.flatMap(slot =>
+                    slot === slotNumber ? updated : prev.filter(p => p.cardSlot === slot)
+                  );
+                  return [...prev.filter(p => p.cardSlot == null), ...newCards];
+                });
+
+              return (
+                <div className="space-y-4">
+                  {/* ── Direct I/O ── */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className="text-sm font-medium text-av-text">
+                        Direct I/O
+                        <span className="text-xs text-av-text-muted ml-2">assign label &amp; format per port</span>
+                      </label>
+                      {directPorts.length > 0 && (
+                        <span className="text-xs text-av-text-muted ml-auto">
+                          {directPorts.filter(p => p.direction === 'INPUT').length} in / {directPorts.filter(p => p.direction === 'OUTPUT').length} out
+                        </span>
+                      )}
+                    </div>
+                    <IOPortsPanel
+                      ports={directPorts}
+                      onChange={setDirectPorts}
+                      formats={formats}
+                      isLoading={portsLoading}
+                      emptyText={
+                        !computerType
+                          ? 'Select a Computer Type above to auto-populate ports from the equipment spec.'
+                          : 'No direct I/O defined for this equipment type.'
+                      }
+                      onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                    />
+                  </div>
+
+                  {/* ── Expansion I/O (one section per card slot) ── */}
+                  {sortedCards.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium text-av-text">Expansion I/O</span>
+                        <span className="text-xs text-av-text-muted">({sortedCards.length} slot{sortedCards.length !== 1 ? 's' : ''})</span>
+                      </div>
+                      <div className="space-y-3">
+                        {sortedCards.map(card => {
+                          const slotPorts = getSlotPorts(card.slotNumber);
+                          return (
+                            <div key={card.id || card.slotNumber} className="border border-av-border rounded-md">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-av-surface-light border-b border-av-border">
+                                <span className="text-xs font-semibold text-av-text">Slot {card.slotNumber}</span>
+                                <span className="text-xs text-av-text-muted">
+                                  {slotPorts.filter(p => p.direction === 'INPUT').length} in / {slotPorts.filter(p => p.direction === 'OUTPUT').length} out
+                                </span>
+                              </div>
+                              <div className="p-2">
+                                <IOPortsPanel
+                                  ports={slotPorts}
+                                  onChange={(u) => setSlotPorts(card.slotNumber, u)}
+                                  formats={formats}
+                                  isLoading={false}
+                                  emptyText="No ports defined for this card slot."
+                                  onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
@@ -1419,15 +1527,22 @@ interface LayerModalProps {
   onSave: (layer: Omit<MediaServerLayer, 'id'>) => void;
   editingLayer: MediaServerLayer | null;
   availableServers: MediaServer[];
+  serverPorts: Record<string, DevicePortDraft[]>;
 }
 
-function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers }: LayerModalProps) {
+function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers, serverPorts }: LayerModalProps) {
   const [name, setName] = useState(editingLayer?.name || '');
   const [content, setContent] = useState(editingLayer?.content || '');
   const [outputAssignments, setOutputAssignments] = useState(editingLayer?.outputAssignments || []);
 
   // Only show main servers (not backups) since layer config will be mirrored to backups
   const mainServers = availableServers.filter(s => !s.isBackup);
+
+  // Get OUTPUT device_ports for a server by UUID
+  const getServerOutputPorts = (server: MediaServer): DevicePortDraft[] => {
+    const uuid = (server as any).uuid as string | undefined;
+    return uuid ? (serverPorts[uuid] ?? []).filter(p => p.direction === 'OUTPUT') : [];
+  };
 
   const toggleOutputAssignment = (serverId: string, outputId: string) => {
     const exists = outputAssignments.find(a => a.serverId === serverId && a.outputId === outputId);
@@ -1441,20 +1556,20 @@ function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers }:
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Mirror assignments from A servers to B servers
+    // Mirror assignments from A servers to B servers by positional index
     const mirroredAssignments = [...outputAssignments];
     outputAssignments.forEach(assignment => {
-      // Find the corresponding B server
       const mainServer = availableServers.find(s => s.id === assignment.serverId && !s.isBackup);
       if (mainServer) {
         const backupServer = availableServers.find(s => s.pairNumber === mainServer.pairNumber && s.isBackup);
         if (backupServer) {
-          // Find the corresponding output on the backup server
-          const mainOutputIndex = mainServer.outputs.findIndex(o => o.id === assignment.outputId);
-          if (mainOutputIndex >= 0 && backupServer.outputs[mainOutputIndex]) {
+          const mainOutputPorts = getServerOutputPorts(mainServer);
+          const mainOutputIndex = mainOutputPorts.findIndex(p => p.uuid === assignment.outputId);
+          const backupOutputPorts = getServerOutputPorts(backupServer);
+          if (mainOutputIndex >= 0 && backupOutputPorts[mainOutputIndex]) {
             mirroredAssignments.push({
               serverId: backupServer.id,
-              outputId: backupServer.outputs[mainOutputIndex].id
+              outputId: backupOutputPorts[mainOutputIndex].uuid as string,
             });
           }
         }
@@ -1516,28 +1631,35 @@ function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers }:
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {mainServers.map(server => (
-                    <Card key={server.id} className="p-4">
-                      <h4 className="font-semibold text-av-text mb-3 flex items-center gap-2">
-                        <Server className="w-4 h-4" />
-                        {server.name}
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {server.outputs.map(output => (
-                          <label key={output.id} className="flex items-center gap-2 bg-av-surface-light px-3 py-2 rounded cursor-pointer hover:bg-av-surface">
-                            <input
-                              type="checkbox"
-                              checked={outputAssignments.some(a => a.serverId === server.id && a.outputId === output.id)}
-                              onChange={() => toggleOutputAssignment(server.id, output.id)}
-                              className="rounded"
-                            />
-                            <span className="text-sm text-av-text flex-1">{output.name}</span>
-                            <Badge>{output.type}</Badge>
-                          </label>
-                        ))}
-                      </div>
-                    </Card>
-                  ))}
+                  {mainServers.map(server => {
+                    const outputPorts = getServerOutputPorts(server);
+                    return (
+                      <Card key={server.id} className="p-4">
+                        <h4 className="font-semibold text-av-text mb-3 flex items-center gap-2">
+                          <Server className="w-4 h-4" />
+                          {server.name}
+                        </h4>
+                        {outputPorts.length === 0 ? (
+                          <p className="text-sm text-av-text-muted italic">No output ports found. Save server ports in the Edit modal first.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {outputPorts.map(port => (
+                              <label key={port.uuid || port.portLabel} className="flex items-center gap-2 bg-av-surface-light px-3 py-2 rounded cursor-pointer hover:bg-av-surface">
+                                <input
+                                  type="checkbox"
+                                  checked={outputAssignments.some(a => a.serverId === server.id && a.outputId === port.uuid)}
+                                  onChange={() => toggleOutputAssignment(server.id, port.uuid as string)}
+                                  className="rounded"
+                                />
+                                <span className="text-sm text-av-text flex-1">{port.portLabel || port.ioType}</span>
+                                <Badge>{port.ioType}</Badge>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Copy, Archive } from 'lucide-react';
 import type { EquipmentSpec, IOPort } from '@/types';
-import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 
 interface EquipmentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (equipment: Omit<EquipmentSpec, 'id'>) => void;
+  onDuplicate?: (equipment: EquipmentSpec) => void;
+  onArchive?: (equipment: EquipmentSpec) => void;
   editingEquipment?: EquipmentSpec | null;
 }
 
-export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEquipment }: EquipmentFormModalProps) {
-  const { resolutions = [], frameRates = [] } = useProductionStore();
+export default function EquipmentFormModal({ isOpen, onClose, onSave, onDuplicate, onArchive, editingEquipment }: EquipmentFormModalProps) {
   const { connectorTypes } = useEquipmentLibrary();
   const portTypes = connectorTypes.length > 0 ? connectorTypes : ['SDI', 'HDMI', 'DisplayPort', 'NDI'];
   
@@ -30,18 +30,11 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
     isSecondaryDevice: false
   });
 
-  // Separate state for resolution and rate when in device-wide mode
-  const [deviceResolution, setDeviceResolution] = useState<string>(resolutions[0] || '1080p');
-  const [deviceRate, setDeviceRate] = useState<string>(frameRates[0] || '60');
-
   const [errors, setErrors] = useState<string[]>([]);
 
-  // Update form data when editingEquipment changes
   useEffect(() => {
     if (editingEquipment) {
       setFormData({
-        // Uppercase category so it matches the select option values.
-        // transformApiEquipment lowercases it; the select options use uppercase.
         category: (editingEquipment.category || 'COMPUTER').toUpperCase() as any,
         manufacturer: editingEquipment.manufacturer || '',
         model: editingEquipment.model || '',
@@ -51,22 +44,10 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
         cardSlots: editingEquipment.cardSlots || 0,
         cards: editingEquipment.cards || [],
         deviceFormats: editingEquipment.deviceFormats || [],
-        formatByIO: editingEquipment.formatByIO !== undefined ? editingEquipment.formatByIO : true,
+        formatByIO: true,
         isSecondaryDevice: editingEquipment.isSecondaryDevice || false
       });
-      
-      // Extract resolution and rate from device formats if available
-      if (editingEquipment.deviceFormats && editingEquipment.deviceFormats.length > 0 && !editingEquipment.formatByIO) {
-        const format = editingEquipment.deviceFormats[0];
-        // Try to parse format like "1080p60" or "4K59.94"
-        const match = format.match(/^(.+?)([\d.]+)$/);
-        if (match) {
-          setDeviceResolution(match[1]);
-          setDeviceRate(match[2]);
-        }
-      }
     } else {
-      // Reset to defaults when adding new equipment
       setFormData({
         category: 'COMPUTER',
         manufacturer: '',
@@ -80,11 +61,9 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
         formatByIO: true,
         isSecondaryDevice: false
       });
-      setDeviceResolution(resolutions[0] || '1080p');
-      setDeviceRate(frameRates[0] || '60');
     }
     setErrors([]);
-  }, [editingEquipment, resolutions, frameRates]);
+  }, [editingEquipment]);
 
   if (!isOpen) return null;
 
@@ -152,8 +131,8 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             </div>
           )}
 
-          {/* Basic Info - Category, I/O Architecture, and Format Assign */}
-          <div className="grid grid-cols-3 gap-4">
+        {/* Basic Info - Category and I/O Architecture */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">
                 Category *
@@ -178,68 +157,11 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                 onChange={(e) => setFormData({ ...formData, ioArchitecture: e.target.value as 'direct' | 'card-based' })}
                 className="input-field w-full"
               >
-                <option value="direct">Direct I/O</option>
-                <option value="card-based">Card-Based</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                Format Assign *
-              </label>
-              <select
-                value={formData.formatByIO ? 'per-io' : 'device-wide'}
-                onChange={(e) => setFormData({ ...formData, formatByIO: e.target.value === 'per-io' })}
-                className="input-field w-full"
-              >
-                <option value="per-io">Per I/O</option>
-                <option value="device-wide">Device-wide</option>
+                <option value="direct">Direct I/O Only</option>
+                <option value="card-based">Expansion I/O</option>
               </select>
             </div>
           </div>
-
-          {/* Device-wide Format Settings */}
-          {!formData.formatByIO && (
-            <div className="grid grid-cols-[2fr,1fr] gap-4">
-              <div>
-                <label className="block text-sm font-medium text-av-text mb-2">
-                  Resolution Preset *
-                </label>
-                <select
-                  value={deviceResolution}
-                  onChange={(e) => {
-                    setDeviceResolution(e.target.value);
-                    setFormData({ ...formData, deviceFormats: [`${e.target.value}${deviceRate}`] });
-                  }}
-                  className="input-field w-full"
-                  required={!formData.formatByIO}
-                >
-                  {resolutions.map(res => (
-                    <option key={res} value={res}>{res}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-av-text mb-2">
-                  Rate *
-                </label>
-                <select
-                  value={deviceRate}
-                  onChange={(e) => {
-                    setDeviceRate(e.target.value);
-                    setFormData({ ...formData, deviceFormats: [`${deviceResolution}${e.target.value}`] });
-                  }}
-                  className="input-field w-full"
-                  required={!formData.formatByIO}
-                >
-                  {frameRates.map(rate => (
-                    <option key={rate} value={rate}>{rate}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -269,43 +191,8 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             </div>
           </div>
 
-          {/* Card Slots (for card-based) */}
-          {formData.ioArchitecture === 'card-based' && (
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                Total Card Slots
-              </label>
-              <input
-                type="number"
-                value={formData.cardSlots || 0}
-                onChange={(e) => setFormData({ ...formData, cardSlots: parseInt(e.target.value) || 0 })}
-                className="input-field w-full"
-                min="0"
-              />
-            </div>
-          )}
-
-          {/* Secondary Device Checkbox */}
-          <div className="bg-av-surface-light border border-av-border rounded-md p-4">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.isSecondaryDevice || false}
-                onChange={(e) => setFormData({ ...formData, isSecondaryDevice: e.target.checked })}
-                className="mt-0.5 w-4 h-4 text-av-accent rounded border-av-border focus:ring-2 focus:ring-av-accent"
-              />
-              <div>
-                <span className="text-sm font-medium text-av-text">Available as Secondary Device</span>
-                <p className="text-xs text-av-text-muted mt-1">
-                  Check this if this equipment can be used as a secondary device for sources (e.g., converters, scalers, processors)
-                </p>
-              </div>
-            </label>
-          </div>
-
-          {/* Direct I/O Ports */}
-          {formData.ioArchitecture === 'direct' && (
-            <div className="grid grid-cols-2 gap-6">
+          {/* Direct I/O Ports — always shown */}
+          <div className="space-y-4">
               {/* Inputs */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -407,8 +294,193 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                   );})}
                 </div>
               </div>
-            </div>
-          )}
+          </div>
+
+          {/* Expansion I/O Cards — always shown below direct I/O */}
+          <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-av-text">Expansion I/O Cards</label>
+                <button
+                  type="button"
+                  onClick={() => setFormData(f => ({
+                    ...f,
+                    cards: [...(f.cards || []), { id: `card-${Date.now()}`, slotNumber: (f.cards || []).length + 1, inputs: [], outputs: [] }]
+                  }))}
+                  className="text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" /> Add Card
+                </button>
+              </div>
+              {(formData.cards || []).length === 0 && (
+                <p className="text-xs text-av-text-muted">No cards added</p>
+              )}
+              <div className="space-y-3">
+                {(formData.cards || []).map((card, cardIdx) => (
+                  <div key={card.id} className="border border-av-border rounded-md overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 bg-av-surface-light">
+                      <span className="text-sm font-medium text-av-text">Card {cardIdx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(f => ({ ...f, cards: (f.cards || []).filter(c => c.id !== card.id) }))}
+                        className="p-1 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="p-3 space-y-3">
+                      {/* Card Inputs */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-av-text-muted">Inputs</span>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(f => ({
+                              ...f,
+                              cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                ...c,
+                                inputs: [...c.inputs, { id: `in-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
+                              })
+                            }))}
+                            className="text-xs px-1.5 py-0.5 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add
+                          </button>
+                        </div>
+                        {card.inputs.length === 0 && <p className="text-xs text-av-text-muted">No inputs</p>}
+                        <div className="space-y-1.5">
+                          {card.inputs.map(port => (
+                            <div key={port.id} className="flex items-center gap-2">
+                              <select
+                                value={port.type}
+                                onChange={(e) => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    inputs: c.inputs.map(p => p.id !== port.id ? p : { ...p, type: e.target.value })
+                                  })
+                                }))}
+                                className="input-field flex-1 text-sm"
+                              >
+                                {portTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                              <input
+                                type="text"
+                                value={port.label || ''}
+                                onChange={(e) => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    inputs: c.inputs.map(p => p.id !== port.id ? p : { ...p, label: e.target.value })
+                                  })
+                                }))}
+                                placeholder="Label"
+                                className="input-field flex-1 text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    inputs: c.inputs.filter(p => p.id !== port.id)
+                                  })
+                                }))}
+                                className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Card Outputs */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-av-text-muted">Outputs</span>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(f => ({
+                              ...f,
+                              cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                ...c,
+                                outputs: [...c.outputs, { id: `out-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
+                              })
+                            }))}
+                            className="text-xs px-1.5 py-0.5 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add
+                          </button>
+                        </div>
+                        {card.outputs.length === 0 && <p className="text-xs text-av-text-muted">No outputs</p>}
+                        <div className="space-y-1.5">
+                          {card.outputs.map(port => (
+                            <div key={port.id} className="flex items-center gap-2">
+                              <select
+                                value={port.type}
+                                onChange={(e) => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    outputs: c.outputs.map(p => p.id !== port.id ? p : { ...p, type: e.target.value })
+                                  })
+                                }))}
+                                className="input-field flex-1 text-sm"
+                              >
+                                {portTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                              <input
+                                type="text"
+                                value={port.label || ''}
+                                onChange={(e) => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    outputs: c.outputs.map(p => p.id !== port.id ? p : { ...p, label: e.target.value })
+                                  })
+                                }))}
+                                placeholder="Label"
+                                className="input-field flex-1 text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setFormData(f => ({
+                                  ...f,
+                                  cards: (f.cards || []).map(c => c.id !== card.id ? c : {
+                                    ...c,
+                                    outputs: c.outputs.filter(p => p.id !== port.id)
+                                  })
+                                }))}
+                                className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+          </div>
+
+          {/* Secondary Device — always at bottom */}
+          <div className="bg-av-surface-light border border-av-border rounded-md p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.isSecondaryDevice || false}
+                onChange={(e) => setFormData({ ...formData, isSecondaryDevice: e.target.checked })}
+                className="mt-0.5 w-4 h-4 text-av-accent rounded border-av-border focus:ring-2 focus:ring-av-accent"
+              />
+              <div>
+                <span className="text-sm font-medium text-av-text">Available as Secondary Device</span>
+                <p className="text-xs text-av-text-muted mt-1">
+                  Check this if this equipment can be used as a secondary device for sources (e.g., converters, scalers, processors)
+                </p>
+              </div>
+            </label>
+          </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-av-border">
@@ -419,6 +491,24 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             >
               Cancel
             </button>
+            {editingEquipment && onDuplicate && (
+              <button
+                type="button"
+                onClick={() => { onDuplicate(editingEquipment); onClose(); }}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <Copy className="w-4 h-4" /> Duplicate
+              </button>
+            )}
+            {editingEquipment && onArchive && (
+              <button
+                type="button"
+                onClick={() => { onArchive(editingEquipment); onClose(); }}
+                className="btn-secondary flex items-center gap-2 hover:text-amber-400 hover:border-amber-400/50"
+              >
+                <Archive className="w-4 h-4" /> Archive
+              </button>
+            )}
             <button
               type="submit"
               className="btn-primary"

@@ -326,6 +326,8 @@ export interface Source {
   standard?: string;
   note?: string;
   secondaryDevice?: string;
+  secondaryDevicePort?: string;
+  primaryDevicePort?: string;
   outputs: SourceOutput[];
   blanking?: 'none' | 'RBv1' | 'RBv2' | 'RBv3';
 }

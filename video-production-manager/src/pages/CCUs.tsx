@@ -11,7 +11,7 @@ import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
 import type { CCU, Format } from '@/types';
 import { IOPortsPanel, type DevicePortDraft } from '@/components/IOPortsPanel';
-import { FormatFormModal, displayFormatId } from '@/components/FormatFormModal';
+import { FormatFormModal } from '@/components/FormatFormModal';
 
 // Local form state type — tracks all fields the CCU modal collects
 interface CCUFormFields {
@@ -178,7 +178,7 @@ export default function CCUs() {
   
   // Get CCU equipment specs from store — memoized to avoid recompute
   const ccuSpecs = useMemo(
-    () => equipmentSpecs.filter(spec => spec.category === 'CCU'),
+    () => equipmentSpecs.filter(spec => spec.category === 'ccu'),
     [equipmentSpecs]
   );
   
@@ -199,37 +199,6 @@ export default function CCUs() {
     });
     return result;
   }, [CCU_MANUFACTURERS, ccuSpecs]);
-
-  // Format options (static fallback)
-  const FORMAT_OPTIONS = [
-    '1080i59.94',
-    '1080i60',
-    '1080p59.94',
-    '1080p60',
-    '1080p50',
-    '1080p30',
-    '1080p25',
-    '1080p24',
-    '720p59.94',
-    '720p60',
-    '4K 59.94',
-    '4K 60',
-    '4K 50',
-    '4K 30',
-    '4K 25',
-    '4K 24'
-  ];
-
-  // Format options from selected spec — dynamic when model is chosen, static fallback otherwise
-  const specFormatOptions = useMemo(() => {
-    if (!formData.manufacturer || !formData.model) return FORMAT_OPTIONS;
-    const spec = ccuSpecs.find(
-      s => s.manufacturer === formData.manufacturer && s.model === formData.model
-    );
-    return spec?.deviceFormats && (spec.deviceFormats as string[]).length > 0
-      ? (spec.deviceFormats as string[])
-      : FORMAT_OPTIONS;
-  }, [formData.manufacturer, formData.model, ccuSpecs]);
 
   // ── Reveal toggle ────────────────────────────────────────────────────────
   const toggleReveal = useCallback(async (uuid: string) => {
@@ -654,7 +623,7 @@ export default function CCUs() {
             return (
             <Card
               key={ccuUuid || ccu.id}
-              className={`p-6 transition-colors select-none
+              className={`p-6 transition-colors select-none cursor-pointer
                 ${dragOverIndex === index ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
                 ${draggedIndex === index ? 'opacity-40' : ''}
               `}
@@ -663,12 +632,13 @@ export default function CCUs() {
               onDragOver={(e) => handleDragOver(e, index)}
               onDragEnd={handleDragEnd}
               onDragLeave={handleDragLeave}
+              onClick={() => { if (!isDragInProgress.current && ccuUuid) toggleReveal(ccuUuid); }}
+              onDoubleClick={(e) => { e.stopPropagation(); handleEdit(ccu); }}
             >
               {/* 30 / 30 / 30 / 10 collapsed card layout */}
               <div
-                className="grid gap-4 items-center cursor-pointer"
+                className="grid gap-4 items-center"
                 style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
-                onClick={() => { if (!isDragInProgress.current && ccuUuid) toggleReveal(ccuUuid); }}
               >
                 {/* Col 1 (30%): grip + chevron + CCU ID + assigned camera */}
                 <div className="flex items-center gap-2 min-w-0">
@@ -778,7 +748,7 @@ export default function CCUs() {
                             <th className="text-left pb-1.5 pr-3 font-semibold">Type</th>
                             <th className="text-left pb-1.5 pr-3 font-semibold">Label</th>
                             <th className="text-left pb-1.5 pr-3 font-semibold">Format</th>
-                            <th className="text-left pb-1.5 font-semibold">Route / Note</th>
+                            <th className="text-left pb-1.5 font-semibold">Route</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-av-border/40">
@@ -801,7 +771,7 @@ export default function CCUs() {
                             .filter(p => p.direction === 'OUTPUT')
                             .map((port, i) => {
                               const fmtName = port.formatUuid
-                                ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid!)
+                                ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—')
                                 : '—';
                               return (
                                 <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
@@ -886,42 +856,16 @@ export default function CCUs() {
                 </div>
               </div>
 
-              {/* Format Mode: auto-filled from spec, editable dropdown */}
-              <div>
-                <label className="block text-sm font-medium text-av-text mb-2">
-                  Format Mode
-                  {formData.model && specFormatOptions !== FORMAT_OPTIONS && (
-                    <span className="text-xs text-av-text-muted ml-2">(auto-filled from spec)</span>
-                  )}
-                </label>
-                <select
-                  value={formData.formatMode || ''}
-                  onChange={(e) => setFormData({ ...formData, formatMode: e.target.value })}
-                  className="input-field w-full"
-                >
-                  <option value="">Select format mode...</option>
-                  {specFormatOptions.map(format => (
-                    <option key={format} value={format}>{format}</option>
-                  ))}
-                </select>
-              </div>
-
               {/* ── I/O Ports Panel ────────────────────────────────────────────── */}
               {(portsLoading || devicePorts.length > 0 || formData.model) && (
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-2">
-                    I/O Ports
-                    <span className="text-xs text-av-text-muted ml-2">format &amp; signal per port</span>
-                  </label>
-                  <IOPortsPanel
-                    ports={devicePorts}
-                    onChange={setDevicePorts}
-                    formats={formats}
-                    isLoading={portsLoading}
-                    emptyText={formData.model ? 'No spec ports found for this model.' : undefined}
-                    onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
-                  />
-                </div>
+                <IOPortsPanel
+                  ports={devicePorts}
+                  onChange={setDevicePorts}
+                  formats={formats}
+                  isLoading={portsLoading}
+                  emptyText={formData.model ? 'No spec ports found for this model.' : undefined}
+                  onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                />
               )}
               
               {/* Camera Assignment */}
@@ -933,7 +877,6 @@ export default function CCUs() {
                   </label>
                   <div className="space-y-1 max-h-40 overflow-y-auto border border-av-border rounded-md p-2">
                     {allCameras
-                      .filter(cam => !cam.ccuId || cam.ccuId === formData.id)
                       .map(cam => (
                         <label
                           key={cam.uuid || cam.id}

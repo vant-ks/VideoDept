@@ -13,9 +13,143 @@
  *   emptyText  — message shown when ports is empty (override default)
  */
 
-import React from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { Format } from '@/types';
-import { displayFormatId } from '@/components/FormatFormModal';
+import { SCAN_RATES } from '@/components/FormatFormModal';
+
+function resKey(f: Format): string { return `${f.hRes}x${f.vRes}`; }
+function resLabel(f: Format): string { return `${f.hRes} x ${f.vRes}`; }
+function rateLabel(f: Format): string {
+  const entry = SCAN_RATES.find(r => r.value === f.frameRate);
+  const rate = (entry ? entry.idSuffix : Math.round(f.frameRate).toString()) + (f.isInterlaced ? 'i' : '');
+  return f.blanking !== 'NONE' ? `${rate}  [${f.blanking}]` : rate;
+}
+
+/** Full display label using the project formula: "hRes x vRes @ frameRate [blanking]" */
+export function formatLabel(f: Format): string {
+  const entry = SCAN_RATES.find(r => r.value === f.frameRate);
+  const rate = (entry ? entry.label : f.frameRate.toString()) + (f.isInterlaced ? 'i' : '');
+  return f.blanking !== 'NONE'
+    ? `${f.hRes} x ${f.vRes} @ ${rate} [${f.blanking}]`
+    : `${f.hRes} x ${f.vRes} @ ${rate}`;
+}
+
+// ── FormatCascadeSelect ───────────────────────────────────────────────────────
+
+interface FormatGroup { key: string; label: string; formats: Format[]; }
+
+function FormatCascadeSelect({
+  value,
+  formatGroups,
+  onSelect,
+  onCreateCustomFormat,
+}: {
+  value: string;
+  formatGroups: FormatGroup[];
+  onSelect: (uuid: string | null) => void;
+  onCreateCustomFormat?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
+  const [openUpward, setOpenUpward] = useState(false);
+  const [submenuFlip, setSubmenuFlip] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setHoveredGroup(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleToggle = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setOpenUpward(window.innerHeight - rect.bottom < 280);
+      setSubmenuFlip(window.innerWidth - rect.right < 160);
+    }
+    setOpen(o => !o);
+    setHoveredGroup(null);
+  };
+
+  const dropdownPos = openUpward ? 'bottom-full mb-1' : 'top-full mt-1';
+  const submenuPos  = submenuFlip ? 'right-full mr-0.5' : 'left-full ml-0.5';
+
+  let currentLabel = '\u2014 format \u2014';
+  for (const g of formatGroups) {
+    const f = g.formats.find(f => f.uuid === value);
+    if (f) { currentLabel = `${g.label} @ ${rateLabel(f)}`; break; }
+  }
+
+  return (
+    <div ref={ref} className="relative min-w-0">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="input-field text-xs py-1 w-full text-left flex justify-between items-center gap-1"
+      >
+        <span className="truncate">{currentLabel}</span>
+        <ChevronDown className="w-3 h-3 flex-shrink-0 text-av-text-muted" />
+      </button>
+      {open && (
+        <div ref={dropdownRef} className={`absolute z-50 ${dropdownPos} left-0 bg-av-surface border border-av-border rounded-lg shadow-xl min-w-[160px]`}>
+          <div
+            className="px-3 py-1.5 text-xs text-av-text-muted cursor-pointer hover:bg-av-surface-hover rounded-t-lg"
+            onClick={() => { onSelect(null); setOpen(false); }}
+          >
+            — clear —
+          </div>
+          <div className="border-t border-av-border" />
+          {formatGroups.map(g => (
+            <div
+              key={g.key}
+              className="relative"
+              onMouseEnter={() => setHoveredGroup(g.key)}
+            >
+              <div className="px-3 py-1.5 text-xs flex justify-between items-center cursor-default hover:bg-av-surface-hover">
+                <span className="font-medium text-av-text">{g.label}</span>
+                <ChevronRight className="w-3 h-3 text-av-text-muted" />
+              </div>
+              {hoveredGroup === g.key && (
+                <div className={`absolute ${submenuPos} top-0 bg-av-surface border border-av-border rounded-lg shadow-xl min-w-[120px] z-50`}>
+                  {g.formats.map(f => (
+                    <div
+                      key={f.uuid}
+                      className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-av-surface-hover ${
+                        value === f.uuid ? 'text-av-accent font-semibold' : 'text-av-text'
+                      }`}
+                      onClick={() => { onSelect(f.uuid); setOpen(false); setHoveredGroup(null); }}
+                    >
+                      {rateLabel(f)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          {onCreateCustomFormat && (
+            <>
+              <div className="border-t border-av-border" />
+              <div
+                className="px-3 py-1.5 text-xs cursor-pointer hover:bg-av-surface-hover text-av-text-muted rounded-b-lg"
+                onClick={() => { onCreateCustomFormat(); setOpen(false); }}
+              >
+                + Create custom…
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── DevicePortDraft ──────────────────────────────────────────────────────────
 // Draft shape that the modal works with before saving to device_ports table.
@@ -28,6 +162,7 @@ export interface DevicePortDraft {
   direction: 'INPUT' | 'OUTPUT';
   formatUuid?: string | null;
   note?: string | null;
+  cardSlot?: number;       // slot number for expansion card ports; undefined = direct I/O
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -58,6 +193,18 @@ export function IOPortsPanel({
     onChange(next);
   };
 
+  // Group formats by resolution for cascading select
+  const formatGroups = useMemo(() => {
+    const groups: Array<{ key: string; label: string; formats: Format[] }> = [];
+    const seen = new Map<string, number>();
+    for (const f of formats) {
+      const k = resKey(f);
+      if (!seen.has(k)) { seen.set(k, groups.length); groups.push({ key: k, label: resLabel(f), formats: [] }); }
+      groups[seen.get(k)!].formats.push(f);
+    }
+    return groups;
+  }, [formats]);
+
   const hasInputs  = ports.some(p => p.direction === 'INPUT');
   const hasOutputs = ports.some(p => p.direction === 'OUTPUT');
 
@@ -86,7 +233,7 @@ export function IOPortsPanel({
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Type</span>
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Label</span>
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Format In</span>
-            <span className="text-[10px] text-av-text-muted uppercase font-semibold">← Connected from</span>
+            <span className="text-[10px] text-av-text-muted uppercase font-semibold">Route</span>
           </div>
           <div className="space-y-1.5">
             {ports.map((port, idx) => {
@@ -109,38 +256,25 @@ export function IOPortsPanel({
                     value={port.portLabel}
                     onChange={e => update(idx, { portLabel: e.target.value })}
                     placeholder="Port label"
-                    className="input-field text-xs py-1"
+                    className="input-field text-xs py-1 min-w-0"
                   />
-                  {/* format */}
-                  <select
+                  {/* format — cascading flyout */}
+                  <FormatCascadeSelect
                     value={port.formatUuid || ''}
-                    onChange={e => {
-                      if (e.target.value === '__create__') {
-                        onCreateCustomFormat?.();
-                      } else {
-                        update(idx, { formatUuid: e.target.value || null });
-                      }
+                    formatGroups={formatGroups}
+                    onSelect={uuid => {
+                      if (uuid === '__create__') { onCreateCustomFormat?.(); }
+                      else { update(idx, { formatUuid: uuid }); }
                     }}
-                    className="input-field text-xs py-1"
-                  >
-                    <option value="">— format —</option>
-                    {formats.map(f => (
-                      <option key={f.uuid} value={f.uuid}>{displayFormatId(f.id)}</option>
-                    ))}
-                    {onCreateCustomFormat && (
-                      <>
-                        <option disabled value="">──────────</option>
-                        <option value="__create__">+ Create custom format…</option>
-                      </>
-                    )}
-                  </select>
+                    onCreateCustomFormat={onCreateCustomFormat}
+                  />
                   {/* connected-from note */}
                   <input
                     type="text"
                     value={port.note || ''}
                     onChange={e => update(idx, { note: e.target.value || null })}
                     placeholder="Source signal or device"
-                    className="input-field text-xs py-1"
+                    className="input-field text-xs py-1 min-w-0"
                   />
                 </div>
               );
@@ -160,7 +294,7 @@ export function IOPortsPanel({
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Type</span>
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Label</span>
             <span className="text-[10px] text-av-text-muted uppercase font-semibold">Format Out</span>
-            <span className="text-[10px] text-av-text-muted uppercase font-semibold">→ Destination</span>
+            <span className="text-[10px] text-av-text-muted uppercase font-semibold">Route</span>
           </div>
           <div className="space-y-1.5">
             {ports.map((port, idx) => {
@@ -183,38 +317,25 @@ export function IOPortsPanel({
                     value={port.portLabel}
                     onChange={e => update(idx, { portLabel: e.target.value })}
                     placeholder="Port label"
-                    className="input-field text-xs py-1"
+                    className="input-field text-xs py-1 min-w-0"
                   />
-                  {/* format */}
-                  <select
+                  {/* format — cascading flyout */}
+                  <FormatCascadeSelect
                     value={port.formatUuid || ''}
-                    onChange={e => {
-                      if (e.target.value === '__create__') {
-                        onCreateCustomFormat?.();
-                      } else {
-                        update(idx, { formatUuid: e.target.value || null });
-                      }
+                    formatGroups={formatGroups}
+                    onSelect={uuid => {
+                      if (uuid === '__create__') { onCreateCustomFormat?.(); }
+                      else { update(idx, { formatUuid: uuid }); }
                     }}
-                    className="input-field text-xs py-1"
-                  >
-                    <option value="">— format —</option>
-                    {formats.map(f => (
-                      <option key={f.uuid} value={f.uuid}>{displayFormatId(f.id)}</option>
-                    ))}
-                    {onCreateCustomFormat && (
-                      <>
-                        <option disabled value="">──────────</option>
-                        <option value="__create__">+ Create custom format…</option>
-                      </>
-                    )}
-                  </select>
+                    onCreateCustomFormat={onCreateCustomFormat}
+                  />
                   {/* destination note */}
                   <input
                     type="text"
                     value={port.note || ''}
                     onChange={e => update(idx, { note: e.target.value || null })}
                     placeholder="Destination device or input"
-                    className="input-field text-xs py-1"
+                    className="input-field text-xs py-1 min-w-0"
                   />
                 </div>
               );

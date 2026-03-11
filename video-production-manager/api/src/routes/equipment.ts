@@ -39,11 +39,12 @@ const transformEquipment = (eq: any) => ({
   io_architecture: fromIoArchitectureEnum(eq.io_architecture),
 });
 
-// GET all equipment specs
+// GET all equipment specs (or archived if ?archived=true)
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const showArchived = req.query.archived === 'true';
     const equipment = await prisma.equipment_specs.findMany({
-      where: { is_deleted: false },
+      where: { is_deleted: showArchived },
       include: {
         equipment_io_ports: true,
         equipment_cards: {
