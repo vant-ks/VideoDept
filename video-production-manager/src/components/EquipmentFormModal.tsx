@@ -189,6 +189,111 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             </div>
           </div>
 
+          {/* Direct I/O Ports — always shown */}
+          <div className="space-y-4">
+              {/* Inputs */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-av-text">Inputs</label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(f => ({
+                      ...f,
+                      inputs: [...(f.inputs || []), { id: `in-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
+                    }))}
+                    className="text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Add
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(formData.inputs || []).length === 0 && (
+                    <p className="text-xs text-av-text-muted">No inputs configured</p>
+                  )}
+                  {(formData.inputs || []).map((port) => {
+                    const inputOptions = port.type && !portTypes.includes(port.type)
+                      ? [...portTypes, port.type]
+                      : portTypes;
+                    return (
+                    <div key={port.id} className="flex items-center gap-2">
+                      <select
+                        value={port.type}
+                        onChange={(e) => setFormData(f => ({ ...f, inputs: (f.inputs || []).map(p => p.id === port.id ? { ...p, type: e.target.value } : p) }))}
+                        className="input-field flex-1 text-sm"
+                      >
+                        {inputOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        value={port.label || ''}
+                        onChange={(e) => setFormData(f => ({ ...f, inputs: (f.inputs || []).map(p => p.id === port.id ? { ...p, label: e.target.value } : p) }))}
+                        placeholder="Label"
+                        className="input-field flex-1 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(f => ({ ...f, inputs: (f.inputs || []).filter(p => p.id !== port.id) }))}
+                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );})}
+                </div>
+              </div>
+
+              {/* Outputs */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-av-text">Outputs</label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(f => ({
+                      ...f,
+                      outputs: [...(f.outputs || []), { id: `out-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
+                    }))}
+                    className="text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Add
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(formData.outputs || []).length === 0 && (
+                    <p className="text-xs text-av-text-muted">No outputs configured</p>
+                  )}
+                  {(formData.outputs || []).map((port) => {
+                    const outputOptions = port.type && !portTypes.includes(port.type)
+                      ? [...portTypes, port.type]
+                      : portTypes;
+                    return (
+                    <div key={port.id} className="flex items-center gap-2">
+                      <select
+                        value={port.type}
+                        onChange={(e) => setFormData(f => ({ ...f, outputs: (f.outputs || []).map(p => p.id === port.id ? { ...p, type: e.target.value } : p) }))}
+                        className="input-field flex-1 text-sm"
+                      >
+                        {outputOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        value={port.label || ''}
+                        onChange={(e) => setFormData(f => ({ ...f, outputs: (f.outputs || []).map(p => p.id === port.id ? { ...p, label: e.target.value } : p) }))}
+                        placeholder="Label"
+                        className="input-field flex-1 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(f => ({ ...f, outputs: (f.outputs || []).filter(p => p.id !== port.id) }))}
+                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );})}
+                </div>
+              </div>
+          </div>
+
           {/* Expansion I/O Cards — always shown below direct I/O */}
           <div>
               <div className="flex items-center justify-between mb-3">
@@ -354,112 +459,6 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Direct I/O Ports — always shown */}
-          <div className="space-y-4">
-              {/* Inputs */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-av-text">Inputs</label>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(f => ({
-                      ...f,
-                      inputs: [...(f.inputs || []), { id: `in-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
-                    }))}
-                    className="text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> Add
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {(formData.inputs || []).length === 0 && (
-                    <p className="text-xs text-av-text-muted">No inputs configured</p>
-                  )}
-                  {(formData.inputs || []).map((port) => {
-                    const inputOptions = port.type && !portTypes.includes(port.type)
-                      ? [...portTypes, port.type]
-                      : portTypes;
-                    return (
-                    <div key={port.id} className="flex items-center gap-2">
-                      <select
-                        value={port.type}
-                        onChange={(e) => setFormData(f => ({ ...f, inputs: (f.inputs || []).map(p => p.id === port.id ? { ...p, type: e.target.value } : p) }))}
-                        className="input-field flex-1 text-sm"
-                      >
-                        {inputOptions.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <input
-                        type="text"
-                        value={port.label || ''}
-                        onChange={(e) => setFormData(f => ({ ...f, inputs: (f.inputs || []).map(p => p.id === port.id ? { ...p, label: e.target.value } : p) }))}
-                        placeholder="Label"
-                        className="input-field flex-1 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setFormData(f => ({ ...f, inputs: (f.inputs || []).filter(p => p.id !== port.id) }))}
-                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  );})}
-                </div>
-              </div>
-
-              {/* Outputs */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-av-text">Outputs</label>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(f => ({
-                      ...f,
-                      outputs: [...(f.outputs || []), { id: `out-${Date.now()}`, type: portTypes[0] || 'SDI', label: '' }]
-                    }))}
-                    className="text-xs px-2 py-1 bg-av-accent/20 text-av-accent rounded hover:bg-av-accent/30 flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> Add
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {(formData.outputs || []).length === 0 && (
-                    <p className="text-xs text-av-text-muted">No outputs configured</p>
-                  )}
-                  {(formData.outputs || []).map((port) => {
-                    const outputOptions = port.type && !portTypes.includes(port.type)
-                      ? [...portTypes, port.type]
-                      : portTypes;
-                    return (
-                    <div key={port.id} className="flex items-center gap-2">
-                      <select
-                        value={port.type}
-                        onChange={(e) => setFormData(f => ({ ...f, outputs: (f.outputs || []).map(p => p.id === port.id ? { ...p, type: e.target.value } : p) }))}
-                        className="input-field flex-1 text-sm"
-                      >
-                        {outputOptions.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <input
-                        type="text"
-                        value={port.label || ''}
-                        onChange={(e) => setFormData(f => ({ ...f, outputs: (f.outputs || []).map(p => p.id === port.id ? { ...p, label: e.target.value } : p) }))}
-                        placeholder="Label"
-                        className="input-field flex-1 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setFormData(f => ({ ...f, outputs: (f.outputs || []).filter(p => p.id !== port.id) }))}
-                        className="p-1.5 rounded hover:bg-av-danger/20 text-av-text-muted hover:text-av-danger"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  );})}
-                </div>
               </div>
           </div>
 
