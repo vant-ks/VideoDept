@@ -1,81 +1,120 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Copy, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Plus, Edit2, Trash2, Copy, AlertCircle, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
+import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useSourcesAPI } from '@/hooks/useSourcesAPI';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
-import { SourceFormModal } from '@/components/SourceFormModal';
-import { SourceService, apiClient } from '@/services';
+import { apiClient } from '@/services';
+import { getCurrentUserId } from '@/utils/userUtils';
 import type { Source, Format } from '@/types';
-import type { DevicePortDraft } from '@/components/IOPortsPanel';
+import { IOPortsPanel, type DevicePortDraft } from '@/components/IOPortsPanel';
+import { FormatFormModal, displayFormatId } from '@/components/FormatFormModal';
+
+interface ComputerFormFields {
+  name?: string;
+  type?: string;
+  secondaryDevice?: string;
+  note?: string;
+  equipmentUuid?: string;
+  version?: number;
+}
 
 export const Computers: React.FC = () => {
-  // Use new stores
   const { activeProject } = useProjectStore();
   const oldStore = useProductionStore();
-  
-  // API hook for event-enabled operations
+  const equipmentLib = useEquipmentLibrary();
   const sourcesAPI = useSourcesAPI();
-  
-  // Local state
+
   const [sources, setSources] = useState<Source[]>([]);
   const [conflictError, setConflictError] = useState<{
     currentVersion: number;
     clientVersion: number;
     serverData: Source;
   } | null>(null);
-  
-  // Get production ID from production object, NOT the IndexedDB project ID
+
   const productionId = activeProject?.production?.id || oldStore.production?.id;
-  
-  // Load sources from API on mount and filter for computers
+
+  // Equipment specs — prefer library store over legacy store
+  const equipmentSpecs = equipmentLib.equipmentSpecs.length > 0
+    ? equipmentLib.equipmentSpecs
+    : oldStore.equipmentSpecs;
+
+  const computerEquipment = useMemo(
+    () => equipmentSpecs.filter(spec => spec.category === 'computer'),
+    [equipmentSpecs]
+  );
+
+  const secondaryDeviceOptions = useMemo(
+    () => equipmentSpecs.filter(spec => spec.isSecondaryDevice),
+    [equipmentSpecs]
+  );
+
+  // Fetch equipment specs on mount
+  useEffect(() => {
+    if (equipmentLib.equipmentSpecs.length === 0) {
+      equipmentLib.fetchFromAPI();
+    }
+  }, []);
+
+  // Load computers from API on mount
   useEffect(() => {
     if (productionId && oldStore.isConnected) {
       sourcesAPI.fetchSources(productionId)
         .then(allSources => {
-          // Filter for COMPUTER category only
-          const computerSources = allSources.filter(s => s.category === 'COMPUTER');
-          setSources(computerSources);
+          setSources(allSources.filter((s: Source) => s.category === 'COMPUTER'));
         })
         .catch(console.error);
     }
   }, [productionId, oldStore.isConnected]);
 
-  // Real-time event subscriptions
+  // Sort by COMP # for consistent visual ordering
+  const sortedSources = useMemo(() => {
+    return [...sources].sort((a, b) => {
+      const aMatch = a.id.match(/^COMP\s*(\d+)$/i);
+      const bMatch = b.id.match(/^COMP\s*(\d+)$/i);
+      const aNum = aMatch ? parseInt(aMatch[1], 10) : Infinity;
+      const bNum = bMatch ? parseInt(bMatch[1], 10) : Infinity;
+      if (aNum !== bNum) return aNum - bNum;
+      return a.id.localeCompare(b.id);
+    });
+  }, [sources]);
+
+  // Real-time WebSocket event subscriptions
   useProductionEvents({
     productionId,
-    onEntityCreated: useCallback((event) => {
+    onEntityCreated: useCallback((event: any) => {
       if (event.entityType === 'source' && event.entity.category === 'COMPUTER') {
         console.log('🔔 Computer created by', event.userName);
         setSources(prev => {
-          // Use uuid for duplicate detection (immutable PRIMARY KEY)
-          if (prev.some(s => s.uuid === event.entity.uuid)) return prev;
+          if (prev.some((s: Source) => s.uuid === event.entity.uuid)) return prev;
           return [...prev, event.entity];
         });
       }
     }, []),
-    onEntityUpdated: useCallback((event) => {
+    onEntityUpdated: useCallback((event: any) => {
       if (event.entityType === 'source' && event.entity.category === 'COMPUTER') {
         console.log('🔔 Computer updated by', event.userName);
-        setSources(prev => prev.map(s => 
+        setSources(prev => prev.map((s: Source) =>
           s.uuid === event.entity.uuid ? event.entity : s
         ));
       }
     }, []),
-    onEntityDeleted: useCallback((event) => {
+    onEntityDeleted: useCallback((event: any) => {
       if (event.entityType === 'source') {
         console.log('🔔 Computer deleted by', event.userName);
-        setSources(prev => prev.filter(s => s.uuid !== event.entityId));
+        setSources(prev => prev.filter((s: Source) => s.uuid !== event.entityId));
       }
     }, [])
   });
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSource, setEditingSource] = useState<Source | null>(null);
-  const [selectedType, setSelectedType] = useState<string>('all');
 
-  // ── Reveal panel state ─────────────────────────────────────────────────
+  // ── Drag-to-reorder ──────────────────────────────────────────────────────
+  const isDragInProgress = useRef(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // ── Reveal panel state ───────────────────────────────────────────────────
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [cardPorts, setCardPorts] = useState<Record<string, DevicePortDraft[]>>({});
   const [cardPortsLoading, setCardPortsLoading] = useState<Set<string>>(new Set());
@@ -119,105 +158,178 @@ export const Computers: React.FC = () => {
     }
   }, [cardPorts]);
 
-  const sourceTypes = React.useMemo(() => {
-    const types = new Set(sources.map(s => s.type));
-    return ['all', ...Array.from(types)];
+  // ── Modal state ──────────────────────────────────────────────────────────
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSource, setEditingSource] = useState<Source | null>(null);
+  const [formData, setFormData] = useState<ComputerFormFields>({
+    name: '', type: '', secondaryDevice: '', note: '', equipmentUuid: undefined,
+  });
+  const [errors, setErrors] = useState<string[]>([]);
+  const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
+  const [portsLoading, setPortsLoading] = useState(false);
+  const [isCreateFormatOpen, setIsCreateFormatOpen] = useState(false);
+
+  // ── ID generation ────────────────────────────────────────────────────────
+  const generateId = useCallback((): string => {
+    const numbers = sources.map(s => {
+      const m = s.id.match(/^COMP\s*(\d+)$/i);
+      return m ? parseInt(m[1], 10) : 0;
+    }).filter(n => n > 0);
+    const max = numbers.length > 0 ? Math.max(...numbers) : 0;
+    return `COMP ${max + 1}`;
   }, [sources]);
 
-  const filteredSources = React.useMemo(() => {
-    return sources.filter(source => {
-      return selectedType === 'all' || source.type === selectedType;
-    });
-  }, [sources, selectedType]);
+  // ── I/O helpers ──────────────────────────────────────────────────────────
+  const buildPortsFromSpec = (spec: { inputs?: any[]; outputs?: any[] }): DevicePortDraft[] => [
+    ...(spec.inputs || []).map((p: any) => ({
+      portLabel: p.label || p.id || p.type,
+      ioType:    p.type || p.id,
+      direction: 'INPUT' as const,
+    })),
+    ...(spec.outputs || []).map((p: any) => ({
+      portLabel: p.label || p.id || p.type,
+      ioType:    p.type || p.id,
+      direction: 'OUTPUT' as const,
+    })),
+  ];
 
-  // Helper: Check if a source has a duplicate ID (for visual warning)
-  const hasDuplicateId = useCallback((source: Source) => {
-    return sources.filter(s => 
-      s.id === source.id && 
-      s.uuid !== source.uuid && 
-      s.production_id === source.production_id
-    ).length > 0;
-  }, [sources]);
+  const handleTypeChange = (typeValue: string) => {
+    const spec = computerEquipment.find(s => s.model === typeValue);
+    setFormData(prev => ({ ...prev, type: typeValue, equipmentUuid: spec?.uuid }));
+    if (spec) setDevicePorts(buildPortsFromSpec(spec));
+  };
 
+  // ── CRUD handlers ────────────────────────────────────────────────────────
   const handleAddNew = () => {
+    const defaultSpec = computerEquipment.length > 0 ? computerEquipment[0] : null;
+    setFormData({
+      name: '',
+      type: defaultSpec?.model || '',
+      secondaryDevice: '',
+      note: '',
+      equipmentUuid: defaultSpec?.uuid,
+    });
+    setDevicePorts(defaultSpec ? buildPortsFromSpec(defaultSpec) : []);
     setEditingSource(null);
+    setErrors([]);
     setIsModalOpen(true);
   };
 
   const handleEdit = (source: Source) => {
+    const record = source as any;
+    setFormData({
+      name: record.name || '',
+      type: record.type || '',
+      secondaryDevice: record.secondaryDevice || '',
+      note: record.note || '',
+      equipmentUuid: record.equipmentUuid,
+      version: record.version,
+    });
+    setDevicePorts([]);
     setEditingSource(source);
+    setErrors([]);
     setIsModalOpen(true);
+    if (record.uuid) {
+      setPortsLoading(true);
+      apiClient.get<any[]>(`/device-ports/device/${record.uuid}`)
+        .then((ports: any) => {
+          const portArray = Array.isArray(ports) ? ports : (ports?.data ?? []);
+          if (portArray.length > 0) {
+            setDevicePorts(portArray.map((p: any) => ({
+              uuid:         p.uuid,
+              specPortUuid: p.specPortUuid,
+              portLabel:    p.portLabel,
+              ioType:       p.ioType,
+              direction:    p.direction as 'INPUT' | 'OUTPUT',
+              formatUuid:   p.formatUuid ?? null,
+              note:         p.note ?? null,
+            })));
+          } else {
+            // Seed from equipment spec if no ports saved yet
+            const spec = computerEquipment.find(s => s.model === record.type);
+            if (spec) setDevicePorts(buildPortsFromSpec(spec));
+          }
+        })
+        .catch(console.error)
+        .finally(() => setPortsLoading(false));
+    }
   };
 
-  const handleSave = async (source: Source, devicePorts: DevicePortDraft[], shouldCloseModal = true) => {
-    setConflictError(null);
-    
-    try {
-      // Force category to 'COMPUTER' for all sources created/edited on Computers page
-      const computerSource = { ...source, category: 'COMPUTER' as any };
-      let savedUuid: string | undefined;
+  const handleSave = async (action: 'close' | 'duplicate' = 'close') => {
+    const newErrors: string[] = [];
+    if (!formData.name?.trim()) newErrors.push('Name is required');
+    if (!formData.type?.trim()) newErrors.push('Computer Type is required');
+    if (newErrors.length > 0) { setErrors(newErrors); return; }
 
-      // Check if we're editing an existing source (uuid must be present and not empty)
-      if (editingSource && editingSource.uuid) {
-        const result = await sourcesAPI.updateSource(editingSource.uuid, computerSource);
-        if ('error' in result && result.error === 'Conflict') {
-          setConflictError(result);
+    setConflictError(null);
+    try {
+      let savedUuid: string | undefined;
+      let savedId: string | undefined;
+
+      if (editingSource?.uuid) {
+        const result = await sourcesAPI.updateSource(editingSource.uuid, {
+          productionId,
+          name: formData.name,
+          type: formData.type,
+          category: 'COMPUTER',
+          secondaryDevice: formData.secondaryDevice || undefined,
+          note: formData.note || undefined,
+          equipmentUuid: formData.equipmentUuid,
+          version: formData.version,
+        } as any);
+        if ('error' in result && (result as any).error === 'Conflict') {
+          setConflictError(result as any);
           return;
         }
         savedUuid = editingSource.uuid;
-        // Don't manually update state - let WebSocket event handle it
+        savedId = editingSource.id;
       } else {
-        // Create via API - WebSocket event will update state automatically
+        const newId = generateId();
         const created = await sourcesAPI.createSource({
-          ...computerSource,
-          productionId: productionId!
-        }) as any;
-        savedUuid = created?.uuid;
-        // Don't manually update state - let WebSocket event handle it
+          id: newId,
+          productionId: productionId!,
+          name: formData.name!,
+          type: formData.type!,
+          category: 'COMPUTER',
+          secondaryDevice: formData.secondaryDevice || undefined,
+          note: formData.note || undefined,
+          equipmentUuid: formData.equipmentUuid,
+        } as any);
+        savedUuid = (created as any)?.uuid;
+        savedId = newId;
       }
 
-      // Sync device_ports if we have a uuid and ports to save
       if (savedUuid && devicePorts.length > 0) {
         try {
           await apiClient.post(`/device-ports/device/${savedUuid}/sync`, {
             productionId,
-            deviceDisplayId: source.id,
+            deviceDisplayId: savedId,
             ports: devicePorts,
           });
+          setCardPorts(prev => { const next = { ...prev }; delete next[savedUuid!]; return next; });
         } catch (portErr) {
           console.warn('device_ports sync failed (non-fatal):', portErr);
         }
       }
-      
-      if (shouldCloseModal) {
-        setIsModalOpen(false);
+
+      if (action === 'duplicate') {
+        setFormData(prev => ({ ...prev, name: `${prev.name} (Copy)` }));
         setEditingSource(null);
+        setDevicePorts(devicePorts.map(p => ({ ...p, uuid: undefined })));
+        setErrors([]);
+      } else {
+        setIsModalOpen(false);
+        setFormData({ name: '', type: '', secondaryDevice: '', note: '', equipmentUuid: undefined });
+        setDevicePorts([]);
+        setEditingSource(null);
+        setErrors([]);
       }
     } catch (error: any) {
       console.error('Failed to save computer:', error);
-      
-      // Check for duplicate ID error
-      if (error?.response?.data?.code === 'DUPLICATE_ID') {
-        alert(
-          'Duplicate Source ID\n\n' +
-          error.response.data.message + '\n\n' +
-          'Please use a unique ID like "SRC 2" or "SRC 3".'
-        );
-        return; // Don't close modal so user can fix it
-      }
-      
-      // Check for production validation error
       if (error?.response?.data?.code === 'PRODUCTION_NOT_FOUND') {
-        alert(
-          'Production Not Synced to Database\n\n' +
-          error.response.data.error + '\n\n' +
-          'Please try:\n' +
-          '1. Refresh the page\n' +
-          '2. Create a new production\n' +
-          '3. Or wait a moment and try again'
-        );
+        setErrors(['Production not synced to database. Please refresh and try again.']);
       } else {
-        alert(`Failed to save computer: ${error.message || 'Unknown error'}`);
+        setErrors([`Failed to save computer: ${error.message || 'Unknown error'}`]);
       }
     }
   };
@@ -226,7 +338,6 @@ export const Computers: React.FC = () => {
     if (confirm('Are you sure you want to delete this computer?')) {
       try {
         await sourcesAPI.deleteSource(uuid);
-        // Don't manually update state - let WebSocket event handle it
       } catch (error) {
         console.error('Failed to delete computer:', error);
         alert('Failed to delete computer');
@@ -234,33 +345,72 @@ export const Computers: React.FC = () => {
     }
   };
 
-  const handleDuplicate = (sourceId: string) => {
-    console.log('🔄 Duplicating source:', sourceId);
-    
-    // Find the source to duplicate by its display ID
-    const sourceToDuplicate = sources.find(s => s.id === sourceId);
-    if (!sourceToDuplicate) {
-      console.error('Source not found:', sourceId);
+  // ── Drag-to-reorder handlers ─────────────────────────────────────────────
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+    isDragInProgress.current = true;
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => setDragOverIndex(null);
+
+  const handleDragEnd = async () => {
+    const draggedIdx = draggedIndex;
+    const dragOverIdx = dragOverIndex;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    if (draggedIdx === null || dragOverIdx === null || draggedIdx === dragOverIdx) {
+      isDragInProgress.current = false;
       return;
     }
-    
-    // Generate a new unique ID for the duplicate
-    const newId = SourceService.generateId(sources);
-    
-    // Create a template object without UUID (so it's treated as new)
-    const duplicateTemplate = {
-      ...sourceToDuplicate,
-      uuid: undefined, // Remove UUID so it's treated as new
-      id: newId, // Assign new unique ID
-      name: `${sourceToDuplicate.name} (Copy)`,
-    } as Source;
-    
-    // Open modal with the duplicate data pre-populated
-    // The existing save handler will create the new record
-    setEditingSource(duplicateTemplate);
-    setIsModalOpen(true);
+
+    const snapshot = sortedSources.map(s => ({
+      uuid: s.uuid as string,
+      oldId: s.id,
+      version: ((s as any).version ?? 1) as number,
+    }));
+
+    const reordered = [...snapshot];
+    const [dragged] = reordered.splice(draggedIdx, 1);
+    reordered.splice(dragOverIdx, 0, dragged);
+
+    const updates = reordered
+      .map((s, i) => ({ ...s, newId: `COMP ${i + 1}` }))
+      .filter(u => u.oldId !== u.newId);
+
+    if (updates.length === 0) {
+      isDragInProgress.current = false;
+      return;
+    }
+
+    const { userId, userName } = getCurrentUserId();
+    try {
+      await Promise.all(
+        updates.map(u =>
+          apiClient.put(`/computers/${u.uuid}`, {
+            id: u.newId,
+            version: u.version,
+            userId,
+            userName,
+          })
+        )
+      );
+      if (productionId) {
+        const fresh = await sourcesAPI.fetchSources(productionId);
+        setSources(fresh.filter((s: Source) => s.category === 'COMPUTER'));
+      }
+    } catch (err) {
+      console.error('❌ Drag renumber failed:', err);
+      alert('Failed to renumber computers. Please refresh the page.');
+    } finally {
+      isDragInProgress.current = false;
+    }
   };
-  const stats = SourceService.getStatistics(sources);
 
   return (
     <div className="space-y-6">
@@ -272,22 +422,18 @@ export const Computers: React.FC = () => {
             <div className="flex-1">
               <h3 className="font-semibold text-av-text mb-1">Conflict Detected</h3>
               <p className="text-sm text-av-text-muted mb-3">
-                This computer was modified by another user. Your version: {conflictError.clientVersion}, Current version: {conflictError.currentVersion}
+                This computer was modified by another user. Your version: {conflictError.clientVersion}, Current: {conflictError.currentVersion}
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => {
-                    setConflictError(null);
-                    setEditingSource(null);
-                    setIsModalOpen(false);
-                  }}
+                  onClick={() => { setConflictError(null); setEditingSource(null); setIsModalOpen(false); }}
                   className="btn-secondary text-sm"
                 >
                   Discard My Changes
                 </button>
                 <button
                   onClick={() => {
-                    setEditingSource({ ...conflictError.serverData, version: conflictError.currentVersion });
+                    setEditingSource({ ...conflictError.serverData, version: conflictError.currentVersion } as Source);
                     setConflictError(null);
                     setIsModalOpen(true);
                   }}
@@ -300,130 +446,127 @@ export const Computers: React.FC = () => {
           </div>
         </Card>
       )}
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-av-textPrimary">Computers</h1>
-        </div>
+        <h1 className="text-3xl font-bold text-av-textPrimary">Computers</h1>
         <button onClick={handleAddNew} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Add Computer
         </button>
       </div>
 
-      {/* Sources List */}
-      {filteredSources.length === 0 ? (
+      {/* List */}
+      {sortedSources.length === 0 ? (
         <Card className="p-12 text-center">
-          <h3 className="text-lg font-semibold text-av-text mb-2">No Sources Found</h3>
-          <p className="text-av-text-muted mb-4">
-            {sources.length === 0 
-              ? 'Add your first source to get started'
-              : 'No sources match your search criteria'
-            }
-          </p>
-          {sources.length === 0 && (
-            <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">Add Source</button>
-          )}
+          <h3 className="text-lg font-semibold text-av-text mb-2">No Computers Found</h3>
+          <p className="text-av-text-muted mb-4">Add your first computer to get started</p>
+          <button onClick={handleAddNew} className="btn-primary whitespace-nowrap">Add Computer</button>
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredSources.map((source) => {
-            const isDuplicate = hasDuplicateId(source);
+          {sortedSources.map((source, index) => {
             const sourceUuid = source.uuid;
             const isExpanded = sourceUuid ? expandedSources.has(sourceUuid) : false;
             const isLoadingPorts = sourceUuid ? cardPortsLoading.has(sourceUuid) : false;
             const revealPorts = sourceUuid ? (cardPorts[sourceUuid] ?? []) : [];
             return (
-              <Card 
-                key={source.uuid} 
-                className={`p-4 hover:border-av-accent/30 transition-colors cursor-pointer ${
-                  isDuplicate ? 'border-red-500 bg-red-900/10' : ''
-                }`}
-                onDoubleClick={() => handleEdit(source)}
+              <Card
+                key={source.uuid}
+                className={`p-4 transition-colors select-none
+                  ${dragOverIndex === index ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
+                  ${draggedIndex === index ? 'opacity-40' : ''}
+                `}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                onDragLeave={handleDragLeave}
               >
-                <div className="grid items-center" style={{ gridTemplateColumns: '10% 20% 30% 15% 15% 10%' }}>
-                  {/* ID (10%) */}
-                  <div className="pr-2">
-                    <span className={`text-sm font-medium ${isDuplicate ? 'text-red-500 font-bold' : 'text-av-text'}`}>
-                      {source.id}
-                    </span>
+                <div
+                  className="grid items-center gap-4"
+                  style={{ gridTemplateColumns: '10% 20% 30% 20% 10% 10%' }}
+                >
+                  {/* COMP # + grip */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <GripVertical
+                      className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span className="text-sm font-medium text-av-text truncate">{source.id}</span>
                   </div>
-                  
-                  {/* NAME (20%) */}
-                  <div className="pr-2">
-                    <h3 className={`text-lg font-semibold ${isDuplicate ? 'text-red-500' : 'text-av-text'}`}>
-                      {source.name}
-                    </h3>
+
+                  {/* NAME */}
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold text-av-text truncate">{source.name}</h3>
                   </div>
-                  
-                  {/* NOTE (30%) */}
-                  <div className="pr-2">
+
+                  {/* NOTE */}
+                  <div className="min-w-0">
                     {source.note ? (
-                      <p className="text-sm text-av-text-muted line-clamp-2">
-                        {source.note}
-                      </p>
+                      <p className="text-sm text-av-text-muted line-clamp-2">{source.note}</p>
                     ) : (
                       <p className="text-xs text-av-text-muted/50 italic">No notes</p>
                     )}
                   </div>
-                  
-                  {/* TAGS (15%) */}
-                  <div className="flex flex-wrap gap-2 pr-2">
-                    <Badge>{source.type}</Badge>
-                    {source.outputs.map((output, idx) => (
-                      <Badge key={output.id}>{output.connector}{source.outputs.length > 1 ? ` ${idx + 1}` : ''}</Badge>
-                    ))}
-                    {source.secondaryDevice && (
-                      <Badge variant="warning">{source.secondaryDevice}</Badge>
+
+                  {/* TYPE + SECONDARY DEVICE */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {source.type && <Badge>{source.type}</Badge>}
+                    {(source as any).secondaryDevice && (
+                      <Badge variant="warning">{(source as any).secondaryDevice}</Badge>
                     )}
                   </div>
-                  
-                  {/* RES + RATE (15%) */}
-                  <div className="space-y-1 pr-2">
-                    {source.outputs.map((output, idx) => {
+
+                  {/* OUTPUTS */}
+                  <div className="space-y-1">
+                    {(source.outputs || []).map((output: any, idx: number) => {
                       const rate = output.rate || source.rate;
                       const hasResolution = output.hRes && output.vRes;
                       const hasRate = rate !== null && rate !== undefined;
-                      
                       return (
-                        <div key={output.id} className="text-sm text-av-text">
-                          {hasResolution && hasRate && `${output.hRes}×${output.vRes} @ ${rate} fps`}
+                        <div key={output.id || idx} className="text-xs text-av-text">
+                          {hasResolution && hasRate && `${output.hRes}×${output.vRes} @ ${rate}`}
                           {hasResolution && !hasRate && `${output.hRes}×${output.vRes}`}
-                          {!hasResolution && hasRate && `@ ${rate} fps`}
-                          {!hasResolution && !hasRate && <span className="text-av-text-muted/50 italic">No format</span>}
+                          {!hasResolution && hasRate && `@ ${rate}`}
+                          {!hasResolution && !hasRate && <span className="text-av-text-muted/50 italic">—</span>}
                         </div>
                       );
                     })}
                   </div>
-                  
-                  {/* BUTTONS (10%) */}
-                  <div className="flex gap-2 justify-end items-center">
+
+                  {/* BUTTONS */}
+                  <div className="flex gap-1 justify-end items-center" onClick={(e) => e.stopPropagation()}>
                     {sourceUuid && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleReveal(sourceUuid); }}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors flex-shrink-0"
+                        onClick={() => toggleReveal(sourceUuid)}
+                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
                         title={isExpanded ? 'Hide I/O ports' : 'Show I/O ports'}
                       >
                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       </button>
                     )}
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDuplicate(source.id);
+                      onClick={() => handleEdit(source)}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Duplicate: open modal with same data, let user save as a new computer
+                        handleEdit({ ...source, uuid: '' } as Source);
+                        setEditingSource(null); // treat as new record
                       }}
-                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors flex-shrink-0"
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
                       title="Duplicate"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(source.uuid);
-                      }}
-                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors flex-shrink-0"
+                      onClick={() => handleDelete(source.uuid)}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
                       title="Delete"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -431,7 +574,7 @@ export const Computers: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ── Reveal Panel ───────────────────────────────────────────────── */}
+                {/* ── Reveal Panel ─────────────────────────────────────────────── */}
                 {isExpanded && (
                   <div className="mt-4 border-t border-av-border pt-4">
                     {isLoadingPorts ? (
@@ -470,7 +613,7 @@ export const Computers: React.FC = () => {
                               .filter(p => p.direction === 'OUTPUT')
                               .map((port, i) => {
                                 const fmtName = port.formatUuid
-                                  ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
+                                  ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid!)
                                   : '—';
                                 return (
                                   <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
@@ -496,41 +639,170 @@ export const Computers: React.FC = () => {
         </div>
       )}
 
-      {/* Results Count */}
-      {filteredSources.length > 0 && (
+      {/* Results count */}
+      {sortedSources.length > 0 && (
         <div className="text-center text-sm text-av-text-muted">
-          Showing {filteredSources.length} of {sources.length} sources
+          {sortedSources.length} computer{sortedSources.length !== 1 ? 's' : ''}
         </div>
       )}
 
-      {/* Form Modal */}
-      <SourceFormModal
-        key={editingSource?.uuid || 'new'}
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingSource(null);
-        }}
-        onSave={(source, devicePorts) => handleSave(source, devicePorts)}
-        onSaveAndDuplicate={async (source, devicePorts) => {
-          // Save without closing the modal
-          await handleSave(source, devicePorts, false);
-          // Generate new ID and set editing source with duplicated data
-          const newId = SourceService.generateId([...sources, source]);
-          setEditingSource({
-            ...source,
-            uuid: '', // Clear uuid so it gets a new one from backend
-            id: newId,
-            name: `${source.name} (Copy)`
-          });
-          // Modal stays open with duplicated data
-        }}
-        existingSources={sources}
-        editingSource={editingSource}
-        typeFieldLabel="Computer Type"
-        entityLabel="Computer"
-      />
+      {/* ── Inline Modal ──────────────────────────────────────────────────── */}
+      {isModalOpen && (
+        <>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-av-border">
+                <h2 className="text-2xl font-bold text-av-text">
+                  {editingSource ? 'Edit Computer' : 'Add New Computer'}
+                </h2>
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setFormData({ name: '', type: '', secondaryDevice: '', note: '', equipmentUuid: undefined });
+                    setDevicePorts([]);
+                    setErrors([]);
+                    setEditingSource(null);
+                  }}
+                  className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-text transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => { e.preventDefault(); handleSave('close'); }}
+                className="p-6 space-y-4"
+              >
+                {errors.length > 0 && (
+                  <div className="p-3 rounded-md bg-av-danger/10 border border-av-danger/30">
+                    {errors.map((err, i) => (
+                      <p key={i} className="text-sm text-av-danger">{err}</p>
+                    ))}
+                  </div>
+                )}
+
+                {/* Row 1: Name + Computer Type */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Name <span className="text-av-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      className="input-field w-full"
+                      placeholder="e.g., Main Presentation Laptop"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-av-text mb-2">
+                      Computer Type <span className="text-av-danger">*</span>
+                    </label>
+                    <select
+                      value={formData.type || ''}
+                      onChange={(e) => handleTypeChange(e.target.value)}
+                      className="input-field w-full"
+                    >
+                      {computerEquipment.length === 0 && (
+                        <option value="">No equipment specs found</option>
+                      )}
+                      {computerEquipment.map(spec => (
+                        <option key={spec.id} value={spec.model}>
+                          {spec.manufacturer} {spec.model}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* I/O Ports Panel — shown when type is selected, ports exist, or loading */}
+                {(portsLoading || devicePorts.length > 0 || formData.type) && (
+                  <IOPortsPanel
+                    ports={devicePorts}
+                    onChange={setDevicePorts}
+                    formats={formats}
+                    isLoading={portsLoading}
+                    emptyText={formData.type ? 'No spec ports found for this type. Add ports manually.' : undefined}
+                    onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                  />
+                )}
+
+                {/* Secondary Device */}
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">
+                    Secondary Device
+                  </label>
+                  <select
+                    value={formData.secondaryDevice || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, secondaryDevice: e.target.value }))}
+                    className="input-field w-full"
+                  >
+                    <option value="">None</option>
+                    {secondaryDeviceOptions.map(spec => (
+                      <option key={spec.id} value={`${spec.manufacturer} ${spec.model}`}>
+                        {spec.manufacturer} {spec.model} ({spec.category})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-av-text mb-2">Notes</label>
+                  <textarea
+                    value={formData.note || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
+                    className="input-field w-full"
+                    rows={3}
+                    placeholder="Additional notes about this computer..."
+                  />
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => handleSave('close')}
+                    className="btn-primary flex-1"
+                  >
+                    Save & Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSave('duplicate')}
+                    className="btn-secondary flex-1"
+                  >
+                    Save & Duplicate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setFormData({ name: '', type: '', secondaryDevice: '', note: '', equipmentUuid: undefined });
+                      setDevicePorts([]);
+                      setErrors([]);
+                      setEditingSource(null);
+                    }}
+                    className="btn-secondary flex-1"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          {/* Create custom format — modal over modal */}
+          <FormatFormModal
+            isOpen={isCreateFormatOpen}
+            onClose={() => setIsCreateFormatOpen(false)}
+            onSaved={(fmt) => { setFormats(prev => [...prev, fmt]); setIsCreateFormatOpen(false); }}
+          />
+        </>
+      )}
     </div>
   );
 };
-

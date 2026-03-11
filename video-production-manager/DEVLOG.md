@@ -2,6 +2,16 @@
 
 ---
 
+## March 10, 2026 — Computers: COMP # auto-ID, drag-to-reorder, inline modal, CCU-style I/O
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **src/pages/Computers.tsx** — Full rewrite. Replaced generic `SourceFormModal` with inline modal (same pattern as CCUs.tsx). Removed ID field from modal; IDs are now auto-assigned as `COMP #` (max + 1). Added drag-to-reorder using `GripVertical` with same renumber-on-drag pattern as CCUs: on drop, all shifted cards get new `COMP 1`, `COMP 2`, … IDs via parallel PUT requests, then refetch. Modal first row is now Name + Computer Type. I/O Ports section follows CCU standard: `IOPortsPanel` shown conditionally when type is selected or ports exist; selecting a computer type auto-populates port drafts from the equipment spec (`buildPortsFromSpec`); editing loads saved ports from DB with spec fallback. Cards now display grip handle with `COMP #` ID in first column.
+
+---
+
 ## March 10, 2026 — Checklist: per-project collapse state (default all collapsed) + fix notes/dueDate not saving
 
 ### Branch: `v0.1.5_source-touchups`

@@ -51,6 +51,28 @@
   - `clear-storage.html` — now deletes IndexedDB + localStorage + sessionStorage; shows progress
   - `src/hooks/useProjectStore.ts` — lines 626 and 696: fix stale `projectDB.projects.put()` → `projectDB.updateProject()`
 - **Immediate Fix for User:** `indexedDB.deleteDatabase('VideoDeptDB'); location.reload()` in DevTools console, or navigate to http://localhost:3011/clear-storage.html
+
+### Prompt 3: Checklist bugs — collapse state, notes not saving, due date not saving
+**ID:** S20260310-P3-000000
+**Request:** (1) All checklist groups collapsed by default, persisted per-project; (2) Notes not saving when adding new checklist items; (3) Due date not saving on one server
+
+#### Root Causes:
+1. **Collapse state:** `collapsedCategories: string[]` in `usePreferencesStore` was a global flat list (no project scoping) initialized to `[]` (= all expanded). No per-project persistence.
+2. **Notes not saving:** `handleAddItem` sent `moreInfo: newItemMoreInfo.trim() || undefined` — a plain string. Component only renders via `Array.isArray(item.moreInfo)`, so the string was always discarded.
+3. **Due date not saving:** `handleAddItem` included `daysBeforeShow: newItemDays` but never `dueDate: newItemDate`. `handleSaveEdit` also omitted `dueDate`. The `due_date DateTime?` column was never written from either path.
+
+#### Actions Taken:
+1. Added `expandedCategoriesByProject: Record<string, string[]>` to `usePreferencesStore` interface + initial state; added `toggleCategoryExpandedForProject(projectId, category)` action. Empty/absent entry = all categories collapsed (desired default).
+2. Updated `Checklist.tsx` to use per-project expanded set. `isCollapsed = !projectExpanded.includes(category)`. scrollToCategory effect updated accordingly.
+3. Fixed `handleAddItem` (both custom + default-item branches): wrapped `moreInfo` as `[{id, text, timestamp, type: 'info'}]`; added `dueDate: newItemDate || undefined`.
+4. Fixed `handleSaveEdit`: added `dueDate: editItemDate || undefined` to updates object.
+5. Committed: `a30b8e9` fix(checklist): per-project collapse state (default all collapsed), fix notes/dueDate not saving on create/edit
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Files Changed:**
+  - `src/hooks/usePreferencesStore.ts` — new `expandedCategoriesByProject` field + `toggleCategoryExpandedForProject` action
+  - `src/pages/Checklist.tsx` — per-project collapse wiring, `moreInfo` array fix, `dueDate` fix in both create and edit paths
 ---
 
 ## Session 2026-03-07-000000
