@@ -59,6 +59,36 @@
 
 ---
 
+### Prompt 3: Dropdown overflow, layer card UX (collapse/drag/A-B split), UUID in B tags
+**ID:** S20260311-P3-000000
+**Request:** (1) Format cascade dropdown in ServerPairModal gets clipped by expansion I/O card bottom edge; (2) Add reveal/collapse and drag-to-reorder for layer cards; (3) UUID strings appearing in B server assignment tags; (4) Show A/B server split in layer expanded panel like server pair cards
+
+#### Root Causes:
+1. **Dropdown clipped:** Expansion slot card container had `overflow-hidden` on its wrapper `className` — this clipped the absolutely-positioned cascade dropdown that extended below the card boundary
+2. **No collapse/drag:** Layers tab had static flat cards with no interactivity
+3. **UUID in B tags:** Backup server device_ports are synced with `uuid: undefined` → new UUIDs generated each save; `pairCardPorts[backupUuid]` lookup was returning undefined for stale assignment UUIDs → fell back to raw UUID string in template
+4. **No A/B split:** Assignments were rendered as a flat list of `serverId → portLabel` pairs with no pair grouping
+
+#### Actions Taken:
+1. Removed `overflow-hidden` from expansion slot card container in `MediaServers.tsx` (ServerPairModal render) so absolute-positioned dropdown escapes the card boundary
+2. Added state: `expandedLayers: Set<string>`, `draggedLayerIndex: number | null`, `dragOverLayerIndex: number | null`
+3. Added `reorderMediaServerLayers` to `useProjectStore.ts` interface + implementation (reorders `mediaServerLayers` array in Zustand + persists to IndexedDB)
+4. Wired `reorderMediaServerLayers` in MediaServers.tsx CRUD section
+5. Replaced entire Layers tab with new card design:
+   - Collapsed row: 30/30/30/10 grid — grip handle + chevron + name | content | output count | edit/delete
+   - Drag-to-reorder: `onDragStart`/`onDragOver`/`onDrop` handlers; ghost opacity during drag; calls `reorderMediaServerLayers`
+   - Expanded panel: groups assignments by `pairNumber`; each pair shows A (Main) sub-card via direct `pairCardPorts` UUID lookup, and B (Backup) sub-card that derives port labels positionally from A's resolved labels — eliminates UUID fallback entirely
+
+#### Outcome: COMPLETED ✓
+- **Files Changed:**
+  - `src/pages/MediaServers.tsx` — overflow fix, 3 new state vars, reorder wire-up, entire Layers tab replaced
+  - `src/hooks/useProjectStore.ts` — `reorderMediaServerLayers` interface + implementation
+  - `video-production-manager/DEVLOG.md` — entry updated to ✅ COMPLETE
+- Zero TypeScript errors
+- Commit: `7eb9c24` — "fix/feat(media-servers): dropdown overflow, layer collapse/drag/A-B split"
+
+---
+
 ## Session 2026-03-10-000000
 **Started:** 2026-03-10
 **Status:** COMPLETED
