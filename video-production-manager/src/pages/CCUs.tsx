@@ -623,7 +623,7 @@ export default function CCUs() {
             return (
             <Card
               key={ccuUuid || ccu.id}
-              className={`p-6 transition-colors select-none
+              className={`p-6 transition-colors select-none cursor-pointer
                 ${dragOverIndex === index ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
                 ${draggedIndex === index ? 'opacity-40' : ''}
               `}
@@ -632,12 +632,13 @@ export default function CCUs() {
               onDragOver={(e) => handleDragOver(e, index)}
               onDragEnd={handleDragEnd}
               onDragLeave={handleDragLeave}
+              onClick={() => { if (!isDragInProgress.current && ccuUuid) toggleReveal(ccuUuid); }}
+              onDoubleClick={(e) => { e.stopPropagation(); handleEdit(ccu); }}
             >
               {/* 30 / 30 / 30 / 10 collapsed card layout */}
               <div
-                className="grid gap-4 items-center cursor-pointer"
+                className="grid gap-4 items-center"
                 style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
-                onClick={() => { if (!isDragInProgress.current && ccuUuid) toggleReveal(ccuUuid); }}
               >
                 {/* Col 1 (30%): grip + chevron + CCU ID + assigned camera */}
                 <div className="flex items-center gap-2 min-w-0">

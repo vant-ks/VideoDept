@@ -137,6 +137,7 @@ export interface DevicePortDraft {
   direction: 'INPUT' | 'OUTPUT';
   formatUuid?: string | null;
   note?: string | null;
+  cardSlot?: number;       // slot number for expansion card ports; undefined = direct I/O
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────

@@ -24,6 +24,12 @@ export default function MediaServers() {
   
   // Get production ID for WebSocket events
   const productionId = activeProject?.production?.id || oldStore.production?.id;
+
+  // Equipment specs — used in reveal panel to split direct vs expansion I/O
+  const _oldEquipmentSpecs = useProductionStore(state => state.equipmentSpecs) || [];
+  const _libEquipmentSpecs = useEquipmentLibrary(state => state.equipmentSpecs);
+  const computerEquipment = (_libEquipmentSpecs.length > 0 ? _libEquipmentSpecs : _oldEquipmentSpecs)
+    .filter((spec: any) => spec.category === 'computer');
   
   // State declarations - MUST be before useProductionEvents to avoid initialization errors
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
@@ -427,7 +433,7 @@ export default function MediaServers() {
                 return (
                 <Card 
                   key={pair.main.pairNumber} 
-                  className={`p-6 transition-all ${
+                  className={`p-6 transition-all select-none cursor-pointer ${
                     draggedIndex === index 
                       ? 'opacity-50 scale-95' 
                       : dragOverIndex === index 
@@ -439,12 +445,13 @@ export default function MediaServers() {
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
                   onDragLeave={handleDragLeave}
+                  onClick={() => { if (draggedIndex === null && mainUuid) togglePairReveal(mainUuid, backupUuid); }}
+                  onDoubleClick={(e) => { e.stopPropagation(); handleEditServer(pair.main); }}
                 >
                   {/* ── 30/30/30/10 collapsed card ─────────────────────────────── */}
                   <div
-                    className="grid gap-4 items-center cursor-pointer"
+                    className="grid gap-4 items-center"
                     style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
-                    onClick={() => { if (draggedIndex === null && mainUuid) togglePairReveal(mainUuid, backupUuid); }}
                   >
                     {/* Col 1 (30%): grip + chevron + pair name + platform (output count) */}
                     <div className="flex items-center gap-2 min-w-0">
@@ -534,91 +541,181 @@ export default function MediaServers() {
                   </div>
 
                   {/* ── Reveal Panel ───────────────────────────────────────────────── */}
-                  {isExpanded && (
-                    <div className="mt-4 border-t border-av-border pt-4 space-y-4">
+                  {isExpanded && (() => {
+                    // Look up the equipment spec by the server's computerType field
+                    const specEntry = computerEquipment.find((s: any) => s.model === (pair.main as any).computerType);
+                    const specCards = specEntry?.cards ?? [];
+                    const sortedSpecCards = [...specCards].sort((a: any, b: any) => a.slotNumber - b.slotNumber);
+                    const directCount = (specEntry?.inputs?.length ?? 0) + (specEntry?.outputs?.length ?? 0);
 
-                      {/* A/B Server subcards — each shows that server's device_ports */}
-                      {(() => {
-                        // Shared port-table renderer used for both A and B
-                        const renderPortTable = (ports: DevicePortDraft[], loading: boolean, emptyMsg: string) => {
-                          if (loading) return <p className="text-xs text-av-text-muted italic">Loading ports…</p>;
-                          if (ports.length === 0) return <p className="text-xs text-av-text-muted italic">{emptyMsg}</p>;
-                          return (
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
-                                  <th className="text-left pb-1.5 pr-2 font-semibold w-12">Dir</th>
-                                  <th className="text-left pb-1.5 pr-2 font-semibold w-16">Type</th>
-                                  <th className="text-left pb-1.5 pr-2 font-semibold">Label</th>
-                                  <th className="text-left pb-1.5 pr-2 font-semibold">Format</th>
-                                  <th className="text-left pb-1.5 font-semibold">Note</th>
+                    // Split a flat port array into direct + per-slot card sections (positional)
+                    const splitPorts = (ports: DevicePortDraft[]) => {
+                      const direct = specCards.length > 0 ? ports.slice(0, directCount) : ports;
+                      const bySlot = new Map<number, DevicePortDraft[]>();
+                      if (specCards.length > 0) {
+                        let offset = directCount;
+                        for (const card of sortedSpecCards) {
+                          const count = (card.inputs?.length ?? 0) + (card.outputs?.length ?? 0);
+                          bySlot.set(card.slotNumber, ports.slice(offset, offset + count));
+                          offset += count;
+                        }
+                      }
+                      return { direct, bySlot };
+                    };
+
+                    // Render a port table (inputs first, then outputs)
+                    const renderPortTable = (ports: DevicePortDraft[], loading: boolean, emptyMsg: string) => {
+                      if (loading) return <p className="text-xs text-av-text-muted italic">Loading ports…</p>;
+                      if (ports.length === 0) return <p className="text-xs text-av-text-muted italic">{emptyMsg}</p>;
+                      const inputs  = ports.filter(p => p.direction === 'INPUT');
+                      const outputs = ports.filter(p => p.direction === 'OUTPUT');
+                      return (
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-12">Dir</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold w-16">Type</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold">Label</th>
+                              <th className="text-left pb-1.5 pr-2 font-semibold">Format</th>
+                              <th className="text-left pb-1.5 font-semibold">Note</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-av-border/40">
+                            {[...inputs, ...outputs].map((port, i) => {
+                              const isOut = port.direction === 'OUTPUT';
+                              const fmtName = port.formatUuid
+                                ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
+                                : '—';
+                              return (
+                                <tr key={i} className="hover:bg-av-surface-hover/40">
+                                  <td className="py-1.5 pr-2">
+                                    {isOut
+                                      ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                      : <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                    }
+                                  </td>
+                                  <td className="py-1.5 pr-2 font-mono text-av-text-muted">{port.ioType}</td>
+                                  <td className="py-1.5 pr-2 text-av-text">{port.portLabel || <span className="text-av-text-muted/50 italic">unlabelled</span>}</td>
+                                  <td className="py-1.5 pr-2 text-av-info">{isOut ? fmtName : <span className="text-av-text-muted">—</span>}</td>
+                                  <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
                                 </tr>
-                              </thead>
-                              <tbody className="divide-y divide-av-border/40">
-                                {ports.map((port, i) => {
-                                  const fmtName = port.formatUuid
-                                    ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid)
-                                    : '—';
-                                  const isOut = port.direction === 'OUTPUT';
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    };
+
+                    // Render Direct I/O + per-slot Expansion I/O for one server subcard
+                    const renderServerPorts = (ports: DevicePortDraft[], loading: boolean, emptyMsg: string) => {
+                      if (loading) return <p className="text-xs text-av-text-muted italic">Loading ports…</p>;
+                      if (ports.length === 0 && specCards.length === 0)
+                        return <p className="text-xs text-av-text-muted italic">{emptyMsg}</p>;
+
+                      const { direct, bySlot } = splitPorts(ports);
+                      return (
+                        <div className="space-y-3">
+                          {/* Direct I/O */}
+                          <div>
+                            {specCards.length > 0 && (
+                              <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">Direct I/O</p>
+                            )}
+                            {direct.length === 0 && ports.length === 0
+                              ? <p className="text-xs text-av-text-muted italic">{emptyMsg}</p>
+                              : renderPortTable(direct, false, emptyMsg)
+                            }
+                          </div>
+
+                          {/* Expansion I/O — per slot */}
+                          {sortedSpecCards.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5">
+                                Expansion I/O — {sortedSpecCards.length} card{sortedSpecCards.length !== 1 ? 's' : ''}
+                              </p>
+                              <div className="space-y-2">
+                                {sortedSpecCards.map((card: any, ci: number) => {
+                                  const savedPorts = bySlot.get(card.slotNumber) ?? [];
+                                  const specInputs: any[] = card.inputs ?? [];
+                                  const specOutputs: any[] = card.outputs ?? [];
                                   return (
-                                    <tr key={i} className="hover:bg-av-surface-hover/40">
-                                      <td className="py-1.5 pr-2">
-                                        {isOut
-                                          ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
-                                          : <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
-                                        }
-                                      </td>
-                                      <td className="py-1.5 pr-2 font-mono text-av-text-muted">{port.ioType}</td>
-                                      <td className="py-1.5 pr-2 text-av-text">{port.portLabel || <span className="text-av-text-muted/50 italic">unlabelled</span>}</td>
-                                      <td className="py-1.5 pr-2 text-av-info">{isOut ? fmtName : <span className="text-av-text-muted">—</span>}</td>
-                                      <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
-                                    </tr>
+                                    <div key={card.id ?? card.slotNumber} className="border border-av-border rounded-md p-2">
+                                      <p className="text-xs font-medium text-av-text mb-1.5">Card {card.slotNumber}</p>
+                                      {savedPorts.length > 0
+                                        ? renderPortTable(savedPorts, false, '')
+                                        : (
+                                          <table className="w-full text-xs">
+                                            <tbody className="divide-y divide-av-border/40">
+                                              {specInputs.map((p: any, pi: number) => (
+                                                <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
+                                                  <td className="py-1 pr-2 w-12"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span></td>
+                                                  <td className="py-1 pr-2 font-mono text-av-text-muted">{p.type}</td>
+                                                  <td className="py-1 pr-2 text-av-text">{p.label || p.id}</td>
+                                                  <td className="py-1 pr-2 text-av-text-muted">—</td>
+                                                  <td className="py-1 text-av-text-muted">—</td>
+                                                </tr>
+                                              ))}
+                                              {specOutputs.map((p: any, pi: number) => (
+                                                <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
+                                                  <td className="py-1 pr-2 w-12"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span></td>
+                                                  <td className="py-1 pr-2 font-mono text-av-text-muted">{p.type}</td>
+                                                  <td className="py-1 pr-2 text-av-text">{p.label || p.id}</td>
+                                                  <td className="py-1 pr-2 text-av-text-muted">—</td>
+                                                  <td className="py-1 text-av-text-muted">—</td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        )
+                                      }
+                                    </div>
                                   );
                                 })}
-                              </tbody>
-                            </table>
-                          );
-                        };
-
-                        const isLoadingA = mainUuid   ? pairCardPortsLoading.has(mainUuid)   : false;
-                        const isLoadingB = backupUuid ? pairCardPortsLoading.has(backupUuid) : false;
-
-                        return (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Server A */}
-                            <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-semibold text-av-text">Server {index + 1} A</h4>
-                                <Badge variant="success">Main</Badge>
-                              </div>
-                              <div className="overflow-x-auto">
-                                {renderPortTable(revealPorts, isLoadingA, 'No ports configured. Open Edit to assign ports.')}
                               </div>
                             </div>
+                          )}
+                        </div>
+                      );
+                    };
 
-                            {/* Server B */}
-                            <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-semibold text-av-text">Server {index + 1} B</h4>
-                                <Badge variant="warning">Backup</Badge>
-                              </div>
-                              <div className="overflow-x-auto">
-                                {renderPortTable(revealPortsBack, isLoadingB, 'No ports configured.')}
-                              </div>
+                    const isLoadingA = mainUuid   ? pairCardPortsLoading.has(mainUuid)   : false;
+                    const isLoadingB = backupUuid ? pairCardPortsLoading.has(backupUuid) : false;
+
+                    return (
+                      <div className="mt-4 border-t border-av-border pt-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Server A */}
+                          <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-semibold text-av-text">Server {index + 1} A</h4>
+                              <Badge variant="success">Main</Badge>
+                            </div>
+                            <div className="overflow-x-auto">
+                              {renderServerPorts(revealPorts, isLoadingA, 'No ports configured. Open Edit to assign ports.')}
                             </div>
                           </div>
-                        );
-                      })()}
 
-                      {pair.main.note && (
-                        <div className="border-t border-av-border pt-3">
-                          <p className="text-sm text-av-text-muted">
-                            <span className="font-medium">Note:</span> {pair.main.note}
-                          </p>
+                          {/* Server B */}
+                          <div className="bg-av-surface-light p-4 rounded-md border border-av-border">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-semibold text-av-text">Server {index + 1} B</h4>
+                              <Badge variant="warning">Backup</Badge>
+                            </div>
+                            <div className="overflow-x-auto">
+                              {renderServerPorts(revealPortsBack, isLoadingB, 'No ports configured.')}
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+
+                        {pair.main.note && (
+                          <div className="border-t border-av-border pt-3">
+                            <p className="text-sm text-av-text-muted">
+                              <span className="font-medium">Note:</span> {pair.main.note}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </Card>
                 );
               })}
@@ -988,16 +1085,29 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
         .then((res: any) => {
           const ports: any[] = Array.isArray(res) ? res : [];
           if (ports.length > 0) {
-            // DB has saved ports — use them (they take priority over spec auto-populate)
-            setDevicePorts(ports.map((p: any) => ({
-              uuid: p.uuid,
-              specPortUuid: p.specPortUuid,
-              portLabel: p.portLabel,
-              ioType: p.ioType,
-              direction: p.direction,
-              formatUuid: p.formatUuid,
-              note: p.note,
-            })));
+            const spec = computerEquipment.find(s => s.model === computerType);
+            const directCount = (spec?.inputs?.length || 0) + (spec?.outputs?.length || 0);
+            const sortedCards = [...(spec?.cards || [])].sort((a: any, b: any) => a.slotNumber - b.slotNumber);
+            let offset = directCount;
+            const cardRanges: Array<{ slotNumber: number; start: number; end: number }> = [];
+            for (const card of sortedCards) {
+              const count = (card.inputs?.length || 0) + (card.outputs?.length || 0);
+              cardRanges.push({ slotNumber: card.slotNumber, start: offset, end: offset + count });
+              offset += count;
+            }
+            setDevicePorts(ports.map((p: any, i: number) => {
+              const range = cardRanges.find(r => i >= r.start && i < r.end);
+              return {
+                uuid: p.uuid,
+                specPortUuid: p.specPortUuid,
+                portLabel: p.portLabel,
+                ioType: p.ioType,
+                direction: p.direction,
+                formatUuid: p.formatUuid,
+                note: p.note,
+                ...(range ? { cardSlot: range.slotNumber } : {}),
+              };
+            }));
           }
           // If DB returned empty, leave devicePorts alone — spec auto-populate handles it
         })
@@ -1009,29 +1119,24 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
   }, [isOpen, editingServer?.uuid]);
   
   // ── Auto-populate device_ports from equipment spec ─────────────────────
-  // Seeds devicePorts from the spec whenever computerType changes, but only if
-  // no ports are currently loaded (i.e. DB returned empty). DB-loaded ports always
-  // take precedence — the functional setState form lets us read prev without
-  // adding devicePorts to the deps array (which would cause infinite loops).
-  // Includes both direct ports (spec.inputs/outputs) AND card-based ports
-  // (spec.cards[].inputs/outputs) so cards added in the Equipment Library work.
   useEffect(() => {
     if (!isOpen) return;
     if (!computerType) return;
     const spec = computerEquipment.find(s => s.model === computerType);
     if (!spec) return;
-    const mapPort = (p: any, dir: 'INPUT' | 'OUTPUT'): DevicePortDraft =>
+    const mapDirect = (p: any, dir: 'INPUT' | 'OUTPUT'): DevicePortDraft =>
       ({ portLabel: '', ioType: p.type, direction: dir, formatUuid: null, note: null });
+    const mapCard = (p: any, dir: 'INPUT' | 'OUTPUT', slotNumber: number): DevicePortDraft =>
+      ({ portLabel: '', ioType: p.type, direction: dir, formatUuid: null, note: null, cardSlot: slotNumber });
     const specPorts: DevicePortDraft[] = [
-      ...(spec.inputs  ?? []).map(p => mapPort(p, 'INPUT')),
-      ...(spec.outputs ?? []).map(p => mapPort(p, 'OUTPUT')),
-      ...(spec.cards   ?? []).flatMap(card => [
-        ...(card.inputs  ?? []).map(p => mapPort(p, 'INPUT')),
-        ...(card.outputs ?? []).map(p => mapPort(p, 'OUTPUT')),
+      ...(spec.inputs  ?? []).map(p => mapDirect(p, 'INPUT')),
+      ...(spec.outputs ?? []).map(p => mapDirect(p, 'OUTPUT')),
+      ...[...(spec.cards ?? [])].sort((a, b) => a.slotNumber - b.slotNumber).flatMap(card => [
+        ...(card.inputs  ?? []).map(p => mapCard(p, 'INPUT',  card.slotNumber)),
+        ...(card.outputs ?? []).map(p => mapCard(p, 'OUTPUT', card.slotNumber)),
       ]),
     ];
     if (specPorts.length === 0) return;
-    // Only seed if no ports are currently loaded (DB ports take precedence)
     setDevicePorts(prev => prev.length > 0 ? prev : specPorts);
   }, [isOpen, computerType, computerEquipment]);
 
@@ -1118,30 +1223,92 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
               </div>
             </div>
 
-            {/* I/O Ports — from equipment spec */}
-            <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                I/O Ports
-                <span className="text-xs text-av-text-muted ml-2">assign label &amp; format per port</span>
-              </label>
-              <IOPortsPanel
-                ports={devicePorts}
-                onChange={setDevicePorts}
-                formats={formats}
-                isLoading={portsLoading}
-                emptyText={
-                  !computerType
-                    ? 'Select a Computer Type above to auto-populate ports from the equipment spec.'
-                    : computerEquipment.find(s => s.model === computerType)?.inputs?.length === 0 &&
-                      computerEquipment.find(s => s.model === computerType)?.outputs?.length === 0
-                    ? 'No I/O defined for this computer type — add ports in the Equipment Library first.'
-                    : editingServer?.uuid
-                    ? 'No ports saved for this server yet. Select a Computer Type to populate from spec.'
-                    : 'Ports will be populated once a Computer Type is selected.'
-                }
-                onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
-              />
-            </div>
+            {/* I/O Ports — Direct + Expansion sections */}
+            {(() => {
+              const spec = computerEquipment.find(s => s.model === computerType);
+              const sortedCards = [...(spec?.cards || [])].sort((a, b) => a.slotNumber - b.slotNumber);
+
+              const directPorts = devicePorts.filter(p => p.cardSlot == null);
+              const setDirectPorts = (updated: DevicePortDraft[]) =>
+                setDevicePorts([...updated, ...devicePorts.filter(p => p.cardSlot != null)]);
+
+              const getSlotPorts = (slotNumber: number) =>
+                devicePorts.filter(p => p.cardSlot === slotNumber);
+              const setSlotPorts = (slotNumber: number, updated: DevicePortDraft[]) =>
+                setDevicePorts(prev => {
+                  const allSlots = [...new Set(prev.filter(p => p.cardSlot != null).map(p => p.cardSlot!))].sort((a, b) => a - b);
+                  const newCards = allSlots.flatMap(slot =>
+                    slot === slotNumber ? updated : prev.filter(p => p.cardSlot === slot)
+                  );
+                  return [...prev.filter(p => p.cardSlot == null), ...newCards];
+                });
+
+              return (
+                <div className="space-y-4">
+                  {/* ── Direct I/O ── */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className="text-sm font-medium text-av-text">
+                        Direct I/O
+                        <span className="text-xs text-av-text-muted ml-2">assign label &amp; format per port</span>
+                      </label>
+                      {directPorts.length > 0 && (
+                        <span className="text-xs text-av-text-muted ml-auto">
+                          {directPorts.filter(p => p.direction === 'INPUT').length} in / {directPorts.filter(p => p.direction === 'OUTPUT').length} out
+                        </span>
+                      )}
+                    </div>
+                    <IOPortsPanel
+                      ports={directPorts}
+                      onChange={setDirectPorts}
+                      formats={formats}
+                      isLoading={portsLoading}
+                      emptyText={
+                        !computerType
+                          ? 'Select a Computer Type above to auto-populate ports from the equipment spec.'
+                          : 'No direct I/O defined for this equipment type.'
+                      }
+                      onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                    />
+                  </div>
+
+                  {/* ── Expansion I/O (one section per card slot) ── */}
+                  {sortedCards.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium text-av-text">Expansion I/O</span>
+                        <span className="text-xs text-av-text-muted">({sortedCards.length} slot{sortedCards.length !== 1 ? 's' : ''})</span>
+                      </div>
+                      <div className="space-y-3">
+                        {sortedCards.map(card => {
+                          const slotPorts = getSlotPorts(card.slotNumber);
+                          return (
+                            <div key={card.id || card.slotNumber} className="border border-av-border rounded-md overflow-hidden">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-av-surface-light border-b border-av-border">
+                                <span className="text-xs font-semibold text-av-text">Slot {card.slotNumber}</span>
+                                <span className="text-xs text-av-text-muted">
+                                  {slotPorts.filter(p => p.direction === 'INPUT').length} in / {slotPorts.filter(p => p.direction === 'OUTPUT').length} out
+                                </span>
+                              </div>
+                              <div className="p-2">
+                                <IOPortsPanel
+                                  ports={slotPorts}
+                                  onChange={(u) => setSlotPorts(card.slotNumber, u)}
+                                  formats={formats}
+                                  isLoading={false}
+                                  emptyText="No ports defined for this card slot."
+                                  onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div>
               <label className="block text-sm font-medium text-av-text mb-2">

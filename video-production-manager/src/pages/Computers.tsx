@@ -182,18 +182,59 @@ export const Computers: React.FC = () => {
   }, [sources]);
 
   // ── I/O helpers ──────────────────────────────────────────────────────────
-  const buildPortsFromSpec = (spec: { inputs?: any[]; outputs?: any[] }): DevicePortDraft[] => [
-    ...(spec.inputs || []).map((p: any) => ({
-      portLabel: p.label || p.id || p.type,
-      ioType:    p.type || p.id,
-      direction: 'INPUT' as const,
-    })),
-    ...(spec.outputs || []).map((p: any) => ({
-      portLabel: p.label || p.id || p.type,
-      ioType:    p.type || p.id,
-      direction: 'OUTPUT' as const,
-    })),
-  ];
+  // Build a flat DevicePortDraft array from an equipment spec.
+  // Direct ports have no cardSlot; card ports are tagged with their slotNumber.
+  // Order: direct inputs → direct outputs → [card N inputs → card N outputs] per slot.
+  const buildPortsFromSpec = (spec: { inputs?: any[]; outputs?: any[]; cards?: any[] }): DevicePortDraft[] => {
+    const direct: DevicePortDraft[] = [
+      ...(spec.inputs || []).map((p: any) => ({
+        portLabel: p.label || p.id || p.type,
+        ioType:    p.type || p.id,
+        direction: 'INPUT' as const,
+      })),
+      ...(spec.outputs || []).map((p: any) => ({
+        portLabel: p.label || p.id || p.type,
+        ioType:    p.type || p.id,
+        direction: 'OUTPUT' as const,
+      })),
+    ];
+    const cardPorts: DevicePortDraft[] = [...(spec.cards || [])]
+      .sort((a: any, b: any) => a.slotNumber - b.slotNumber)
+      .flatMap((card: any) => [
+        ...(card.inputs || []).map((p: any) => ({
+          portLabel: p.label || p.id || p.type,
+          ioType:    p.type || p.id,
+          direction: 'INPUT' as const,
+          cardSlot:  card.slotNumber as number,
+        })),
+        ...(card.outputs || []).map((p: any) => ({
+          portLabel: p.label || p.id || p.type,
+          ioType:    p.type || p.id,
+          direction: 'OUTPUT' as const,
+          cardSlot:  card.slotNumber as number,
+        })),
+      ]);
+    return [...direct, ...cardPorts];
+  };
+
+  // Infer cardSlot for DB-loaded ports by positional matching against the spec.
+  // Ports at indices [0, directCount) are direct; the rest are card ports in slot order.
+  const tagPortsWithSlots = (ports: DevicePortDraft[], spec: { inputs?: any[]; outputs?: any[]; cards?: any[] } | undefined): DevicePortDraft[] => {
+    if (!spec) return ports;
+    const directCount = (spec.inputs?.length || 0) + (spec.outputs?.length || 0);
+    const sortedCards = [...(spec.cards || [])].sort((a: any, b: any) => a.slotNumber - b.slotNumber);
+    let offset = directCount;
+    const cardRanges: Array<{ slotNumber: number; start: number; end: number }> = [];
+    for (const card of sortedCards) {
+      const count = (card.inputs?.length || 0) + (card.outputs?.length || 0);
+      cardRanges.push({ slotNumber: card.slotNumber, start: offset, end: offset + count });
+      offset += count;
+    }
+    return ports.map((p, i) => {
+      const range = cardRanges.find(r => i >= r.start && i < r.end);
+      return range ? { ...p, cardSlot: range.slotNumber } : p;
+    });
+  };
 
   const handleTypeChange = (typeValue: string) => {
     const spec = computerEquipment.find(s => s.model === typeValue);
@@ -240,19 +281,44 @@ export const Computers: React.FC = () => {
       apiClient.get<any[]>(`/device-ports/device/${record.uuid}`)
         .then((ports: any) => {
           const portArray = Array.isArray(ports) ? ports : (ports?.data ?? []);
+          const spec = computerEquipment.find(s => s.uuid === record.equipmentUuid) ||
+                       computerEquipment.find(s => s.model === record.type);
           if (portArray.length > 0) {
-            setDevicePorts(portArray.map((p: any) => ({
-              uuid:         p.uuid,
-              specPortUuid: p.specPortUuid,
-              portLabel:    p.portLabel,
-              ioType:       p.ioType,
-              direction:    p.direction as 'INPUT' | 'OUTPUT',
-              formatUuid:   p.formatUuid ?? null,
-              note:         p.note ?? null,
-            })));
+            // Load DB ports and tag with cardSlot by positional inference
+            const dbPorts = tagPortsWithSlots(
+              portArray.map((p: any) => ({
+                uuid:         p.uuid,
+                specPortUuid: p.specPortUuid,
+                portLabel:    p.portLabel,
+                ioType:       p.ioType,
+                direction:    p.direction as 'INPUT' | 'OUTPUT',
+                formatUuid:   p.formatUuid ?? null,
+                note:         p.note ?? null,
+              })),
+              spec
+            );
+            // Append spec card ports for any slots not yet saved in DB
+            const savedSlots = new Set(dbPorts.filter(p => p.cardSlot != null).map(p => p.cardSlot));
+            const missingCardPorts: DevicePortDraft[] = [...(spec?.cards || [])]
+              .sort((a: any, b: any) => a.slotNumber - b.slotNumber)
+              .filter((card: any) => !savedSlots.has(card.slotNumber))
+              .flatMap((card: any) => [
+                ...(card.inputs || []).map((p: any) => ({
+                  portLabel: p.label || p.id || p.type,
+                  ioType:    p.type || p.id,
+                  direction: 'INPUT' as const,
+                  cardSlot:  card.slotNumber as number,
+                })),
+                ...(card.outputs || []).map((p: any) => ({
+                  portLabel: p.label || p.id || p.type,
+                  ioType:    p.type || p.id,
+                  direction: 'OUTPUT' as const,
+                  cardSlot:  card.slotNumber as number,
+                })),
+              ]);
+            setDevicePorts([...dbPorts, ...missingCardPorts]);
           } else {
-            // Seed from equipment spec if no ports saved yet
-            const spec = computerEquipment.find(s => s.model === record.type);
+            // No saved ports — seed entirely from equipment spec
             if (spec) setDevicePorts(buildPortsFromSpec(spec));
           }
         })
@@ -568,7 +634,28 @@ export const Computers: React.FC = () => {
 
                 {/* ── Reveal Panel ─────────────────────────────────────────────── */}
                 {isExpanded && (() => {
-                  const specCards = computerEquipment.find(s => s.uuid === (source as any).equipmentUuid)?.cards ?? [];
+                  const specEntry =
+                    computerEquipment.find(s => s.uuid === (source as any).equipmentUuid) ||
+                    computerEquipment.find(s => s.model === source.type);
+                  const specCards = specEntry?.cards ?? [];
+
+                  // Split revealPorts into direct + per-slot card ports using the same
+                  // positional logic as tagPortsWithSlots — avoids double-rendering card ports.
+                  const directCount = (specEntry?.inputs?.length ?? 0) + (specEntry?.outputs?.length ?? 0);
+                  const sortedSpecCards = [...specCards].sort((a: any, b: any) => a.slotNumber - b.slotNumber);
+                  const directRevealPorts = specCards.length > 0
+                    ? revealPorts.slice(0, directCount)
+                    : revealPorts;
+                  const cardRevealPortsBySlot = new Map<number, typeof revealPorts>();
+                  if (specCards.length > 0) {
+                    let offset = directCount;
+                    for (const card of sortedSpecCards) {
+                      const count = (card.inputs?.length ?? 0) + (card.outputs?.length ?? 0);
+                      cardRevealPortsBySlot.set(card.slotNumber, revealPorts.slice(offset, offset + count));
+                      offset += count;
+                    }
+                  }
+
                   return (
                   <div className="mt-4 border-t border-av-border pt-4 space-y-4">
                     {/* Direct I/O ports */}
@@ -591,7 +678,7 @@ export const Computers: React.FC = () => {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-av-border/40">
-                            {revealPorts
+                            {directRevealPorts
                               .filter(p => p.direction === 'INPUT')
                               .map((port, i) => (
                                 <tr key={`in-${i}`} className="hover:bg-av-surface-hover/40">
@@ -604,7 +691,7 @@ export const Computers: React.FC = () => {
                                   <td className="py-1.5 text-av-text-muted">{port.note || '—'}</td>
                                 </tr>
                               ))}
-                            {revealPorts
+                            {directRevealPorts
                               .filter(p => p.direction === 'OUTPUT')
                               .map((port, i) => {
                                 const fmtName = port.formatUuid
@@ -627,40 +714,84 @@ export const Computers: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Expansion cards from spec */}
+                    {/* Expansion cards — use saved port data (actual labels/formats) */}
                     {specCards.length > 0 && (
                       <div>
                         <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-2">
                           Expansion I/O — {specCards.length} card{specCards.length !== 1 ? 's' : ''}
                         </p>
                         <div className="space-y-2">
-                          {specCards.map((card, ci) => (
-                            <div key={card.id} className="border border-av-border rounded-md p-2">
-                              <p className="text-xs font-medium text-av-text mb-1.5">Card {card.slotNumber}</p>
-                              <table className="w-full text-xs">
-                                <tbody className="divide-y divide-av-border/40">
-                                  {card.inputs.map((p, pi) => (
-                                    <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
-                                      <td className="py-1 pr-3 w-14">
-                                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
-                                      </td>
-                                      <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
-                                      <td className="py-1 text-av-text">{p.label || p.id}</td>
-                                    </tr>
-                                  ))}
-                                  {card.outputs.map((p, pi) => (
-                                    <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
-                                      <td className="py-1 pr-3 w-14">
-                                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
-                                      </td>
-                                      <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
-                                      <td className="py-1 text-av-text">{p.label || p.id}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ))}
+                          {sortedSpecCards.map((card: any, ci: number) => {
+                            const savedPorts = cardRevealPortsBySlot.get(card.slotNumber) ?? [];
+                            // Fall back to spec defaults if card ports not yet saved to DB
+                            const specInputs: any[] = card.inputs ?? [];
+                            const specOutputs: any[] = card.outputs ?? [];
+                            return (
+                              <div key={card.id ?? card.slotNumber} className="border border-av-border rounded-md p-2">
+                                <p className="text-xs font-medium text-av-text mb-1.5">Card {card.slotNumber}</p>
+                                <table className="w-full text-xs">
+                                  <tbody className="divide-y divide-av-border/40">
+                                    {savedPorts.length > 0 ? (
+                                      <>
+                                        {savedPorts.filter(p => p.direction === 'INPUT').map((port, pi) => (
+                                          <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
+                                            <td className="py-1 pr-3 w-14">
+                                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                            </td>
+                                            <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
+                                            <td className="py-1 pr-3 text-av-text">{port.portLabel}</td>
+                                            <td className="py-1 pr-3 text-av-text-muted">—</td>
+                                            <td className="py-1 text-av-text-muted">{port.note || '—'}</td>
+                                          </tr>
+                                        ))}
+                                        {savedPorts.filter(p => p.direction === 'OUTPUT').map((port, pi) => {
+                                          const fmtName = port.formatUuid
+                                            ? displayFormatId(formats.find(f => f.uuid === port.formatUuid)?.id ?? port.formatUuid!)
+                                            : '—';
+                                          return (
+                                            <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
+                                              <td className="py-1 pr-3 w-14">
+                                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                              </td>
+                                              <td className="py-1 pr-3 font-mono text-av-text-muted">{port.ioType}</td>
+                                              <td className="py-1 pr-3 text-av-text">{port.portLabel}</td>
+                                              <td className="py-1 pr-3 text-av-info">{fmtName}</td>
+                                              <td className="py-1 text-av-text-muted">{port.note || '—'}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </>
+                                    ) : (
+                                      <>
+                                        {specInputs.map((p: any, pi: number) => (
+                                          <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
+                                            <td className="py-1 pr-3 w-14">
+                                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                            </td>
+                                            <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
+                                            <td className="py-1 pr-3 text-av-text">{p.label || p.id}</td>
+                                            <td className="py-1 pr-3 text-av-text-muted">—</td>
+                                            <td className="py-1 text-av-text-muted">—</td>
+                                          </tr>
+                                        ))}
+                                        {specOutputs.map((p: any, pi: number) => (
+                                          <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
+                                            <td className="py-1 pr-3 w-14">
+                                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                            </td>
+                                            <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
+                                            <td className="py-1 pr-3 text-av-text">{p.label || p.id}</td>
+                                            <td className="py-1 pr-3 text-av-text-muted">—</td>
+                                            <td className="py-1 text-av-text-muted">—</td>
+                                          </tr>
+                                        ))}
+                                      </>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -752,17 +883,86 @@ export const Computers: React.FC = () => {
                   </div>
                 </div>
 
-                {/* I/O Ports Panel — shown when type is selected, ports exist, or loading */}
-                {(portsLoading || devicePorts.length > 0 || formData.type) && (
-                  <IOPortsPanel
-                    ports={devicePorts}
-                    onChange={setDevicePorts}
-                    formats={formats}
-                    isLoading={portsLoading}
-                    emptyText={formData.type ? 'No spec ports found for this type. Add ports manually.' : undefined}
-                    onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
-                  />
-                )}
+                {/* I/O Ports — Direct + Expansion sections */}
+                {(portsLoading || devicePorts.length > 0 || formData.type) && (() => {
+                  const spec = computerEquipment.find(s => s.uuid === formData.equipmentUuid) ||
+                               computerEquipment.find(s => s.model === formData.type);
+                  const sortedCards = [...(spec?.cards || [])].sort((a, b) => a.slotNumber - b.slotNumber);
+
+                  const directPorts = devicePorts.filter(p => p.cardSlot == null);
+                  const setDirectPorts = (updated: DevicePortDraft[]) =>
+                    setDevicePorts([...updated, ...devicePorts.filter(p => p.cardSlot != null)]);
+
+                  const getSlotPorts = (slotNumber: number) =>
+                    devicePorts.filter(p => p.cardSlot === slotNumber);
+                  const setSlotPorts = (slotNumber: number, updated: DevicePortDraft[]) =>
+                    setDevicePorts(prev => {
+                      const allSlots = [...new Set(prev.filter(p => p.cardSlot != null).map(p => p.cardSlot!))].sort((a, b) => a - b);
+                      const newCards = allSlots.flatMap(slot =>
+                        slot === slotNumber ? updated : prev.filter(p => p.cardSlot === slot)
+                      );
+                      return [...prev.filter(p => p.cardSlot == null), ...newCards];
+                    });
+
+                  return (
+                    <div className="space-y-4">
+                      {/* ── Direct I/O ── */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-semibold text-av-text-muted uppercase tracking-wide">Direct I/O</span>
+                          {directPorts.length > 0 && (
+                            <span className="text-xs text-av-text-muted">
+                              ({directPorts.filter(p => p.direction === 'INPUT').length} in / {directPorts.filter(p => p.direction === 'OUTPUT').length} out)
+                            </span>
+                          )}
+                        </div>
+                        <IOPortsPanel
+                          ports={directPorts}
+                          onChange={setDirectPorts}
+                          formats={formats}
+                          isLoading={portsLoading}
+                          emptyText={formData.type ? 'No direct I/O defined for this equipment type.' : undefined}
+                          onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                        />
+                      </div>
+
+                      {/* ── Expansion I/O (one section per card slot) ── */}
+                      {sortedCards.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-semibold text-av-text-muted uppercase tracking-wide">Expansion I/O</span>
+                            <span className="text-xs text-av-text-muted">({sortedCards.length} slot{sortedCards.length !== 1 ? 's' : ''})</span>
+                          </div>
+                          <div className="space-y-3">
+                            {sortedCards.map(card => {
+                              const slotPorts = getSlotPorts(card.slotNumber);
+                              return (
+                                <div key={card.id || card.slotNumber} className="border border-av-border rounded-md overflow-hidden">
+                                  <div className="flex items-center gap-2 px-3 py-2 bg-av-surface-light border-b border-av-border">
+                                    <span className="text-xs font-semibold text-av-text">Slot {card.slotNumber}</span>
+                                    <span className="text-xs text-av-text-muted">
+                                      {slotPorts.filter(p => p.direction === 'INPUT').length} in / {slotPorts.filter(p => p.direction === 'OUTPUT').length} out
+                                    </span>
+                                  </div>
+                                  <div className="p-2">
+                                    <IOPortsPanel
+                                      ports={slotPorts}
+                                      onChange={(u) => setSlotPorts(card.slotNumber, u)}
+                                      formats={formats}
+                                      isLoading={false}
+                                      emptyText="No ports defined for this card slot."
+                                      onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Secondary Device */}
                 <div>
