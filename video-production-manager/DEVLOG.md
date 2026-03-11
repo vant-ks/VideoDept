@@ -2,6 +2,20 @@
 
 ---
 
+## March 11, 2026 — fix(OtherPages): replace useNavigate with setActiveTab — LED/Projection tabs no longer blank
+
+### Branch: `v0.2.2_sends-subcategory`
+### Status: ✅ COMPLETE
+### Tags: fix, otherpages, navigation, led, projection, screens, react-router
+
+**Root cause:** `OtherPages.tsx Screens` component called `useNavigate()` from react-router-dom, but no `<Router>` wraps the app — this threw on mount, causing a blank white page for both `led` and `projection` nav tabs.
+
+**Fix:** Replaced `useNavigate` import + `navigate('/sends')` call with `usePreferencesStore().setActiveTab('sends')` — the app's own tab-switching mechanism. All other subcategory pages verified (Monitors, Records, Streams, CamSwitcher, Snakes, Routers, VisionSwitcher) — no stubs or crashes found.
+
+**Files changed:** `src/pages/OtherPages.tsx`
+
+---
+
 ## March 11, 2026 — v0.2.1 Docs: session-close protocol, production-deletion pillar, LAUNCH_SESSION fix
 
 ### Branch: `v0.2.1_docs`
