@@ -13,12 +13,16 @@
  *   emptyText  — message shown when ports is empty (override default)
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { Format } from '@/types';
-import { displayFormatId, displayRate } from '@/components/FormatFormModal';
+import { SCAN_RATES } from '@/components/FormatFormModal';
 
-function fmtLabel(f: Format): string {
-  return `${f.hRes} x ${f.vRes} @ ${displayRate(f.frameRate, f.isInterlaced)}`;
+function resKey(f: Format): string { return `${f.hRes}x${f.vRes}`; }
+function resLabel(f: Format): string { return `${f.hRes} x ${f.vRes}`; }
+function rateLabel(f: Format): string {
+  const entry = SCAN_RATES.find(r => r.value === f.frameRate);
+  const rate = (entry ? entry.idSuffix : Math.round(f.frameRate).toString()) + (f.isInterlaced ? 'i' : '');
+  return f.blanking !== 'NONE' ? `${rate}  [${f.blanking}]` : rate;
 }
 
 // ── DevicePortDraft ──────────────────────────────────────────────────────────
@@ -61,6 +65,18 @@ export function IOPortsPanel({
     const next = ports.map((p, i) => (i === idx ? { ...p, ...patch } : p));
     onChange(next);
   };
+
+  // Group formats by resolution for optgroup select
+  const formatGroups = useMemo(() => {
+    const groups: Array<{ key: string; label: string; formats: Format[] }> = [];
+    const seen = new Map<string, number>();
+    for (const f of formats) {
+      const k = resKey(f);
+      if (!seen.has(k)) { seen.set(k, groups.length); groups.push({ key: k, label: resLabel(f), formats: [] }); }
+      groups[seen.get(k)!].formats.push(f);
+    }
+    return groups;
+  }, [formats]);
 
   const hasInputs  = ports.some(p => p.direction === 'INPUT');
   const hasOutputs = ports.some(p => p.direction === 'OUTPUT');
@@ -115,7 +131,7 @@ export function IOPortsPanel({
                     placeholder="Port label"
                     className="input-field text-xs py-1"
                   />
-                  {/* format */}
+                  {/* format — grouped by resolution */}
                   <select
                     value={port.formatUuid || ''}
                     onChange={e => {
@@ -128,13 +144,17 @@ export function IOPortsPanel({
                     className="input-field text-xs py-1"
                   >
                     <option value="">— format —</option>
-                    {formats.map(f => (
-                      <option key={f.uuid} value={f.uuid}>{fmtLabel(f)}</option>
+                    {formatGroups.map(g => (
+                      <optgroup key={g.key} label={g.label}>
+                        {g.formats.map(f => (
+                          <option key={f.uuid} value={f.uuid}>{rateLabel(f)}</option>
+                        ))}
+                      </optgroup>
                     ))}
                     {onCreateCustomFormat && (
                       <>
                         <option disabled value="">──────────</option>
-                        <option value="__create__">+ Create custom format…</option>
+                        <option value="__create__">+ Create custom…</option>
                       </>
                     )}
                   </select>
@@ -189,7 +209,7 @@ export function IOPortsPanel({
                     placeholder="Port label"
                     className="input-field text-xs py-1"
                   />
-                  {/* format */}
+                  {/* format — grouped by resolution */}
                   <select
                     value={port.formatUuid || ''}
                     onChange={e => {
@@ -202,13 +222,17 @@ export function IOPortsPanel({
                     className="input-field text-xs py-1"
                   >
                     <option value="">— format —</option>
-                    {formats.map(f => (
-                      <option key={f.uuid} value={f.uuid}>{fmtLabel(f)}</option>
+                    {formatGroups.map(g => (
+                      <optgroup key={g.key} label={g.label}>
+                        {g.formats.map(f => (
+                          <option key={f.uuid} value={f.uuid}>{rateLabel(f)}</option>
+                        ))}
+                      </optgroup>
                     ))}
                     {onCreateCustomFormat && (
                       <>
                         <option disabled value="">──────────</option>
-                        <option value="__create__">+ Create custom format…</option>
+                        <option value="__create__">+ Create custom…</option>
                       </>
                     )}
                   </select>
