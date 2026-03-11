@@ -119,7 +119,7 @@ router.post('/', async (req: Request, res: Response) => {
     const insertResult = await prisma.$queryRaw`
       INSERT INTO sources (
         id, production_id, category, name, type, rate, 
-        h_res, v_res, standard, note, secondary_device, blanking,
+        h_res, v_res, standard, note, secondary_device, secondary_device_port, primary_device_port, blanking,
         format_assignment_mode, created_at, updated_at, version, is_deleted
       ) VALUES (
         ${snakeCaseData.id},
@@ -133,6 +133,8 @@ router.post('/', async (req: Request, res: Response) => {
         ${snakeCaseData.standard || null},
         ${snakeCaseData.note || null},
         ${snakeCaseData.secondary_device || null},
+        ${snakeCaseData.secondary_device_port || null},
+        ${snakeCaseData.primary_device_port || null},
         ${snakeCaseData.blanking || null},
         ${snakeCaseData.format_assignment_mode || 'system-wide'},
         ${now},
@@ -296,6 +298,8 @@ router.put('/:uuid', async (req: Request, res: Response) => {
         v_res = ${snakeCaseData.v_res || null},
         standard = ${snakeCaseData.standard || null},
         secondary_device = ${snakeCaseData.secondary_device || null},
+        secondary_device_port = ${snakeCaseData.secondary_device_port || null},
+        primary_device_port = ${snakeCaseData.primary_device_port || null},
         blanking = ${snakeCaseData.blanking || null},
         version = ${newVersion},
         last_modified_by = ${lastModifiedBy},
@@ -354,7 +358,7 @@ router.put('/:uuid', async (req: Request, res: Response) => {
       FROM sources s
       LEFT JOIN source_outputs so ON so.source_uuid = s.uuid
       WHERE s.uuid = ${req.params.uuid}
-      GROUP BY s.uuid, s.id, s.production_id, s.category, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
+      GROUP BY s.uuid, s.id, s.production_id, s.category, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.secondary_device_port, s.primary_device_port, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
     `;
     
     console.log('   Updated source:', JSON.stringify(updatedSourceRaw, null, 2));
@@ -440,7 +444,7 @@ router.delete('/:uuid', async (req: Request, res: Response) => {
       FROM sources s
       LEFT JOIN source_outputs so ON so.source_uuid = s.uuid
       WHERE s.uuid = ${req.params.uuid}
-      GROUP BY s.uuid, s.id, s.production_id, s.category, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
+      GROUP BY s.uuid, s.id, s.production_id, s.category, s.name, s.type, s.rate, s.note, s.format_assignment_mode, s.h_res, s.v_res, s.standard, s.secondary_device, s.secondary_device_port, s.primary_device_port, s.blanking, s.version, s.last_modified_by, s.updated_at, s.created_at, s.synced_at, s.is_deleted
     `;
     
     const deletedSource = Array.isArray(deletedSourceRaw) ? deletedSourceRaw[0] : deletedSourceRaw;

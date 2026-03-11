@@ -659,6 +659,8 @@ model computers {
   standard               String?
   note                   String?
   secondary_device       String?
+  secondary_device_port  String?
+  primary_device_port    String?
   blanking               String?
   created_at             DateTime         @default(now())
   updated_at             DateTime

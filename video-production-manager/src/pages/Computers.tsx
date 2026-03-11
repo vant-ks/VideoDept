@@ -16,6 +16,8 @@ interface ComputerFormFields {
   name?: string;
   type?: string;
   secondaryDevice?: string;
+  secondaryDevicePort?: string;
+  primaryDevicePort?: string;
   note?: string;
   equipmentUuid?: string;
   version?: number;
@@ -162,7 +164,7 @@ export const Computers: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [formData, setFormData] = useState<ComputerFormFields>({
-    name: '', type: '', secondaryDevice: '', note: '', equipmentUuid: undefined,
+    name: '', type: '', secondaryDevice: '', secondaryDevicePort: '', primaryDevicePort: '', note: '', equipmentUuid: undefined,
   });
   const [errors, setErrors] = useState<string[]>([]);
   const [devicePorts, setDevicePorts] = useState<DevicePortDraft[]>([]);
@@ -206,6 +208,8 @@ export const Computers: React.FC = () => {
       name: '',
       type: defaultSpec?.model || '',
       secondaryDevice: '',
+      secondaryDevicePort: '',
+      primaryDevicePort: '',
       note: '',
       equipmentUuid: defaultSpec?.uuid,
     });
@@ -221,6 +225,8 @@ export const Computers: React.FC = () => {
       name: record.name || '',
       type: record.type || '',
       secondaryDevice: record.secondaryDevice || '',
+      secondaryDevicePort: record.secondaryDevicePort || '',
+      primaryDevicePort: record.primaryDevicePort || '',
       note: record.note || '',
       equipmentUuid: record.equipmentUuid,
       version: record.version,
@@ -274,6 +280,8 @@ export const Computers: React.FC = () => {
           type: formData.type,
           category: 'COMPUTER',
           secondaryDevice: formData.secondaryDevice || undefined,
+          secondaryDevicePort: formData.secondaryDevicePort || undefined,
+          primaryDevicePort: formData.primaryDevicePort || undefined,
           note: formData.note || undefined,
           equipmentUuid: formData.equipmentUuid,
           version: formData.version,
@@ -293,6 +301,8 @@ export const Computers: React.FC = () => {
           type: formData.type!,
           category: 'COMPUTER',
           secondaryDevice: formData.secondaryDevice || undefined,
+          secondaryDevicePort: formData.secondaryDevicePort || undefined,
+          primaryDevicePort: formData.primaryDevicePort || undefined,
           note: formData.note || undefined,
           equipmentUuid: formData.equipmentUuid,
         } as any);
@@ -320,7 +330,7 @@ export const Computers: React.FC = () => {
         setErrors([]);
       } else {
         setIsModalOpen(false);
-        setFormData({ name: '', type: '', secondaryDevice: '', note: '', equipmentUuid: undefined });
+        setFormData({ name: '', type: '', secondaryDevice: '', secondaryDevicePort: '', primaryDevicePort: '', note: '', equipmentUuid: undefined });
         setDevicePorts([]);
         setEditingSource(null);
         setErrors([]);
@@ -557,8 +567,11 @@ export const Computers: React.FC = () => {
                 </div>
 
                 {/* ── Reveal Panel ─────────────────────────────────────────────── */}
-                {isExpanded && (
-                  <div className="mt-4 border-t border-av-border pt-4">
+                {isExpanded && (() => {
+                  const specCards = computerEquipment.find(s => s.uuid === (source as any).equipmentUuid)?.cards ?? [];
+                  return (
+                  <div className="mt-4 border-t border-av-border pt-4 space-y-4">
+                    {/* Direct I/O ports */}
                     {isLoadingPorts ? (
                       <p className="text-xs text-av-text-muted italic">Loading ports…</p>
                     ) : revealPorts.length === 0 ? (
@@ -613,8 +626,47 @@ export const Computers: React.FC = () => {
                         </table>
                       </div>
                     )}
+
+                    {/* Expansion cards from spec */}
+                    {specCards.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-2">
+                          Expansion I/O — {specCards.length} card{specCards.length !== 1 ? 's' : ''}
+                        </p>
+                        <div className="space-y-2">
+                          {specCards.map((card, ci) => (
+                            <div key={card.id} className="border border-av-border rounded-md p-2">
+                              <p className="text-xs font-medium text-av-text mb-1.5">Card {card.slotNumber}</p>
+                              <table className="w-full text-xs">
+                                <tbody className="divide-y divide-av-border/40">
+                                  {card.inputs.map((p, pi) => (
+                                    <tr key={`c${ci}-in-${pi}`} className="hover:bg-av-surface-hover/40">
+                                      <td className="py-1 pr-3 w-14">
+                                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                      </td>
+                                      <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
+                                      <td className="py-1 text-av-text">{p.label || p.id}</td>
+                                    </tr>
+                                  ))}
+                                  {card.outputs.map((p, pi) => (
+                                    <tr key={`c${ci}-out-${pi}`} className="hover:bg-av-surface-hover/40">
+                                      <td className="py-1 pr-3 w-14">
+                                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                      </td>
+                                      <td className="py-1 pr-3 font-mono text-av-text-muted">{p.type}</td>
+                                      <td className="py-1 text-av-text">{p.label || p.id}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                  );
+                })()}
               </Card>
             );
           })}
@@ -641,7 +693,7 @@ export const Computers: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsModalOpen(false);
-                    setFormData({ name: '', type: '', secondaryDevice: '', note: '', equipmentUuid: undefined });
+                    setFormData({ name: '', type: '', secondaryDevice: '', secondaryDevicePort: '', primaryDevicePort: '', note: '', equipmentUuid: undefined });
                     setDevicePorts([]);
                     setErrors([]);
                     setEditingSource(null);
@@ -731,6 +783,40 @@ export const Computers: React.FC = () => {
                   </select>
                 </div>
 
+                {formData.secondaryDevice && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-av-text mb-2">
+                        Secondary Device Port
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.secondaryDevicePort || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, secondaryDevicePort: e.target.value }))}
+                        className="input-field w-full"
+                        placeholder="e.g., HDMI In 1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-av-text mb-2">
+                        Primary Device Port
+                      </label>
+                      <select
+                        value={formData.primaryDevicePort || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, primaryDevicePort: e.target.value }))}
+                        className="input-field w-full"
+                      >
+                        <option value="">— select port —</option>
+                        {devicePorts.map((p, i) => (
+                          <option key={i} value={p.portLabel}>
+                            [{p.direction === 'INPUT' ? 'IN' : 'OUT'}] {p.portLabel} ({p.ioType})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
                 {/* Notes */}
                 <div>
                   <label className="block text-sm font-medium text-av-text mb-2">Notes</label>
@@ -763,7 +849,7 @@ export const Computers: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setIsModalOpen(false);
-                      setFormData({ name: '', type: '', secondaryDevice: '', note: '', equipmentUuid: undefined });
+                      setFormData({ name: '', type: '', secondaryDevice: '', secondaryDevicePort: '', primaryDevicePort: '', note: '', equipmentUuid: undefined });
                       setDevicePorts([]);
                       setErrors([]);
                       setEditingSource(null);

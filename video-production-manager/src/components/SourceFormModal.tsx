@@ -277,7 +277,40 @@ export function SourceFormModal({
             </div>
           </div>
 
-
+          {/* Secondary Device Ports — shown only when a secondary device is selected */}
+          {formData.secondaryDevice && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">
+                  Secondary Device Port
+                </label>
+                <input
+                  type="text"
+                  value={(formData as any).secondaryDevicePort || ''}
+                  onChange={(e) => handleChange('secondaryDevicePort' as keyof Source, e.target.value)}
+                  className="input-field w-full"
+                  placeholder="e.g., HDMI In 1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">
+                  Primary Device Port
+                </label>
+                <select
+                  value={(formData as any).primaryDevicePort || ''}
+                  onChange={(e) => handleChange('primaryDevicePort' as keyof Source, e.target.value)}
+                  className="input-field w-full"
+                >
+                  <option value="">Select port...</option>
+                  {devicePorts.map((p, i) => (
+                    <option key={i} value={p.portLabel}>
+                      [{p.direction === 'INPUT' ? 'IN' : 'OUT'}] {p.portLabel} ({p.ioType})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* I/O Ports Panel */}
           <div>
