@@ -21,7 +21,7 @@ CURRENT BRANCH : v0.2.1
 - `8ddd6ba` — PROJECT_RULES.md: 4 new UI standards sections (card UX, ports, overflow, modal patterns)
 - `17572ea` — Tag system: added `<!-- tags: -->` to all PROJECT_RULES.md sections, `### Tags:` to all DEVLOG entries, `**Tags:**` to all SESSION_JOURNAL entries; grep-first Phase 1 in SESSION_START_PROTOCOL.md
 - `c88e7ca` — Archived 8 stale docs to docs/archive/, deleted root temp files, updated all _Utilities templates (DEVLOG, SESSION_START_PROTOCOL, LAUNCH_SESSION, PROJECT_RULES, AI_AGENT_PROTOCOL), created SESSION_JOURNAL_TEMPLATE.md
-- `c3fc1b9` — docs(session-close): add Phase 6 session-end checklist, production-deletion pillar #14, fix LAUNCH_SESSION checkpoint + Step 1
+- `9de2a3a` — docs(session-close): add Phase 6 session-end checklist, production-deletion pillar #14, fix LAUNCH_SESSION checkpoint + Step 1
 
 **Pick up from:** Merge `v0.2.1_docs → v0.2`, then start `v0.2.2_sends-subcategory` for Sends entity subcategory implementation.
 
