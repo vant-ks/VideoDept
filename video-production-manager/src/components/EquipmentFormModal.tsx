@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Copy } from 'lucide-react';
 import type { EquipmentSpec, IOPort } from '@/types';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 
@@ -7,10 +7,11 @@ interface EquipmentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (equipment: Omit<EquipmentSpec, 'id'>) => void;
+  onDuplicate?: (equipment: EquipmentSpec) => void;
   editingEquipment?: EquipmentSpec | null;
 }
 
-export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEquipment }: EquipmentFormModalProps) {
+export default function EquipmentFormModal({ isOpen, onClose, onSave, onDuplicate, editingEquipment }: EquipmentFormModalProps) {
   const { connectorTypes } = useEquipmentLibrary();
   const portTypes = connectorTypes.length > 0 ? connectorTypes : ['SDI', 'HDMI', 'DisplayPort', 'NDI'];
   
@@ -489,6 +490,15 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             >
               Cancel
             </button>
+            {editingEquipment && onDuplicate && (
+              <button
+                type="button"
+                onClick={() => { onDuplicate(editingEquipment); onClose(); }}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <Copy className="w-4 h-4" /> Duplicate
+              </button>
+            )}
             <button
               type="submit"
               className="btn-primary"

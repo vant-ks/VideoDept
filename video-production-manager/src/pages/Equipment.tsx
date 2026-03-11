@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, X, ChevronDown, ChevronRight, Copy } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
@@ -162,6 +162,18 @@ export default function Equipment() {
   const handleEditSpec = (spec: EquipmentSpec) => {
     setEditingSpec(spec);
     setIsModalOpen(true);
+  };
+
+  const handleDuplicateSpec = async (spec: EquipmentSpec) => {
+    const { id, uuid, ...rest } = spec as any;
+    const duplicate = { ...rest, model: `${spec.model} (Copy)` };
+    try {
+      await apiClient.createEquipment(duplicate);
+      await equipmentLib.fetchFromAPI();
+    } catch (error) {
+      console.error('Failed to duplicate equipment:', error);
+      addEquipmentSpec({ ...duplicate, id: `${duplicate.category}-${Date.now()}` });
+    }
   };
 
   const handleSaveEquipment = async (equipment: Omit<EquipmentSpec, 'id'>) => {
@@ -333,6 +345,7 @@ export default function Equipment() {
           setEditingSpec(null);
         }}
         onSave={handleSaveEquipment}
+        onDuplicate={handleDuplicateSpec}
         editingEquipment={editingSpec}
       />
 
@@ -478,6 +491,13 @@ export default function Equipment() {
                       title="Edit Equipment Info"
                     >
                       <Edit2 className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDuplicateSpec(spec); }}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                      title="Duplicate"
+                    >
+                      <Copy className="w-5 h-5" />
                     </button>
                     <button
                       onClick={(e) => {
