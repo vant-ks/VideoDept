@@ -42,6 +42,11 @@ export default function MediaServers() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isDragInProgress, setIsDragInProgress] = useState(false);
 
+  // ── Layer panel state ──────────────────────────────────────────────────
+  const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
+  const [draggedLayerIndex, setDraggedLayerIndex] = useState<number | null>(null);
+  const [dragOverLayerIndex, setDragOverLayerIndex] = useState<number | null>(null);
+
   // ── Reveal panel state ─────────────────────────────────────────────────
   const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
   const [pairCardPorts, setPairCardPorts] = useState<Record<string, DevicePortDraft[]>>({});
@@ -156,6 +161,7 @@ export default function MediaServers() {
   const addMediaServerLayer = activeProject ? projectStore.addMediaServerLayer : oldStore.addMediaServerLayer;
   const updateMediaServerLayer = activeProject ? projectStore.updateMediaServerLayer : oldStore.updateMediaServerLayer;
   const deleteMediaServerLayer = activeProject ? projectStore.deleteMediaServerLayer : oldStore.deleteMediaServerLayer;
+  const reorderMediaServerLayers = activeProject ? projectStore.reorderMediaServerLayers : null;
   
   // Group servers by pair
   const serverPairs = React.useMemo(() => {
@@ -758,60 +764,166 @@ export default function MediaServers() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {mediaServerLayers.map((layer) => (
-                <Card key={layer.id} className="p-6 hover:border-av-accent/30 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Layers className="w-5 h-5 text-av-accent" />
-                        <h3 className="text-lg font-semibold text-av-text">{layer.name}</h3>
-                      </div>
-                      <p className="text-sm text-av-text-muted mb-3">{layer.content}</p>
-                      
-                      {layer.outputAssignments.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-av-text-muted mb-2">
-                            Assigned to {layer.outputAssignments.length} output{layer.outputAssignments.length !== 1 ? 's' : ''}
-                            {layer.outputAssignments.length > 1 && ' (spanning)'}:
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {layer.outputAssignments.map((assignment: any) => {
-                              const server = mediaServers.find((s: any) => s.id === assignment.serverId);
-                              const serverUuid = (server as any)?.uuid;
-                              const port = serverUuid
-                                ? pairCardPorts[serverUuid]?.find((p: any) => p.uuid === assignment.outputId)
-                                : null;
-                              const portName = port ? (port.portLabel || port.ioType) : assignment.outputId;
-                              return (
-                                <span key={`${assignment.serverId}-${assignment.outputId}`} className="text-xs bg-av-surface-light px-3 py-1.5 rounded border border-av-border">
-                                  {server?.name} → {portName}
-                                </span>
-                              );
-                            })}
-                          </div>
+              {mediaServerLayers.map((layer, layerIndex) => {
+                const isExpanded = expandedLayers.has(layer.id);
+
+                // Group assignments by server pair; A side = label lookup, B side = mirror of A
+                const groupedAssignments = (() => {
+                  const map: Record<number, { pairNumber: number; mainPorts: string[]; hasMirror: boolean }> = {};
+                  layer.outputAssignments.forEach((assignment: any) => {
+                    const server = mediaServers.find((s: any) => s.id === assignment.serverId);
+                    if (!server) return;
+                    const pairNum = (server as any).pairNumber;
+                    if (!map[pairNum]) map[pairNum] = { pairNumber: pairNum, mainPorts: [], hasMirror: false };
+                    if (!(server as any).isBackup) {
+                      const uuid = (server as any).uuid as string | undefined;
+                      const port = uuid ? pairCardPorts[uuid]?.find((p: any) => p.uuid === assignment.outputId) : null;
+                      map[pairNum].mainPorts.push(port?.portLabel || port?.ioType || assignment.outputId);
+                    } else {
+                      map[pairNum].hasMirror = true;
+                    }
+                  });
+                  return Object.values(map).sort((a, b) => a.pairNumber - b.pairNumber);
+                })();
+
+                const totalOutputCount = groupedAssignments.reduce((n, g) => n + g.mainPorts.length, 0);
+
+                return (
+                  <Card
+                    key={layer.id}
+                    className={`p-4 select-none cursor-pointer transition-all ${
+                      draggedLayerIndex === layerIndex
+                        ? 'opacity-50 scale-95'
+                        : dragOverLayerIndex === layerIndex
+                        ? 'border-av-accent border-2'
+                        : 'hover:border-av-accent/30'
+                    }`}
+                    draggable
+                    onDragStart={() => setDraggedLayerIndex(layerIndex)}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverLayerIndex(layerIndex); }}
+                    onDragEnd={() => {
+                      if (draggedLayerIndex !== null && dragOverLayerIndex !== null && draggedLayerIndex !== dragOverLayerIndex) {
+                        const next = [...mediaServerLayers];
+                        const [moved] = next.splice(draggedLayerIndex, 1);
+                        next.splice(dragOverLayerIndex, 0, moved);
+                        reorderMediaServerLayers?.(next);
+                      }
+                      setDraggedLayerIndex(null);
+                      setDragOverLayerIndex(null);
+                    }}
+                    onDragLeave={() => setDragOverLayerIndex(null)}
+                    onClick={() => setExpandedLayers(prev => {
+                      const next = new Set(prev);
+                      next.has(layer.id) ? next.delete(layer.id) : next.add(layer.id);
+                      return next;
+                    })}
+                  >
+                    {/* ── Collapsed row ─────────────────────────────────────── */}
+                    <div className="grid gap-4 items-center" style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}>
+                      {/* Col 1: grip + chevron + name */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <button
+                          className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-accent flex-shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <GripVertical className="w-5 h-5" />
+                        </button>
+                        {isExpanded
+                          ? <ChevronUp className="w-4 h-4 text-av-accent flex-shrink-0" />
+                          : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
+                        }
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Layers className="w-4 h-4 text-av-accent flex-shrink-0" />
+                          <span className="font-semibold text-av-text truncate">{layer.name}</span>
                         </div>
-                      )}
+                      </div>
+
+                      {/* Col 2: content description */}
+                      <div className="min-w-0">
+                        {layer.content
+                          ? <span className="text-sm text-av-text-muted truncate block">{layer.content}</span>
+                          : <span className="text-sm text-av-text-muted/40 italic">—</span>
+                        }
+                      </div>
+
+                      {/* Col 3: output / pair summary */}
+                      <div className="min-w-0">
+                        {groupedAssignments.length > 0 ? (
+                          <span className="text-sm text-av-text-muted">
+                            {totalOutputCount} output{totalOutputCount !== 1 ? 's' : ''}
+                            {groupedAssignments.length > 1 ? ` (${groupedAssignments.length} pairs)` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-av-text-muted/40 italic">—</span>
+                        )}
+                      </div>
+
+                      {/* Col 4: actions */}
+                      <div className="flex items-center justify-end gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleEditLayer(layer)}
+                          className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteLayer(layer.id)}
+                          className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    
-                    <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => handleEditLayer(layer)}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteLayer(layer.id)}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+
+                    {/* ── Expanded panel: A/B split per server pair ─────────── */}
+                    {isExpanded && groupedAssignments.length > 0 && (
+                      <div className="mt-4 border-t border-av-border pt-4 space-y-4">
+                        {groupedAssignments.map(group => (
+                          <div key={group.pairNumber}>
+                            <p className="text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-2">
+                              Server {group.pairNumber}
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {/* A — Main */}
+                              <div className="bg-av-surface-light p-3 rounded-md border border-av-border">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-xs font-semibold text-av-text">Server {group.pairNumber} A</p>
+                                  <Badge variant="success">Main</Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {group.mainPorts.map((label, i) => (
+                                    <span key={i} className="text-xs bg-av-surface px-2 py-1 rounded border border-av-border">
+                                      {label}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              {/* B — Backup (mirrored) */}
+                              {group.hasMirror && (
+                                <div className="bg-av-surface-light p-3 rounded-md border border-av-border">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <p className="text-xs font-semibold text-av-text">Server {group.pairNumber} B</p>
+                                    <Badge variant="warning">Backup</Badge>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {group.mainPorts.map((label, i) => (
+                                      <span key={i} className="text-xs bg-av-surface px-2 py-1 rounded border border-av-border text-av-text-muted">
+                                        {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </>
@@ -1326,7 +1438,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
                         {sortedCards.map(card => {
                           const slotPorts = getSlotPorts(card.slotNumber);
                           return (
-                            <div key={card.id || card.slotNumber} className="border border-av-border rounded-md overflow-hidden">
+                            <div key={card.id || card.slotNumber} className="border border-av-border rounded-md">
                               <div className="flex items-center gap-2 px-3 py-2 bg-av-surface-light border-b border-av-border">
                                 <span className="text-xs font-semibold text-av-text">Slot {card.slotNumber}</span>
                                 <span className="text-xs text-av-text-muted">

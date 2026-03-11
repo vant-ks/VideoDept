@@ -11,7 +11,17 @@ Session initialized. Read all protocol files. Verified dev servers (API :3010 �
 
 ---
 
-## March 11, 2026 — Media Servers: format label formula, layer persistence, expansion-I/O-only layer assignment
+## March 11, 2026 — Media Servers: dropdown overflow fix, layer card UX (collapse/drag/A-B split)
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+
+### Changes
+- **src/pages/MediaServers.tsx (ServerPairModal)** — removed `overflow-hidden` from expansion slot card container; `absolute`-positioned format dropdown now escapes its parent instead of being clipped
+- **src/pages/MediaServers.tsx (Layers tab)** — fully rewritten: collapsed rows show grip + chevron + name + content + output count in 30/30/30/10 grid; single-click to reveal/collapse; drag-to-reorder via HTML5 drag events; expanded panel shows A/B server split per pair using same labels for main and mirrored backup (no UUID fallback)
+- **src/hooks/useProjectStore.ts** — added `reorderMediaServerLayers(orderedLayers)` action with IndexedDB persistence
+
+---
 
 ### Branch: `v0.1.5_source-touchups`
 ### Status: ✅ COMPLETE

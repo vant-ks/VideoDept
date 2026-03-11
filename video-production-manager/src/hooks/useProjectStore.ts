@@ -117,6 +117,7 @@ interface ProjectStoreState {
   addMediaServerLayer: (layer: MediaServerLayer) => void;
   updateMediaServerLayer: (id: string, updates: Partial<MediaServerLayer>) => void;
   deleteMediaServerLayer: (id: string) => void;
+  reorderMediaServerLayers: (orderedLayers: MediaServerLayer[]) => void;
   
   // IP Address CRUD
   addIPAddress: (ip: IPAddress) => void;
@@ -1730,6 +1731,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().updateActiveProject({ mediaServerLayers: updatedLayers });
     get().recordChange('delete', 'mediaServerLayer', id, {});
     projectDB.updateProject(activeProjectId, { mediaServerLayers: updatedLayers }).catch(() => {});
+  },
+
+  reorderMediaServerLayers: (orderedLayers) => {
+    const { activeProject, activeProjectId } = get();
+    if (!activeProject || !activeProjectId) return;
+    get().updateActiveProject({ mediaServerLayers: orderedLayers });
+    projectDB.updateProject(activeProjectId, { mediaServerLayers: orderedLayers }).catch(() => {});
   },
   
   // ===== IP ADDRESS CRUD =====
