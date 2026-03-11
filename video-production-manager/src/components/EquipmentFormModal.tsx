@@ -189,9 +189,8 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
             </div>
           </div>
 
-          {/* Expansion I/O Cards */}
-          {formData.ioArchitecture === 'card-based' && (
-            <div>
+          {/* Expansion I/O Cards — always shown below direct I/O */}
+          <div>
               <div className="flex items-center justify-between mb-3">
                 <label className="text-sm font-medium text-av-text">Expansion I/O Cards</label>
                 <button
@@ -462,7 +461,7 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
                   );})}
                 </div>
               </div>
-            </div>
+          </div>
 
           {/* Secondary Device — always at bottom */}
           <div className="bg-av-surface-light border border-av-border rounded-md p-4">
