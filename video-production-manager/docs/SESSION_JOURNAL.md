@@ -326,9 +326,63 @@
 
 ---
 
-## Session 2026-03-11-000000
+## Session 2026-03-11-173000
 **Started:** 2026-03-11
 **Status:** IN_PROGRESS
+**Branch:** v0.2.1_docs
+
+### Prompt 2: PROJECT_RULES.md — v0.1.x UI Pattern Audit
+**ID:** S20260311-P2-173000
+**Request:** Verify the 2 MediaServers TODO bugs (card-collapse-on-save, direct-I/O-disabled-when-card-based). Then audit Computers/CCUs/MediaServers/IOPortsPanel and codify all UI conventions into PROJECT_RULES.md for: card UX (drag/reveal/columns), ID handling, port data/display, note/secondary device placement, overflow rules.
+
+#### Actions Taken:
+1. Read MediaServers.tsx (1680 lines), Computers.tsx (1096), CCUs.tsx (944), IOPortsPanel.tsx (348)
+2. Verified Bug 1 (card collapse): `expandedPairs` is `useState<Set<string>>` keyed by UUID — survives `updateActiveProject()` re-renders. Bug was fixed by UUID architecture in v0.1.x — UUIDs are stable, old `id`-keyed approach would have collapsed. ✅ Resolved.
+3. Verified Bug 2 (direct I/O disabled): `output_mode` / `card_based` form field is gone. Modal uses `spec.cards.length > 0` to show expansion sections; Direct I/O always active. ✅ Resolved.
+4. Audited and documented in PROJECT_RULES.md:
+   - `Entity Card UI Design Rules` — fully rewritten with 8 sub-rules
+   - `Port Data Model, Edit Rules, Display Standards` — new section
+   - `Overflow Permitted Use and Restrictions` — new section
+   - `Modal Layout Standard` — new section
+
+#### Files Changed:
+- `video-production-manager/docs/PROJECT_RULES.md`
+- `video-production-manager/DEVLOG.md`
+
+#### Outcome: ✅ Complete
+Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJECT_RULES.md — ready to serve as the spec for building Sends subcategory pages in v0.2.2.
+
+---
+
+### Prompt 1: Session Kickoff + v0.2 Branch Setup
+**ID:** S20260311-P1-173000
+**Request:** Full session init per LAUNCH_SESSION.md. Read all protocol files, start servers, set up v0.2/v0.2.1_docs branch structure, verify git/Railway, report back.
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, SESSION_START_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md in full
+2. Read DEVLOG.md (last 60 lines), SESSION_JOURNAL.md (last 50 lines)
+3. Verified API server :3010 ✅ (already running, 4ms latency), Frontend :3011 ✅
+4. Checked git: `main`, clean, up-to-date with origin at `046e2cd`
+5. Checked Railway: ✅ UP — healthy, DB connected (209ms latency)
+6. Created branch `v0.2` from `main`, pushed to `origin/v0.2`
+7. Created branch `v0.2.1_docs` from `v0.2` — HEAD confirmed on `v0.2.1_docs`
+8. Added DEVLOG entry ✅ COMPLETE
+
+#### Files Changed:
+- `video-production-manager/DEVLOG.md` — added session start + branch setup entry
+- `video-production-manager/docs/SESSION_JOURNAL.md` — this entry
+
+#### Outcome:
+- **Dev servers:** ✅ API :3010, Frontend :3011
+- **Git:** `v0.2.1_docs` (HEAD), branched from `v0.2` → `main`, clean
+- **Railway:** ✅ UP (209ms)
+- **Branch structure:** main → v0.2 (pushed to origin) → v0.2.1_docs ✅
+
+---
+
+## Session 2026-03-11-000000
+**Started:** 2026-03-11
+**Status:** COMPLETE
 **Branch:** v0.1.5_source-touchups
 
 ### Prompt 1: Session Kickoff

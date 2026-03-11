@@ -2703,30 +2703,233 @@ npx prisma migrate status
 
 ## 🃏 Entity Card UI Design Rules
 
-These conventions apply to every entity list card (CCUs, Cameras, Media Servers, etc.):
+**Last Updated:** March 11, 2026 — codified from Computers, CCUs, MediaServers (v0.1.x)
 
-### Collapsed card layout
-- **Single row only.** No stacked sections or sub-panels in the collapsed state.
-- **4-column grid** using `style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}` (or adjusted ratios):
-  - Col 1 (~30%): grip handle + chevron + primary ID/name + key association (e.g. `← CAM 1`)
-  - Col 2 (~30%): secondary info (note, output count, etc.)
-  - Col 3 (~30%): tags / badges / counts
-  - Col 4 (~10%): action buttons (Edit, Copy, Delete)
+These conventions apply to every entity list card (CCUs, Cameras, Media Servers, Computers, and all future Sends subcategories).
 
-### Chevron placement
-- Chevron always sits **left of the entity ID**, between the grip handle and the ID text.
-- `ChevronUp` / `ChevronDown` from `lucide-react`. Accent-colored (`text-av-accent`) when expanded; muted (`text-av-text-muted`) when collapsed.
-- The entire collapsed row (except grip and buttons) is the click target for toggle.
+---
 
-### Click-to-reveal
-- Wrap collapsed grid `div` with `onClick={() => { if (!dragGuard) toggleReveal(uuid); }}`.
-- Drag guard: `isDragInProgress.current` (ref pattern) or `draggedIndex === null` (state pattern).
-- Apply `stopPropagation` on the grip button `onClick` and the action buttons `div` `onClick`.
+### 1. Collapsed Card Layout
 
-### Reveal panel
-- Separated from collapsed row by `border-t border-av-border` with `mt-4 pt-4`.
-- Contains detail sub-panels (e.g. A/B server subcards, device ports table).
-- Output/port rows: single-line format — `name[ — role] | WxH @ Xp | [type badge]`.
+**Single grid row only.** No stacked sections or sub-panels in the collapsed state.
+
+Use percentage-based fr columns via inline style (NOT Tailwind grid-cols, which can't express fr ratios cleanly):
+
+```tsx
+// Standard 4-column layout (CCUs, MediaServers)
+<div className="grid gap-4 items-center" style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}>
+
+// 5-column layout (Computers — extra col for ID vs Name split)
+<div className="grid items-center gap-3" style={{ gridTemplateColumns: '14fr 18fr 28fr 24fr 16fr' }}>
+```
+
+**Column assignment:**
+| Col | Width | Content |
+|-----|-------|---------|
+| 1 | ~30% | Grip + Chevron + Primary ID + key association badge |
+| 2 | ~30% | Note (truncated) |
+| 3 | ~30% | Tags/Badges (mfr, model, type, secondary device) or counts |
+| 4 | ~10% | Action buttons (Edit, Copy, Delete) |
+
+**Required Card-level classes:**
+```tsx
+<Card
+  className="p-4 transition-colors select-none cursor-pointer
+    ${dragOver ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
+    ${beingDragged ? 'opacity-40' : ''}
+  "
+  draggable
+  onDragStart={...}
+  onDragOver={...}
+  onDragEnd={...}
+  onDragLeave={...}
+  onClick={() => { if (!isDragInProgress.current && uuid) toggleReveal(uuid); }}
+  onDoubleClick={(e) => { e.stopPropagation(); handleEdit(entity); }}
+>
+```
+
+- `select-none cursor-pointer` — required on every card; prevents text selection during drag
+- `transition-colors` — smooth hover/drag state transitions
+- Drag target highlight: `border-av-accent bg-av-accent/5`
+- Drag source: `opacity-40` (not `opacity-50 scale-95` — keep it consistent at 40%)
+
+---
+
+### 2. Column 1 — Identity Column
+
+Always: `flex items-center gap-2 min-w-0`
+
+**Left-to-right order:** `GripVertical` → `ChevronUp/Down` → Entity ID/Name → Association hint
+
+```tsx
+<div className="flex items-center gap-2 min-w-0">
+  <GripVertical
+    className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0"
+    onClick={(e) => e.stopPropagation()}  // ← REQUIRED: prevents card click
+  />
+  {uuid && (isExpanded
+    ? <ChevronUp   className="w-4 h-4 text-av-accent flex-shrink-0" />
+    : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
+  )}
+  <span className="text-sm font-medium text-av-text truncate">{entity.id}</span>
+  {/* Optional: association hint */}
+  <span className="text-sm text-av-text-muted truncate flex-shrink-0">← {linkedCamera.id}</span>
+</div>
+```
+
+- Chevron only renders when `uuid` is available (not yet-legacy entities without UUIDs)
+- Chevron: `text-av-accent` when expanded, `text-av-text-muted` when collapsed
+- `flex-shrink-0` on Grip, Chevron, and association hint — **never** on the ID/name (it truncates)
+- ID/name always gets `truncate`
+
+---
+
+### 3. Column 2 — Note Column
+
+```tsx
+<div className="min-w-0">
+  {entity.note ? (
+    <p className="text-sm text-av-text-muted truncate" title={entity.note}>
+      {entity.note}
+    </p>
+  ) : (
+    <span className="text-sm text-av-text-muted/40 italic">—</span>
+  )}
+</div>
+```
+
+**Truncation rules:**
+- **CCUs:** `truncate` + `title={note}` tooltip — notes tend to be short labels
+- **MediaServers:** `truncate block` — same as CCUs
+- **Computers:** `line-clamp-2` (2-line clamp, no tooltip) — notes can be longer prose
+- **Empty state:** `"—"` in `text-av-text-muted/40 italic` (NOT "No notes" — just the em dash)
+- `min-w-0` on the wrapper `div` is **required** to allow truncation inside flex/grid
+
+---
+
+### 4. Column 3 — Tags / Metadata Column
+
+Display entity-type-specific metadata as `<Badge>` components or plain text counts.
+
+```tsx
+// Badges (CCUs, Cameras)
+<div className="flex items-center gap-2 flex-wrap">
+  {entity.manufacturer && <Badge>{entity.manufacturer}</Badge>}
+  {entity.model && <Badge>{entity.model}</Badge>}
+</div>
+
+// Warning badge (secondary device, Computers)
+<div className="flex flex-wrap gap-1.5">
+  {source.type && <Badge>{source.type}</Badge>}
+  {source.secondaryDevice && <Badge variant="warning">{source.secondaryDevice}</Badge>}
+</div>
+
+// Plain text count (MediaServers layer count)
+<span className="text-sm text-av-text-muted">{count} layer{count !== 1 ? 's' : ''}</span>
+// Empty: <span className="text-sm text-av-text-muted/40 italic">—</span>
+```
+
+---
+
+### 5. Column 4 — Action Buttons
+
+Always wrapped in `onClick={(e) => e.stopPropagation()}`:
+
+```tsx
+<div className="flex items-center justify-end gap-1 flex-shrink-0"
+     onClick={(e) => e.stopPropagation()}>
+  <button onClick={() => handleEdit(entity)}
+    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+    title="Edit">
+    <Edit2 className="w-4 h-4" />
+  </button>
+  <button onClick={() => handleDuplicate(entity)}
+    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+    title="Duplicate">
+    <Copy className="w-4 h-4" />
+  </button>
+  <button onClick={() => handleDelete(entity.uuid)}
+    className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+    title="Delete">
+    <Trash2 className="w-4 h-4" />
+  </button>
+</div>
+```
+
+- **Color convention:** Edit → `av-accent` (blue), Duplicate → `av-info` (teal/cyan), Delete → `av-danger` (red)
+- `p-2 rounded-md hover:bg-av-surface-light` on ALL action buttons — consistent hit area
+
+---
+
+### 6. Expand State — UUID-Keyed Set
+
+**⛔ NEVER key expand state by list index.** When items are added/deleted the index shifts, incorrectly collapsing/expanding neighbors.
+
+```tsx
+// ✅ CORRECT — UUID-keyed Set, survives list re-renders
+const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+const toggleReveal = useCallback(async (uuid: string) => {
+  setExpandedItems(prev => {
+    const next = new Set(prev);
+    if (next.has(uuid)) { next.delete(uuid); } else { next.add(uuid); }
+    return next;
+  });
+  fetchPortsForUuid(uuid); // idempotent — skip if already fetched
+}, [fetchPortsForUuid]);
+
+// Reading in render:
+const isExpanded = uuid ? expandedItems.has(uuid) : false;
+```
+
+- Functional setState (`prev => ...`) prevents stale closure issues
+- React `key` prop on each Card must also be `entity.uuid` (NOT index, NOT entity.id)
+
+---
+
+### 7. Drag-to-Reorder Pattern
+
+**Use HTML5 drag events (not a DnD library).** Consistent pattern across all list pages:
+
+```tsx
+const [draggedIndex, setDraggedIndex]   = useState<number | null>(null);
+const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+const isDragInProgress = useRef(false);
+
+const handleDragStart  = (index: number) => { setDraggedIndex(index); isDragInProgress.current = true; };
+const handleDragOver   = (e: React.DragEvent, index: number) => { e.preventDefault(); setDragOverIndex(index); };
+const handleDragLeave  = () => setDragOverIndex(null);
+const handleDragEnd    = () => {
+  const from = draggedIndex, to = dragOverIndex;
+  setDraggedIndex(null); setDragOverIndex(null);
+  setTimeout(() => { isDragInProgress.current = false; }, 0); // allow onClick to fire after dragEnd
+  if (from === null || to === null || from === to) return;
+  // splice reordering, then persist sort_order
+};
+```
+
+- `isDragInProgress.current` is a **ref** (not state) so it doesn't trigger re-renders
+- `setTimeout(..., 0)` on `isDragInProgress.current = false` prevents a brief drag-end triggering click
+- Persist `sort_order` field to DB after reorder (IndexedDB + API)
+- The `GripVertical` icon's `onClick={e => e.stopPropagation()}` prevents card click from firing when user grabs the handle
+
+---
+
+### 8. Reveal Panel Structure
+
+```tsx
+{isExpanded && (
+  <div className="mt-4 border-t border-av-border pt-4 space-y-4">
+    {/* content */}
+  </div>
+)}
+```
+
+- Always `mt-4 border-t border-av-border pt-4`
+- `space-y-4` when multiple sub-sections (e.g. direct + expansion I/O)
+- Port table wrapped in `overflow-x-auto` (see Overflow Rules below)
+- Loading state: `<p className="text-xs text-av-text-muted italic">Loading ports…</p>`
+- Empty state: `<p className="text-xs text-av-text-muted italic">No ports configured. Open Edit to assign ports.</p>`
 
 ---
 
@@ -2771,3 +2974,308 @@ apiClient.getArchivedEquipment()     // GET /equipment?archived=true
 - Equipment.tsx: "Show Archived" toggle in page header (amber when active); archived items section at bottom with `ArchiveRestore` buttons
 - EquipmentFormModal: `onArchive?` prop; Archive button in footer (amber, editing-only)
 - `PUT /equipment/:uuid` uses `toSnakeCase(req.body)` — `{ isDeleted: false }` maps correctly to `is_deleted: false`
+
+---
+
+## 🔌 Port Data — Model, Edit Rules, and Display Standards
+
+**Last Updated:** March 11, 2026 — codified from IOPortsPanel, Computers, CCUs, MediaServers (v0.1.x)
+
+---
+
+### Port Data Model (DevicePortDraft)
+
+```typescript
+export interface DevicePortDraft {
+  uuid?: string;           // DB primary key — set when row exists; absent on new rows
+  specPortUuid?: string;   // FK to equipment_io_ports.uuid (from spec)
+  portLabel: string;       // editable per-show label (e.g. "OUT 1", "HDMI MAIN")
+  ioType: string;          // connector type (SDI, HDMI, DP, SMPTE-Fiber, REF…) — read-only from spec
+  direction: 'INPUT' | 'OUTPUT';
+  formatUuid?: string | null;  // FK to formats.uuid (show-assigned format)
+  note?: string | null;    // "Route" field: source signal path (input) or destination (output)
+  cardSlot?: number;       // expansion card slot; undefined = direct I/O
+}
+```
+
+**Key field rules:**
+- `ioType` is **always read-only** in edit UI — it comes from the equipment spec, never entered manually
+- `portLabel` is show-specific — same physical port gets different labels per production
+- `formatUuid` is show-specific — format assigned for this show
+- `note` = the "Route" field. For **inputs**: "where signal comes from". For **outputs**: "where signal goes to"
+- `cardSlot` = undefined means direct I/O (onboard); number = expansion card slot index (1, 2, 3…)
+
+---
+
+### Slot-Split Rule (Direct I/O vs Expansion I/O)
+
+When an equipment spec has cards, ports are stored flat in order but split positionally:
+
+```
+Index 0 … (nDirectIn + nDirectOut - 1)  → Direct I/O
+Index nDirect … nDirect + card1Ports - 1 → Slot 1
+Index nDirect + card1Ports … +card2Ports → Slot 2
+… etc.
+```
+
+```tsx
+const directCount = (spec.inputs?.length ?? 0) + (spec.outputs?.length ?? 0);
+const directPorts = spec.cards.length > 0 ? allPorts.slice(0, directCount) : allPorts;
+// Per-slot slicing follows spec card order (sort by slotNumber first)
+```
+
+**Never mix direct and expansion ports.** When no cards, all ports are "direct."
+
+---
+
+### IOPortsPanel — Edit Mode (Modal)
+
+Used inside modals. Always split into separate Direct I/O and Expansion I/O sections.
+
+**Grid layout:** `grid-cols-[80px_1fr_1fr_1fr]` = Type | Label | Format | Route
+
+```tsx
+<IOPortsPanel
+  ports={directPorts}
+  onChange={setDirectPorts}
+  formats={formats}
+  isLoading={portsLoading}
+  emptyText="Select a Computer Type above to auto-populate ports from the equipment spec."
+  onCreateCustomFormat={() => setIsCreateFormatOpen(true)}
+/>
+```
+
+- `ioType` column: `font-mono text-av-text-muted` span — read-only, no input
+- `portLabel`: `input-field text-xs py-1 min-w-0`
+- `formatUuid`: `FormatCascadeSelect` — grouped by resolution, flyout submenu per rate, viewport-aware flip
+- `note` (Route): `input-field text-xs py-1 min-w-0`, placeholder differs by direction:
+  - Input: `"Source signal or device"`
+  - Output: `"Destination device or input"`
+- Inputs section shown first, then Outputs. Separated by section headers.
+- Section headers: `text-xs font-semibold text-av-text-muted uppercase tracking-wide mb-1.5`
+
+**Column headers in IOPortsPanel:**
+```
+Type | Label | Format In/Out | Route
+```
+- "Format In" on the Inputs section, "Format Out" on the Outputs section
+
+---
+
+### Reveal Panel Port Table — Display Mode (Read-Only)
+
+**5-column `table-fixed`:**
+
+```
+Dir (10%) | Type (15%) | Label (25%) | Format (25%) | Route (25%)
+```
+
+```tsx
+<table className="w-full text-xs table-fixed">
+  <thead>
+    <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+      <th className="text-left pb-1.5 pr-3 font-semibold w-[10%]">Dir</th>
+      <th className="text-left pb-1.5 pr-3 font-semibold w-[15%]">Type</th>
+      <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Label</th>
+      <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Format</th>
+      <th className="text-left pb-1.5 font-semibold w-[25%]">Route</th>
+    </tr>
+  </thead>
+  <tbody className="divide-y divide-av-border/40">
+    {ports.map((port, i) => {
+      const isOut = port.direction === 'OUTPUT';
+      const fmtName = port.formatUuid ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—') : '—';
+      return (
+        <tr key={i} className="hover:bg-av-surface-hover/40">
+          <td className="py-1.5 pr-3">
+            {isOut
+              ? <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+              : <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+            }
+          </td>
+          <td className="py-1.5 pr-3 font-mono text-av-text-muted truncate">{port.ioType}</td>
+          <td className="py-1.5 pr-3 text-av-text truncate">{port.portLabel}</td>
+          <td className="py-1.5 pr-3 text-av-info truncate">{isOut ? fmtName : <span className="text-av-text-muted">—</span>}</td>
+          <td className="py-1.5 text-av-text-muted truncate">{port.note || '—'}</td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+```
+
+**Style rules:**
+- `Dir` badge: `inline-block px-1.5 py-0.5 rounded text-[10px] font-bold`
+  - `IN`: `bg-av-warning/15 text-av-warning` (amber)
+  - `OUT`: `bg-av-accent/15 text-av-accent` (blue)
+- `Type` column: `font-mono text-av-text-muted truncate` — connector type is technical, monospace
+- `Label` column: `text-av-text truncate` — user-readable label
+- `Format` column:  
+  - **OUTPUT ports:** `text-av-info truncate` — format name is informational highlight color  
+  - **INPUT ports:** always render `—` (`text-av-text-muted`) — inputs don't have show-assigned formats in current model
+- `Route` column: `text-av-text-muted truncate` — routing note, secondary text
+- Row hover: `hover:bg-av-surface-hover/40`
+- **Row ordering:** Inputs first, then outputs (within each section/slot)
+- **Direct then Expansion:** Always show Direct I/O section first; Expansion I/O cards below, labeled `Card {slotNumber}`
+
+---
+
+### Port Loading Pattern (Lazy Fetch)
+
+Ports are fetched on demand (when the card is first expanded), not on page load:
+
+```tsx
+const requestedPortUuids = useRef<Set<string>>(new Set()); // idempotency guard
+
+const fetchPortsForUuid = useCallback(async (uuid: string) => {
+  if (requestedPortUuids.current.has(uuid)) return; // already fetched or in-flight
+  requestedPortUuids.current.add(uuid);
+  setPortsLoading(prev => new Set(prev).add(uuid));
+  // fetch from /device-ports/device/:uuid
+  // ...
+}, []);
+
+const toggleReveal = useCallback(async (uuid: string) => {
+  setExpandedItems(prev => { ... });
+  fetchPortsForUuid(uuid); // idempotent
+}, [fetchPortsForUuid]);
+```
+
+- `requestedPortUuids` is a **ref** (not state) — avoids re-renders when tracking fetched UUIDs
+- The `Set` pattern prevents duplicate requests when the same UUID is toggled rapidly
+
+---
+
+## 📐 Overflow — Permitted Use and Restrictions
+
+**Last Updated:** March 11, 2026 — codified from v0.1.x overflow-related bugs
+
+---
+
+### ✅ PERMITTED: overflow-x-auto
+
+For reveal-panel port tables that may be wider than the card:
+
+```tsx
+<div className="overflow-x-auto">
+  <table className="w-full text-xs table-fixed">
+    {/* port table */}
+  </table>
+</div>
+```
+
+- Apply **on the `div` wrapping the table** — not on the table itself
+- Required on all `table-fixed` port tables in reveal panels
+- Also acceptable on any horizontally-scrollable data table
+
+---
+
+### ✅ PERMITTED: overflow-y-auto
+
+For scrollable modals and constrained-height lists:
+
+```tsx
+// Modal body — always use both max-height + overflow-y-auto
+<div className="bg-av-surface rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+  ...
+</div>
+
+// Bounded picker lists (e.g., camera assignment list in CCU modal)
+<div className="space-y-1 max-h-40 overflow-y-auto border border-av-border rounded-md p-2">
+  {cameras.map(...)}
+</div>
+```
+
+---
+
+### ⛔ FORBIDDEN: overflow-hidden on dropdown containers
+
+**Never apply `overflow-hidden` to any container that has `position: absolute` children.**
+
+This clips cascading dropdowns, flyout submenus, and format selectors — they disappear instead of escaping the container.
+
+```tsx
+// ❌ WRONG — clips the FormatCascadeSelect dropdown
+<div className="p-4 overflow-hidden">
+  <IOPortsPanel ... />
+</div>
+
+// ✅ CORRECT — let the dropdown escape
+<div className="p-4">
+  <IOPortsPanel ... />
+</div>
+```
+
+**Known cases where this has caused bugs:**
+- ServerPairModal expansion slot card container (removed `overflow-hidden`, March 2026)
+- Any container wrapping `IOPortsPanel` or `FormatCascadeSelect`
+
+---
+
+### FormatCascadeSelect — Viewport-Aware Flip
+
+The `FormatCascadeSelect` component auto-detects viewport edges and flips:
+- Opens **upward** (`bottom-full mb-1`) when `window.innerHeight - rect.bottom < 280`
+- Submenu opens **leftward** (`right-full mr-0.5`) when `window.innerWidth - rect.right < 160`
+
+This is handled internally in `IOPortsPanel.tsx`. Do not disable or override it. Do not wrap the select in containers that calculate their own clipping (see overflow-hidden rule above).
+
+---
+
+## 📋 Modal Layout Standard
+
+**Last Updated:** March 11, 2026
+
+### Structure
+
+```tsx
+<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  <div className="bg-av-surface rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <form onSubmit={handleSubmit}>
+      {/* Sticky header */}
+      <div className="p-6 border-b border-av-border sticky top-0 bg-av-surface z-10">
+        <h2 className="text-2xl font-bold text-av-text">Modal Title</h2>
+      </div>
+
+      {/* Scrollable body */}
+      <div className="p-6 space-y-6">
+        {/* fields */}
+      </div>
+
+      {/* Sticky footer with action buttons */}
+      <div className="p-6 border-t border-av-border flex justify-end gap-3 sticky bottom-0 bg-av-surface">
+        <button type="submit" className="btn-primary">Save</button>
+        <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+```
+
+### Field ordering within modal body
+
+1. Primary identity fields (ID, Name, Platform)
+2. Spec / equipment type selector (if applicable)
+3. Direct I/O ports section (`IOPortsPanel`)
+4. Expansion I/O ports section (if spec has cards)
+5. Secondary relationships (linked cameras, layers, etc.)
+6. **Note textarea — always last field before footer**
+
+### Note field standard
+
+```tsx
+<div>
+  <label className="block text-sm font-medium text-av-text mb-2">Notes</label>
+  <textarea
+    value={note}
+    onChange={(e) => setNote(e.target.value)}
+    className="input-field w-full h-24"
+    placeholder="Additional notes..."
+  />
+</div>
+```
+
+- Always `<textarea>`, never `<input type="text">` for notes
+- Always `h-24` (6 lines) for note fields
+- Always last field in the form body
+- Placeholder: describes who/what it applies to (e.g. "Additional notes (applied to both servers)…")

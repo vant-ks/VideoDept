@@ -2,6 +2,34 @@
 
 ---
 
+## March 11, 2026 — v0.2.1 Docs: PROJECT_RULES.md UI patterns audit
+
+### Branch: `v0.2.1_docs`
+### Status: ✅ COMPLETE
+
+Audited Computers.tsx, CCUs.tsx, MediaServers.tsx, IOPortsPanel.tsx. Confirmed both TODO bugs (card-collapse-on-save, direct-I/O-disabled-when-card-based) already resolved by UUID architecture + modal refactor in v0.1.5. Extracted and codified UI standards into PROJECT_RULES.md:
+- `## 🃏 Entity Card UI Design Rules` — fully rewritten (8 sub-rules: layout, columns, expand state, drag, reveal panel)
+- `## 🔌 Port Data — Model, Edit Rules, and Display Standards` — new section (DevicePortDraft shape, slot-split rule, IOPortsPanel edit mode, reveal table standard, loading pattern)
+- `## 📐 Overflow — Permitted Use and Restrictions` — new section (overflow-x-auto OK on tables, overflow-y-auto on modals, overflow-hidden FORBIDDEN on dropdown containers, viewport-aware FormatCascadeSelect rule)
+- `## 📋 Modal Layout Standard` — new section (structure, field ordering, note field standard)
+
+### Files Changed
+- `video-production-manager/docs/PROJECT_RULES.md` — 4 new/expanded sections (~180 lines added)
+
+---
+
+## March 11, 2026 — Session Start + v0.2 Branch Setup
+
+### Branch: `v0.2.1_docs`
+### Status: ✅ COMPLETE
+
+Session initialized. Read all protocol files (AI_AGENT_PROTOCOL, SESSION_START_PROTOCOL, PROJECT_RULES, DEVLOG, SESSION_JOURNAL, TODO_NEXT_SESSION). Verified dev servers (API :3010 ✅, Frontend :3011 ✅), Railway health ✅ (209ms), git clean on `main` at `046e2cd`.
+
+Branch structure created:
+- `main` → `v0.2` (pushed to origin) → `v0.2.1_docs` (HEAD)
+
+---
+
 ## March 11, 2026 — Port column standardization + Format ID formula revision
 
 ### Branch: `v0.1.5_source-touchups`
