@@ -28,18 +28,11 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
     isSecondaryDevice: false
   });
 
-  // Separate state for resolution and rate when in device-wide mode
-  const [deviceResolution, setDeviceResolution] = useState<string>(resolutions[0] || '1080p');
-  const [deviceRate, setDeviceRate] = useState<string>(frameRates[0] || '60');
-
   const [errors, setErrors] = useState<string[]>([]);
 
-  // Update form data when editingEquipment changes
   useEffect(() => {
     if (editingEquipment) {
       setFormData({
-        // Uppercase category so it matches the select option values.
-        // transformApiEquipment lowercases it; the select options use uppercase.
         category: (editingEquipment.category || 'COMPUTER').toUpperCase() as any,
         manufacturer: editingEquipment.manufacturer || '',
         model: editingEquipment.model || '',
@@ -49,22 +42,10 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
         cardSlots: editingEquipment.cardSlots || 0,
         cards: editingEquipment.cards || [],
         deviceFormats: editingEquipment.deviceFormats || [],
-        formatByIO: editingEquipment.formatByIO !== undefined ? editingEquipment.formatByIO : true,
+        formatByIO: true,
         isSecondaryDevice: editingEquipment.isSecondaryDevice || false
       });
-      
-      // Extract resolution and rate from device formats if available
-      if (editingEquipment.deviceFormats && editingEquipment.deviceFormats.length > 0 && !editingEquipment.formatByIO) {
-        const format = editingEquipment.deviceFormats[0];
-        // Try to parse format like "1080p60" or "4K59.94"
-        const match = format.match(/^(.+?)([\d.]+)$/);
-        if (match) {
-          setDeviceResolution(match[1]);
-          setDeviceRate(match[2]);
-        }
-      }
     } else {
-      // Reset to defaults when adding new equipment
       setFormData({
         category: 'COMPUTER',
         manufacturer: '',
@@ -78,11 +59,9 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, editingEqu
         formatByIO: true,
         isSecondaryDevice: false
       });
-      setDeviceResolution(resolutions[0] || '1080p');
-      setDeviceRate(frameRates[0] || '60');
     }
     setErrors([]);
-  }, [editingEquipment, resolutions, frameRates]);
+  }, [editingEquipment]);
 
   if (!isOpen) return null;
 
