@@ -2,6 +2,43 @@
 
 ---
 
+## March 10–11, 2026 — fix(media-servers,computers): fix layer system and port label matching
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `2ef7d9c`
+
+### Changes
+- **MediaServers.tsx** — LayerModal `serverPorts` prop now correctly receives only OUTPUT-direction ports from `pairCardPorts`; `outputId` is now `port.uuid` (not legacy output ID); fixed `specPortLabel()` fallback so generic "Input"/"Output" labels fall back to `port.type` (e.g. Ethernet, HDMI)
+- **Computers.tsx** — Same `specPortLabel()` helper applied to reveal panel port tables; port label matching aligned with equipment spec contract
+
+---
+
+## March 10–11, 2026 — feat(computers,media-servers,ccus): split Direct/Expansion I/O in cards+modals; single-click reveal, double-click edit
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `df37728`
+
+### Changes
+- **Computers.tsx** — Reveal panel splits ports into Direct I/O vs Expansion I/O sections; modal IIFE split into direct-ports block and expansion-cards block
+- **CCUs.tsx** — Card interaction standard applied: `cursor-pointer select-none` + `onClick` (reveal) + `onDoubleClick` (edit) on Card level; action buttons use `stopPropagation`
+- **MediaServers.tsx** — Reveal panel split per server A+B using `splitPorts()` + `renderServerPorts()` helpers; card interaction standard applied; Direct I/O vs Expansion I/O sections rendered separately
+
+---
+
+## March 10–11, 2026 — feat(computers): fix expansion cards in reveal panel; add secondary/primary device port fields
+
+### Branch: `v0.1.5_source-touchups`
+### Status: ✅ COMPLETE
+### Commit: `6a1cda8`
+
+### Changes
+- **Computers.tsx** — Expansion card ports now rendered correctly in reveal panel via `tagPortsWithSlots()` grouping by `cardSlot`; `cardSlot` is frontend-only (not persisted to DB)
+- **Computers.tsx** — Secondary and primary device port fields added to modal; `buildPortsFromSpec()` helper seeds port drafts from equipment spec on computer type change
+
+---
+
 ## March 10, 2026 — Equipment: add archive/unarchive with Show Archived toggle
 
 ### Branch: `v0.1.5_source-touchups`

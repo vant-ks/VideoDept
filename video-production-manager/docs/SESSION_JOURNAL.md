@@ -2,7 +2,7 @@
 
 **Purpose:** Track all AI agent work sessions, prompts, milestones, and outcomes for historical reference and crash recovery.
 
-**Last Updated:** February 12, 2026
+**Last Updated:** March 11, 2026
 
 ---
 
@@ -10,7 +10,7 @@
 
 ## Session 2026-03-10-000000
 **Started:** 2026-03-10
-**Status:** IN_PROGRESS
+**Status:** COMPLETED
 **Branch:** v0.1.5_source-touchups
 
 ### Prompt 1: Session Kickoff
@@ -188,6 +188,87 @@
 - **Status:** COMPLETED ✓
 - **Commit:** `afc532a`
 - **Files Changed:** `api/src/routes/equipment.ts`, `src/services/apiClient.ts`, `src/pages/Equipment.tsx`, `src/components/EquipmentFormModal.tsx`
+
+---
+
+### Prompt 11: Computers — fix expansion cards in reveal panel; add secondary/primary device port fields
+**ID:** S20260310-P11
+**Request:** Expansion cards not rendering in the reveal panel; add secondary/primary device port fields to modal
+
+#### Actions Taken:
+1. Added `tagPortsWithSlots()` helper to group ports by `cardSlot` for reveal panel rendering
+2. Added `buildPortsFromSpec()` to seed port drafts from equipment spec when computer type changes in create mode
+3. Added secondary and primary device port fields to Computer modal
+4. `cardSlot` is frontend-only, not persisted to DB — documented in architecture notes
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `6a1cda8`
+- **Files Changed:** `src/pages/Computers.tsx`
+
+---
+
+### Prompt 12: feat — split Direct/Expansion I/O in cards+modals; single-click reveal, double-click edit on Computers/MediaServers/CCUs
+**ID:** S20260310-P12
+**Request:** Reveal panel to split port display into Direct I/O vs Expansion I/O sections; apply single-click=reveal, double-click=edit card interaction standard across CCUs and MediaServers
+
+#### Actions Taken:
+1. Computers.tsx: reveal panel splits ports into Direct I/O vs Expansion I/O; modal IIFE split into direct-ports block and expansion-cards block
+2. CCUs.tsx: card interaction standard (`cursor-pointer select-none`, `onClick`=reveal, `onDoubleClick`=edit); action buttons use `stopPropagation`
+3. MediaServers.tsx: reveal panel split per server A+B using `splitPorts()` + `renderServerPorts()` helpers; card interaction standard applied
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `df37728`
+- **Files Changed:** `src/pages/Computers.tsx`, `src/pages/CCUs.tsx`, `src/pages/MediaServers.tsx`
+
+---
+
+### Prompt 13: fix — layer system and port label matching (MediaServers + Computers)
+**ID:** S20260310-P13
+**Request:** LayerModal not receiving correct ports; port labels showing generic "Input"/"Output" instead of connector type
+
+#### Actions Taken:
+1. MediaServers.tsx: `serverPorts` prop for LayerModal now filters to OUTPUT-direction ports only from `pairCardPorts`; `outputId` is `port.uuid` (not legacy output ID)
+2. Added `specPortLabel(p)` helper: if label is generic "Input"/"Output", falls back to `p.type` (e.g. Ethernet, HDMI)
+3. Applied `specPortLabel()` in both MediaServers reveal panel and Computers reveal panel
+
+#### Architecture Notes:
+- `cardSlot?: number` on DevicePortDraft is frontend-only, NOT persisted to DB
+- All layer `outputId` values are now `port.uuid` from `device_ports`, not legacy output IDs
+- `specPortLabel(p)`: generic "Input"/"Output" labels fall back to `p.type`
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Commit:** `2ef7d9c`
+- **Files Changed:** `src/pages/MediaServers.tsx`, `src/pages/Computers.tsx`
+
+---
+
+## Session 2026-03-11-000000
+**Started:** 2026-03-11
+**Status:** IN_PROGRESS
+**Branch:** v0.1.5_source-touchups
+
+### Prompt 1: Session Kickoff
+**ID:** S20260311-P1-000000
+**Request:** Full session initialization. Context provided from last session (March 10–11). Read AI_AGENT_PROTOCOL.md, PROJECT_RULES.md, DEVLOG.md, SESSION_JOURNAL.md, TODO_NEXT_SESSION.md. Start servers, verify git/Railway, report back.
+
+#### Actions Taken:
+1. Read AI_AGENT_PROTOCOL.md, PROJECT_RULES.md, TODO_NEXT_SESSION.md in full
+2. Read DEVLOG.md (top ~120 lines — recent entries), SESSION_JOURNAL.md (top 80 lines)
+3. Verified both dev servers already running: API :3010 ✅ (3ms latency), Frontend :3011 ✅
+4. Checked git: branch `v0.1.5_source-touchups`, 31 commits ahead of origin, CLEAN
+5. Verified Railway: ✅ UP — healthy, DB connected (319ms latency)
+6. Backfilled DEVLOG entries for commits 6a1cda8, df37728, 2ef7d9c (last session housekeeping not done)
+7. Backfilled SESSION_JOURNAL entries for Prompts 11–13 of March 10 session
+
+#### Status:
+- **Dev servers:** ✅ Both running (API :3010, Frontend :3011)
+- **Git:** branch `v0.1.5_source-touchups`, 31 commits ahead of `origin/v0.1.5_source-touchups`, CLEAN
+- **Railway:** ✅ UP — healthy, DB connected (319ms latency)
+- **Last DEVLOG checkpoint:** `2ef7d9c` fix(media-servers,computers): fix layer system and port label matching — ✅ COMPLETE
+- **IN PROGRESS tasks:** None
 
 ---
 
