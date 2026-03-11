@@ -122,7 +122,7 @@ export const Computers: React.FC = () => {
 
   useEffect(() => {
     apiClient.get('/formats')
-      .then((res: any) => { if (Array.isArray(res.data)) setFormats(res.data); })
+      .then((res: any) => { if (Array.isArray(res)) setFormats(res); })
       .catch(() => {});
   }, []);
 
@@ -268,6 +268,7 @@ export const Computers: React.FC = () => {
 
       if (editingSource?.uuid) {
         const result = await sourcesAPI.updateSource(editingSource.uuid, {
+          id: editingSource.id,
           productionId,
           name: formData.name,
           type: formData.type,
@@ -473,7 +474,7 @@ export const Computers: React.FC = () => {
             return (
               <Card
                 key={source.uuid}
-                className={`p-4 transition-colors select-none
+                className={`p-4 transition-colors select-none cursor-pointer
                   ${dragOverIndex === index ? 'border-av-accent bg-av-accent/5' : 'hover:border-av-accent/30'}
                   ${draggedIndex === index ? 'opacity-40' : ''}
                 `}
@@ -482,13 +483,20 @@ export const Computers: React.FC = () => {
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragEnd={handleDragEnd}
                 onDragLeave={handleDragLeave}
+                onClick={() => sourceUuid && !isDragInProgress.current && toggleReveal(sourceUuid)}
+                onDoubleClick={(e) => { e.stopPropagation(); handleEdit(source); }}
               >
                 <div
-                  className="grid items-center gap-4"
-                  style={{ gridTemplateColumns: '10% 20% 30% 20% 10% 10%' }}
+                  className="grid items-center gap-3"
+                  style={{ gridTemplateColumns: '14fr 18fr 28fr 24fr 16fr' }}
                 >
-                  {/* COMP # + grip */}
-                  <div className="flex items-center gap-2 min-w-0">
+                  {/* chevron + grip + COMP # */}
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {sourceUuid ? (
+                      isExpanded
+                        ? <ChevronUp className="w-4 h-4 text-av-accent flex-shrink-0" />
+                        : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
+                    ) : null}
                     <GripVertical
                       className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0"
                       onClick={(e) => e.stopPropagation()}
@@ -518,34 +526,8 @@ export const Computers: React.FC = () => {
                     )}
                   </div>
 
-                  {/* OUTPUTS */}
-                  <div className="space-y-1">
-                    {(source.outputs || []).map((output: any, idx: number) => {
-                      const rate = output.rate || source.rate;
-                      const hasResolution = output.hRes && output.vRes;
-                      const hasRate = rate !== null && rate !== undefined;
-                      return (
-                        <div key={output.id || idx} className="text-xs text-av-text">
-                          {hasResolution && hasRate && `${output.hRes}×${output.vRes} @ ${rate}`}
-                          {hasResolution && !hasRate && `${output.hRes}×${output.vRes}`}
-                          {!hasResolution && hasRate && `@ ${rate}`}
-                          {!hasResolution && !hasRate && <span className="text-av-text-muted/50 italic">—</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-
                   {/* BUTTONS */}
                   <div className="flex gap-1 justify-end items-center" onClick={(e) => e.stopPropagation()}>
-                    {sourceUuid && (
-                      <button
-                        onClick={() => toggleReveal(sourceUuid)}
-                        className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
-                        title={isExpanded ? 'Hide I/O ports' : 'Show I/O ports'}
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    )}
                     <button
                       onClick={() => handleEdit(source)}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"

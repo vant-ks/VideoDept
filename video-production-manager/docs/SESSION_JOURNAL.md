@@ -75,6 +75,25 @@
   - `src/pages/Checklist.tsx` — per-project collapse wiring, `moreInfo` array fix, `dueDate` fix in both create and edit paths
 ---
 
+### Prompt 4: Computers — COMP# auto-ID, drag reorder, inline modal, CCU-style I/O
+**ID:** S20260310-P4-000000
+**Request:** Auto-assign COMP # IDs (auto-increment, renumber on drag reorder). Remove ID field from modal. First row = Name + Computer Type. I/O ports section to follow CCU standard.
+
+#### Actions Taken:
+1. Read Computers.tsx, CCUs.tsx, SourceFormModal.tsx, computers.ts API route, Prisma schema, SourceService.ts, useEquipmentLibrary.ts
+2. Full rewrite of Computers.tsx: removed generic SourceFormModal dependency
+3. Auto-ID: `generateId()` finds max `COMP N` number in existing sources, returns `COMP N+1`
+4. Drag-to-reorder: mirrors CCUs.tsx pattern — on drop, renumbers affected cards as `COMP 1…N` via parallel PUT requests, refetches fresh state
+5. Inline modal: Name + Computer Type as first row (no ID field); I/O Ports Panel shown conditionally (CCU standard: shown when type selected or ports exist); selecting type auto-seeds port drafts from equipment spec; editing loads saved ports from DB with spec fallback
+6. Committed: `08dfd20` feat(computers): COMP# auto-ID, drag-to-reorder renumber, inline modal, CCU-style I/O port spec seeding
+
+#### Outcome:
+- **Status:** COMPLETED ✓
+- **Files Changed:**
+  - `src/pages/Computers.tsx` — Full rewrite (was 600-line component using SourceFormModal, now 808-line standalone inline modal matching CCU pattern)
+
+---
+
 ## Session 2026-03-07-000000
 **Started:** 2026-03-07
 **Status:** IN_PROGRESS
