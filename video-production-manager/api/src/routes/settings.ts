@@ -89,14 +89,20 @@ router.post('/connector-types/restore-defaults', async (req: Request, res: Respo
     });
     
     // Default connector types from seed script
-    const defaults = ['HDMI', 'SDI', 'DP', 'NDI', 'USB-C', 'ETH', 'OPTICON DUO', 'OPTICON QUAD', 'SMPTE FIBER', 'LC - FIBER (SM)', 'ST - FIBER (SM)', 'SC - FIBER (SM)', 'LC - FIBER (MM)', 'ST - FIBER (MM)', 'SC - FIBER (MM)', 'XLR', 'DMX'];
+    const defaults = ['HDMI 1.4', 'HDMI 2.0', 'HDMI 2.1', '3G-SDI', '6G-SDI', '12G-SDI', 'BNC REF', 'DP 1.1', 'DP 1.2', 'DP 1.4', 'NDI', 'USB-C', 'NETWORK (RJ45)', 'OPTICON DUO', 'OPTICON QUAD', 'SMPTE FIBER', 'LC - FIBER (SM)', 'ST - FIBER (SM)', 'SC - FIBER (SM)', 'LC - FIBER (MM)', 'ST - FIBER (MM)', 'SC - FIBER (MM)', 'XLR', 'DMX'];
     const newTypes: string[] = [];
     
     for (let i = 0; i < defaults.length; i++) {
-      const type = await prisma.connector_types.create({
-        data: {
+      const type = await prisma.connector_types.upsert({
+        where: { name: defaults[i] },
+        create: {
           id: `conn-type-${Date.now()}-${i}`,
           name: defaults[i],
+          sort_order: i,
+          is_active: true,
+          updated_at: new Date()
+        },
+        update: {
           sort_order: i,
           is_active: true,
           updated_at: new Date()

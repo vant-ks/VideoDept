@@ -343,7 +343,7 @@ export const displayOptions = ['Single', 'Blended', 'Converged', 'Mapped'];
 
 export const sourceTypes = ['LAPTOP', 'CAM', 'SERVER', 'PLAYBACK', 'GRAPHICS', 'PTZ', 'ROBO', 'OTHER'];
 
-export const connectorTypes = ['HDMI', 'SDI', 'DP', 'FIBER', 'NDI', 'USB-C'];
+export const connectorTypes = ['HDMI 1.4', 'HDMI 2.0', 'HDMI 2.1', '3G-SDI', '6G-SDI', '12G-SDI', 'BNC REF', 'DP 1.1', 'DP 1.2', 'DP 1.4', 'NDI', 'USB-C', 'NETWORK (RJ45)', 'SMPTE FIBER', 'XLR', 'DMX'];
 
 export const secondaryDevices = [
   'BARREL', 'BIDI', 'DECIMATOR', 'USB-C > DP', 'USB-C > HDMI', 
