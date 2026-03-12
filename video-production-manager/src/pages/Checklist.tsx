@@ -953,17 +953,27 @@ export const Checklist: React.FC = () => {
       {/* Edit Item Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-av-surface border border-av-border rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-av-text">
-                Edit Checklist Item
-              </h3>
-              <button onClick={() => setShowEditModal(false)} className="text-av-text-muted hover:text-av-text">
-                <X className="w-5 h-5" />
-              </button>
+          <div className="bg-av-surface border border-av-border rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Sticky header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-av-border flex-shrink-0">
+              <h3 className="text-lg font-semibold text-av-text">Edit Checklist Item</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={!editItemText.trim()}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save Changes
+                </button>
+              </div>
             </div>
-
-            <div className="space-y-4">
+            <div className="overflow-y-auto flex-1 p-6">
               <div>
                 <label className="block text-sm font-medium text-av-text mb-2">
                   Item Description
@@ -1153,22 +1163,7 @@ export const Checklist: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 bg-av-surface-light text-av-text rounded-md hover:bg-av-surface transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveEdit}
-                  disabled={!editItemText.trim()}
-                  className="flex-1 px-4 py-2 bg-av-accent text-white rounded-md hover:bg-av-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
+            </div>{/* end scrollable body */}
           </div>
         </div>
       )}

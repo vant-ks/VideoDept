@@ -800,20 +800,38 @@ export default function CCUs() {
       {/* Modal */}
       {isModalOpen && (<>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-av-border">
+          <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+            {/* Sticky header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-av-border flex-shrink-0">
               <h2 className="text-2xl font-bold text-av-text">
                 {editingCCU ? 'Edit CCU' : 'Add New CCU'}
               </h2>
-              <button
-                onClick={() => { setIsModalOpen(false); setDevicePorts([]); }}
-                className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-text transition-colors"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsModalOpen(false); setDevicePorts([]); }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSave('duplicate')}
+                  className="btn-secondary"
+                >
+                  Save & Duplicate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSave('close')}
+                  className="btn-primary"
+                >
+                  Save & Close
+                </button>
+              </div>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); handleSave('close'); }} className="p-6 space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSave('close'); }} className="overflow-y-auto flex-1 p-6 space-y-4">
               {errors.length > 0 && (
                 <div className="bg-av-danger/10 border border-av-danger rounded-md p-3">
                   {errors.map((err, i) => (

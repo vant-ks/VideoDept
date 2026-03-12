@@ -1347,17 +1347,30 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-av-surface rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
-          <div className="p-6 border-b border-av-border sticky top-0 bg-av-surface z-10">
+          <div className="p-6 border-b border-av-border sticky top-0 bg-av-surface z-10 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-av-text">
               {editingServer ? `Edit Server ${pairNumber} Pair` : `Add Server ${pairNumber} Pair`}
             </h2>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+              <button 
+                type="button" 
+                onClick={(e) => handleSubmit(e as any, 'duplicate')} 
+                className="btn-secondary"
+              >
+                Save & Duplicate
+              </button>
+              <button 
+                type="button" 
+                onClick={(e) => handleSubmit(e as any, 'close')} 
+                className="btn-primary"
+              >
+                Save & Close
+              </button>
+            </div>
           </div>
 
           <div className="p-6 space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-              <label className="block text-sm font-medium text-av-text mb-2">
-                Platform *
               </label>
               <select
                 value={platform}
@@ -1485,27 +1498,7 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
                 placeholder="Additional notes (applied to both servers)..."
               />
             </div>
-          </div>
-
-          <div className="p-6 border-t border-av-border flex justify-end gap-3 sticky bottom-0 bg-av-surface">
-            <button 
-              type="button" 
-              onClick={(e) => handleSubmit(e as any, 'close')} 
-              className="btn-primary flex-1"
-            >
-              Save & Close
-            </button>
-            <button 
-              type="button" 
-              onClick={(e) => handleSubmit(e as any, 'duplicate')} 
-              className="btn-secondary flex-1"
-            >
-              Save & Duplicate
-            </button>
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">
-              Cancel
-            </button>
-          </div>
+          </div>{/* end body */}
         </form>
       </div>
     </div>
@@ -1585,10 +1578,16 @@ function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers, s
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-av-surface rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
-          <div className="p-6 border-b border-av-border sticky top-0 bg-av-surface z-10">
+          <div className="p-6 border-b border-av-border sticky top-0 bg-av-surface z-10 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-av-text">
               {editingLayer ? 'Edit Layer' : 'Add Layer'}
             </h2>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+              <button type="submit" className="btn-primary">
+                {editingLayer ? 'Update' : 'Create'} Layer
+              </button>
+            </div>
           </div>
 
           <div className="p-6 space-y-6">
@@ -1663,16 +1662,7 @@ function LayerModal({ isOpen, onClose, onSave, editingLayer, availableServers, s
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="p-6 border-t border-av-border flex justify-end gap-3 sticky bottom-0 bg-av-surface">
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" className="btn-primary">
-              {editingLayer ? 'Update' : 'Create'} Layer
-            </button>
-          </div>
+          </div>{/* end body */}
         </form>
       </div>
     </div>

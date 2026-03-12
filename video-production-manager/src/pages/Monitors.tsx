@@ -727,11 +727,38 @@ export default function Monitors() {
       {/* ── Modal ─────────────────────────────────────────────────────── */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-av-surface border border-av-border rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-av-text mb-6">
+          <div className="bg-av-surface border border-av-border rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+
+            {/* ── Sticky header ── */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-av-border flex-shrink-0">
+              <h2 className="text-xl font-bold text-av-text">
                 {editingMonitor ? 'Edit Monitor' : 'Add Monitor'}
               </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', mountOptions: [], note: '' });
+                    setDevicePorts([]);
+                    setErrors([]);
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                {!editingMonitor && (
+                  <button onClick={() => handleSave('duplicate')} className="btn-secondary">
+                    Save & Add Another
+                  </button>
+                )}
+                <button onClick={() => handleSave('close')} className="btn-primary">
+                  {editingMonitor ? 'Save Changes' : 'Add Monitor'}
+                </button>
+              </div>
+            </div>
+
+            {/* ── Scrollable body ── */}
+            <div className="overflow-y-auto flex-1 p-6">
 
               {errors.length > 0 && (
                 <div className="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded-md">
@@ -898,35 +925,7 @@ export default function Monitors() {
                   />
                 </div>
               </div>
-
-              {/* Modal Actions */}
-              <div className="flex items-center justify-between mt-6 pt-4 border-t border-av-border">
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', mountOptions: [], note: '' });
-                    setDevicePorts([]);
-                    setErrors([]);
-                  }}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <div className="flex items-center gap-3">
-                  {!editingMonitor && (
-                    <button
-                      onClick={() => handleSave('duplicate')}
-                      className="btn-secondary"
-                    >
-                      Save & Add Another
-                    </button>
-                  )}
-                  <button onClick={() => handleSave('close')} className="btn-primary">
-                    {editingMonitor ? 'Save Changes' : 'Add Monitor'}
-                  </button>
-                </div>
-              </div>
-            </div>
+            </div>{/* end scrollable body */}
           </div>
         </div>
       )}

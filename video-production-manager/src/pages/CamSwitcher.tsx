@@ -327,11 +327,20 @@ export const CamSwitcher: React.FC = () => {
           onClick={() => setIsModalOpen(false)}
         >
           <div
-            className="bg-av-surface border border-av-border rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-av-surface border border-av-border rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
             onClick={e => e.stopPropagation()}
           >
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-av-text mb-6">{editingUuid ? 'Edit' : 'Add'} Cam Switcher</h2>
+            {/* Sticky header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-av-border flex-shrink-0">
+              <h2 className="text-xl font-bold text-av-text">{editingUuid ? 'Edit' : 'Add'} Cam Switcher</h2>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setIsModalOpen(false)} className="btn-secondary">Cancel</button>
+                <button onClick={handleSubmit} disabled={!formData.name} className="btn-primary">
+                  {editingUuid ? 'Save Changes' : 'Add Cam Switcher'}
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-av-text mb-1">Name</label>
@@ -395,13 +404,7 @@ export const CamSwitcher: React.FC = () => {
                   />
                 </div>
               </div>
-              <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-av-border">
-                <button onClick={() => setIsModalOpen(false)} className="btn-secondary">Cancel</button>
-                <button onClick={handleSubmit} disabled={!formData.name} className="btn-primary">
-                  {editingUuid ? 'Save Changes' : 'Add Cam Switcher'}
-                </button>
-              </div>
-            </div>
+            </div>{/* end scrollable body */}
           </div>
         </div>
       )}
