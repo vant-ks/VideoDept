@@ -572,6 +572,7 @@ export default function Monitors() {
                 onDragLeave={handleDragLeave}
                 onDragEnd={handleDragEnd}
                 onClick={() => record.uuid && !isDragInProgress.current && toggleReveal(record.uuid)}
+                onDoubleClick={(e) => { e.stopPropagation(); handleEdit(monitor); }}
               >
                 <div
                   className="grid items-center gap-3"
@@ -749,6 +750,11 @@ export default function Monitors() {
                 {!editingMonitor && (
                   <button onClick={() => handleSave('duplicate')} className="btn-secondary">
                     Save & Add Another
+                  </button>
+                )}
+                {editingMonitor && (
+                  <button onClick={() => handleSave('duplicate')} className="btn-secondary">
+                    Save & Duplicate
                   </button>
                 )}
                 <button onClick={() => handleSave('close')} className="btn-primary">

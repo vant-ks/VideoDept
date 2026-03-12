@@ -1371,7 +1371,10 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
           </div>
 
           <div className="p-6 space-y-6">
-              </label>
+              <div>
+                <label className="block text-sm font-medium text-av-text mb-2">
+                  Platform
+                </label>
               <select
                 value={platform}
                 onChange={(e) => setPlatform(e.target.value)}
@@ -1398,7 +1401,6 @@ function ServerPairModal({ isOpen, onClose, onSave, onSaveAndDuplicate, editingS
                   ))}
                 </select>
               </div>
-            </div>
 
             {/* I/O Ports — Direct + Expansion sections */}
             {(() => {

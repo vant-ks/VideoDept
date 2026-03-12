@@ -15,23 +15,32 @@ CURRENT BRANCH : v0.2.2_sends-subcategory
 
 ## ⏸ Last Session Checkpoint — March 11, 2026
 
-**Branch:** `v0.2.2_sends-subcategory` — working tree clean, 7 commits ahead of `v0.2`
+**Branch:** `v0.2.2_sends-subcategory` — working tree clean, 12 commits ahead of `v0.2`
 
-**Last thing completed:** Equipment data curation + connector type expansion
+**Last thing completed:** ALL modals refactored to sticky header + top-anchored action buttons
 
 Commits this session (newest first):
-- `92234f5` — feat(settings): expand connector types, hide frame rate / resolution panels
-- `a974178` — chore: clean up equipment update helper scripts
-- `b9952c2` — feat(equipment): add streaming encoders (STREAM_ENCODER category)
-- `ab295e7` — chore(equipment): remove Atomos recorders + duplicate/old HyperDeck entries, add HyperDeck Extreme 4K HDR
-- `64cd867` — chore(equipment): remove Flanders XM311K and small Lilliput monitors
-- `34e58e0` — chore(equipment): replace LG monitors with UA7100 series, add BMD Video Assist 3G + SmartView 4K G3, add Lilliput Q series 17"+
-- `d51804e` — fix(OtherPages): replace useNavigate with setActiveTab
+- `74d05e4` — refactor(modals): sticky header + action buttons across ALL pages (Monitors, Computers, Cameras, CCUs, CamSwitcher, Routers, MediaServers×2, Checklist)
+- `31712d6` — feat(monitors): card 30/30/30/10 grid, duplicate button, support equipment (POLE MOUNT STAND, DSM STAND, TALL DSM STAND, DSM SURROUND), sticky modal header
+- `c633ed3` — feat(monitors): secondary device field + connections reveal panel
+- `f5a7a72` — chore: LAUNCH_SESSION.md updated
+- `92234f5` — feat(settings): expand connector types (24 total), hide frame rate / resolution panels
+
+**Modal pattern (all pages now use this):**
+- `flex flex-col max-h-[90vh]` container
+- Sticky header: `flex-shrink-0` — title + Cancel / Save & Duplicate / Save & Close buttons
+- Scrollable body: `overflow-y-auto flex-1`
+- Files updated: Monitors, Computers, Cameras, CCUs, CamSwitcher, Routers, MediaServers, Checklist
+
+**Monitors.tsx — card + modal fully built:**
+- Card (collapsed): 30/30/30/10 grid — ID+name | Note | Tags (type badge, secondary, mount options) | Actions
+- Card (revealed): manufacturer+model label, I/O port table
+- Modal: Type radio grid, Name, Manufacturer, Model, I/O Ports, Secondary Device (datalist), Support Equipment tiles, Notes
+- `MOUNT_OPTIONS`: `POLE MOUNT STAND`, `DSM STAND`, `TALL DSM STAND`, `DSM SURROUND` → stored in `sends.standard` as comma-separated string
+- `useSendsAPI.ts`: `standard` field wired in both Create and Update inputs
 
 **Connector types now in DB (24 total):**
 `HDMI 1.4`, `HDMI 2.0`, `HDMI 2.1`, `3G-SDI`, `6G-SDI`, `12G-SDI`, `BNC REF`, `DP 1.1`, `DP 1.2`, `DP 1.4`, `NDI`, `USB-C`, `NETWORK (RJ45)`, `OPTICON DUO`, `OPTICON QUAD`, `SMPTE FIBER`, `LC - FIBER (SM)`, `ST - FIBER (SM)`, `SC - FIBER (SM)`, `LC - FIBER (MM)`, `ST - FIBER (MM)`, `SC - FIBER (MM)`, `XLR`, `DMX`
-
-**Settings UI:** Frame Rates and Resolutions sections removed (deviceFormats per-spec instead)
 
 **equipment-data.json:** 219 entries. IO port `type` strings in the JSON are still legacy values (e.g. `HDMI`, `SDI`, `3G-SDI`) — will be updated on a per-item basis as equipment is touched.
 
