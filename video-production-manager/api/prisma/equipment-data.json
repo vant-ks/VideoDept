@@ -11099,149 +11099,6 @@
     "formatByIO": false
   },
   {
-    "id": "atomos-shogun-ultra",
-    "category": "recorder",
-    "manufacturer": "Atomos",
-    "model": "Shogun Ultra",
-    "ioArchitecture": "direct",
-    "inputs": [
-      {
-        "id": "in-1",
-        "type": "HDMI",
-        "label": "HDMI In"
-      },
-      {
-        "id": "in-2",
-        "type": "12G-SDI",
-        "label": "SDI In"
-      }
-    ],
-    "outputs": [
-      {
-        "id": "out-1",
-        "type": "HDMI",
-        "label": "HDMI Out"
-      },
-      {
-        "id": "out-2",
-        "type": "12G-SDI",
-        "label": "SDI Out"
-      }
-    ],
-    "deviceFormats": [
-      "4K 60",
-      "1080p60",
-      "ProRes",
-      "DNxHD"
-    ],
-    "formatByIO": false
-  },
-  {
-    "id": "atomos-ninja-v",
-    "category": "recorder",
-    "manufacturer": "Atomos",
-    "model": "Ninja V",
-    "ioArchitecture": "direct",
-    "inputs": [
-      {
-        "id": "in-1",
-        "type": "HDMI",
-        "label": "HDMI In"
-      }
-    ],
-    "outputs": [
-      {
-        "id": "out-1",
-        "type": "HDMI",
-        "label": "HDMI Out"
-      }
-    ],
-    "deviceFormats": [
-      "4K 60",
-      "1080p60",
-      "ProRes",
-      "DNxHD"
-    ],
-    "formatByIO": false
-  },
-  {
-    "id": "blackmagic-hyperdeck-extreme",
-    "category": "recorder",
-    "manufacturer": "Blackmagic Design",
-    "model": "HyperDeck Extreme 8K",
-    "ioArchitecture": "direct",
-    "inputs": [
-      {
-        "id": "in-1",
-        "type": "12G-SDI",
-        "label": "SDI In 1"
-      },
-      {
-        "id": "in-2",
-        "type": "12G-SDI",
-        "label": "SDI In 2"
-      },
-      {
-        "id": "in-3",
-        "type": "HDMI",
-        "label": "HDMI In"
-      }
-    ],
-    "outputs": [
-      {
-        "id": "out-1",
-        "type": "12G-SDI",
-        "label": "SDI Out 1"
-      },
-      {
-        "id": "out-2",
-        "type": "12G-SDI",
-        "label": "SDI Out 2"
-      },
-      {
-        "id": "out-3",
-        "type": "HDMI",
-        "label": "HDMI Out"
-      }
-    ],
-    "deviceFormats": [
-      "8K",
-      "4K 60",
-      "1080p60",
-      "ProRes",
-      "DNxHD"
-    ],
-    "formatByIO": false
-  },
-  {
-    "id": "blackmagic-hyperdeck-studio",
-    "category": "recorder",
-    "manufacturer": "Blackmagic Design",
-    "model": "HyperDeck Studio HD Plus",
-    "ioArchitecture": "direct",
-    "inputs": [
-      {
-        "id": "in-1",
-        "type": "SDI",
-        "label": "SDI In"
-      }
-    ],
-    "outputs": [
-      {
-        "id": "out-1",
-        "type": "SDI",
-        "label": "SDI Out"
-      }
-    ],
-    "deviceFormats": [
-      "1080p60",
-      "1080i60",
-      "ProRes",
-      "DNxHD"
-    ],
-    "formatByIO": false
-  },
-  {
     "id": "aja-ki-pro-ultra",
     "category": "recorder",
     "manufacturer": "AJA",
@@ -15037,6 +14894,58 @@
       "4K 30",
       "1080p60",
       "1080p59.94",
+      "HDR"
+    ],
+    "formatByIO": false
+  },
+  {
+    "id": "blackmagic-hyperdeck-extreme-4k-hdr",
+    "category": "recorder",
+    "manufacturer": "Blackmagic Design",
+    "model": "HyperDeck Extreme 4K HDR",
+    "ioArchitecture": "direct",
+    "inputs": [
+      {
+        "id": "sdi-in-1",
+        "type": "12G-SDI",
+        "label": "SDI In 1"
+      },
+      {
+        "id": "sdi-in-2",
+        "type": "12G-SDI",
+        "label": "SDI In 2"
+      },
+      {
+        "id": "hdmi-in",
+        "type": "HDMI",
+        "label": "HDMI In"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "sdi-out-1",
+        "type": "12G-SDI",
+        "label": "SDI Out 1"
+      },
+      {
+        "id": "sdi-out-2",
+        "type": "12G-SDI",
+        "label": "SDI Out 2"
+      },
+      {
+        "id": "hdmi-out",
+        "type": "HDMI",
+        "label": "HDMI Out"
+      }
+    ],
+    "deviceFormats": [
+      "4K 60",
+      "4K 59.94",
+      "4K 50",
+      "4K 30",
+      "1080p60",
+      "1080p59.94",
+      "1080p50",
       "HDR"
     ],
     "formatByIO": false
