@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, Edit2, Trash2, Tv2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, Tv2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -29,6 +29,13 @@ const MONITOR_TYPES = [
 
 type MonitorTypeCode = typeof MONITOR_TYPES[number]['code'];
 
+const MOUNT_OPTIONS = [
+  'POLE MOUNT STAND',
+  'DSM STAND',
+  'TALL DSM STAND',
+  'DSM SURROUND',
+] as const;
+
 // Form fields collected by the Monitor modal
 interface MonitorFormFields {
   id?: string;
@@ -38,6 +45,7 @@ interface MonitorFormFields {
   equipmentUuid?: string;
   monitorType?: MonitorTypeCode | '';  // placement type (drives ID prefix)
   secondaryDevice?: string;            // adapter / converter in signal chain
+  mountOptions?: string[];             // support/mount equipment
   note?: string;
   version?: number;
 }
@@ -283,7 +291,7 @@ export default function Monitors() {
 
   // ── CRUD handlers ──────────────────────────────────────────────────────────
   const handleAddNew = () => {
-    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', note: '' });
+    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', mountOptions: [], note: '' });
     setDevicePorts([]);
     setEditingMonitor(null);
     setErrors([]);
@@ -316,6 +324,7 @@ export default function Monitors() {
       equipmentUuid: record.equipmentUuid,
       monitorType: derivedType as MonitorTypeCode | '',
       secondaryDevice: isLegacyTypeCode ? '' : (record.secondaryDevice || ''),
+      mountOptions: record.standard ? record.standard.split(',').filter(Boolean) : [],
       note: record.note || '',
       version: record.version,
     });
@@ -360,6 +369,7 @@ export default function Monitors() {
           hRes,
           vRes,
           rate,
+          standard: formData.mountOptions?.filter(Boolean).join(',') || undefined,
           equipmentUuid: formData.equipmentUuid,
           secondaryDevice: formData.secondaryDevice || undefined,
           note: formData.note,
@@ -383,6 +393,7 @@ export default function Monitors() {
           hRes,
           vRes,
           rate,
+          standard: formData.mountOptions?.filter(Boolean).join(',') || undefined,
           equipmentUuid: formData.equipmentUuid,
           secondaryDevice: formData.secondaryDevice || undefined,
           note: formData.note,
@@ -410,7 +421,7 @@ export default function Monitors() {
         setErrors([]);
       } else {
         setIsModalOpen(false);
-        setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', note: '' });
+        setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', mountOptions: [], note: '' });
         setDevicePorts([]);
         setEditingMonitor(null);
         setErrors([]);
@@ -562,74 +573,87 @@ export default function Monitors() {
                 onDragEnd={handleDragEnd}
                 onClick={() => record.uuid && !isDragInProgress.current && toggleReveal(record.uuid)}
               >
-                <div className="flex items-center gap-3">
-                  {/* Chevron + Drag handle */}
-                  <div className="flex items-center gap-1">
+                <div
+                  className="grid items-center gap-3"
+                    style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
+                >
+                  {/* ID — chevron + grip + ID + name */}
+                  <div className="flex items-center gap-1.5 min-w-0">
                     {record.uuid ? (
                       isExpanded
                         ? <ChevronUp className="w-4 h-4 text-av-accent flex-shrink-0" />
                         : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
-                    ) : <span className="w-4" />}
-                    <div
-                      className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-text"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <GripVertical className="w-4 h-4" />
+                    ) : null}
+                    <GripVertical
+                      className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div className="min-w-0">
+                      <span className={`text-sm font-semibold ${hasEquipment ? 'text-av-text' : 'text-av-warning'}`}>
+                        {monitor.id}
+                      </span>
+                      {monitor.name && monitor.name !== monitor.id && (
+                        <span className="ml-1.5 text-xs font-normal text-av-text-muted italic truncate">
+                          {monitor.name}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className={`font-semibold ${hasEquipment ? 'text-av-text' : 'text-av-warning'}`}>
-                        {monitor.id}
-                        {monitor.name && monitor.name !== monitor.id && (
-                          <span className="text-av-text-muted font-normal ml-1">— {monitor.name}</span>
-                        )}
-                      </span>
-                      {spec && (
-                        <span className={`text-sm ${hasEquipment ? 'text-av-text-secondary' : 'text-av-warning'}`}>
-                          {spec.manufacturer} {spec.model}
-                        </span>
-                      )}
-                      {!hasEquipment && (
-                        <span className="text-xs text-av-warning">No equipment assigned</span>
-                      )}
-                    </div>
-
-                    {/* Type badge + secondary device + notes row */}
-                    {(typeEntry || (!isLegacyTypeCode && record.secondaryDevice) || record.note) && (
-                      <div className="flex items-center gap-3 mt-1 text-xs text-av-text-muted flex-wrap">
-                        {typeEntry && (
-                          <span className="px-1.5 py-0.5 rounded bg-av-surface border border-av-border text-av-text-secondary font-medium">
-                            {typeEntry.label}
-                          </span>
-                        )}
-                        {!isLegacyTypeCode && record.secondaryDevice && (
-                          <span className="px-1.5 py-0.5 rounded bg-av-info/15 border border-av-info/30 text-av-info font-medium">
-                            {record.secondaryDevice}
-                          </span>
-                        )}
-                        {record.note && (
-                          <span className="italic">{record.note}</span>
-                        )}
-                      </div>
+                  {/* NOTE */}
+                  <div className="min-w-0">
+                    {record.note ? (
+                      <p className="text-xs text-av-text-muted truncate">{record.note}</p>
+                    ) : (
+                      <p className="text-xs text-av-text-muted/40 italic">No notes</p>
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                  {/* TAGS */}
+                  <div className="flex flex-wrap gap-1">
+                    {typeEntry && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-av-accent/15 border border-av-accent/30 text-av-accent font-bold">
+                        {typeEntry.code}
+                      </span>
+                    )}
+                    {!isLegacyTypeCode && record.secondaryDevice && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-av-info/15 border border-av-info/30 text-av-info font-medium">
+                        {record.secondaryDevice}
+                      </span>
+                    )}
+                    {(record.standard ? record.standard.split(',').filter(Boolean) : []).map((opt: string) => (
+                      <span key={opt} className="px-1.5 py-0.5 rounded text-[10px] bg-av-surface border border-av-border text-av-text-secondary font-medium">
+                        {opt}
+                      </span>
+                    ))}
+                    {!hasEquipment && (
+                      <span className="text-[10px] text-av-warning">No equipment</span>
+                    )}
+                  </div>
+
+                  {/* BUTTONS */}
+                  <div className="flex gap-1 justify-end items-center" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleEdit(monitor)}
-                      className="p-2 text-av-text-muted hover:text-av-text hover:bg-av-surface rounded-md transition-colors"
-                      title="Edit monitor"
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                      title="Edit"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => {
+                        handleEdit({ ...monitor, uuid: '' } as Send);
+                        setEditingMonitor(null);
+                      }}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+                      title="Duplicate"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(record.uuid)}
-                      className="p-2 text-av-text-muted hover:text-red-400 hover:bg-red-900/20 rounded-md transition-colors"
-                      title="Delete monitor"
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+                      title="Delete"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -639,6 +663,11 @@ export default function Monitors() {
                 {/* ── Reveal Panel ── */}
                 {isExpanded && (
                   <div className="mt-4 border-t border-av-border pt-4">
+                    {spec && (
+                      <p className="text-sm font-medium text-av-text-secondary mb-3">
+                        {spec.manufacturer} {spec.model}
+                      </p>
+                    )}
                     {revealPorts.length === 0 ? (
                       <p className="text-xs text-av-text-muted italic">
                         No ports configured. Open Edit to assign ports.
@@ -828,7 +857,34 @@ export default function Monitors() {
                   </datalist>
                 </div>
 
-                {/* Note */}}
+                {/* Support Equipment */}
+                <div>
+                  <label className="block text-sm font-medium text-av-text-muted mb-2">
+                    Support Equipment
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {MOUNT_OPTIONS.map(opt => (
+                      <div
+                        key={opt}
+                        onClick={() => setFormData({
+                          ...formData,
+                          mountOptions: formData.mountOptions?.includes(opt)
+                            ? formData.mountOptions.filter(o => o !== opt)
+                            : [...(formData.mountOptions || []), opt]
+                        })}
+                        className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                          formData.mountOptions?.includes(opt)
+                            ? 'border-av-accent bg-av-accent/10'
+                            : 'border-av-border hover:border-av-accent/30'
+                        }`}
+                      >
+                        <span className="text-sm text-av-text">{opt}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Note */}
                 <div>
                   <label className="block text-sm font-medium text-av-text-muted mb-1">
                     Notes
@@ -848,7 +904,7 @@ export default function Monitors() {
                 <button
                   onClick={() => {
                     setIsModalOpen(false);
-                    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', note: '' });
+                    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', mountOptions: [], note: '' });
                     setDevicePorts([]);
                     setErrors([]);
                   }}
