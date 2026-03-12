@@ -1,7 +1,7 @@
 
 
 
-CURRENT BRANCH : v0.2.1
+CURRENT BRANCH : v0.2.2_sends-subcategory
 
 
 
@@ -15,15 +15,29 @@ CURRENT BRANCH : v0.2.1
 
 ## ⏸ Last Session Checkpoint — March 11, 2026
 
-**Branch:** `v0.2.1_docs` (3 commits ahead of `v0.2`; `v0.2` pushed to origin)
+**Branch:** `v0.2.2_sends-subcategory` — working tree clean, 7 commits ahead of `v0.2`
 
-**Last thing completed:** v0.2.1 documentation sprint — full session
-- `8ddd6ba` — PROJECT_RULES.md: 4 new UI standards sections (card UX, ports, overflow, modal patterns)
-- `17572ea` — Tag system: added `<!-- tags: -->` to all PROJECT_RULES.md sections, `### Tags:` to all DEVLOG entries, `**Tags:**` to all SESSION_JOURNAL entries; grep-first Phase 1 in SESSION_START_PROTOCOL.md
-- `c88e7ca` — Archived 8 stale docs to docs/archive/, deleted root temp files, updated all _Utilities templates (DEVLOG, SESSION_START_PROTOCOL, LAUNCH_SESSION, PROJECT_RULES, AI_AGENT_PROTOCOL), created SESSION_JOURNAL_TEMPLATE.md
-- `9de2a3a` — docs(session-close): add Phase 6 session-end checklist, production-deletion pillar #14, fix LAUNCH_SESSION checkpoint + Step 1
+**Last thing completed:** Equipment data curation + connector type expansion
 
-**Pick up from:** Merge `v0.2.1_docs → v0.2`, then start `v0.2.2_sends-subcategory` for Sends entity subcategory implementation.
+Commits this session (newest first):
+- `92234f5` — feat(settings): expand connector types, hide frame rate / resolution panels
+- `a974178` — chore: clean up equipment update helper scripts
+- `b9952c2` — feat(equipment): add streaming encoders (STREAM_ENCODER category)
+- `ab295e7` — chore(equipment): remove Atomos recorders + duplicate/old HyperDeck entries, add HyperDeck Extreme 4K HDR
+- `64cd867` — chore(equipment): remove Flanders XM311K and small Lilliput monitors
+- `34e58e0` — chore(equipment): replace LG monitors with UA7100 series, add BMD Video Assist 3G + SmartView 4K G3, add Lilliput Q series 17"+
+- `d51804e` — fix(OtherPages): replace useNavigate with setActiveTab
+
+**Connector types now in DB (24 total):**
+`HDMI 1.4`, `HDMI 2.0`, `HDMI 2.1`, `3G-SDI`, `6G-SDI`, `12G-SDI`, `BNC REF`, `DP 1.1`, `DP 1.2`, `DP 1.4`, `NDI`, `USB-C`, `NETWORK (RJ45)`, `OPTICON DUO`, `OPTICON QUAD`, `SMPTE FIBER`, `LC - FIBER (SM)`, `ST - FIBER (SM)`, `SC - FIBER (SM)`, `LC - FIBER (MM)`, `ST - FIBER (MM)`, `SC - FIBER (MM)`, `XLR`, `DMX`
+
+**Settings UI:** Frame Rates and Resolutions sections removed (deviceFormats per-spec instead)
+
+**equipment-data.json:** 219 entries. IO port `type` strings in the JSON are still legacy values (e.g. `HDMI`, `SDI`, `3G-SDI`) — will be updated on a per-item basis as equipment is touched.
+
+**Spreadsheet tool:** `api/prisma/gen-equipment-spreadsheet.py` → `equipment-io-spec.xlsx` (20 port slots, type dropdowns). Run `python3 gen-equipment-spreadsheet.py` to regenerate.
+
+**Pick up from:** Primary branch feature work — Sends entity subcategory implementation (no work started yet on this feature despite the branch name).
 
 ---
 
