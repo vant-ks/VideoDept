@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, Edit2, Trash2, Tv2, GripVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, Tv2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -13,6 +13,7 @@ import { getCurrentUserId, getCurrentUserName } from '@/utils/userUtils';
 import { IOPortsPanel, DevicePortDraft } from '@/components/IOPortsPanel';
 import { FormatFormModal } from '@/components/FormatFormModal';
 import type { Send, Format } from '@/types';
+import { secondaryDevices as SECONDARY_DEVICE_OPTIONS } from '@/data/sampleData';
 
 // Monitor placement / purpose types
 const MONITOR_TYPES = [
@@ -35,7 +36,8 @@ interface MonitorFormFields {
   manufacturer?: string;
   model?: string;
   equipmentUuid?: string;
-  monitorType?: MonitorTypeCode | '';  // placement type (stored in secondary_device)
+  monitorType?: MonitorTypeCode | '';  // placement type (drives ID prefix)
+  secondaryDevice?: string;            // adapter / converter in signal chain
   note?: string;
   version?: number;
 }
@@ -80,6 +82,7 @@ export default function Monitors() {
   const [devicePorts, setDevicePorts]     = useState<DevicePortDraft[]>([]);
   const [portsLoading, setPortsLoading]   = useState(false);
   const [isCreateFormatOpen, setIsCreateFormatOpen] = useState(false);
+  const [expandedMonitors, setExpandedMonitors] = useState<Set<string>>(new Set());
 
   // Drag-to-reorder state
   const isDragInProgress = useRef(false);
@@ -264,9 +267,23 @@ export default function Monitors() {
     return { hRes: 1920, vRes: 1080, rate: 60 };
   };
 
+  // ── Toggle card reveal ─────────────────────────────────────────────────────
+  const toggleReveal = useCallback((uuid: string) => {
+    setExpandedMonitors(prev => {
+      const next = new Set(prev);
+      if (next.has(uuid)) { next.delete(uuid); } else { next.add(uuid); }
+      return next;
+    });
+    if (!cardPorts[uuid]) {
+      apiClient.get<any[]>(`/device-ports/device/${uuid}`)
+        .then(ports => setCardPorts(prev => ({ ...prev, [uuid]: ports })))
+        .catch(() => {});
+    }
+  }, [cardPorts]);
+
   // ── CRUD handlers ──────────────────────────────────────────────────────────
   const handleAddNew = () => {
-    setFormData({ manufacturer: '', model: '', monitorType: '', note: '' });
+    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', note: '' });
     setDevicePorts([]);
     setEditingMonitor(null);
     setErrors([]);
@@ -284,13 +301,21 @@ export default function Monitors() {
   const handleEdit = async (monitor: Send) => {
     const record = monitor as any;
     const spec = monitorSpecs.find(s => s.uuid === record.equipmentUuid);
+    // Derive monitor type from the ID prefix (e.g. "FOH 1" → "FOH")
+    const idTypeMatch = record.id.match(/^([A-Za-z]+)\s*\d+$/);
+    const typeCodeFromId = idTypeMatch ? idTypeMatch[1].toUpperCase() : '';
+    const derivedType = MONITOR_TYPES.find(t => t.code === typeCodeFromId)?.code
+      ?? (MONITOR_TYPES.some(t => t.code === record.secondaryDevice) ? (record.secondaryDevice as MonitorTypeCode) : '');
+    // If secondaryDevice is a legacy type code (old data), don't show it in the secondary device field
+    const isLegacyTypeCode = MONITOR_TYPES.some(t => t.code === record.secondaryDevice);
     setFormData({
       id: record.id,
       name: record.name,
       manufacturer: spec?.manufacturer || '',
       model: spec?.model || '',
       equipmentUuid: record.equipmentUuid,
-      monitorType: (record.secondaryDevice || '') as MonitorTypeCode | '',
+      monitorType: derivedType as MonitorTypeCode | '',
+      secondaryDevice: isLegacyTypeCode ? '' : (record.secondaryDevice || ''),
       note: record.note || '',
       version: record.version,
     });
@@ -336,7 +361,7 @@ export default function Monitors() {
           vRes,
           rate,
           equipmentUuid: formData.equipmentUuid,
-          secondaryDevice: formData.monitorType,
+          secondaryDevice: formData.secondaryDevice || undefined,
           note: formData.note,
           version: formData.version,
         });
@@ -359,7 +384,7 @@ export default function Monitors() {
           vRes,
           rate,
           equipmentUuid: formData.equipmentUuid,
-          secondaryDevice: formData.monitorType,
+          secondaryDevice: formData.secondaryDevice || undefined,
           note: formData.note,
         });
         setLocalMonitors(prev =>
@@ -385,7 +410,7 @@ export default function Monitors() {
         setErrors([]);
       } else {
         setIsModalOpen(false);
-        setFormData({ manufacturer: '', model: '', monitorType: '', note: '' });
+        setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', note: '' });
         setDevicePorts([]);
         setEditingMonitor(null);
         setErrors([]);
@@ -515,11 +540,19 @@ export default function Monitors() {
             const record = monitor as any;
             const spec = monitorSpecs.find(s => s.uuid === record.equipmentUuid);
             const hasEquipment = !!spec;
+            const isExpanded = record.uuid ? expandedMonitors.has(record.uuid) : false;
+            const revealPorts = (cardPorts[record.uuid] ?? []) as any[];
+            // Derive monitor type label from the ID prefix (e.g. "FOH 1" → "FOH" → "Front-of-House")
+            const idTypeMatch = monitor.id.match(/^([A-Za-z]+)\s*\d+$/);
+            const typeCodeFromId = idTypeMatch ? idTypeMatch[1].toUpperCase() : '';
+            const typeEntry = MONITOR_TYPES.find(t => t.code === typeCodeFromId);
+            // Legacy guard: if secondaryDevice is a type code (old data), don't show as secondary device
+            const isLegacyTypeCode = MONITOR_TYPES.some(t => t.code === record.secondaryDevice);
 
             return (
               <Card
                 key={record.uuid || monitor.id}
-                className={`p-4 transition-colors ${
+                className={`p-4 transition-colors cursor-pointer select-none ${
                   dragOverIndex === index ? 'border-av-accent/60 bg-av-accent/5' : 'hover:border-av-accent/30'
                 } ${draggedIndex === index ? 'opacity-50' : ''}`}
                 draggable
@@ -527,11 +560,22 @@ export default function Monitors() {
                 onDragOver={e => handleDragOver(e, index)}
                 onDragLeave={handleDragLeave}
                 onDragEnd={handleDragEnd}
+                onClick={() => record.uuid && !isDragInProgress.current && toggleReveal(record.uuid)}
               >
                 <div className="flex items-center gap-3">
-                  {/* Drag handle */}
-                  <div className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-text">
-                    <GripVertical className="w-4 h-4" />
+                  {/* Chevron + Drag handle */}
+                  <div className="flex items-center gap-1">
+                    {record.uuid ? (
+                      isExpanded
+                        ? <ChevronUp className="w-4 h-4 text-av-accent flex-shrink-0" />
+                        : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
+                    ) : <span className="w-4" />}
+                    <div
+                      className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-text"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </div>
                   </div>
 
                   {/* Content */}
@@ -553,42 +597,19 @@ export default function Monitors() {
                       )}
                     </div>
 
-                    {/* Port summary */}
-                    {(() => {
-                      const ports = (cardPorts[(monitor as any).uuid] ?? []) as any[];
-                      const inputs  = ports.filter(p => p.direction === 'INPUT');
-                      const outputs = ports.filter(p => p.direction === 'OUTPUT');
-                      return ports.length > 0 ? (
-                        <div className="flex items-center gap-3 mt-1 flex-wrap">
-                          {inputs.map((p: any, i: number) => (
-                            <span key={`in-${i}`} className="text-xs text-av-text-muted flex items-center gap-1">
-                              <span className="text-av-warning text-[10px] font-bold">IN</span>
-                              <span className="text-av-text-secondary">{p.portLabel}</span>
-                              {p.note && <span>← {p.note}</span>}
-                            </span>
-                          ))}
-                          {outputs.map((p: any, i: number) => (
-                            <span key={`out-${i}`} className="text-xs text-av-text-muted flex items-center gap-1">
-                              <span className="text-av-accent text-[10px] font-bold">OUT</span>
-                              <span className="text-av-text-secondary">{p.portLabel}</span>
-                              {p.note && <span>→ {p.note}</span>}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null;
-                    })()}
-
-                    {/* Type badge + notes row */}
-                    {(record.secondaryDevice || record.note) && (
+                    {/* Type badge + secondary device + notes row */}
+                    {(typeEntry || (!isLegacyTypeCode && record.secondaryDevice) || record.note) && (
                       <div className="flex items-center gap-3 mt-1 text-xs text-av-text-muted flex-wrap">
-                        {record.secondaryDevice && (() => {
-                          const typeEntry = MONITOR_TYPES.find(t => t.code === record.secondaryDevice);
-                          return typeEntry ? (
-                            <span className="px-1.5 py-0.5 rounded bg-av-surface border border-av-border text-av-text-secondary font-medium">
-                              {typeEntry.label}
-                            </span>
-                          ) : null;
-                        })()}
+                        {typeEntry && (
+                          <span className="px-1.5 py-0.5 rounded bg-av-surface border border-av-border text-av-text-secondary font-medium">
+                            {typeEntry.label}
+                          </span>
+                        )}
+                        {!isLegacyTypeCode && record.secondaryDevice && (
+                          <span className="px-1.5 py-0.5 rounded bg-av-info/15 border border-av-info/30 text-av-info font-medium">
+                            {record.secondaryDevice}
+                          </span>
+                        )}
                         {record.note && (
                           <span className="italic">{record.note}</span>
                         )}
@@ -597,7 +618,7 @@ export default function Monitors() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
                     <button
                       onClick={() => handleEdit(monitor)}
                       className="p-2 text-av-text-muted hover:text-av-text hover:bg-av-surface rounded-md transition-colors"
@@ -614,6 +635,60 @@ export default function Monitors() {
                     </button>
                   </div>
                 </div>
+
+                {/* ── Reveal Panel ── */}
+                {isExpanded && (
+                  <div className="mt-4 border-t border-av-border pt-4">
+                    {revealPorts.length === 0 ? (
+                      <p className="text-xs text-av-text-muted italic">
+                        No ports configured. Open Edit to assign ports.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto px-2">
+                        <table className="w-full text-xs table-fixed">
+                          <thead>
+                            <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[10%]">Dir</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[15%]">Type</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Label</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Format</th>
+                              <th className="text-left pb-1.5 font-semibold w-[25%]">Note</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-av-border/40">
+                            {revealPorts.filter((p: any) => p.direction === 'INPUT').map((port: any, i: number) => (
+                              <tr key={`in-${i}`} className="hover:bg-av-surface-hover/40">
+                                <td className="py-1.5 pr-3">
+                                  <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                </td>
+                                <td className="py-1.5 pr-3 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                <td className="py-1.5 pr-3 text-av-text truncate">{port.portLabel}</td>
+                                <td className="py-1.5 pr-3 text-av-text-muted">—</td>
+                                <td className="py-1.5 text-av-text-muted truncate">{port.note || '—'}</td>
+                              </tr>
+                            ))}
+                            {revealPorts.filter((p: any) => p.direction === 'OUTPUT').map((port: any, i: number) => {
+                              const fmtName = port.formatUuid
+                                ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—')
+                                : '—';
+                              return (
+                                <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
+                                  <td className="py-1.5 pr-3">
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                  </td>
+                                  <td className="py-1.5 pr-3 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                  <td className="py-1.5 pr-3 text-av-text truncate">{port.portLabel}</td>
+                                  <td className="py-1.5 pr-3 text-av-info truncate">{fmtName}</td>
+                                  <td className="py-1.5 text-av-text-muted truncate">{port.note || '—'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             );
           })}
@@ -733,7 +808,27 @@ export default function Monitors() {
                   </div>
                 )}
 
-                {/* Note */}
+                {/* Secondary Device */}
+                <div>
+                  <label className="block text-sm font-medium text-av-text-muted mb-1">
+                    Secondary Device <span className="text-av-text-muted/60 font-normal">(adapter / converter)</span>
+                  </label>
+                  <input
+                    type="text"
+                    list="monitor-secondary-device-options"
+                    value={formData.secondaryDevice || ''}
+                    onChange={e => setFormData({ ...formData, secondaryDevice: e.target.value })}
+                    placeholder="e.g., HDMI > SDI, BARREL, DECIMATOR"
+                    className="input-field w-full"
+                  />
+                  <datalist id="monitor-secondary-device-options">
+                    {SECONDARY_DEVICE_OPTIONS.map(opt => (
+                      <option key={opt} value={opt} />
+                    ))}
+                  </datalist>
+                </div>
+
+                {/* Note */}}
                 <div>
                   <label className="block text-sm font-medium text-av-text-muted mb-1">
                     Notes
@@ -753,7 +848,7 @@ export default function Monitors() {
                 <button
                   onClick={() => {
                     setIsModalOpen(false);
-                    setFormData({ manufacturer: '', model: '', monitorType: '', note: '' });
+                    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', note: '' });
                     setDevicePorts([]);
                     setErrors([]);
                   }}
