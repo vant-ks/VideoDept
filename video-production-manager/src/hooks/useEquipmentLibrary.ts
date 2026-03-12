@@ -55,7 +55,7 @@ function transformApiEquipment(raw: any): EquipmentSpec {
   return {
     uuid: raw.uuid,
     id: raw.id,
-    category: (raw.category ?? '').toLowerCase() as EquipmentSpec['category'],
+    category: (raw.category ?? '').toLowerCase().replace(/_/g, '-') as EquipmentSpec['category'],
     manufacturer: raw.manufacturer ?? '',
     model: raw.model ?? '',
     ioArchitecture: ioArch === 'card_based' || ioArch === 'card-based' ? 'card-based' : 'direct',
