@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Update equipment-data.json:
+"""Remove Atomos recorders, duplicate HD Plus, old Extreme; add HyperDeck Extreme 4K HDR.
    - Remove 22 legacy LG monitor entries
    - Add LG UA7100 series (6 sizes)
    - Add BMD Video Assist 5" 3G and 7" 3G
