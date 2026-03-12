@@ -1,11 +1,16 @@
 import { useCallback } from 'react';
 import { apiClient } from '@/services/apiClient';
 
-export interface Record {
+export interface RecordEntity {
+  uuid: string;
   id: string;
   productionId: string;
   name: string;
-  // Add other fields as needed
+  manufacturer?: string;
+  model?: string;
+  format?: string;
+  note?: string;
+  equipmentUuid?: string;
   createdAt: Date;
   updatedAt: Date;
   version: number;
@@ -13,10 +18,15 @@ export interface Record {
 }
 
 export interface RecordInput {
+  id?: string;
   productionId: string;
   name: string;
+  manufacturer?: string;
+  model?: string;
+  format?: string;
+  note?: string;
+  equipmentUuid?: string;
   version?: number;
-  // Add other fields as needed
 }
 
 interface ConflictError {
@@ -34,26 +44,32 @@ function getUserInfo() {
 }
 
 export function useRecordAPI() {
-  const fetchRecords = useCallback(async (productionId: string): Promise<Record[]> => {
+  const fetchRecords = useCallback(async (productionId: string): Promise<RecordEntity[]> => {
     try {
-      return await apiClient.get<Record[]>(`/records/production/${productionId}`);
+      return await apiClient.get<RecordEntity[]>(`/records/production/${productionId}`);
     } catch (error) {
       console.error('Error fetching records:', error);
       throw error;
     }
   }, []);
 
-  const createRecord = useCallback(async (input: RecordInput): Promise<Record> => {
+  const createRecord = useCallback(async (input: RecordInput): Promise<RecordEntity> => {
     try {
       const { userId, userName } = getUserInfo();
       const requestData = {
+        id: input.id,
         productionId: input.productionId,
         name: input.name,
+        manufacturer: input.manufacturer,
+        model: input.model,
+        format: input.format,
+        note: input.note,
+        equipmentUuid: input.equipmentUuid,
         version: input.version,
         userId,
         userName
       };
-      return await apiClient.post<Record>('/records', requestData);
+      return await apiClient.post<RecordEntity>('/records', requestData);
     } catch (error) {
       console.error('Error creating record:', error);
       throw error;
@@ -61,19 +77,23 @@ export function useRecordAPI() {
   }, []);
 
   const updateRecord = useCallback(async (
-    id: string,
+    uuid: string,
     updates: Partial<RecordInput>
-  ): Promise<Record | ConflictError> => {
+  ): Promise<RecordEntity | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
       const requestData = {
-        productionId: updates.productionId,
         name: updates.name,
+        manufacturer: updates.manufacturer,
+        model: updates.model,
+        format: updates.format,
+        note: updates.note,
+        equipmentUuid: updates.equipmentUuid,
         version: updates.version,
         userId,
         userName
       };
-      return await apiClient.put<Record>(`/records/${id}`, requestData);
+      return await apiClient.put<RecordEntity>(`/records/${uuid}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
