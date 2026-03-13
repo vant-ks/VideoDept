@@ -36,9 +36,99 @@ function uuid4() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
 
-// ─── types ────────────────────────────────────────────────────────────────────
+// ─── DualUnitInput ─────────────────────────────────────────────────────────────
+// ft + in + m all shown and all editable; changing any field live-converts the others.
 
-interface FtInPair { ft: number; inn: number; }
+const DualUnitInput: React.FC<{
+  label: React.ReactNode;
+  valueM: number;
+  onChange: (m: number) => void;
+  required?: boolean;
+  className?: string;
+}> = ({ label, valueM, onChange, required, className = '' }) => {
+  const ft  = Math.floor(valueM / FT_TO_M);
+  const inn = Math.round((valueM / IN_TO_M) % 12);
+  return (
+    <div className={className}>
+      <label className="block text-sm font-medium text-av-text-muted mb-1.5">
+        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      </label>
+      <div className="flex gap-1.5 items-end">
+        <div className="flex-1 min-w-0">
+          <input
+            type="number" min={0}
+            value={ft}
+            onChange={e => onChange(ftInToM(Math.max(0, Math.floor(+e.target.value || 0)), Math.round((valueM / IN_TO_M) % 12)))}
+            className="input-field w-full"
+          />
+          <span className="text-xs text-av-text-muted mt-0.5 block text-center">ft</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <input
+            type="number" min={0} max={11}
+            value={inn}
+            onChange={e => onChange(ftInToM(Math.floor(valueM / FT_TO_M), Math.min(11, Math.max(0, Math.round(+e.target.value || 0)))))}
+            className="input-field w-full"
+          />
+          <span className="text-xs text-av-text-muted mt-0.5 block text-center">in</span>
+        </div>
+        <div className="text-av-text-muted/40 text-xs pb-5 flex-shrink-0">=</div>
+        <div className="basis-20 flex-shrink-0">
+          <input
+            type="number" min={0} step={0.01}
+            value={valueM === 0 ? '' : +valueM.toFixed(3)}
+            placeholder="0"
+            onChange={e => onChange(Math.max(0, +e.target.value || 0))}
+            className="input-field w-full"
+          />
+          <span className="text-xs text-av-text-muted mt-0.5 block text-center">m</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── SmallMeasureInput ─────────────────────────────────────────────────────────
+// Inches + cm, for small measurements like bezels.
+
+const SmallMeasureInput: React.FC<{
+  label: string;
+  valueM: number;
+  onChange: (m: number) => void;
+}> = ({ label, valueM, onChange }) => {
+  const inVal = +(valueM / IN_TO_M).toFixed(3);
+  const cmVal = +(valueM * 100).toFixed(1);
+  return (
+    <div>
+      <label className="block text-sm font-medium text-av-text-muted mb-1.5">{label}</label>
+      <div className="flex gap-1.5 items-end">
+        <div className="flex-1">
+          <input
+            type="number" min={0} step={0.125}
+            value={inVal === 0 ? '' : inVal}
+            placeholder="0"
+            onChange={e => onChange(Math.max(0, (+e.target.value || 0) * IN_TO_M))}
+            className="input-field w-full"
+          />
+          <span className="text-xs text-av-text-muted mt-0.5 block text-center">in</span>
+        </div>
+        <div className="text-av-text-muted/40 text-xs pb-5 flex-shrink-0">=</div>
+        <div className="flex-1">
+          <input
+            type="number" min={0} step={0.5}
+            value={cmVal === 0 ? '' : cmVal}
+            placeholder="0"
+            onChange={e => onChange(Math.max(0, (+e.target.value || 0) / 100))}
+            className="input-field w-full"
+          />
+          <span className="text-xs text-av-text-muted mt-0.5 block text-center">cm</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── types ────────────────────────────────────────────────────────────────────
 
 interface Props {
   isOpen: boolean;
@@ -66,27 +156,22 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
   const [name, setName]     = useState('');
   const [note, setNote]     = useState('');
 
-  // ── image area (ft + in) ──
-  const [wFt, setWFt]   = useState(0);
-  const [wIn, setWIn]   = useState(0);
-  const [hFt, setHFt]   = useState(0);
-  const [hIn, setHIn]   = useState(0);
+  // ── image area (meters) ──
+  const [wM, setWM]     = useState(0);
+  const [hM, setHM]     = useState(0);
 
-  // ── bezels (inches only — typical bezel is small) ──
-  const [bezelHIn, setBezelHIn] = useState(0); // per side
-  const [bezelVIn, setBezelVIn] = useState(0); // per side
+  // ── bezels (meters, per side) ──
+  const [bezelHM, setBezelHM] = useState(0);
+  const [bezelVM, setBezelVM] = useState(0);
 
   // ── surface ──
   const [surfaceType, setSurfaceType] = useState<SurfaceType>('FRONT');
   const [gainFactor, setGainFactor]   = useState(1.0);
 
-  // ── position ──
-  const [distFloorFt, setDistFloorFt] = useState(0);
-  const [distFloorIn, setDistFloorIn] = useState(0);
-  const [dsXFt, setDsXFt]             = useState(0);
-  const [dsXIn, setDsXIn]             = useState(0);
-  const [dsYFt, setDsYFt]             = useState(0);
-  const [dsYIn, setDsYIn]             = useState(0);
+  // ── position (meters) ──
+  const [distFloorM, setDistFloorM] = useState(0);
+  const [dsXM, setDsXM]             = useState(0);
+  const [dsYM, setDsYM]             = useState(0);
   const [rotX, setRotX]               = useState(0);
   const [rotY, setRotY]               = useState(0);
   const [rotZ, setRotZ]               = useState(0);
@@ -115,20 +200,15 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
     if (editingSurface) {
       setName(editingSurface.name);
       setNote(editingSurface.note || '');
-      const w = editingSurface.widthM || 0;
-      const h = editingSurface.heightM || 0;
-      setWFt(mToFt(w)); setWIn(mToInRemainder(w));
-      setHFt(mToFt(h)); setHIn(mToInRemainder(h));
-      setBezelHIn(Math.round((editingSurface.bezelHM || 0) / IN_TO_M));
-      setBezelVIn(Math.round((editingSurface.bezelVM || 0) / IN_TO_M));
+      setWM(editingSurface.widthM || 0);
+      setHM(editingSurface.heightM || 0);
+      setBezelHM(editingSurface.bezelHM || 0);
+      setBezelVM(editingSurface.bezelVM || 0);
       setSurfaceType(editingSurface.surfaceType || 'FRONT');
       setGainFactor(editingSurface.gainFactor ?? 1.0);
-      const df = editingSurface.distFloorM || 0;
-      setDistFloorFt(mToFt(df)); setDistFloorIn(mToInRemainder(df));
-      const dx = editingSurface.posDsXM || 0;
-      setDsXFt(mToFt(Math.abs(dx))); setDsXIn(mToInRemainder(Math.abs(dx)));
-      const dy = editingSurface.posDsYM || 0;
-      setDsYFt(mToFt(Math.abs(dy))); setDsYIn(mToInRemainder(Math.abs(dy)));
+      setDistFloorM(editingSurface.distFloorM || 0);
+      setDsXM(Math.abs(editingSurface.posDsXM || 0));
+      setDsYM(Math.abs(editingSurface.posDsYM || 0));
       setRotX(editingSurface.rotX || 0);
       setRotY(editingSurface.rotY || 0);
       setRotZ(editingSurface.rotZ || 0);
@@ -137,11 +217,10 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
       setAssignments(editingSurface.projectorAssignments || []);
     } else {
       setName(''); setNote('');
-      setWFt(0); setWIn(0); setHFt(0); setHIn(0);
-      setBezelHIn(0); setBezelVIn(0);
+      setWM(0); setHM(0);
+      setBezelHM(0); setBezelVM(0);
       setSurfaceType('FRONT'); setGainFactor(1.0);
-      setDistFloorFt(0); setDistFloorIn(0);
-      setDsXFt(0); setDsXIn(0); setDsYFt(0); setDsYIn(0);
+      setDistFloorM(0); setDsXM(0); setDsYM(0);
       setRotX(0); setRotY(0); setRotZ(0);
       setAmbientLux(0);
       setMattes([]); setAssignments([]);
@@ -152,10 +231,8 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
 
   // ── derived values ─────────────────────────────────────────────────────────
   const derived = useMemo(() => {
-    const widthM  = ftInToM(wFt, wIn);
-    const heightM = ftInToM(hFt, hIn);
-    const bezelHM = bezelHIn * IN_TO_M;
-    const bezelVM = bezelVIn * IN_TO_M;
+    const widthM  = wM;
+    const heightM = hM;
     const totalWidthM  = widthM  + 2 * bezelHM;
     const totalHeightM = heightM + 2 * bezelVM;
     const areaSqM  = widthM * heightM;
@@ -224,7 +301,7 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
       contrastRatio: contrastRatio > 0 ? contrastRatio.toFixed(1) + ':1' : '—',
       throwCalcs,
     };
-  }, [wFt, wIn, hFt, hIn, bezelHIn, bezelVIn, gainFactor, surfaceType, ambientLux, assignments, projectors, equipmentSpecs]);
+  }, [wM, hM, bezelHM, bezelVM, gainFactor, surfaceType, ambientLux, assignments, projectors, equipmentSpecs]);
 
   // ── mattes helpers ─────────────────────────────────────────────────────────
   const addMatte = () => {
@@ -255,8 +332,8 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
   const handleSave = async () => {
     const errs: string[] = [];
     if (!name.trim()) errs.push('Name is required');
-    if (wFt === 0 && wIn === 0) errs.push('Image width is required');
-    if (hFt === 0 && hIn === 0) errs.push('Image height is required');
+    if (wM <= 0) errs.push('Image width is required');
+    if (hM <= 0) errs.push('Image height is required');
     if (errs.length > 0) { setErrors(errs); return; }
 
     setSaving(true);
@@ -271,9 +348,9 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
         bezelVM: derived.bezelVM,
         surfaceType,
         gainFactor,
-        distFloorM: ftInToM(distFloorFt, distFloorIn),
-        posDsXM: ftInToM(dsXFt, dsXIn),
-        posDsYM: ftInToM(dsYFt, dsYIn),
+        distFloorM,
+        posDsXM: dsXM,
+        posDsYM: dsYM,
         rotX, rotY, rotZ,
         ambientLux: ambientLux || undefined,
         mattes: mattes.length > 0 ? mattes : undefined,
@@ -368,40 +445,18 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
               <div>
                 <h3 className="text-sm font-semibold text-av-text-muted uppercase tracking-wider mb-3">Image Area</h3>
                 <div className="grid grid-cols-2 gap-5">
-                  {/* Width */}
-                  <div>
-                    <label className="block text-sm font-medium text-av-text-muted mb-1.5">
-                      Width <span className="text-red-400">*</span>
-                    </label>
-                    <div className="flex gap-2 items-center">
-                      <div className="flex-1">
-                        <input type="number" min={0} value={wFt} onChange={e => setWFt(+e.target.value)} className="input-field w-full" />
-                        <span className="text-xs text-av-text-muted mt-0.5 block">feet</span>
-                      </div>
-                      <div className="flex-1">
-                        <input type="number" min={0} max={11} value={wIn} onChange={e => setWIn(+e.target.value)} className="input-field w-full" />
-                        <span className="text-xs text-av-text-muted mt-0.5 block">inches</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-av-text-muted/60 mt-1">{derived.widthM.toFixed(3)} m</p>
-                  </div>
-                  {/* Height */}
-                  <div>
-                    <label className="block text-sm font-medium text-av-text-muted mb-1.5">
-                      Height <span className="text-red-400">*</span>
-                    </label>
-                    <div className="flex gap-2 items-center">
-                      <div className="flex-1">
-                        <input type="number" min={0} value={hFt} onChange={e => setHFt(+e.target.value)} className="input-field w-full" />
-                        <span className="text-xs text-av-text-muted mt-0.5 block">feet</span>
-                      </div>
-                      <div className="flex-1">
-                        <input type="number" min={0} max={11} value={hIn} onChange={e => setHIn(+e.target.value)} className="input-field w-full" />
-                        <span className="text-xs text-av-text-muted mt-0.5 block">inches</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-av-text-muted/60 mt-1">{derived.heightM.toFixed(3)} m</p>
-                  </div>
+                  <DualUnitInput
+                    label="Width"
+                    required
+                    valueM={wM}
+                    onChange={setWM}
+                  />
+                  <DualUnitInput
+                    label="Height"
+                    required
+                    valueM={hM}
+                    onChange={setHM}
+                  />
                 </div>
               </div>
 
@@ -410,27 +465,21 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
                 <h3 className="text-sm font-semibold text-av-text-muted uppercase tracking-wider mb-1">Bezel / Frame</h3>
                 <p className="text-xs text-av-text-muted mb-3">Added equally to each side of the image area</p>
                 <div className="grid grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm font-medium text-av-text-muted mb-1.5">Horizontal bezel (each side)</label>
-                    <div className="flex items-center gap-2">
-                      <input type="number" min={0} step={0.25} value={bezelHIn} onChange={e => setBezelHIn(+e.target.value)} className="input-field w-full" />
-                      <span className="text-sm text-av-text-muted flex-shrink-0">in</span>
-                    </div>
-                    <p className="text-xs text-av-text-muted/60 mt-1">{(bezelHIn * IN_TO_M).toFixed(3)} m per side</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-av-text-muted mb-1.5">Vertical bezel (each side)</label>
-                    <div className="flex items-center gap-2">
-                      <input type="number" min={0} step={0.25} value={bezelVIn} onChange={e => setBezelVIn(+e.target.value)} className="input-field w-full" />
-                      <span className="text-sm text-av-text-muted flex-shrink-0">in</span>
-                    </div>
-                    <p className="text-xs text-av-text-muted/60 mt-1">{(bezelVIn * IN_TO_M).toFixed(3)} m per side</p>
-                  </div>
+                  <SmallMeasureInput
+                    label="Horizontal bezel (each side)"
+                    valueM={bezelHM}
+                    onChange={setBezelHM}
+                  />
+                  <SmallMeasureInput
+                    label="Vertical bezel (each side)"
+                    valueM={bezelVM}
+                    onChange={setBezelVM}
+                  />
                 </div>
               </div>
 
               {/* Quick summary */}
-              {(wFt > 0 || wIn > 0) && (hFt > 0 || hIn > 0) && (
+              {wM > 0 && hM > 0 && (
                 <div className="grid grid-cols-4 gap-3 bg-av-surface-light rounded-lg p-4 text-center">
                   <div>
                     <p className="text-xs text-av-text-muted">Aspect</p>
@@ -505,17 +554,12 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
               <div>
                 <h3 className="text-sm font-semibold text-av-text-muted uppercase tracking-wider mb-1">Height from Floor</h3>
                 <p className="text-xs text-av-text-muted mb-3">Distance from floor to bottom of the image area</p>
-                <div className="flex gap-3 max-w-xs">
-                  <div className="flex-1">
-                    <input type="number" min={0} value={distFloorFt} onChange={e => setDistFloorFt(+e.target.value)} className="input-field w-full" />
-                    <span className="text-xs text-av-text-muted">ft</span>
-                  </div>
-                  <div className="flex-1">
-                    <input type="number" min={0} max={11} value={distFloorIn} onChange={e => setDistFloorIn(+e.target.value)} className="input-field w-full" />
-                    <span className="text-xs text-av-text-muted">in</span>
-                  </div>
-                </div>
-                <p className="text-xs text-av-text-muted/60 mt-1">{ftInToM(distFloorFt, distFloorIn).toFixed(2)} m</p>
+                <DualUnitInput
+                  label="Floor to bottom of image"
+                  valueM={distFloorM}
+                  onChange={setDistFloorM}
+                  className="max-w-sm"
+                />
               </div>
 
               <div>
@@ -524,34 +568,16 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
                   Downstage center = 0, 0. X: positive = stage right. Y: positive = upstage.
                 </p>
                 <div className="grid grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm font-medium text-av-text-muted mb-1.5">X (stage left / right)</label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <input type="number" min={0} value={dsXFt} onChange={e => setDsXFt(+e.target.value)} className="input-field w-full" />
-                        <span className="text-xs text-av-text-muted">ft</span>
-                      </div>
-                      <div className="flex-1">
-                        <input type="number" min={0} max={11} value={dsXIn} onChange={e => setDsXIn(+e.target.value)} className="input-field w-full" />
-                        <span className="text-xs text-av-text-muted">in</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-av-text-muted/60 mt-1">{ftInToM(dsXFt, dsXIn).toFixed(2)} m</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-av-text-muted mb-1.5">Y (downstage / upstage)</label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <input type="number" min={0} value={dsYFt} onChange={e => setDsYFt(+e.target.value)} className="input-field w-full" />
-                        <span className="text-xs text-av-text-muted">ft</span>
-                      </div>
-                      <div className="flex-1">
-                        <input type="number" min={0} max={11} value={dsYIn} onChange={e => setDsYIn(+e.target.value)} className="input-field w-full" />
-                        <span className="text-xs text-av-text-muted">in</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-av-text-muted/60 mt-1">{ftInToM(dsYFt, dsYIn).toFixed(2)} m</p>
-                  </div>
+                  <DualUnitInput
+                    label="X (stage left / right)"
+                    valueM={dsXM}
+                    onChange={setDsXM}
+                  />
+                  <DualUnitInput
+                    label="Y (downstage / upstage)"
+                    valueM={dsYM}
+                    onChange={setDsYM}
+                  />
                 </div>
               </div>
 
