@@ -2,6 +2,53 @@
 
 ---
 
+## March 12, 2026 — feat(projectors): full Projectors page — CRUD, equipment lib, I/O ports, drag-reorder, WS sync
+
+### Branch: `v0.2.3_projectors`
+### Status: ✅ COMPLETE
+### Tags: feat, projectors, projection-screens, card-ui, equipment-library, io-ports, drag-reorder, websocket, crud
+
+**Session kickoff:** branched `v0.2.3_projectors` off `v0.2` (post merge of `v0.2.2_sends-subcategory`).
+
+**Problem:** The `projection` nav tab rendered the old `<Screens />` stub (LED screen read-only summary from `OtherPages.tsx`). No way to add/edit/manage individual projector units.
+
+**Solution:** Built a full `Projectors` page following the `Monitors.tsx` pattern, backed by the existing `projection_screens` DB table and API routes.
+
+### What was built
+
+**`src/pages/Projectors.tsx`** (new — ~500 lines)
+- 8 projector placement types with codes: `MAIN` (Main Stage), `IMAG` (Image Magnification), `LOBBY` (Lobby/Foyer), `OVR` (Overflow), `BREAK` (Breakout Room), `CONF` (Confidence), `REAR` (Rear Projection), `HAZE` (Haze/Special FX)
+- Equipment library integration — category `PROJECTOR` (Christie M 4K25, Panasonic PT-RQ50K)
+- Sticky modal header: Cancel / Save & Add Another (or Save & Duplicate) / Add Projector
+- `IOPortsPanel` with `FormatFormModal` inline creation
+- Secondary device field with `datalist` suggestions from `sampleData`
+- Card layout: click → collapse/expand reveal panel (I/O port table); double-click → edit; drag → reorder
+- Auto-generated IDs per type (`MAIN 1`, `IMAG 1`, etc.) with per-type renumbering on drag
+- WebSocket real-time sync (`entity:created` / `entity:updated` / `entity:deleted`)
+- `productionId` from `useProjectStore` / `useProductionStore` fallback pattern
+
+**`src/hooks/useProjectionScreenAPI.ts`** (updated)
+- Full `ProjectionScreen` entity type: `uuid`, `id`, `name`, `manufacturer`, `model`, `hRes`, `vRes`, `rate`, `note`, `equipmentUuid`, `version`, `isDeleted`
+- `ProjectionScreenInput` with all writable fields
+- Clean API methods — all pass `{ ...input, userId, userName }` directly without manual field-by-field unpacking
+
+**`src/hooks/useProductionEvents.ts`** (updated)
+- `EntityEvent.entityType` union extended with `'record'` and `'projectionScreen'` to resolve TS2367 strict-comparison errors
+
+**`src/App.tsx`** (updated)
+- Imported `Projectors` from `@/pages/Projectors`
+- `case 'projection'` now renders `<Projectors />` instead of `<Screens />`
+
+### Files changed
+- `src/pages/Projectors.tsx` — created
+- `src/hooks/useProjectionScreenAPI.ts` — full entity type + clean inputs
+- `src/hooks/useProductionEvents.ts` — entityType union extended
+- `src/App.tsx` — Projectors imported + routed
+
+### Commit: `ac7da03`
+
+---
+
 ## March 11, 2026 — chore(equipment): replace LG monitor lineup, add BMD Video Assist 3G + SmartView 4K G3, add Lilliput Q series 17"+
 
 **Removed** 22 legacy LG entries (C4 OLED, G4 OLED, B4 OLED, QNED90, UR9000 series).
