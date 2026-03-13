@@ -287,11 +287,9 @@ export default function Records() {
                     </div>
                   </div>
 
-                  {/* Col 2: manufacturer + model */}
+                  {/* Col 2: note */}
                   <div className="text-sm text-av-text-muted truncate">
-                    {displayMfr && displayMdl
-                      ? `${displayMfr} ${displayMdl}`
-                      : displayMfr || displayMdl || <span className="italic">No equipment</span>}
+                    {rec.note || <span className="italic opacity-40">—</span>}
                   </div>
 
                   {/* Col 3: format badge + port count */}
@@ -305,9 +303,6 @@ export default function Records() {
                       <span className="text-xs text-av-text-muted">
                         {ports.filter(p => p.direction === 'INPUT').length}in · {ports.filter(p => p.direction === 'OUTPUT').length}out
                       </span>
-                    )}
-                    {rec.note && (
-                      <span className="text-xs text-av-text-muted truncate">{rec.note}</span>
                     )}
                   </div>
 
@@ -352,7 +347,8 @@ export default function Records() {
                             <th className="text-left pb-1 pr-3 w-10" />
                             <th className="text-left pb-1 pr-3">Type</th>
                             <th className="text-left pb-1 pr-3">Label</th>
-                            <th className="text-left pb-1">Format</th>
+                            <th className="text-left pb-1 pr-3">Format</th>
+                            <th className="text-left pb-1">Connection</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -361,7 +357,8 @@ export default function Records() {
                               <td className="py-1 pr-3"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span></td>
                               <td className="py-1 pr-3 font-mono text-av-text-muted">{p.ioType}</td>
                               <td className="py-1 pr-3 text-av-text">{p.portLabel}</td>
-                              <td className="py-1 text-av-info">{p.formatUuid ? (formats.find(f => f.uuid === p.formatUuid)?.id ?? '—') : '—'}</td>
+                              <td className="py-1 pr-3 text-av-info">{p.formatUuid ? (formats.find(f => f.uuid === p.formatUuid)?.id ?? '—') : '—'}</td>
+                              <td className="py-1 text-av-text-muted">{p.note || '—'}</td>
                             </tr>
                           ))}
                           {ports.filter(p => p.direction === 'OUTPUT').map((p: any, i: number) => (
@@ -369,7 +366,8 @@ export default function Records() {
                               <td className="py-1 pr-3"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span></td>
                               <td className="py-1 pr-3 font-mono text-av-text-muted">{p.ioType}</td>
                               <td className="py-1 pr-3 text-av-text">{p.portLabel}</td>
-                              <td className="py-1 text-av-info">{p.formatUuid ? (formats.find(f => f.uuid === p.formatUuid)?.id ?? '—') : '—'}</td>
+                              <td className="py-1 pr-3 text-av-info">{p.formatUuid ? (formats.find(f => f.uuid === p.formatUuid)?.id ?? '—') : '—'}</td>
+                              <td className="py-1 text-av-text-muted">{p.note || '—'}</td>
                             </tr>
                           ))}
                         </tbody>
