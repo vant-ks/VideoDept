@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, Edit2, Trash2, Copy, Projector, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, Projector, GripVertical, ChevronDown, ChevronUp, MonitorPlay, Ruler } from 'lucide-react';
 import { Card } from '@/components/ui';
+import { cn } from '@/utils/helpers';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useProjectionScreenAPI, type ProjectionScreen } from '@/hooks/useProjectionScreenAPI';
+import { useProjectionSurfaceAPI, type ProjectionSurface } from '@/hooks/useProjectionSurfaceAPI';
+import { ProjectionSurfaceModal } from '@/components/ProjectionSurfaceModal';
 import { useProductionEvents, getSocket } from '@/hooks/useProductionEvents';
 import type { EntityEvent } from '@/hooks/useProductionEvents';
 import { io as socketIO } from 'socket.io-client';
@@ -63,6 +66,7 @@ export default function Projectors() {
   const equipmentLib = useEquipmentLibrary();
   const oldStore = useProductionStore();
   const projectionScreenAPI = useProjectionScreenAPI();
+  const projectionSurfaceAPI = useProjectionSurfaceAPI();
 
   const equipmentSpecs =
     equipmentLib.equipmentSpecs.length > 0
@@ -71,6 +75,14 @@ export default function Projectors() {
 
   const productionId =
     activeProject?.production?.id || oldStore.production?.id;
+
+  // ── Sub-tab ───────────────────────────────────────────────────────────────
+  const [activeSubTab, setActiveSubTab] = useState<'projectors' | 'screens'>('projectors');
+
+  // ── Surfaces state ────────────────────────────────────────────────────────
+  const [localSurfaces, setLocalSurfaces]         = useState<ProjectionSurface[]>([]);
+  const [surfaceModalOpen, setSurfaceModalOpen]   = useState(false);
+  const [editingSurface, setEditingSurface]       = useState<ProjectionSurface | null>(null);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [localProjectors, setLocalProjectors] = useState<ProjectionScreen[]>([]);
@@ -124,6 +136,14 @@ export default function Projectors() {
   }, [productionId]);
 
   useEffect(() => {
+    if (productionId) {
+      projectionSurfaceAPI.fetchSurfaces(productionId)
+        .then(setLocalSurfaces)
+        .catch(console.error);
+    }
+  }, [productionId]);
+
+  useEffect(() => {
     apiClient.get<Format[]>('/formats').then(setFormats).catch(() => {});
   }, []);
 
@@ -141,23 +161,38 @@ export default function Projectors() {
   useProductionEvents({
     productionId,
     onEntityCreated: useCallback((event: EntityEvent) => {
-      if (event.entityType !== 'projectionScreen') return;
-      if (isDragInProgress.current) return;
-      setLocalProjectors(prev => {
-        if (prev.some(p => p.uuid === event.entity.uuid)) return prev;
-        return [...prev, event.entity];
-      });
+      if (event.entityType === 'projectionScreen') {
+        if (isDragInProgress.current) return;
+        setLocalProjectors(prev =>
+          prev.some(p => p.uuid === event.entity.uuid) ? prev : [...prev, event.entity]
+        );
+      }
+      if (event.entityType === 'projectionSurface') {
+        setLocalSurfaces(prev =>
+          prev.some(s => s.uuid === event.entity.uuid) ? prev : [...prev, event.entity]
+        );
+      }
     }, []),
     onEntityUpdated: useCallback((event: EntityEvent) => {
-      if (event.entityType !== 'projectionScreen') return;
-      if (isDragInProgress.current) return;
-      setLocalProjectors(prev =>
-        prev.map(p => p.uuid === event.entity.uuid ? event.entity : p)
-      );
+      if (event.entityType === 'projectionScreen') {
+        if (isDragInProgress.current) return;
+        setLocalProjectors(prev =>
+          prev.map(p => p.uuid === event.entity.uuid ? event.entity : p)
+        );
+      }
+      if (event.entityType === 'projectionSurface') {
+        setLocalSurfaces(prev =>
+          prev.map(s => s.uuid === event.entity.uuid ? event.entity : s)
+        );
+      }
     }, []),
     onEntityDeleted: useCallback((event: EntityEvent) => {
-      if (event.entityType !== 'projectionScreen') return;
-      setLocalProjectors(prev => prev.filter(p => p.uuid !== event.entityId));
+      if (event.entityType === 'projectionScreen') {
+        setLocalProjectors(prev => prev.filter(p => p.uuid !== event.entityId));
+      }
+      if (event.entityType === 'projectionSurface') {
+        setLocalSurfaces(prev => prev.filter(s => s.uuid !== event.entityId));
+      }
     }, []),
   });
 
@@ -432,16 +467,55 @@ export default function Projectors() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-av-textPrimary">Projectors</h1>
+          <h1 className="text-3xl font-bold text-av-textPrimary">Projection</h1>
         </div>
-        <button onClick={handleAddNew} className="btn-primary flex items-center gap-2">
-          <Plus className="w-5 h-5" />
-          Add Projector
+        {activeSubTab === 'projectors' && (
+          <button onClick={handleAddNew} className="btn-primary flex items-center gap-2">
+            <Plus className="w-5 h-5" />
+            Add Projector
+          </button>
+        )}
+        {activeSubTab === 'screens' && (
+          <button onClick={() => { setEditingSurface(null); setSurfaceModalOpen(true); }} className="btn-primary flex items-center gap-2">
+            <Plus className="w-5 h-5" />
+            Add Screen
+          </button>
+        )}
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-2 border-b border-av-border">
+        <button
+          onClick={() => setActiveSubTab('projectors')}
+          className={cn(
+            'px-4 py-2 font-medium transition-colors relative flex items-center gap-2',
+            activeSubTab === 'projectors' ? 'text-av-accent' : 'text-av-text-muted hover:text-av-text'
+          )}
+        >
+          <Projector className="w-4 h-4" />
+          Projectors
+          {activeSubTab === 'projectors' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-av-accent" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveSubTab('screens')}
+          className={cn(
+            'px-4 py-2 font-medium transition-colors relative flex items-center gap-2',
+            activeSubTab === 'screens' ? 'text-av-accent' : 'text-av-text-muted hover:text-av-text'
+          )}
+        >
+          <MonitorPlay className="w-4 h-4" />
+          Screens
+          {activeSubTab === 'screens' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-av-accent" />
+          )}
         </button>
       </div>
 
-      {/* Cards */}
-      {localProjectors.length === 0 ? (
+      {/* ── Projectors Tab ───────────────────────────────────────────────── */}
+      {activeSubTab === 'projectors' && (
+      <>{localProjectors.length === 0 ? (
         <Card className="p-12 text-center">
           <Projector className="w-12 h-12 text-av-text-muted mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-av-text mb-2">No Projectors Yet</h3>
@@ -810,6 +884,168 @@ export default function Projectors() {
           isOpen={isCreateFormatOpen}
           onClose={() => setIsCreateFormatOpen(false)}
           onSaved={fmt => { setFormats(prev => [...prev, fmt]); setIsCreateFormatOpen(false); }}
+        />
+      )}
+      </>
+      )}
+
+      {/* ── Screens Tab ──────────────────────────────────────────────────── */}
+      {activeSubTab === 'screens' && (
+        <div className="space-y-6">
+
+          {/* Summary row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-5">
+              <p className="text-sm text-av-text-muted mb-1">Surfaces</p>
+              <p className="text-3xl font-bold text-av-text">{localSurfaces.length}</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-av-text-muted mb-1">Projectors Assigned</p>
+              <p className="text-3xl font-bold text-av-text">
+                {localSurfaces.reduce((n, s) => n + (s.projectorAssignments?.length || 0), 0)}
+              </p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-av-text-muted mb-1">Total Lumens</p>
+              <p className="text-3xl font-bold text-av-accent">
+                {(() => {
+                  const total = localSurfaces.reduce((sum, surf) => {
+                    return sum + (surf.projectorAssignments || []).reduce((s2, a) => {
+                      const proj = localProjectors.find(p => p.uuid === a.projectorUuid);
+                      const spec = proj?.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
+                      return s2 + (spec?.specs?.lumens || 0);
+                    }, 0);
+                  }, 0);
+                  return total > 0 ? (total >= 1000 ? `${(total / 1000).toFixed(0)}K` : total) : '—';
+                })()}
+              </p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-av-text-muted mb-1">Mattes</p>
+              <p className="text-3xl font-bold text-av-text">
+                {localSurfaces.reduce((n, s) => n + (s.mattes?.length || 0), 0) || '—'}
+              </p>
+            </Card>
+          </div>
+
+          {/* Surface cards */}
+          {localSurfaces.length > 0 && (
+            <div className="space-y-3">
+              {localSurfaces.map(surf => {
+                const assignedProjs = (surf.projectorAssignments || []).map(a => {
+                  const proj = localProjectors.find(p => p.uuid === a.projectorUuid);
+                  const spec = proj?.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
+                  return { proj, spec };
+                });
+                const widthFt = surf.widthM ? Math.floor(surf.widthM / 0.3048) : 0;
+                const widthIn = surf.widthM ? Math.round((surf.widthM / 0.0254) % 12) : 0;
+                const heightFt = surf.heightM ? Math.floor(surf.heightM / 0.3048) : 0;
+                const heightIn = surf.heightM ? Math.round((surf.heightM / 0.0254) % 12) : 0;
+                const diagM = surf.widthM && surf.heightM ? Math.sqrt(surf.widthM ** 2 + surf.heightM ** 2) : 0;
+                const diagFt = diagM ? Math.floor(diagM / 0.3048) : 0;
+                const diagIn = diagM ? Math.round((diagM / 0.0254) % 12) : 0;
+                const SURFACE_TYPE_LABELS: Record<string, string> = {
+                  FRONT: 'Front', REAR: 'Rear', DUAL_VISION: 'Dual Vision', MAPPED: 'Mapped'
+                };
+
+                return (
+                  <Card key={surf.uuid} className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <MonitorPlay className="w-5 h-5 text-av-accent flex-shrink-0" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-av-text">{surf.name}</span>
+                            {surf.surfaceType && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-av-accent/15 border border-av-accent/30 text-av-accent font-bold uppercase">
+                                {SURFACE_TYPE_LABELS[surf.surfaceType] || surf.surfaceType}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 mt-1 text-xs text-av-text-muted flex-wrap">
+                            {surf.widthM && surf.heightM && (
+                              <span>{widthFt}' {widthIn}" × {heightFt}' {heightIn}" ({diagFt}' {diagIn}" diag)</span>
+                            )}
+                            {surf.gainFactor && surf.gainFactor !== 1 && (
+                              <span>Gain {surf.gainFactor.toFixed(2)}×</span>
+                            )}
+                            {surf.mattes && surf.mattes.length > 0 && (
+                              <span>{surf.mattes.length} matte{surf.mattes.length > 1 ? 's' : ''}</span>
+                            )}
+                          </div>
+                          {assignedProjs.length > 0 && (
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              {assignedProjs.map(({ proj, spec }, i) => proj ? (
+                                <span key={i} className="text-xs px-2 py-0.5 rounded bg-av-surface-light border border-av-border text-av-text-muted">
+                                  {proj.id}{spec ? ` · ${spec.manufacturer} ${spec.model}` : ''}
+                                </span>
+                              ) : null)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                        <button
+                          onClick={() => { setEditingSurface(surf); setSurfaceModalOpen(true); }}
+                          className="btn-secondary text-xs flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3" /> Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Delete surface "${surf.name}"?`)) return;
+                            await projectionSurfaceAPI.deleteSurface(surf.uuid);
+                            setLocalSurfaces(prev => prev.filter(s => s.uuid !== surf.uuid));
+                          }}
+                          className="p-1.5 rounded text-av-danger hover:bg-av-danger/10 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {localSurfaces.length === 0 && (
+            <Card className="p-12 text-center border-dashed">
+              <MonitorPlay className="w-12 h-12 text-av-text-muted mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-av-text mb-2">No Projection Surfaces Yet</h3>
+              <p className="text-av-text-muted mb-4">
+                Add a screen to configure dimensions, surface type, throw distances, and lux calculations.
+              </p>
+              <button
+                onClick={() => { setEditingSurface(null); setSurfaceModalOpen(true); }}
+                className="btn-primary flex items-center gap-2 mx-auto"
+              >
+                <Plus className="w-4 h-4" />
+                Add Screen
+              </button>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ── Projection Surface Modal ─────────────────────────────────────── */}
+      {productionId && (
+        <ProjectionSurfaceModal
+          isOpen={surfaceModalOpen}
+          onClose={() => { setSurfaceModalOpen(false); setEditingSurface(null); }}
+          onSave={async (data) => {
+            if (editingSurface) {
+              const updated = await projectionSurfaceAPI.updateSurface(editingSurface.uuid, data) as ProjectionSurface;
+              setLocalSurfaces(prev => prev.map(s => s.uuid === updated.uuid ? updated : s));
+            } else {
+              const created = await projectionSurfaceAPI.createSurface({ ...data, productionId });
+              setLocalSurfaces(prev => [...prev, created]);
+            }
+          }}
+          editingSurface={editingSurface}
+          projectors={localProjectors}
+          equipmentSpecs={equipmentSpecs}
+          productionId={productionId}
         />
       )}
     </div>
