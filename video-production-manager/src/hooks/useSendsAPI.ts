@@ -12,6 +12,7 @@ interface CreateSendInput {
   hRes: number;
   vRes: number;
   rate: number;
+  standard?: string;
   note?: string;
   equipmentUuid?: string;
   secondaryDevice?: string;
@@ -70,6 +71,7 @@ export function useSendsAPI() {
         hRes: input.hRes,
         vRes: input.vRes,
         rate: input.rate,
+        standard: input.standard,
         note: input.note,
         equipmentUuid: input.equipmentUuid,
         secondaryDevice: input.secondaryDevice,
@@ -103,6 +105,7 @@ export function useSendsAPI() {
         hRes: input.hRes,
         vRes: input.vRes,
         rate: input.rate,
+        standard: input.standard,
         note: input.note,
         equipmentUuid: input.equipmentUuid,
         secondaryDevice: input.secondaryDevice,

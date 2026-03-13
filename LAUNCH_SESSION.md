@@ -1,7 +1,7 @@
 
 
 
-CURRENT BRANCH : v0.2.1
+CURRENT BRANCH : v0.2.2_sends-subcategory
 
 
 
@@ -15,15 +15,38 @@ CURRENT BRANCH : v0.2.1
 
 ## ⏸ Last Session Checkpoint — March 11, 2026
 
-**Branch:** `v0.2.1_docs` (3 commits ahead of `v0.2`; `v0.2` pushed to origin)
+**Branch:** `v0.2.2_sends-subcategory` — working tree clean, 12 commits ahead of `v0.2`
 
-**Last thing completed:** v0.2.1 documentation sprint — full session
-- `8ddd6ba` — PROJECT_RULES.md: 4 new UI standards sections (card UX, ports, overflow, modal patterns)
-- `17572ea` — Tag system: added `<!-- tags: -->` to all PROJECT_RULES.md sections, `### Tags:` to all DEVLOG entries, `**Tags:**` to all SESSION_JOURNAL entries; grep-first Phase 1 in SESSION_START_PROTOCOL.md
-- `c88e7ca` — Archived 8 stale docs to docs/archive/, deleted root temp files, updated all _Utilities templates (DEVLOG, SESSION_START_PROTOCOL, LAUNCH_SESSION, PROJECT_RULES, AI_AGENT_PROTOCOL), created SESSION_JOURNAL_TEMPLATE.md
-- `9de2a3a` — docs(session-close): add Phase 6 session-end checklist, production-deletion pillar #14, fix LAUNCH_SESSION checkpoint + Step 1
+**Last thing completed:** ALL modals refactored to sticky header + top-anchored action buttons
 
-**Pick up from:** Merge `v0.2.1_docs → v0.2`, then start `v0.2.2_sends-subcategory` for Sends entity subcategory implementation.
+Commits this session (newest first):
+- `74d05e4` — refactor(modals): sticky header + action buttons across ALL pages (Monitors, Computers, Cameras, CCUs, CamSwitcher, Routers, MediaServers×2, Checklist)
+- `31712d6` — feat(monitors): card 30/30/30/10 grid, duplicate button, support equipment (POLE MOUNT STAND, DSM STAND, TALL DSM STAND, DSM SURROUND), sticky modal header
+- `c633ed3` — feat(monitors): secondary device field + connections reveal panel
+- `f5a7a72` — chore: LAUNCH_SESSION.md updated
+- `92234f5` — feat(settings): expand connector types (24 total), hide frame rate / resolution panels
+
+**Modal pattern (all pages now use this):**
+- `flex flex-col max-h-[90vh]` container
+- Sticky header: `flex-shrink-0` — title + Cancel / Save & Duplicate / Save & Close buttons
+- Scrollable body: `overflow-y-auto flex-1`
+- Files updated: Monitors, Computers, Cameras, CCUs, CamSwitcher, Routers, MediaServers, Checklist
+
+**Monitors.tsx — card + modal fully built:**
+- Card (collapsed): 30/30/30/10 grid — ID+name | Note | Tags (type badge, secondary, mount options) | Actions
+- Card (revealed): manufacturer+model label, I/O port table
+- Modal: Type radio grid, Name, Manufacturer, Model, I/O Ports, Secondary Device (datalist), Support Equipment tiles, Notes
+- `MOUNT_OPTIONS`: `POLE MOUNT STAND`, `DSM STAND`, `TALL DSM STAND`, `DSM SURROUND` → stored in `sends.standard` as comma-separated string
+- `useSendsAPI.ts`: `standard` field wired in both Create and Update inputs
+
+**Connector types now in DB (24 total):**
+`HDMI 1.4`, `HDMI 2.0`, `HDMI 2.1`, `3G-SDI`, `6G-SDI`, `12G-SDI`, `BNC REF`, `DP 1.1`, `DP 1.2`, `DP 1.4`, `NDI`, `USB-C`, `NETWORK (RJ45)`, `OPTICON DUO`, `OPTICON QUAD`, `SMPTE FIBER`, `LC - FIBER (SM)`, `ST - FIBER (SM)`, `SC - FIBER (SM)`, `LC - FIBER (MM)`, `ST - FIBER (MM)`, `SC - FIBER (MM)`, `XLR`, `DMX`
+
+**equipment-data.json:** 219 entries. IO port `type` strings in the JSON are still legacy values (e.g. `HDMI`, `SDI`, `3G-SDI`) — will be updated on a per-item basis as equipment is touched.
+
+**Spreadsheet tool:** `api/prisma/gen-equipment-spreadsheet.py` → `equipment-io-spec.xlsx` (20 port slots, type dropdowns). Run `python3 gen-equipment-spreadsheet.py` to regenerate.
+
+**Pick up from:** Primary branch feature work — Sends entity subcategory implementation (no work started yet on this feature despite the branch name).
 
 ---
 

@@ -2,6 +2,38 @@
 
 ---
 
+## March 11, 2026 — chore(equipment): replace LG monitor lineup, add BMD Video Assist 3G + SmartView 4K G3, add Lilliput Q series 17"+
+
+**Removed** 22 legacy LG entries (C4 OLED, G4 OLED, B4 OLED, QNED90, UR9000 series).
+
+**Added LG UA7100 series** (6 sizes: 43/50/55/65/75/86") — Costco/warehouse model. 3×HDMI (HDMI 2 ARC), USB 2.0, LAN; 4K/60Hz webOS LED.
+
+**Added Blackmagic Design Video Assist 5" 3G** — 3G-SDI + HDMI In/Out, headphone out.
+
+**Added Blackmagic Design Video Assist 7" 3G** — same + 2× Mini XLR audio inputs (phantom power), headphone out.
+
+**Added Blackmagic Design SmartView 4K G3** — 2× 12G-SDI In, 12G-SDI Loop Out, SFP optical/IP in, 10G Ethernet (SMPTE 2110); 15.6" 3840×2160 6RU rack monitor.
+
+**Added Lilliput Q series 17"+** (7 models): Q17 17.3" FHD, Q18 17.3" 4K, Q18-8K 17.3" 8K, Q24 23.6" 4K, Q23-8K 23.8" 8K, Q28-8K 28" 8K, Q31-8K 31.5" 8K — all with 12G-SDI + HDMI 2.0 In/Loop Out.
+
+Total equipment entries: 230 → 224. DB reseeded via `npm run seed:equipment:prod`.
+
+---
+
+## March 11, 2026 — fix(OtherPages): replace useNavigate with setActiveTab — LED/Projection tabs no longer blank
+
+### Branch: `v0.2.2_sends-subcategory`
+### Status: ✅ COMPLETE
+### Tags: fix, otherpages, navigation, led, projection, screens, react-router
+
+**Root cause:** `OtherPages.tsx Screens` component called `useNavigate()` from react-router-dom, but no `<Router>` wraps the app — this threw on mount, causing a blank white page for both `led` and `projection` nav tabs.
+
+**Fix:** Replaced `useNavigate` import + `navigate('/sends')` call with `usePreferencesStore().setActiveTab('sends')` — the app's own tab-switching mechanism. All other subcategory pages verified (Monitors, Records, Streams, CamSwitcher, Snakes, Routers, VisionSwitcher) — no stubs or crashes found.
+
+**Files changed:** `src/pages/OtherPages.tsx`
+
+---
+
 ## March 11, 2026 — v0.2.1 Docs: session-close protocol, production-deletion pillar, LAUNCH_SESSION fix
 
 ### Branch: `v0.2.1_docs`

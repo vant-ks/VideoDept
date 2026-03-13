@@ -6,7 +6,11 @@ export interface Stream {
   id: string;
   productionId: string;
   name: string;
-  // Add other fields as needed
+  platform?: string;
+  url?: string;
+  streamKey?: string;
+  note?: string;
+  equipmentUuid?: string;
   createdAt: Date;
   updatedAt: Date;
   version: number;
@@ -14,10 +18,15 @@ export interface Stream {
 }
 
 export interface StreamInput {
+  id?: string;
   productionId: string;
   name: string;
+  platform?: string;
+  url?: string;
+  streamKey?: string;
+  note?: string;
+  equipmentUuid?: string;
   version?: number;
-  // Add other fields as needed
 }
 
 interface ConflictError {
@@ -48,8 +57,14 @@ export function useStreamAPI() {
     try {
       const { userId, userName } = getUserInfo();
       const requestData = {
+        id: input.id,
         productionId: input.productionId,
         name: input.name,
+        platform: input.platform,
+        url: input.url,
+        streamKey: input.streamKey,
+        note: input.note,
+        equipmentUuid: input.equipmentUuid,
         version: input.version,
         userId,
         userName
@@ -62,19 +77,23 @@ export function useStreamAPI() {
   }, []);
 
   const updateStream = useCallback(async (
-    id: string,
+    uuid: string,
     updates: Partial<StreamInput>
   ): Promise<Stream | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
       const requestData = {
-        productionId: updates.productionId,
         name: updates.name,
+        platform: updates.platform,
+        url: updates.url,
+        streamKey: updates.streamKey,
+        note: updates.note,
+        equipmentUuid: updates.equipmentUuid,
         version: updates.version,
         userId,
         userName
       };
-      return await apiClient.put<Stream>(`/streams/${id}`, requestData);
+      return await apiClient.put<Stream>(`/streams/${uuid}`, requestData);
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;

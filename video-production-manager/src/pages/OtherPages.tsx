@@ -4,19 +4,18 @@ import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { Projector, Tv2, Cable, Plus, Edit2, Trash2, RefreshCw } from 'lucide-react';
 import { formatDateOnly } from '@/utils/helpers';
-import { useNavigate } from 'react-router-dom';
+import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 
 // Screens Page
 export const Screens: React.FC = () => {
-  const navigate = useNavigate();
+  const { setActiveTab } = usePreferencesStore();
   const { activeProject } = useProjectStore();
   const oldStore = useProductionStore();
   const ledScreens = activeProject?.ledScreens || oldStore.ledScreens;
   const screen = ledScreens[0];
 
   const handleAddScreen = () => {
-    // Navigate to Sends page where LED and Projection screens are managed
-    navigate('/sends');
+    setActiveTab('sends');
   };
 
   return (
