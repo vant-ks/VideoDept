@@ -29,6 +29,7 @@ interface EquipmentSpec {
   deviceFormats?: string[];
   formatByIO?: boolean;
   isSecondaryDevice?: boolean;
+  specs?: Record<string, unknown>;
 }
 
 function loadEquipmentData(): EquipmentSpec[] {
@@ -96,6 +97,7 @@ async function seedEquipment() {
         'led-processor': EquipmentCategory.LED_PROCESSOR,
         'led-tile': EquipmentCategory.LED_TILE,
         'projector': EquipmentCategory.PROJECTOR,
+        'lens': EquipmentCategory.LENS,
         'recorder': EquipmentCategory.RECORDER,
         'monitor': EquipmentCategory.MONITOR,
         'converter': EquipmentCategory.CONVERTER,
@@ -120,6 +122,7 @@ async function seedEquipment() {
         format_by_io: formatByIO !== false,
         is_secondary_device: isSecondaryDevice || false,
         device_formats: deviceFormats || [],
+        specs: (spec as any).specs ?? null,
         updated_at: new Date(),
       };
 
