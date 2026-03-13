@@ -22,6 +22,33 @@ const STREAM_PLATFORMS = [
   'Custom RTMP',
 ];
 
+// TODO: Future enhancement — computers with video capture cards, expansion I/O, or
+// secondary devices (via isSecondaryDevice) can serve as stream encoders. Add
+// 'computer' category support when building that workflow.
+
+interface PlatformFieldConfig {
+  urlLabel: string;
+  urlPlaceholder: string;
+  keyLabel: string;
+  keyPlaceholder: string;
+  isUrlField: boolean; // false = plain text input (Meeting ID), true = URL input
+}
+
+const PLATFORM_FIELD_DEFAULTS: PlatformFieldConfig = {
+  urlLabel: 'RTMP URL', urlPlaceholder: 'rtmp://…',
+  keyLabel: 'Stream Key', keyPlaceholder: 'xxxx-xxxx-xxxx-xxxx',
+  isUrlField: true,
+};
+
+const PLATFORM_FIELDS: Record<string, PlatformFieldConfig> = {
+  'Zoom':  { urlLabel: 'Meeting ID',  urlPlaceholder: '123 456 7890',                                         keyLabel: 'Passcode', keyPlaceholder: '',         isUrlField: false },
+  'Teams': { urlLabel: 'Meeting URL', urlPlaceholder: 'https://teams.microsoft.com/l/meetup-join/…',         keyLabel: 'Password', keyPlaceholder: '',         isUrlField: false },
+};
+
+function getPlatformFields(platform?: string): PlatformFieldConfig {
+  return PLATFORM_FIELDS[platform ?? ''] ?? PLATFORM_FIELD_DEFAULTS;
+}
+
 const PLATFORM_COLORS: Record<string, string> = {
   'YouTube':          'bg-red-500/15 text-red-400',
   'YouTube (Backup)': 'bg-red-500/10 text-red-400/70',
@@ -319,7 +346,7 @@ export default function Streams() {
                     )}
                   </div>
 
-                  {/* Col 3: encoder + URL */}
+                  {/* Col 3: encoder model (or URL fallback) */}
                   <div className="text-sm text-av-text-muted truncate">
                     {spec
                       ? `${spec.manufacturer} ${spec.model}`
@@ -359,18 +386,15 @@ export default function Streams() {
                 {/* Revealed: stream details + I/O ports */}
                 {isExpanded && (
                   <div className="mt-3 pl-6 border-t border-av-border pt-3 space-y-3">
-                    {spec && (
-                      <p className="text-xs font-medium text-av-text-muted">{spec.manufacturer} {spec.model}</p>
-                    )}
                     {stream.url && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-av-text-muted w-20 flex-shrink-0">RTMP URL</span>
+                        <span className="text-xs text-av-text-muted w-24 flex-shrink-0">{getPlatformFields(stream.platform).urlLabel}</span>
                         <span className="text-xs font-mono text-av-info truncate">{stream.url}</span>
                       </div>
                     )}
                     {stream.streamKey && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-av-text-muted w-20 flex-shrink-0">Stream Key</span>
+                        <span className="text-xs text-av-text-muted w-24 flex-shrink-0">{getPlatformFields(stream.platform).keyLabel}</span>
                         <span className="text-xs font-mono text-av-text-muted">
                           {showKey[stream.uuid] ? stream.streamKey : maskKey(stream.streamKey)}
                         </span>
@@ -480,37 +504,44 @@ export default function Streams() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-1">RTMP URL</label>
-                  <input
-                    type="url"
-                    value={formData.url}
-                    onChange={e => setFormData(p => ({ ...p, url: e.target.value }))}
-                    className="input-field w-full font-mono text-sm"
-                    placeholder="rtmp://…"
-                  />
-                </div>
+                {(() => {
+                  const pf = getPlatformFields(formData.platform);
+                  return (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-av-text mb-1">{pf.urlLabel}</label>
+                        <input
+                          type={pf.isUrlField ? 'url' : 'text'}
+                          value={formData.url}
+                          onChange={e => setFormData(p => ({ ...p, url: e.target.value }))}
+                          className="input-field w-full font-mono text-sm"
+                          placeholder={pf.urlPlaceholder}
+                        />
+                      </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-av-text mb-1">Stream Key</label>
-                  <div className="relative">
-                    <input
-                      type={showModalKey ? 'text' : 'password'}
-                      value={formData.streamKey}
-                      onChange={e => setFormData(p => ({ ...p, streamKey: e.target.value }))}
-                      className="input-field w-full pr-10 font-mono text-sm"
-                      placeholder="xxxx-xxxx-xxxx-xxxx"
-                      autoComplete="off"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowModalKey(p => !p)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-av-text-muted hover:text-av-text transition-colors"
-                    >
-                      {showModalKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
+                      <div>
+                        <label className="block text-sm font-medium text-av-text mb-1">{pf.keyLabel}</label>
+                        <div className="relative">
+                          <input
+                            type={showModalKey ? 'text' : 'password'}
+                            value={formData.streamKey}
+                            onChange={e => setFormData(p => ({ ...p, streamKey: e.target.value }))}
+                            className="input-field w-full pr-10 font-mono text-sm"
+                            placeholder={pf.keyPlaceholder || pf.keyLabel}
+                            autoComplete="off"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowModalKey(p => !p)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-av-text-muted hover:text-av-text transition-colors"
+                          >
+                            {showModalKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <div>
                   <label className="block text-sm font-medium text-av-text mb-1">Encoder (optional)</label>
