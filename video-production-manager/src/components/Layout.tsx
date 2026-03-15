@@ -25,7 +25,8 @@ import {
   FolderOpen,
   LogOut,
   Radio,
-  Film
+  Film,
+  Layers,
 } from 'lucide-react';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -83,6 +84,7 @@ const navItems: NavItem[] = [
     ]
   },
   { id: 'formats', label: 'Formats', icon: Film },
+  { id: 'staging', label: 'Staging', icon: Layers },
   { id: 'equipment', label: 'Equipment', icon: Wrench },
   { id: 'network', label: 'IP Management', icon: Network },
   { id: 'checklist', label: 'Checklist', icon: CheckSquare },

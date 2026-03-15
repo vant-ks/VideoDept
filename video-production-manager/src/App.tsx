@@ -15,6 +15,7 @@ import Cameras from '@/pages/Cameras';
 import Records from '@/pages/Records';
 import Streams from '@/pages/Streams';
 import Projectors from '@/pages/Projectors';
+import Staging from '@/pages/Staging';
 import MediaServers from '@/pages/MediaServers';
 import CCUs from '@/pages/CCUs';
 import Monitors from '@/pages/Monitors';
@@ -202,6 +203,8 @@ const App: React.FC = () => {
         return <Equipment />;
       case 'formats':
         return <Formats />;
+      case 'staging':
+        return <Staging />;
       case 'records':
         return <Records />;
       case 'streams':

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, Edit2, Trash2, Copy, Projector, GripVertical, ChevronDown, ChevronUp, MonitorPlay, Ruler } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, Projector, GripVertical, ChevronDown, ChevronUp, MonitorPlay, Ruler, Map, Layers } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { cn } from '@/utils/helpers';
 import { useProductionStore } from '@/hooks/useStore';
@@ -16,6 +16,8 @@ import { IOPortsPanel, DevicePortDraft } from '@/components/IOPortsPanel';
 import { FormatFormModal } from '@/components/FormatFormModal';
 import type { Format } from '@/types';
 import { secondaryDevices as SECONDARY_DEVICE_OPTIONS } from '@/data/sampleData';
+import { useVenueStore, DECK_SIZES, type VenueData } from '@/hooks/useVenueStore';
+import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 
 // Projector placement types
 const PROJECTOR_TYPES = [
@@ -61,12 +63,185 @@ function buildPortDrafts(spec: any): DevicePortDraft[] {
   ];
 }
 
+// ── Layout Tab ────────────────────────────────────────────────────────────────
+const L_PAD = 40;
+const L_SVG_W = 800;
+const L_FT_M = 0.3048;
+
+const LayoutTab: React.FC<{
+  venueData: VenueData;
+  surfaces: ProjectionSurface[];
+  projectors: ProjectionScreen[];
+  equipmentSpecs: any[];
+  onGoToStaging: () => void;
+}> = ({ venueData, surfaces, projectors, equipmentSpecs, onGoToStaging }) => {
+  const hasRoom = venueData.roomWidthM > 0 && venueData.roomDepthM > 0;
+
+  if (!hasRoom) {
+    return (
+      <Card className="p-12 text-center border-dashed">
+        <Map className="w-12 h-12 text-av-text-muted mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-av-text mb-2">Room Layout Not Configured</h3>
+        <p className="text-av-text-muted mb-4">
+          Set room dimensions in Staging to enable the layout view.
+        </p>
+        <button onClick={onGoToStaging} className="btn-primary mx-auto flex items-center gap-2">
+          <Layers className="w-4 h-4" />
+          Go to Staging
+        </button>
+      </Card>
+    );
+  }
+
+  const scale = (L_SVG_W - 2 * L_PAD) / venueData.roomWidthM;
+  const svgH = venueData.roomDepthM * scale + 2 * L_PAD;
+  const dscSvgX = L_SVG_W / 2;
+  const dscSvgY = L_PAD + venueData.dscDepthFraction * venueData.roomDepthM * scale;
+  const wx = (x: number) => dscSvgX + x * scale;
+  const wy = (y: number) => dscSvgY - y * scale;
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-av-text">Room Layout — Top Down</h3>
+        <span className="text-xs text-av-text-muted">
+          {venueData.roomWidthM.toFixed(1)} m W × {venueData.roomDepthM.toFixed(1)} m D
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${L_SVG_W} ${Math.max(svgH, 200)}`}
+          className="w-full border border-av-border/40 rounded bg-[#0d1520]"
+          style={{ maxHeight: 560, minHeight: 160 }}
+        >
+          {/* Audience zone */}
+          <rect
+            x={L_PAD} y={dscSvgY}
+            width={venueData.roomWidthM * scale}
+            height={venueData.roomDepthM * (1 - venueData.dscDepthFraction) * scale}
+            fill="rgba(100,130,190,0.07)"
+          />
+          {/* Room outline */}
+          <rect
+            x={L_PAD} y={L_PAD}
+            width={venueData.roomWidthM * scale}
+            height={venueData.roomDepthM * scale}
+            fill="none" stroke="#2d4878" strokeWidth="1.5" strokeDasharray="6 3"
+          />
+          {/* DSC reference line */}
+          <line
+            x1={L_PAD} y1={dscSvgY}
+            x2={L_PAD + venueData.roomWidthM * scale} y2={dscSvgY}
+            stroke="#3a5c90" strokeWidth="1" strokeDasharray="4 4"
+          />
+          {/* Stage decks */}
+          {venueData.stageDecks.map(deck => {
+            const sz = DECK_SIZES[deck.type];
+            const effW = deck.rotation === 90 ? sz.dFt : sz.wFt;
+            const effD = deck.rotation === 90 ? sz.wFt : sz.dFt;
+            const wM = effW * L_FT_M;
+            const dM = effD * L_FT_M;
+            const legAlpha = (deck.legHeightIn - 8) / (48 - 8);
+            const blue = Math.round(200 - legAlpha * 60);
+            return (
+              <rect
+                key={deck.id}
+                x={wx(deck.xFt * L_FT_M)}
+                y={wy(deck.yFt * L_FT_M + dM)}
+                width={wM * scale}
+                height={dM * scale}
+                fill={`rgba(70,120,${blue},0.5)`}
+                stroke="#4878b8" strokeWidth="0.8" rx="1"
+              />
+            );
+          })}
+          {/* Projection surfaces */}
+          {surfaces.map(surf => {
+            const cx = surf.posDsXM ?? 0;
+            const cy = surf.posDsYM ?? 0;
+            const w  = surf.widthM ?? 2;
+            const fD = 0.18;
+            return (
+              <g key={surf.uuid}>
+                <rect
+                  x={wx(cx - w / 2)} y={wy(cy + fD / 2)}
+                  width={w * scale} height={Math.max(fD * scale, 3)}
+                  fill="rgba(60,190,150,0.25)" stroke="#30b890" strokeWidth="1.2" rx="1"
+                />
+                <text x={wx(cx)} y={wy(cy + fD / 2) - 3} textAnchor="middle" fontSize={10} fill="#30b890">
+                  {surf.name}
+                </text>
+              </g>
+            );
+          })}
+          {/* Projectors + throw cones */}
+          {surfaces.flatMap(surf =>
+            (surf.projectorAssignments ?? []).flatMap(asgn => {
+              const proj = projectors.find(p => p.uuid === asgn.projectorUuid);
+              if (!proj) return [];
+              const spec = proj.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
+              const lensThrow = spec?.specs?.throwRatio && surf.widthM ? spec.specs.throwRatio * surf.widthM : null;
+              const throwM = asgn.throwDistM ?? lensThrow;
+              if (!throwM) return [];
+              const sx = surf.posDsXM ?? 0;
+              const sy = surf.posDsYM ?? 0;
+              const projX = sx + (asgn.horizOffsetM ?? 0);
+              const projY = surf.surfaceType === 'REAR' ? sy + throwM : sy - throwM;
+              const sw = surf.widthM ?? 2;
+              const px = wx(projX); const py = wy(projY);
+              const sL = wx(sx - sw / 2); const sR = wx(sx + sw / 2); const sY = wy(sy);
+              return [(
+                <g key={`${surf.uuid}-${asgn.projectorUuid}`}>
+                  <polygon points={`${px},${py} ${sL},${sY} ${sR},${sY}`}
+                    fill="rgba(245,200,60,0.07)" stroke="rgba(245,200,60,0.2)" strokeWidth="0.8" />
+                  <circle cx={px} cy={py} r={5} fill="#f0c030" stroke="#d4a820" strokeWidth="1" />
+                  <text x={px} y={py - 7} textAnchor="middle" fontSize={9} fill="#f0c030">{proj.id}</text>
+                </g>
+              )];
+            })
+          )}
+          {/* DSC crosshair */}
+          <line x1={dscSvgX - 8} y1={dscSvgY} x2={dscSvgX + 8} y2={dscSvgY} stroke="#5890d8" strokeWidth="1.5" />
+          <line x1={dscSvgX} y1={dscSvgY - 8} x2={dscSvgX} y2={dscSvgY + 8} stroke="#5890d8" strokeWidth="1.5" />
+          {/* Labels */}
+          <text x={L_SVG_W / 2} y={L_PAD - 8} textAnchor="middle" fontSize={10} fill="#3a5c90">UPSTAGE</text>
+          <text x={L_SVG_W / 2} y={svgH - 4} textAnchor="middle" fontSize={10} fill="#3a5c90">DOWNSTAGE / AUDIENCE</text>
+          <text x={L_PAD + 4} y={dscSvgY - 5} fontSize={9} fill="#4a6a9a">SL ←</text>
+          <text x={L_PAD + venueData.roomWidthM * scale - 28} y={dscSvgY - 5} fontSize={9} fill="#4a6a9a">→ SR</text>
+          <text x={dscSvgX + 5} y={dscSvgY + 11} fontSize={9} fill="#5890d8">DSC</text>
+        </svg>
+      </div>
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 mt-3 text-xs text-av-text-muted">
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-2.5 rounded" style={{ background: 'rgba(70,120,200,0.5)', border: '1px solid #4878b8' }} />
+          <span>Stage Deck</span>
+        </div>
+        {surfaces.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-2.5 rounded" style={{ background: 'rgba(60,190,150,0.25)', border: '1px solid #30b890' }} />
+            <span>Screen</span>
+          </div>
+        )}
+        {surfaces.some(s => (s.projectorAssignments ?? []).length > 0) && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full" style={{ background: '#f0c030', border: '1px solid #d4a820' }} />
+            <span>Projector (requires throw distance)</span>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+};
+
 export default function Projectors() {
   const { activeProject } = useProjectStore();
   const equipmentLib = useEquipmentLibrary();
   const oldStore = useProductionStore();
   const projectionScreenAPI = useProjectionScreenAPI();
   const projectionSurfaceAPI = useProjectionSurfaceAPI();
+  const { setActiveTab } = usePreferencesStore();
+  const { getVenue } = useVenueStore();
 
   const equipmentSpecs =
     equipmentLib.equipmentSpecs.length > 0
@@ -75,9 +250,10 @@ export default function Projectors() {
 
   const productionId =
     activeProject?.production?.id || oldStore.production?.id;
+  const venueData = getVenue(productionId || '');
 
   // ── Sub-tab ───────────────────────────────────────────────────────────────
-  const [activeSubTab, setActiveSubTab] = useState<'projectors' | 'screens'>('projectors');
+  const [activeSubTab, setActiveSubTab] = useState<'projectors' | 'screens' | 'layout'>('projectors');
 
   // ── Surfaces state ────────────────────────────────────────────────────────
   const [localSurfaces, setLocalSurfaces]         = useState<ProjectionSurface[]>([]);
@@ -508,6 +684,19 @@ export default function Projectors() {
           <MonitorPlay className="w-4 h-4" />
           Screens
           {activeSubTab === 'screens' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-av-accent" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveSubTab('layout')}
+          className={cn(
+            'px-4 py-2 font-medium transition-colors relative flex items-center gap-2',
+            activeSubTab === 'layout' ? 'text-av-accent' : 'text-av-text-muted hover:text-av-text'
+          )}
+        >
+          <Map className="w-4 h-4" />
+          Layout
+          {activeSubTab === 'layout' && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-av-accent" />
           )}
         </button>
@@ -1028,6 +1217,17 @@ export default function Projectors() {
         </div>
       )}
 
+      {/* ── Layout Tab ───────────────────────────────────────────────────── */}
+      {activeSubTab === 'layout' && productionId && (
+        <LayoutTab
+          venueData={venueData}
+          surfaces={localSurfaces}
+          projectors={localProjectors}
+          equipmentSpecs={equipmentSpecs}
+          onGoToStaging={() => setActiveTab('staging')}
+        />
+      )}
+
       {/* ── Projection Surface Modal ─────────────────────────────────────── */}
       {productionId && (
         <ProjectionSurfaceModal
@@ -1039,7 +1239,8 @@ export default function Projectors() {
               setLocalSurfaces(prev => prev.map(s => s.uuid === updated.uuid ? updated : s));
             } else {
               const created = await projectionSurfaceAPI.createSurface({ ...data, productionId });
-              setLocalSurfaces(prev => [...prev, created]);
+              // Dedup: WS event may have already added it before the HTTP response returned
+              setLocalSurfaces(prev => prev.some(s => s.uuid === created.uuid) ? prev : [...prev, created]);
             }
           }}
           editingSurface={editingSurface}
