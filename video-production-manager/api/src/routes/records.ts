@@ -51,6 +51,7 @@ router.post('/', async (req: Request, res: Response) => {
       data: {
         ...snakeCaseData,
         production_id: productionId,
+        updated_at: new Date(),
         version: 1
       }
     });

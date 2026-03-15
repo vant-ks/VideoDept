@@ -1,23 +1,52 @@
+
+
+
+CURRENT BRANCH : v0.2.2_sends-subcategory
+
+
+
+
 # LAUNCH SESSION — VideoDept
 **Project:** Video Production Manager  
 **Repository:** https://github.com/vant-ks/VideoDept  
-**Last Updated:** March 4, 2026
+**Last Updated:** March 11, 2026
 
 ---
 
 ## ⏸ Last Session Checkpoint — March 11, 2026
 
-**Branch:** `main` (clean, up to date with origin — `5dcdee9`)
+**Branch:** `v0.2.2_sends-subcategory` — working tree clean, 12 commits ahead of `v0.2`
 
-**Last thing completed:** v0.1.5 source touchups merged + deployed
-- Port column standard: DIR/TYPE/LABEL/FORMAT/ROUTE across all pages
-- Canonical format ID formula: `hRes x vRes @ rate[i] [blanking]` — 37 formats renamed in DB + seed updated
-- Expansion I/O card column headers added (Computers + MediaServers)
-- table-fixed percentage column widths (10/15/25/25/25) — direct I/O + expansion aligned
-- FormatCascadeSelect: viewport-aware flip (opens upward/leftward near edges); min-w-0 prevents grid blowout; unicode literal fixes
-- Merged `v0.1.5_source-touchups → main`; pushed to origin → Railway deploy triggered
+**Last thing completed:** ALL modals refactored to sticky header + top-anchored action buttons
 
-**Pick up from:** Create `v0.2` branch from main, then checkout `v0.2.1` from it for documentation work.
+Commits this session (newest first):
+- `74d05e4` — refactor(modals): sticky header + action buttons across ALL pages (Monitors, Computers, Cameras, CCUs, CamSwitcher, Routers, MediaServers×2, Checklist)
+- `31712d6` — feat(monitors): card 30/30/30/10 grid, duplicate button, support equipment (POLE MOUNT STAND, DSM STAND, TALL DSM STAND, DSM SURROUND), sticky modal header
+- `c633ed3` — feat(monitors): secondary device field + connections reveal panel
+- `f5a7a72` — chore: LAUNCH_SESSION.md updated
+- `92234f5` — feat(settings): expand connector types (24 total), hide frame rate / resolution panels
+
+**Modal pattern (all pages now use this):**
+- `flex flex-col max-h-[90vh]` container
+- Sticky header: `flex-shrink-0` — title + Cancel / Save & Duplicate / Save & Close buttons
+- Scrollable body: `overflow-y-auto flex-1`
+- Files updated: Monitors, Computers, Cameras, CCUs, CamSwitcher, Routers, MediaServers, Checklist
+
+**Monitors.tsx — card + modal fully built:**
+- Card (collapsed): 30/30/30/10 grid — ID+name | Note | Tags (type badge, secondary, mount options) | Actions
+- Card (revealed): manufacturer+model label, I/O port table
+- Modal: Type radio grid, Name, Manufacturer, Model, I/O Ports, Secondary Device (datalist), Support Equipment tiles, Notes
+- `MOUNT_OPTIONS`: `POLE MOUNT STAND`, `DSM STAND`, `TALL DSM STAND`, `DSM SURROUND` → stored in `sends.standard` as comma-separated string
+- `useSendsAPI.ts`: `standard` field wired in both Create and Update inputs
+
+**Connector types now in DB (24 total):**
+`HDMI 1.4`, `HDMI 2.0`, `HDMI 2.1`, `3G-SDI`, `6G-SDI`, `12G-SDI`, `BNC REF`, `DP 1.1`, `DP 1.2`, `DP 1.4`, `NDI`, `USB-C`, `NETWORK (RJ45)`, `OPTICON DUO`, `OPTICON QUAD`, `SMPTE FIBER`, `LC - FIBER (SM)`, `ST - FIBER (SM)`, `SC - FIBER (SM)`, `LC - FIBER (MM)`, `ST - FIBER (MM)`, `SC - FIBER (MM)`, `XLR`, `DMX`
+
+**equipment-data.json:** 219 entries. IO port `type` strings in the JSON are still legacy values (e.g. `HDMI`, `SDI`, `3G-SDI`) — will be updated on a per-item basis as equipment is touched.
+
+**Spreadsheet tool:** `api/prisma/gen-equipment-spreadsheet.py` → `equipment-io-spec.xlsx` (20 port slots, type dropdowns). Run `python3 gen-equipment-spreadsheet.py` to regenerate.
+
+**Pick up from:** Primary branch feature work — Sends entity subcategory implementation (no work started yet on this feature despite the branch name).
 
 ---
 
@@ -30,13 +59,12 @@ New session starting for VideoDept.
 
 Before doing anything else, you are required to:
 
-1. Read the following files IN FULL using the exact symlink paths in video-production-manager/docs/:
-   - video-production-manager/docs/AI_AGENT_PROTOCOL.md       (universal protocol)
-   - video-production-manager/docs/SESSION_START_PROTOCOL.md
-   - video-production-manager/docs/PROJECT_RULES.md           (project-specific rules)
-   - video-production-manager/DEVLOG.md                       (last 60 lines — find last ✅ COMPLETE and any IN PROGRESS)
-   - video-production-manager/docs/SESSION_JOURNAL.md         (last 50 lines)
-   - TODO_NEXT_SESSION.md                                     (full file)
+1. Review documentation using the grep-first protocol (full procedure in SESSION_START_PROTOCOL.md Phase 1):
+   - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` to orient quickly, then read last 60 lines
+   - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep `<!-- tags:` to jump to relevant sections
+   - grep_search SESSION_JOURNAL.md for latest `### Session` heading, then read ~60 lines from there
+   - read_file TODO_NEXT_SESSION.md in full
+   - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
 
 2. Start the dev servers (background):
    API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010

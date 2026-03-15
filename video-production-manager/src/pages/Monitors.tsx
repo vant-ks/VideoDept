@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, Edit2, Trash2, Tv2, GripVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, Tv2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
@@ -13,6 +13,7 @@ import { getCurrentUserId, getCurrentUserName } from '@/utils/userUtils';
 import { IOPortsPanel, DevicePortDraft } from '@/components/IOPortsPanel';
 import { FormatFormModal } from '@/components/FormatFormModal';
 import type { Send, Format } from '@/types';
+import { secondaryDevices as SECONDARY_DEVICE_OPTIONS } from '@/data/sampleData';
 
 // Monitor placement / purpose types
 const MONITOR_TYPES = [
@@ -28,6 +29,13 @@ const MONITOR_TYPES = [
 
 type MonitorTypeCode = typeof MONITOR_TYPES[number]['code'];
 
+const MOUNT_OPTIONS = [
+  'POLE MOUNT STAND',
+  'DSM STAND',
+  'TALL DSM STAND',
+  'DSM SURROUND',
+] as const;
+
 // Form fields collected by the Monitor modal
 interface MonitorFormFields {
   id?: string;
@@ -35,7 +43,9 @@ interface MonitorFormFields {
   manufacturer?: string;
   model?: string;
   equipmentUuid?: string;
-  monitorType?: MonitorTypeCode | '';  // placement type (stored in secondary_device)
+  monitorType?: MonitorTypeCode | '';  // placement type (drives ID prefix)
+  secondaryDevice?: string;            // adapter / converter in signal chain
+  mountOptions?: string[];             // support/mount equipment
   note?: string;
   version?: number;
 }
@@ -80,6 +90,7 @@ export default function Monitors() {
   const [devicePorts, setDevicePorts]     = useState<DevicePortDraft[]>([]);
   const [portsLoading, setPortsLoading]   = useState(false);
   const [isCreateFormatOpen, setIsCreateFormatOpen] = useState(false);
+  const [expandedMonitors, setExpandedMonitors] = useState<Set<string>>(new Set());
 
   // Drag-to-reorder state
   const isDragInProgress = useRef(false);
@@ -264,9 +275,23 @@ export default function Monitors() {
     return { hRes: 1920, vRes: 1080, rate: 60 };
   };
 
+  // ── Toggle card reveal ─────────────────────────────────────────────────────
+  const toggleReveal = useCallback((uuid: string) => {
+    setExpandedMonitors(prev => {
+      const next = new Set(prev);
+      if (next.has(uuid)) { next.delete(uuid); } else { next.add(uuid); }
+      return next;
+    });
+    if (!cardPorts[uuid]) {
+      apiClient.get<any[]>(`/device-ports/device/${uuid}`)
+        .then(ports => setCardPorts(prev => ({ ...prev, [uuid]: ports })))
+        .catch(() => {});
+    }
+  }, [cardPorts]);
+
   // ── CRUD handlers ──────────────────────────────────────────────────────────
   const handleAddNew = () => {
-    setFormData({ manufacturer: '', model: '', monitorType: '', note: '' });
+    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', mountOptions: [], note: '' });
     setDevicePorts([]);
     setEditingMonitor(null);
     setErrors([]);
@@ -284,13 +309,22 @@ export default function Monitors() {
   const handleEdit = async (monitor: Send) => {
     const record = monitor as any;
     const spec = monitorSpecs.find(s => s.uuid === record.equipmentUuid);
+    // Derive monitor type from the ID prefix (e.g. "FOH 1" → "FOH")
+    const idTypeMatch = record.id.match(/^([A-Za-z]+)\s*\d+$/);
+    const typeCodeFromId = idTypeMatch ? idTypeMatch[1].toUpperCase() : '';
+    const derivedType = MONITOR_TYPES.find(t => t.code === typeCodeFromId)?.code
+      ?? (MONITOR_TYPES.some(t => t.code === record.secondaryDevice) ? (record.secondaryDevice as MonitorTypeCode) : '');
+    // If secondaryDevice is a legacy type code (old data), don't show it in the secondary device field
+    const isLegacyTypeCode = MONITOR_TYPES.some(t => t.code === record.secondaryDevice);
     setFormData({
       id: record.id,
       name: record.name,
       manufacturer: spec?.manufacturer || '',
       model: spec?.model || '',
       equipmentUuid: record.equipmentUuid,
-      monitorType: (record.secondaryDevice || '') as MonitorTypeCode | '',
+      monitorType: derivedType as MonitorTypeCode | '',
+      secondaryDevice: isLegacyTypeCode ? '' : (record.secondaryDevice || ''),
+      mountOptions: record.standard ? record.standard.split(',').filter(Boolean) : [],
       note: record.note || '',
       version: record.version,
     });
@@ -335,8 +369,9 @@ export default function Monitors() {
           hRes,
           vRes,
           rate,
+          standard: formData.mountOptions?.filter(Boolean).join(',') || undefined,
           equipmentUuid: formData.equipmentUuid,
-          secondaryDevice: formData.monitorType,
+          secondaryDevice: formData.secondaryDevice || undefined,
           note: formData.note,
           version: formData.version,
         });
@@ -358,8 +393,9 @@ export default function Monitors() {
           hRes,
           vRes,
           rate,
+          standard: formData.mountOptions?.filter(Boolean).join(',') || undefined,
           equipmentUuid: formData.equipmentUuid,
-          secondaryDevice: formData.monitorType,
+          secondaryDevice: formData.secondaryDevice || undefined,
           note: formData.note,
         });
         setLocalMonitors(prev =>
@@ -385,7 +421,7 @@ export default function Monitors() {
         setErrors([]);
       } else {
         setIsModalOpen(false);
-        setFormData({ manufacturer: '', model: '', monitorType: '', note: '' });
+        setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', mountOptions: [], note: '' });
         setDevicePorts([]);
         setEditingMonitor(null);
         setErrors([]);
@@ -515,11 +551,19 @@ export default function Monitors() {
             const record = monitor as any;
             const spec = monitorSpecs.find(s => s.uuid === record.equipmentUuid);
             const hasEquipment = !!spec;
+            const isExpanded = record.uuid ? expandedMonitors.has(record.uuid) : false;
+            const revealPorts = (cardPorts[record.uuid] ?? []) as any[];
+            // Derive monitor type label from the ID prefix (e.g. "FOH 1" → "FOH" → "Front-of-House")
+            const idTypeMatch = monitor.id.match(/^([A-Za-z]+)\s*\d+$/);
+            const typeCodeFromId = idTypeMatch ? idTypeMatch[1].toUpperCase() : '';
+            const typeEntry = MONITOR_TYPES.find(t => t.code === typeCodeFromId);
+            // Legacy guard: if secondaryDevice is a type code (old data), don't show as secondary device
+            const isLegacyTypeCode = MONITOR_TYPES.some(t => t.code === record.secondaryDevice);
 
             return (
               <Card
                 key={record.uuid || monitor.id}
-                className={`p-4 transition-colors ${
+                className={`p-4 transition-colors cursor-pointer select-none ${
                   dragOverIndex === index ? 'border-av-accent/60 bg-av-accent/5' : 'hover:border-av-accent/30'
                 } ${draggedIndex === index ? 'opacity-50' : ''}`}
                 draggable
@@ -527,93 +571,154 @@ export default function Monitors() {
                 onDragOver={e => handleDragOver(e, index)}
                 onDragLeave={handleDragLeave}
                 onDragEnd={handleDragEnd}
+                onClick={() => record.uuid && !isDragInProgress.current && toggleReveal(record.uuid)}
+                onDoubleClick={(e) => { e.stopPropagation(); handleEdit(monitor); }}
               >
-                <div className="flex items-center gap-3">
-                  {/* Drag handle */}
-                  <div className="cursor-grab active:cursor-grabbing text-av-text-muted hover:text-av-text">
-                    <GripVertical className="w-4 h-4" />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className={`font-semibold ${hasEquipment ? 'text-av-text' : 'text-av-warning'}`}>
+                <div
+                  className="grid items-center gap-3"
+                    style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}
+                >
+                  {/* ID — chevron + grip + ID + name */}
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {record.uuid ? (
+                      isExpanded
+                        ? <ChevronUp className="w-4 h-4 text-av-accent flex-shrink-0" />
+                        : <ChevronDown className="w-4 h-4 text-av-text-muted flex-shrink-0" />
+                    ) : null}
+                    <GripVertical
+                      className="w-4 h-4 text-av-text-muted cursor-grab flex-shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div className="min-w-0">
+                      <span className={`text-sm font-semibold ${hasEquipment ? 'text-av-text' : 'text-av-warning'}`}>
                         {monitor.id}
-                        {monitor.name && monitor.name !== monitor.id && (
-                          <span className="text-av-text-muted font-normal ml-1">— {monitor.name}</span>
-                        )}
                       </span>
-                      {spec && (
-                        <span className={`text-sm ${hasEquipment ? 'text-av-text-secondary' : 'text-av-warning'}`}>
-                          {spec.manufacturer} {spec.model}
+                      {monitor.name && monitor.name !== monitor.id && (
+                        <span className="ml-1.5 text-xs font-normal text-av-text-muted italic truncate">
+                          {monitor.name}
                         </span>
                       )}
-                      {!hasEquipment && (
-                        <span className="text-xs text-av-warning">No equipment assigned</span>
-                      )}
                     </div>
+                  </div>
 
-                    {/* Port summary */}
-                    {(() => {
-                      const ports = (cardPorts[(monitor as any).uuid] ?? []) as any[];
-                      const inputs  = ports.filter(p => p.direction === 'INPUT');
-                      const outputs = ports.filter(p => p.direction === 'OUTPUT');
-                      return ports.length > 0 ? (
-                        <div className="flex items-center gap-3 mt-1 flex-wrap">
-                          {inputs.map((p: any, i: number) => (
-                            <span key={`in-${i}`} className="text-xs text-av-text-muted flex items-center gap-1">
-                              <span className="text-av-warning text-[10px] font-bold">IN</span>
-                              <span className="text-av-text-secondary">{p.portLabel}</span>
-                              {p.note && <span>← {p.note}</span>}
-                            </span>
-                          ))}
-                          {outputs.map((p: any, i: number) => (
-                            <span key={`out-${i}`} className="text-xs text-av-text-muted flex items-center gap-1">
-                              <span className="text-av-accent text-[10px] font-bold">OUT</span>
-                              <span className="text-av-text-secondary">{p.portLabel}</span>
-                              {p.note && <span>→ {p.note}</span>}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null;
-                    })()}
-
-                    {/* Type badge + notes row */}
-                    {(record.secondaryDevice || record.note) && (
-                      <div className="flex items-center gap-3 mt-1 text-xs text-av-text-muted flex-wrap">
-                        {record.secondaryDevice && (() => {
-                          const typeEntry = MONITOR_TYPES.find(t => t.code === record.secondaryDevice);
-                          return typeEntry ? (
-                            <span className="px-1.5 py-0.5 rounded bg-av-surface border border-av-border text-av-text-secondary font-medium">
-                              {typeEntry.label}
-                            </span>
-                          ) : null;
-                        })()}
-                        {record.note && (
-                          <span className="italic">{record.note}</span>
-                        )}
-                      </div>
+                  {/* NOTE */}
+                  <div className="min-w-0">
+                    {record.note ? (
+                      <p className="text-xs text-av-text-muted truncate">{record.note}</p>
+                    ) : (
+                      <p className="text-xs text-av-text-muted/40 italic">No notes</p>
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* TAGS */}
+                  <div className="flex flex-wrap gap-1">
+                    {typeEntry && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-av-accent/15 border border-av-accent/30 text-av-accent font-bold">
+                        {typeEntry.code}
+                      </span>
+                    )}
+                    {!isLegacyTypeCode && record.secondaryDevice && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-av-info/15 border border-av-info/30 text-av-info font-medium">
+                        {record.secondaryDevice}
+                      </span>
+                    )}
+                    {(record.standard ? record.standard.split(',').filter(Boolean) : []).map((opt: string) => (
+                      <span key={opt} className="px-1.5 py-0.5 rounded text-[10px] bg-av-surface border border-av-border text-av-text-secondary font-medium">
+                        {opt}
+                      </span>
+                    ))}
+                    {!hasEquipment && (
+                      <span className="text-[10px] text-av-warning">No equipment</span>
+                    )}
+                  </div>
+
+                  {/* BUTTONS */}
+                  <div className="flex gap-1 justify-end items-center" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleEdit(monitor)}
-                      className="p-2 text-av-text-muted hover:text-av-text hover:bg-av-surface rounded-md transition-colors"
-                      title="Edit monitor"
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
+                      title="Edit"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => {
+                        handleEdit({ ...monitor, uuid: '' } as Send);
+                        setEditingMonitor(null);
+                      }}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-info transition-colors"
+                      title="Duplicate"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(record.uuid)}
-                      className="p-2 text-av-text-muted hover:text-red-400 hover:bg-red-900/20 rounded-md transition-colors"
-                      title="Delete monitor"
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-danger transition-colors"
+                      title="Delete"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
+
+                {/* ── Reveal Panel ── */}
+                {isExpanded && (
+                  <div className="mt-4 border-t border-av-border pt-4">
+                    {spec && (
+                      <p className="text-sm font-medium text-av-text-secondary mb-3">
+                        {spec.manufacturer} {spec.model}
+                      </p>
+                    )}
+                    {revealPorts.length === 0 ? (
+                      <p className="text-xs text-av-text-muted italic">
+                        No ports configured. Open Edit to assign ports.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto px-2">
+                        <table className="w-full text-xs table-fixed">
+                          <thead>
+                            <tr className="text-av-text-muted uppercase tracking-wide border-b border-av-border">
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[10%]">Dir</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[15%]">Type</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Label</th>
+                              <th className="text-left pb-1.5 pr-3 font-semibold w-[25%]">Format</th>
+                              <th className="text-left pb-1.5 font-semibold w-[25%]">Note</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-av-border/40">
+                            {revealPorts.filter((p: any) => p.direction === 'INPUT').map((port: any, i: number) => (
+                              <tr key={`in-${i}`} className="hover:bg-av-surface-hover/40">
+                                <td className="py-1.5 pr-3">
+                                  <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-warning/15 text-av-warning">IN</span>
+                                </td>
+                                <td className="py-1.5 pr-3 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                <td className="py-1.5 pr-3 text-av-text truncate">{port.portLabel}</td>
+                                <td className="py-1.5 pr-3 text-av-text-muted">—</td>
+                                <td className="py-1.5 text-av-text-muted truncate">{port.note || '—'}</td>
+                              </tr>
+                            ))}
+                            {revealPorts.filter((p: any) => p.direction === 'OUTPUT').map((port: any, i: number) => {
+                              const fmtName = port.formatUuid
+                                ? (formats.find(f => f.uuid === port.formatUuid)?.id ?? '—')
+                                : '—';
+                              return (
+                                <tr key={`out-${i}`} className="hover:bg-av-surface-hover/40">
+                                  <td className="py-1.5 pr-3">
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-av-accent/15 text-av-accent">OUT</span>
+                                  </td>
+                                  <td className="py-1.5 pr-3 font-mono text-av-text-muted truncate">{port.ioType}</td>
+                                  <td className="py-1.5 pr-3 text-av-text truncate">{port.portLabel}</td>
+                                  <td className="py-1.5 pr-3 text-av-info truncate">{fmtName}</td>
+                                  <td className="py-1.5 text-av-text-muted truncate">{port.note || '—'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             );
           })}
@@ -623,11 +728,43 @@ export default function Monitors() {
       {/* ── Modal ─────────────────────────────────────────────────────── */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-av-surface border border-av-border rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-av-text mb-6">
+          <div className="bg-av-surface border border-av-border rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+
+            {/* ── Sticky header ── */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-av-border flex-shrink-0">
+              <h2 className="text-xl font-bold text-av-text">
                 {editingMonitor ? 'Edit Monitor' : 'Add Monitor'}
               </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setFormData({ manufacturer: '', model: '', monitorType: '', secondaryDevice: '', mountOptions: [], note: '' });
+                    setDevicePorts([]);
+                    setErrors([]);
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                {!editingMonitor && (
+                  <button onClick={() => handleSave('duplicate')} className="btn-secondary">
+                    Save & Add Another
+                  </button>
+                )}
+                {editingMonitor && (
+                  <button onClick={() => handleSave('duplicate')} className="btn-secondary">
+                    Save & Duplicate
+                  </button>
+                )}
+                <button onClick={() => handleSave('close')} className="btn-primary">
+                  {editingMonitor ? 'Save Changes' : 'Add Monitor'}
+                </button>
+              </div>
+            </div>
+
+            {/* ── Scrollable body ── */}
+            <div className="overflow-y-auto flex-1 p-6">
 
               {errors.length > 0 && (
                 <div className="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded-md">
@@ -733,6 +870,53 @@ export default function Monitors() {
                   </div>
                 )}
 
+                {/* Secondary Device */}
+                <div>
+                  <label className="block text-sm font-medium text-av-text-muted mb-1">
+                    Secondary Device <span className="text-av-text-muted/60 font-normal">(adapter / converter)</span>
+                  </label>
+                  <input
+                    type="text"
+                    list="monitor-secondary-device-options"
+                    value={formData.secondaryDevice || ''}
+                    onChange={e => setFormData({ ...formData, secondaryDevice: e.target.value })}
+                    placeholder="e.g., HDMI > SDI, BARREL, DECIMATOR"
+                    className="input-field w-full"
+                  />
+                  <datalist id="monitor-secondary-device-options">
+                    {SECONDARY_DEVICE_OPTIONS.map(opt => (
+                      <option key={opt} value={opt} />
+                    ))}
+                  </datalist>
+                </div>
+
+                {/* Support Equipment */}
+                <div>
+                  <label className="block text-sm font-medium text-av-text-muted mb-2">
+                    Support Equipment
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {MOUNT_OPTIONS.map(opt => (
+                      <div
+                        key={opt}
+                        onClick={() => setFormData({
+                          ...formData,
+                          mountOptions: formData.mountOptions?.includes(opt)
+                            ? formData.mountOptions.filter(o => o !== opt)
+                            : [...(formData.mountOptions || []), opt]
+                        })}
+                        className={`cursor-pointer p-3 rounded-md border-2 transition-all ${
+                          formData.mountOptions?.includes(opt)
+                            ? 'border-av-accent bg-av-accent/10'
+                            : 'border-av-border hover:border-av-accent/30'
+                        }`}
+                      >
+                        <span className="text-sm text-av-text">{opt}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Note */}
                 <div>
                   <label className="block text-sm font-medium text-av-text-muted mb-1">
@@ -747,35 +931,7 @@ export default function Monitors() {
                   />
                 </div>
               </div>
-
-              {/* Modal Actions */}
-              <div className="flex items-center justify-between mt-6 pt-4 border-t border-av-border">
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setFormData({ manufacturer: '', model: '', monitorType: '', note: '' });
-                    setDevicePorts([]);
-                    setErrors([]);
-                  }}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <div className="flex items-center gap-3">
-                  {!editingMonitor && (
-                    <button
-                      onClick={() => handleSave('duplicate')}
-                      className="btn-secondary"
-                    >
-                      Save & Add Another
-                    </button>
-                  )}
-                  <button onClick={() => handleSave('close')} className="btn-primary">
-                    {editingMonitor ? 'Save Changes' : 'Add Monitor'}
-                  </button>
-                </div>
-              </div>
-            </div>
+            </div>{/* end scrollable body */}
           </div>
         </div>
       )}

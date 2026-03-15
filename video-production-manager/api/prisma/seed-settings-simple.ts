@@ -6,7 +6,7 @@ async function seedSettings() {
   console.log('🌱 Seeding settings tables...');
 
   // Connector Types
-  const connectorTypes = ['HDMI', 'SDI', 'DP', 'NDI', 'USB-C', 'ETH', 'OPTICON DUO', 'OPTICON QUAD', 'SMPTE FIBER', 'LC - FIBER (SM)', 'ST - FIBER (SM)', 'SC - FIBER (SM)', 'LC - FIBER (MM)', 'ST - FIBER (MM)', 'SC - FIBER (MM)', 'XLR', 'DMX'];
+  const connectorTypes = ['HDMI 1.4', 'HDMI 2.0', 'HDMI 2.1', '3G-SDI', '6G-SDI', '12G-SDI', 'BNC REF', 'DP 1.1', 'DP 1.2', 'DP 1.4', 'NDI', 'USB-C', 'NETWORK (RJ45)', 'OPTICON DUO', 'OPTICON QUAD', 'SMPTE FIBER', 'LC - FIBER (SM)', 'ST - FIBER (SM)', 'SC - FIBER (SM)', 'LC - FIBER (MM)', 'ST - FIBER (MM)', 'SC - FIBER (MM)', 'XLR', 'DMX'];
   
   for (let i = 0; i < connectorTypes.length; i++) {
     await prisma.connector_types.upsert({

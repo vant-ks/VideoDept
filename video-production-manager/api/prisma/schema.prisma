@@ -235,6 +235,46 @@ model projection_screens {
   @@index([equipment_uuid], map: "projection_screens_equipment_uuid_idx")
 }
 
+model projection_surfaces {
+  uuid                  String      @id @default(dbgenerated("gen_random_uuid()"))
+  id                    String
+  production_id         String
+  name                  String
+  // Image area (meters)
+  width_m               Float?
+  height_m              Float?
+  // Bezels per side (meters)
+  bezel_h_m             Float?
+  bezel_v_m             Float?
+  // Surface properties
+  surface_type          SurfaceType?
+  gain_factor           Float?      @default(1.0)
+  // Room position
+  dist_floor_m          Float?      // bottom of image to floor
+  pos_ds_x_m            Float?      // X from downstage center (+ = stage right)
+  pos_ds_y_m            Float?      // Y from downstage center (+ = upstage)
+  pos_ds_z_m            Float?      // Z height of screen center
+  // Rotation (degrees)
+  rot_x                 Float?      @default(0)
+  rot_y                 Float?      @default(0)
+  rot_z                 Float?      @default(0)
+  // Ambient
+  ambient_lux           Float?
+  // Mattes: [{id, label, x_m, y_m, width_m, height_m}]
+  mattes                Json?
+  // Assigned projectors: [{projectorUuid, throwDistM, lensUuid, horizOffsetM, vertOffsetM}]
+  projector_assignments Json?
+  note                  String?
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @updatedAt
+  version               Int         @default(1)
+  is_deleted            Boolean     @default(false)
+  last_modified_by      String?
+  productions           productions @relation(fields: [production_id], references: [id], onDelete: Cascade)
+
+  @@index([production_id])
+}
+
 model records {
   uuid         String   @id @default(dbgenerated("gen_random_uuid()"))
   id           String
@@ -542,6 +582,7 @@ model productions {
   led_screens        led_screens[]
   media_servers      media_servers[]
   projection_screens projection_screens[]
+  projection_surfaces projection_surfaces[]
   records            records[]
   routers            routers[]
   sends              sends[]
@@ -804,6 +845,7 @@ enum EquipmentCategory {
   LED_PROCESSOR
   LED_TILE
   PROJECTOR
+  LENS
   RECORDER
   MONITOR
   CONVERTER
@@ -830,6 +872,7 @@ enum EventType {
   ROUTER
   CABLE_SNAKE
   PROJECTION_SCREEN
+  PROJECTION_SURFACE
   LED_SCREEN
   COMPUTER
   RECORD
@@ -837,6 +880,13 @@ enum EventType {
   IP_ADDRESS
   CHECKLIST_ITEM
   PRODUCTION
+}
+
+enum SurfaceType {
+  FRONT
+  REAR
+  DUAL_VISION
+  MAPPED
 }
 
 enum IoArchitecture {

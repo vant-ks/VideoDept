@@ -43,8 +43,8 @@
   }
 
   ::selection {
-    background-color: rgba(var(--accent-color-rgb), 0.5);
-    color: white;
+    background-color: var(--accent-color);
+    color: #ffffff;
   }
 
   /* Custom scrollbar */

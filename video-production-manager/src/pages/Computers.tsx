@@ -835,29 +835,46 @@ export const Computers: React.FC = () => {
       {isModalOpen && (
         <>
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-av-border">
+            <div className="bg-av-surface border border-av-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+              {/* Sticky header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-av-border flex-shrink-0">
                 <h2 className="text-2xl font-bold text-av-text">
                   {editingSource ? 'Edit Computer' : 'Add New Computer'}
                 </h2>
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setFormData({ name: '', type: '', secondaryDevice: '', secondaryDevicePort: '', primaryDevicePort: '', note: '', equipmentUuid: undefined });
-                    setDevicePorts([]);
-                    setErrors([]);
-                    setEditingSource(null);
-                  }}
-                  className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-text transition-colors"
-                >
-                  ×
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setFormData({ name: '', type: '', secondaryDevice: '', secondaryDevicePort: '', primaryDevicePort: '', note: '', equipmentUuid: undefined });
+                      setDevicePorts([]);
+                      setErrors([]);
+                      setEditingSource(null);
+                    }}
+                    className="btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSave('duplicate')}
+                    className="btn-secondary"
+                  >
+                    Save & Duplicate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSave('close')}
+                    className="btn-primary"
+                  >
+                    Save & Close
+                  </button>
+                </div>
               </div>
 
               <form
                 onSubmit={(e) => { e.preventDefault(); handleSave('close'); }}
-                className="p-6 space-y-4"
+                className="overflow-y-auto flex-1 p-6 space-y-4"
               >
                 {errors.length > 0 && (
                   <div className="p-3 rounded-md bg-av-danger/10 border border-av-danger/30">
@@ -1047,37 +1064,6 @@ export const Computers: React.FC = () => {
                     rows={3}
                     placeholder="Additional notes about this computer..."
                   />
-                </div>
-
-                {/* Buttons */}
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => handleSave('close')}
-                    className="btn-primary flex-1"
-                  >
-                    Save & Close
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSave('duplicate')}
-                    className="btn-secondary flex-1"
-                  >
-                    Save & Duplicate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setFormData({ name: '', type: '', secondaryDevice: '', secondaryDevicePort: '', primaryDevicePort: '', note: '', equipmentUuid: undefined });
-                      setDevicePorts([]);
-                      setErrors([]);
-                      setEditingSource(null);
-                    }}
-                    className="btn-secondary flex-1"
-                  >
-                    Cancel
-                  </button>
                 </div>
               </form>
             </div>

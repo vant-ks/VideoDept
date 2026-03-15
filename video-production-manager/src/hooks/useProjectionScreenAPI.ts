@@ -2,21 +2,35 @@ import { useCallback } from 'react';
 import { apiClient } from '@/services/apiClient';
 
 export interface ProjectionScreen {
+  uuid: string;
   id: string;
   productionId: string;
   name: string;
-  // Add other fields as needed
-  createdAt: Date;
-  updatedAt: Date;
+  manufacturer?: string;
+  model?: string;
+  hRes?: number;
+  vRes?: number;
+  rate?: number;
+  note?: string;
+  equipmentUuid?: string;
+  createdAt: string;
+  updatedAt: string;
   version: number;
   isDeleted: boolean;
 }
 
 export interface ProjectionScreenInput {
   productionId: string;
+  id?: string;
   name: string;
+  manufacturer?: string;
+  model?: string;
+  hRes?: number;
+  vRes?: number;
+  rate?: number;
+  note?: string;
+  equipmentUuid?: string;
   version?: number;
-  // Add other fields as needed
 }
 
 interface ConflictError {
@@ -46,14 +60,7 @@ export function useProjectionScreenAPI() {
   const createProjectionScreen = useCallback(async (input: ProjectionScreenInput): Promise<ProjectionScreen> => {
     try {
       const { userId, userName } = getUserInfo();
-      const requestData = {
-        productionId: input.productionId,
-        name: input.name,
-        version: input.version,
-        userId,
-        userName
-      };
-      return await apiClient.post<ProjectionScreen>('/projection-screens', requestData);
+      return await apiClient.post<ProjectionScreen>('/projection-screens', { ...input, userId, userName });
     } catch (error) {
       console.error('Error creating projectionScreen:', error);
       throw error;
@@ -61,19 +68,12 @@ export function useProjectionScreenAPI() {
   }, []);
 
   const updateProjectionScreen = useCallback(async (
-    id: string,
+    uuid: string,
     updates: Partial<ProjectionScreenInput>
   ): Promise<ProjectionScreen | ConflictError> => {
     try {
       const { userId, userName } = getUserInfo();
-      const requestData = {
-        productionId: updates.productionId,
-        name: updates.name,
-        version: updates.version,
-        userId,
-        userName
-      };
-      return await apiClient.put<ProjectionScreen>(`/projection-screens/${id}`, requestData);
+      return await apiClient.put<ProjectionScreen>(`/projection-screens/${uuid}`, { ...updates, userId, userName });
     } catch (error: any) {
       if (error.response?.status === 409) {
         return error.response.data as ConflictError;
@@ -83,10 +83,10 @@ export function useProjectionScreenAPI() {
     }
   }, []);
 
-  const deleteProjectionScreen = useCallback(async (id: string): Promise<void> => {
+  const deleteProjectionScreen = useCallback(async (uuid: string): Promise<void> => {
     try {
       const { userId, userName } = getUserInfo();
-      await apiClient.delete(`/projection-screens/${id}`, {
+      await apiClient.delete(`/projection-screens/${uuid}`, {
         data: { userId, userName }
       });
     } catch (error) {
