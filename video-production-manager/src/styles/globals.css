@@ -43,7 +43,7 @@
   }
 
   ::selection {
-    background-color: rgba(var(--accent-color-rgb), 0.5);
+    background-color: rgba(var(--accent-color-rgb), 0.75);
     color: white;
   }
 
