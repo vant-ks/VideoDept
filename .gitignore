@@ -2,6 +2,9 @@
 .DS_Store
 *.zip
 
+# Import staging area (reference files, not part of the codebase)
+imports/
+
 # Dependencies
 node_modules/
 

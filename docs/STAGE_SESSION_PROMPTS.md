@@ -614,3 +614,8 @@ works for LED page navigation.
 - `led_visualizer/useLedEquipment.ts` — equipment seam (191 lines)
 - `led_visualizer/types.ts` — TypeScript interfaces (259 lines)
 - `screen_calc/WidescreenBlendCalculator.jsx` — blend math + SVG components (482 lines)
+
+
+
+
+

@@ -1257,3 +1257,45 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
   - Now on feature branch for ongoing development work
 
 ---
+
+## Session 2026-03-16-000000
+**Started:** 2026-03-16
+**Status:** ✅ COMPLETE
+**Branch:** `v0.2.4_graphical-ui`
+**Tags:** feat, projectors, projection-surfaces, stacking, projector-positions, screens-tab, typescript
+
+---
+
+### Prompt: Stage 3 — ProjectorPosition stacking model
+**ID:** S20260316-P1-000000
+**Request:** Implement Stage 3 of the LED+Blend integration plan: upgrade `projector_assignments` Json column from flat `ProjectorAssignment[]` to `ProjectorPosition[]` with per-position stacking support. Add UI for managing positions and stacked units in the Screens tab.
+
+#### Context at Start:
+- Branch: `v0.2.4_graphical-ui`, HEAD `30c6f8d` (Stage 2 blend engine)
+- Dev servers running: API :3010 ✅, Frontend :3011 ✅
+- Railway healthy ✅
+- No Prisma migration needed — `projector_assignments` already `Json` on `projection_surfaces`
+
+#### Actions Taken:
+1. Read `useProjectionSurfaceAPI.ts` — analyzed old flat `ProjectorAssignment` interface
+2. Read `Projectors.tsx` (1689 lines) — analyzed Screens tab, cone rendering, Analysis panel
+3. Read `blendEngine.ts`, `ProjectionSurfaceModal.tsx` — confirmed full context
+4. Updated `useProjectionSurfaceAPI.ts` — added `StackedUnit`, `ProjectorPosition` interfaces; exported `normalizeAssignments()`; updated `projectorAssignments` type; `fetchSurfaces` normalizes on load
+5. Updated `ProjectionSurfaceModal.tsx` — migrated state + helpers + JSX from flat to `ProjectorPosition[]`
+6. Updated `Projectors.tsx` — 6 new handlers (`patchSurfacePositions`, `handleAdd/Edit/RemovePosition`, `handleAdd/RemoveUnit`), 3 form state atoms; WS normalization; summary counters; cone rendering; full "Projection Positions" UI sub-section
+7. Fixed TS error: added `vertOffsetM?: number` to `updateAssignment` patch type in modal
+8. Ran `tsc --noEmit` — zero errors in our files (pre-existing errors only in unrelated files)
+
+#### Outcome: COMPLETED ✓
+- **Files Changed:**
+  - `src/hooks/useProjectionSurfaceAPI.ts` — new types, normalizer, type migration, fetchSurfaces normalization
+  - `src/components/ProjectionSurfaceModal.tsx` — state type migration, helpers, JSX for new shape
+  - `src/pages/Projectors.tsx` — 6 new handlers, 3 form state atoms, full Projection Positions UI section, WS normalization, counters, cone rendering update
+- **TypeScript:** ✅ Zero new errors in changed files
+- **Git Commit:** (pending — see below)
+- **Notes:**
+  - Backward compat shim: `normalizeAssignments()` detects old flat shape and upgrades transparently
+  - No DB migration needed — column stays `Json`
+  - Stage 4 (blend zone assignment UI) ready to start next session
+
+---

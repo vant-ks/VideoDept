@@ -12,12 +12,49 @@ export interface SurfaceMatte {
   heightM: number;
 }
 
+/** @deprecated — kept as legacy shape; normalizeAssignments() converts to ProjectorPosition */
 export interface ProjectorAssignment {
   projectorUuid: string;
   throwDistM?: number;
   lensUuid?: string;
-  horizOffsetM?: number;  // horizontal offset from screen center
-  vertOffsetM?: number;   // vertical offset from screen center
+  horizOffsetM?: number;
+  vertOffsetM?: number;
+}
+
+export interface StackedUnit {
+  projectorUuid: string;
+  note?: string;
+}
+
+export interface ProjectorPosition {
+  id: string;
+  label: string;
+  horizOffsetM: number;
+  throwDistM?: number;
+  vertOffsetM?: number;
+  lensUuid?: string;
+  stackedUnits: StackedUnit[];
+  blendZoneIndex?: number;
+}
+
+/** Converts legacy flat ProjectorAssignment[] or already-normalized ProjectorPosition[] to ProjectorPosition[]. */
+export function normalizeAssignments(
+  raw: Array<ProjectorPosition | ProjectorAssignment>
+): ProjectorPosition[] {
+  return raw.map((item, i) => {
+    if ('stackedUnits' in item) return item as ProjectorPosition;
+    const old = item as ProjectorAssignment;
+    return {
+      id: crypto.randomUUID(),
+      label: `P${i + 1}`,
+      horizOffsetM: old.horizOffsetM ?? 0,
+      throwDistM: old.throwDistM,
+      vertOffsetM: old.vertOffsetM,
+      lensUuid: old.lensUuid,
+      stackedUnits: old.projectorUuid ? [{ projectorUuid: old.projectorUuid }] : [],
+      blendZoneIndex: i,
+    };
+  });
 }
 
 export interface ProjectionSurface {
@@ -47,7 +84,7 @@ export interface ProjectionSurface {
   ambientLux?: number;
   // Structured JSON fields
   mattes?: SurfaceMatte[];
-  projectorAssignments?: ProjectorAssignment[];
+  projectorAssignments?: ProjectorPosition[];
   note?: string;
   createdAt: string;
   updatedAt: string;
@@ -75,7 +112,11 @@ function getUserInfo() {
 
 export function useProjectionSurfaceAPI() {
   const fetchSurfaces = useCallback(async (productionId: string): Promise<ProjectionSurface[]> => {
-    return apiClient.get<ProjectionSurface[]>(`/projection-surfaces/production/${productionId}`);
+    const raw = await apiClient.get<ProjectionSurface[]>(`/projection-surfaces/production/${productionId}`);
+    return raw.map(s => ({
+      ...s,
+      projectorAssignments: normalizeAssignments((s.projectorAssignments ?? []) as any[]),
+    }));
   }, []);
 
   const createSurface = useCallback(async (input: Omit<ProjectionSurfaceInput, 'version'>): Promise<ProjectionSurface> => {

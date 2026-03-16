@@ -6,7 +6,7 @@ import { useProductionStore } from '@/hooks/useStore';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 import { useProjectionScreenAPI, type ProjectionScreen } from '@/hooks/useProjectionScreenAPI';
-import { useProjectionSurfaceAPI, type ProjectionSurface } from '@/hooks/useProjectionSurfaceAPI';
+import { useProjectionSurfaceAPI, type ProjectionSurface, type ProjectorPosition, normalizeAssignments } from '@/hooks/useProjectionSurfaceAPI';
 import { ProjectionSurfaceModal } from '@/components/ProjectionSurfaceModal';
 import { useProductionEvents, getSocket } from '@/hooks/useProductionEvents';
 import type { EntityEvent } from '@/hooks/useProductionEvents';
@@ -331,29 +331,31 @@ const LayoutTab: React.FC<{
           })}
           {/* Projectors + throw cones */}
           {surfaces.flatMap(surf =>
-            (surf.projectorAssignments ?? []).flatMap(asgn => {
-              const proj = projectors.find(p => p.uuid === asgn.projectorUuid);
-              if (!proj) return [];
-              const spec = proj.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
-              const lensThrow = spec?.specs?.throwRatio && surf.widthM ? spec.specs.throwRatio * surf.widthM : null;
-              const throwM = asgn.throwDistM ?? lensThrow;
-              if (!throwM) return [];
-              const sx = surf.posDsXM ?? 0;
-              const sy = surf.posDsYM ?? 0;
-              const projX = sx + (asgn.horizOffsetM ?? 0);
-              const projY = surf.surfaceType === 'REAR' ? sy + throwM : sy - throwM;
-              const sw = surf.widthM ?? 2;
-              const px = wx(projX); const py = wy(projY);
-              const sL = wx(sx - sw / 2); const sR = wx(sx + sw / 2); const sY = wy(sy);
-              return [(
-                <g key={`${surf.uuid}-${asgn.projectorUuid}`} pointerEvents="none">
-                  <polygon points={`${px},${py} ${sL},${sY} ${sR},${sY}`}
-                    fill="rgba(245,200,60,0.07)" stroke="rgba(245,200,60,0.2)" strokeWidth="0.8" />
-                  <circle cx={px} cy={py} r={5} fill="#f0c030" stroke="#d4a820" strokeWidth="1" />
-                  <text x={px} y={py - 7} textAnchor="middle" fontSize={9} fill="#f0c030">{proj.id}</text>
-                </g>
-              )];
-            })
+            (surf.projectorAssignments ?? []).flatMap(pos =>
+              pos.stackedUnits.flatMap(unit => {
+                const proj = projectors.find(p => p.uuid === unit.projectorUuid);
+                if (!proj) return [];
+                const spec = proj.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
+                const lensThrow = spec?.specs?.throwRatio && surf.widthM ? spec.specs.throwRatio * surf.widthM : null;
+                const throwM = pos.throwDistM ?? lensThrow;
+                if (!throwM) return [];
+                const sx = surf.posDsXM ?? 0;
+                const sy = surf.posDsYM ?? 0;
+                const projX = sx + (pos.horizOffsetM ?? 0);
+                const projY = surf.surfaceType === 'REAR' ? sy + throwM : sy - throwM;
+                const sw = surf.widthM ?? 2;
+                const px = wx(projX); const py = wy(projY);
+                const sL = wx(sx - sw / 2); const sR = wx(sx + sw / 2); const sY = wy(sy);
+                return [(
+                  <g key={`${surf.uuid}-${pos.id}-${unit.projectorUuid}`} pointerEvents="none">
+                    <polygon points={`${px},${py} ${sL},${sY} ${sR},${sY}`}
+                      fill="rgba(245,200,60,0.07)" stroke="rgba(245,200,60,0.2)" strokeWidth="0.8" />
+                    <circle cx={px} cy={py} r={5} fill="#f0c030" stroke="#d4a820" strokeWidth="1" />
+                    <text x={px} y={py - 7} textAnchor="middle" fontSize={9} fill="#f0c030">{proj.id}</text>
+                  </g>
+                )];
+              })
+            )
           )}
           {/* Dimension callouts for selected surface */}
           {selectedSurf && (() => {
@@ -488,12 +490,113 @@ export default function Projectors() {
   // cone view mode per surface
   const [surfaceConeViews, setSurfaceConeViews] = useState<Record<string, ConeViewType>>({});
 
+  // ── Projection Positions management ──────────────────────────────────────
+  const [addPosForm, setAddPosForm] = useState<{
+    surfaceUuid: string;
+    label: string;
+    projectorUuid: string;
+    throwDistM: string;
+    horizOffsetM: string;
+  } | null>(null);
+  const [editPosForm, setEditPosForm] = useState<{
+    surfaceUuid: string;
+    positionId: string;
+    label: string;
+    throwDistM: string;
+    horizOffsetM: string;
+  } | null>(null);
+  const [addUnitForm, setAddUnitForm] = useState<{
+    surfaceUuid: string;
+    positionId: string;
+    projectorUuid: string;
+  } | null>(null);
+
   const toggleAnalysis = (uuid: string) =>
     setAnalysisOpenIds(prev => {
       const next = new Set(prev);
       next.has(uuid) ? next.delete(uuid) : next.add(uuid);
       return next;
     });
+
+  // ── Position helpers ──────────────────────────────────────────────────────
+  const patchSurfacePositions = useCallback(async (surfaceUuid: string, newPositions: ProjectorPosition[]) => {
+    const surf = localSurfaces.find(s => s.uuid === surfaceUuid);
+    if (!surf) return;
+    const result = await projectionSurfaceAPI.updateSurface(surfaceUuid, {
+      projectorAssignments: newPositions as any,
+      version: surf.version,
+    });
+    if ('error' in result) {
+      console.error('Version conflict saving positions:', result);
+      return;
+    }
+    setLocalSurfaces(prev => prev.map(s =>
+      s.uuid === surfaceUuid ? { ...(result as ProjectionSurface), projectorAssignments: newPositions } : s
+    ));
+  }, [localSurfaces, projectionSurfaceAPI]);
+
+  const handleAddPosition = useCallback(async (surfaceUuid: string) => {
+    if (!addPosForm) return;
+    const surf = localSurfaces.find(s => s.uuid === surfaceUuid);
+    if (!surf) return;
+    const existing = surf.projectorAssignments ?? [];
+    const newPos: ProjectorPosition = {
+      id: crypto.randomUUID(),
+      label: addPosForm.label.trim() || `P${existing.length + 1}`,
+      horizOffsetM: parseFloat(addPosForm.horizOffsetM) || 0,
+      throwDistM: addPosForm.throwDistM ? parseFloat(addPosForm.throwDistM) : undefined,
+      stackedUnits: addPosForm.projectorUuid ? [{ projectorUuid: addPosForm.projectorUuid }] : [],
+      blendZoneIndex: existing.length,
+    };
+    await patchSurfacePositions(surfaceUuid, [...existing, newPos]);
+    setAddPosForm(null);
+  }, [addPosForm, localSurfaces, patchSurfacePositions]);
+
+  const handleEditPosition = useCallback(async (surfaceUuid: string) => {
+    if (!editPosForm) return;
+    const surf = localSurfaces.find(s => s.uuid === surfaceUuid);
+    if (!surf) return;
+    const updated = (surf.projectorAssignments ?? []).map(p =>
+      p.id === editPosForm.positionId ? {
+        ...p,
+        label: editPosForm.label.trim() || p.label,
+        throwDistM: editPosForm.throwDistM ? parseFloat(editPosForm.throwDistM) : undefined,
+        horizOffsetM: parseFloat(editPosForm.horizOffsetM) || 0,
+      } : p
+    );
+    await patchSurfacePositions(surfaceUuid, updated);
+    setEditPosForm(null);
+  }, [editPosForm, localSurfaces, patchSurfacePositions]);
+
+  const handleRemovePosition = useCallback(async (surfaceUuid: string, positionId: string) => {
+    const surf = localSurfaces.find(s => s.uuid === surfaceUuid);
+    if (!surf) return;
+    await patchSurfacePositions(surfaceUuid, (surf.projectorAssignments ?? []).filter(p => p.id !== positionId));
+  }, [localSurfaces, patchSurfacePositions]);
+
+  const handleAddUnit = useCallback(async (surfaceUuid: string) => {
+    if (!addUnitForm || !addUnitForm.projectorUuid) return;
+    const surf = localSurfaces.find(s => s.uuid === surfaceUuid);
+    if (!surf) return;
+    const updated = (surf.projectorAssignments ?? []).map(p =>
+      p.id === addUnitForm.positionId
+        ? { ...p, stackedUnits: [...p.stackedUnits, { projectorUuid: addUnitForm.projectorUuid }] }
+        : p
+    );
+    await patchSurfacePositions(surfaceUuid, updated);
+    setAddUnitForm(null);
+  }, [addUnitForm, localSurfaces, patchSurfacePositions]);
+
+  const handleRemoveUnit = useCallback(async (surfaceUuid: string, positionId: string, projectorUuid: string) => {
+    const surf = localSurfaces.find(s => s.uuid === surfaceUuid);
+    if (!surf) return;
+    const updated = (surf.projectorAssignments ?? []).map(p =>
+      p.id === positionId
+        ? { ...p, stackedUnits: p.stackedUnits.filter(u => u.projectorUuid !== projectorUuid) }
+        : p
+    );
+    await patchSurfacePositions(surfaceUuid, updated);
+  }, [localSurfaces, patchSurfacePositions]);
 
   // Clear selection if the selected surface is removed
   useEffect(() => {
@@ -594,8 +697,9 @@ export default function Projectors() {
         );
       }
       if (event.entityType === 'projectionSurface') {
+        const normalized = { ...event.entity, projectorAssignments: normalizeAssignments((event.entity.projectorAssignments ?? []) as any[]) };
         setLocalSurfaces(prev =>
-          prev.some(s => s.uuid === event.entity.uuid) ? prev : [...prev, event.entity]
+          prev.some(s => s.uuid === normalized.uuid) ? prev : [...prev, normalized]
         );
       }
     }, []),
@@ -607,8 +711,9 @@ export default function Projectors() {
         );
       }
       if (event.entityType === 'projectionSurface') {
+        const normalized = { ...event.entity, projectorAssignments: normalizeAssignments((event.entity.projectorAssignments ?? []) as any[]) };
         setLocalSurfaces(prev =>
-          prev.map(s => s.uuid === event.entity.uuid ? event.entity : s)
+          prev.map(s => s.uuid === normalized.uuid ? normalized : s)
         );
       }
     }, []),
@@ -1341,7 +1446,9 @@ export default function Projectors() {
             <Card className="p-5">
               <p className="text-sm text-av-text-muted mb-1">Projectors Assigned</p>
               <p className="text-3xl font-bold text-av-text">
-                {localSurfaces.reduce((n, s) => n + (s.projectorAssignments?.length || 0), 0)}
+                {localSurfaces.reduce((n, s) =>
+                  n + (s.projectorAssignments ?? []).reduce((sum, pos) => sum + pos.stackedUnits.length, 0), 0
+                )}
               </p>
             </Card>
             <Card className="p-5">
@@ -1349,10 +1456,12 @@ export default function Projectors() {
               <p className="text-3xl font-bold text-av-accent">
                 {(() => {
                   const total = localSurfaces.reduce((sum, surf) => {
-                    return sum + (surf.projectorAssignments || []).reduce((s2, a) => {
-                      const proj = localProjectors.find(p => p.uuid === a.projectorUuid);
-                      const spec = proj?.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
-                      return s2 + (spec?.specs?.lumens || 0);
+                    return sum + (surf.projectorAssignments || []).reduce((s2, pos) => {
+                      return s2 + pos.stackedUnits.reduce((s3, unit) => {
+                        const proj = localProjectors.find(p => p.uuid === unit.projectorUuid);
+                        const spec = proj?.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
+                        return s3 + (spec?.specs?.lumens || 0);
+                      }, 0);
                     }, 0);
                   }, 0);
                   return total > 0 ? (total >= 1000 ? `${(total / 1000).toFixed(0)}K` : total) : '—';
@@ -1372,11 +1481,7 @@ export default function Projectors() {
             <div className="space-y-3">
               {localSurfaces.map(surf => {
                 const isSelected = surf.uuid === selectedSurfaceId;
-                const assignedProjs = (surf.projectorAssignments || []).map(a => {
-                  const proj = localProjectors.find(p => p.uuid === a.projectorUuid);
-                  const spec = proj?.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
-                  return { proj, spec };
-                });
+                const positions = surf.projectorAssignments ?? [];
                 const widthFt = surf.widthM ? Math.floor(surf.widthM / 0.3048) : 0;
                 const widthIn = surf.widthM ? Math.round((surf.widthM / 0.0254) % 12) : 0;
                 const heightFt = surf.heightM ? Math.floor(surf.heightM / 0.3048) : 0;
@@ -1393,19 +1498,22 @@ export default function Projectors() {
                 const analysisOpen = analysisOpenIds.has(surf.uuid);
                 const coneView = surfaceConeViews[surf.uuid] ?? 'top';
 
-                // Pick spec from the first assigned projector
-                const firstAssignSpec = assignedProjs[0]?.spec;
+                // Pick spec from the first unit of the first position
+                const firstPos = positions[0];
+                const firstUnitUuid = firstPos?.stackedUnits?.[0]?.projectorUuid;
+                const firstProj = firstUnitUuid ? localProjectors.find(p => p.uuid === firstUnitUuid) : null;
+                const firstAssignSpec = firstProj?.equipmentUuid ? equipmentSpecs.find(e => e.uuid === firstProj.equipmentUuid) : null;
                 const nativeW = (firstAssignSpec?.specs as any)?.nativeW as number | undefined;
                 const nativeH = (firstAssignSpec?.specs as any)?.nativeH as number | undefined;
                 const throwRatioSpec = (firstAssignSpec?.specs as any)?.throwRatioMin as number | undefined
                   ?? (firstAssignSpec?.specs as any)?.throwRatioMax as number | undefined;
-                const firstThrowDistM = surf.projectorAssignments?.[0]?.throwDistM;
+                const firstThrowDistM = firstPos?.throwDistM;
 
                 // Auto-determine nProj
-                let analysisNProj = assignedProjs.length;
+                let analysisNProj = positions.length;
                 let analysisSingle = false;
                 let analysisCoverage: number | undefined;
-                if (assignedProjs.length === 1 && surf.widthM && nativeW && throwRatioSpec && firstThrowDistM) {
+                if (positions.length === 1 && surf.widthM && nativeW && throwRatioSpec && firstThrowDistM) {
                   const auto = autoCalcNProj(surf.widthM, firstThrowDistM, throwRatioSpec, overlapPct);
                   analysisNProj = auto.nProj;
                   analysisSingle = auto.single;
@@ -1476,16 +1584,12 @@ export default function Projectors() {
                             {surf.mattes && surf.mattes.length > 0 && (
                               <span>{surf.mattes.length} matte{surf.mattes.length > 1 ? 's' : ''}</span>
                             )}
+                            {positions.length > 0 && (
+                              <span className="text-av-accent/70">
+                                {positions.length} position{positions.length !== 1 ? 's' : ''} · {positions.reduce((n, p) => n + p.stackedUnits.length, 0)} unit{positions.reduce((n, p) => n + p.stackedUnits.length, 0) !== 1 ? 's' : ''}
+                              </span>
+                            )}
                           </div>
-                          {assignedProjs.length > 0 && (
-                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              {assignedProjs.map(({ proj, spec }, i) => proj ? (
-                                <span key={i} className="text-xs px-2 py-0.5 rounded bg-av-surface-light border border-av-border text-av-text-muted">
-                                  {proj.id}{spec ? ` · ${spec.manufacturer} ${spec.model}` : ''}
-                                </span>
-                              ) : null)}
-                            </div>
-                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
@@ -1523,12 +1627,182 @@ export default function Projectors() {
                       </div>
                     </div>
 
+                    {/* ── Projection Positions ──────────────────────────── */}
+                    <div className="mt-3 pt-3 border-t border-av-border/60" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-semibold text-av-text-muted uppercase tracking-wider">Projection Positions</span>
+                        <button
+                          onClick={() => {
+                            const nextLabel = `P${(surf.projectorAssignments?.length ?? 0) + 1}`;
+                            setAddPosForm(addPosForm?.surfaceUuid === surf.uuid
+                              ? null
+                              : { surfaceUuid: surf.uuid, label: nextLabel, projectorUuid: '', throwDistM: '', horizOffsetM: '0' });
+                            setEditPosForm(null);
+                            setAddUnitForm(null);
+                          }}
+                          className="text-[11px] text-av-accent hover:text-av-accent/80 transition-colors flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" /> Add Position
+                        </button>
+                      </div>
+
+                      {positions.length === 0 && addPosForm?.surfaceUuid !== surf.uuid && (
+                        <p className="text-xs text-av-text-muted/60 italic">No positions assigned. Use "Add Position" to assign projectors.</p>
+                      )}
+
+                      {positions.map(pos => {
+                        const isEditingThis = editPosForm?.surfaceUuid === surf.uuid && editPosForm.positionId === pos.id;
+                        const isAddingUnitHere = addUnitForm?.surfaceUuid === surf.uuid && addUnitForm.positionId === pos.id;
+                        return (
+                          <div key={pos.id} className="mb-1.5 rounded border border-av-border/50 bg-av-surface-light/20 p-2">
+                            {isEditingThis ? (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <label className="text-[10px] text-av-text-muted block mb-0.5">Label</label>
+                                    <input type="text" value={editPosForm.label}
+                                      onChange={e => setEditPosForm({ ...editPosForm, label: e.target.value })}
+                                      className="input-field w-full text-xs h-7" />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-av-text-muted block mb-0.5">Throw (m)</label>
+                                    <input type="number" step="0.1" value={editPosForm.throwDistM}
+                                      onChange={e => setEditPosForm({ ...editPosForm, throwDistM: e.target.value })}
+                                      placeholder="e.g. 15.5" className="input-field w-full text-xs h-7" />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-av-text-muted block mb-0.5">H Offset (m)</label>
+                                    <input type="number" step="0.05" value={editPosForm.horizOffsetM}
+                                      onChange={e => setEditPosForm({ ...editPosForm, horizOffsetM: e.target.value })}
+                                      className="input-field w-full text-xs h-7" />
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <button onClick={() => setEditPosForm(null)} className="btn-secondary text-xs py-1 px-2">Cancel</button>
+                                  <button onClick={() => handleEditPosition(surf.uuid)} className="btn-primary text-xs py-1 px-2">Save</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 text-xs flex-wrap">
+                                    <span className="font-bold text-av-accent text-[11px] w-6 flex-shrink-0">{pos.label}</span>
+                                    {pos.throwDistM ? (
+                                      <span className="text-av-text">{pos.throwDistM.toFixed(1)} m</span>
+                                    ) : (
+                                      <span className="text-av-text-muted/50 italic text-[11px]">no throw</span>
+                                    )}
+                                    {pos.horizOffsetM !== 0 && (
+                                      <span className="text-av-text-muted text-[11px]">
+                                        H {pos.horizOffsetM >= 0 ? '+' : ''}{pos.horizOffsetM.toFixed(2)} m
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-av-surface border border-av-border/60 text-av-text-muted">
+                                      {pos.stackedUnits.length} unit{pos.stackedUnits.length !== 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <button
+                                      onClick={() => { setEditPosForm({ surfaceUuid: surf.uuid, positionId: pos.id, label: pos.label, throwDistM: pos.throwDistM?.toString() ?? '', horizOffsetM: pos.horizOffsetM.toString() }); setAddPosForm(null); setAddUnitForm(null); }}
+                                      className="p-1 rounded hover:bg-av-surface text-av-text-muted hover:text-av-accent transition-colors" title="Edit position"
+                                    ><Edit2 className="w-3 h-3" /></button>
+                                    <button
+                                      onClick={() => { setAddUnitForm(addUnitForm?.positionId === pos.id ? null : { surfaceUuid: surf.uuid, positionId: pos.id, projectorUuid: '' }); setEditPosForm(null); }}
+                                      className="p-1 rounded hover:bg-av-surface text-av-text-muted hover:text-av-info transition-colors" title="Add unit to stack"
+                                    ><Plus className="w-3 h-3" /></button>
+                                    <button
+                                      onClick={() => handleRemovePosition(surf.uuid, pos.id)}
+                                      className="p-1 rounded hover:bg-av-surface text-av-text-muted hover:text-av-danger transition-colors" title="Remove position"
+                                    ><Trash2 className="w-3 h-3" /></button>
+                                  </div>
+                                </div>
+                                {/* Stacked units */}
+                                {pos.stackedUnits.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5 pl-7">
+                                    {pos.stackedUnits.map((unit, ui) => {
+                                      const p = localProjectors.find(pr => pr.uuid === unit.projectorUuid);
+                                      return (
+                                        <span key={ui} className="text-[10px] px-2 py-0.5 rounded-full bg-av-accent/10 border border-av-accent/20 text-av-accent flex items-center gap-1">
+                                          {p?.id ?? <span className="text-av-warning">Unknown</span>}
+                                          {pos.stackedUnits.length > 1 && (
+                                            <button onClick={() => handleRemoveUnit(surf.uuid, pos.id, unit.projectorUuid)} className="ml-0.5 hover:text-av-danger transition-colors leading-none">×</button>
+                                          )}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                {/* Add unit form */}
+                                {isAddingUnitHere && (
+                                  <div className="flex items-center gap-2 mt-2 pl-7">
+                                    <select
+                                      value={addUnitForm.projectorUuid}
+                                      onChange={e => setAddUnitForm({ ...addUnitForm, projectorUuid: e.target.value })}
+                                      className="input-field text-xs h-7 flex-1"
+                                    >
+                                      <option value="">Select projector...</option>
+                                      {sortedProjectors
+                                        .filter(p => !pos.stackedUnits.some(u => u.projectorUuid === p.uuid))
+                                        .map(p => <option key={p.uuid} value={p.uuid}>{p.id}{p.name && p.name !== p.id ? ` — ${p.name}` : ''}</option>)
+                                      }
+                                    </select>
+                                    <button onClick={() => handleAddUnit(surf.uuid)} disabled={!addUnitForm.projectorUuid} className="btn-primary text-xs py-1 px-2 disabled:opacity-50">Add</button>
+                                    <button onClick={() => setAddUnitForm(null)} className="btn-secondary text-xs py-1 px-2">Cancel</button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Add Position form */}
+                      {addPosForm?.surfaceUuid === surf.uuid && (
+                        <div className="mt-2 rounded border border-av-accent/30 bg-av-accent/5 p-3 space-y-2">
+                          <p className="text-[11px] font-semibold text-av-accent">New Position</p>
+                          <div className="grid grid-cols-4 gap-2">
+                            <div>
+                              <label className="text-[10px] text-av-text-muted block mb-0.5">Label</label>
+                              <input type="text" value={addPosForm.label}
+                                onChange={e => setAddPosForm({ ...addPosForm, label: e.target.value })}
+                                className="input-field w-full text-xs h-7" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-av-text-muted block mb-0.5">Projector</label>
+                              <select value={addPosForm.projectorUuid}
+                                onChange={e => setAddPosForm({ ...addPosForm, projectorUuid: e.target.value })}
+                                className="input-field w-full text-xs h-7">
+                                <option value="">Select...</option>
+                                {sortedProjectors.map(p => <option key={p.uuid} value={p.uuid}>{p.id}{p.name && p.name !== p.id ? ` — ${p.name}` : ''}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-av-text-muted block mb-0.5">Throw (m)</label>
+                              <input type="number" step="0.1" value={addPosForm.throwDistM}
+                                onChange={e => setAddPosForm({ ...addPosForm, throwDistM: e.target.value })}
+                                placeholder="15.5" className="input-field w-full text-xs h-7" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-av-text-muted block mb-0.5">H Offset (m)</label>
+                              <input type="number" step="0.05" value={addPosForm.horizOffsetM}
+                                onChange={e => setAddPosForm({ ...addPosForm, horizOffsetM: e.target.value })}
+                                className="input-field w-full text-xs h-7" />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => setAddPosForm(null)} className="btn-secondary text-xs py-1 px-2">Cancel</button>
+                            <button onClick={() => handleAddPosition(surf.uuid)} className="btn-primary text-xs py-1 px-2">Add Position</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {/* ── Projection Analysis panel ─────────────────────── */}
                     {analysisOpen && (
                       <div className="mt-4 pt-4 border-t border-av-border" onClick={e => e.stopPropagation()}>
                         {!hasEnoughForAnalysis ? (
                           <p className="text-xs text-av-text-muted">Set screen width and assign a projector with spec data to calculate.</p>
-                        ) : assignedProjs.length === 0 ? (
+                        ) : positions.length === 0 ? (
                           <p className="text-xs text-av-text-muted">Assign a projector to calculate projection analysis.</p>
                         ) : !nativeW || !nativeH ? (
                           <p className="text-xs text-av-text-muted">Projector spec is missing native resolution. Add it in the Equipment Library.</p>

@@ -2,6 +2,61 @@
 
 ---
 
+## March 16, 2026 — feat(projectors): Stage 3 — ProjectorPosition stacking model + Screens tab positions UI
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, projectors, projection-surfaces, stacking, projector-positions, screens-tab, typescript, websocket
+
+**Session kickoff:** Continued Stage 3 of LED+Blend integration plan on branch `v0.2.4_graphical-ui`.
+
+**Problem:** The `projector_assignments` Json column on `projection_surfaces` stored a flat `ProjectorAssignment[]` — one projector uuid per entry with no concept of physical rigging positions or stacked units at a single position. Stage 3 required upgrading to a `ProjectorPosition[]` shape that groups stacked physical units under each rigging position.
+
+**Solution:** Introduced `ProjectorPosition` / `StackedUnit` types with a backward-compat `normalizeAssignments()` shim (no Prisma migration needed — column stays `Json`). Updated the modal and Screens-tab card UI to use the new shape.
+
+### What was built
+
+**`src/hooks/useProjectionSurfaceAPI.ts`**
+- Added `StackedUnit` interface: `{ projectorUuid: string; note?: string }`
+- Added `ProjectorPosition` interface: `{ id, label, horizOffsetM, throwDistM?, vertOffsetM?, lensUuid?, stackedUnits: StackedUnit[], blendZoneIndex? }`
+- `@deprecated` tagged old `ProjectorAssignment` interface (kept for backward compat)
+- Exported `normalizeAssignments(raw: unknown[]): ProjectorPosition[]` — detects old flat shape via `'stackedUnits' in item` check; wraps flat entries into `ProjectorPosition` shell with `crypto.randomUUID()`
+- Changed `ProjectionSurface.projectorAssignments` type from `ProjectorAssignment[]` → `ProjectorPosition[]`
+- `fetchSurfaces` now calls `normalizeAssignments()` on every surface load
+
+**`src/components/ProjectionSurfaceModal.tsx`**
+- `assignments` state changed from `ProjectorAssignment[]` → `ProjectorPosition[]`
+- `addAssignment()` creates `ProjectorPosition` with `id`, `label`, `stackedUnits: [{ projectorUuid }]`
+- `updateAssignment(idx, patch)` — when `projectorUuid` in patch, replaces `stackedUnits[0]`; otherwise field-merges; patch type includes `vertOffsetM`
+- All JSX now reads `pos.stackedUnits[0]?.projectorUuid` and shows stack count in label
+
+**`src/pages/Projectors.tsx`**
+- Added `patchSurfacePositions`, `handleAddPosition`, `handleEditPosition`, `handleRemovePosition`, `handleAddUnit`, `handleRemoveUnit` handlers
+- Added 3 form state atoms: `addPosForm`, `editPosForm`, `addUnitForm`
+- WebSocket `onEntityCreated` / `onEntityUpdated` now run `normalizeAssignments()` on received surfaces
+- Summary row counters updated: "Projectors Assigned" sums `pos.stackedUnits.length`; "Total Lumens" iterates `stackedUnits`
+- Surface card: `assignedProjs` removed; replaced by `positions = surf.projectorAssignments ?? []`; subtitle shows "N positions · M units"
+- **New "Projection Positions" sub-section** in Screens tab surface cards:
+  - Header: "PROJECTION POSITIONS" label + "Add Position" button
+  - Per-position row: label, throw dist, horiz offset, unit count pill; Edit / Add Unit to Stack / Remove buttons
+  - Inline edit form: label, throwDist, horizOffset (3-col grid)
+  - Stacked units display: colored pills with projector ID + × remove-from-stack button (visible when >1 unit)
+  - Add Unit to Stack inline form: dropdown filtered to unassigned projectors
+  - Add Position inline form: 4-col grid (label, projector, throw, h-offset) + Cancel/Add
+- Layout tab cone rendering updated to iterate `pos.stackedUnits` with `${surf.uuid}-${pos.id}-${unit.projectorUuid}` key — no duplicate key issues
+
+### Files changed
+- `src/hooks/useProjectionSurfaceAPI.ts` — StackedUnit + ProjectorPosition interfaces, normalizeAssignments(), updated type, fetchSurfaces normalization
+- `src/components/ProjectionSurfaceModal.tsx` — state type migration, helpers, JSX for new shape
+- `src/pages/Projectors.tsx` — 6 new handlers, 3 form state atoms, full Projection Positions UI section, WS normalization, counters + cone rendering
+
+### Notes
+- No Prisma migration required — `projector_assignments` was already `Json` on `projection_surfaces` table
+- Backward compat: old saved flat arrays are transparently upgraded on load via `normalizeAssignments()`
+- Pre-existing TS errors in `App.tsx`, `EquipmentFormModal.tsx`, `SourceFormModal.tsx`, `equipmentData.ts` — unrelated to Stage 3
+
+---
+
 ## March 12, 2026 — feat(projectors): full Projectors page — CRUD, equipment lib, I/O ports, drag-reorder, WS sync
 
 ### Branch: `v0.2.3_projectors`
