@@ -19,6 +19,9 @@ import { secondaryDevices as SECONDARY_DEVICE_OPTIONS } from '@/data/sampleData'
 import { useVenueStore, DECK_SIZES, type VenueData } from '@/hooks/useVenueStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { DimLine, snapTo, formatMasImperial, CANVAS_SNAP_INCHES, SNAP_INCH_OPTIONS } from '@/components/VenueCanvasUtils';
+import { calcBlend, calcCones, autoCalcNProj, MIN_OVERLAP_PCT, type BlendResult, type ConePoint } from '@/components/blend/blendEngine';
+import { BlendDiagram } from '@/components/blend/BlendDiagram';
+import { ConeView, type ConeViewType } from '@/components/blend/ConeView';
 
 // Projector placement types
 const PROJECTOR_TYPES = [
@@ -476,6 +479,21 @@ export default function Projectors() {
   const [selectedSurfaceId, setSelectedSurfaceId] = useState<string | null>(null);
   const [surfaceModalOpen, setSurfaceModalOpen]   = useState(false);
   const [editingSurface, setEditingSurface]       = useState<ProjectionSurface | null>(null);
+
+  // ── Projection Analysis UI state ─────────────────────────────────────────
+  // analysisOpenIds: which surface cards have the analysis panel expanded
+  const [analysisOpenIds, setAnalysisOpenIds] = useState<Set<string>>(new Set());
+  // overlapPct override per surface uuid (default 15%)
+  const [surfaceOverlapPcts, setSurfaceOverlapPcts] = useState<Record<string, number>>({});
+  // cone view mode per surface
+  const [surfaceConeViews, setSurfaceConeViews] = useState<Record<string, ConeViewType>>({});
+
+  const toggleAnalysis = (uuid: string) =>
+    setAnalysisOpenIds(prev => {
+      const next = new Set(prev);
+      next.has(uuid) ? next.delete(uuid) : next.add(uuid);
+      return next;
+    });
 
   // Clear selection if the selected surface is removed
   useEffect(() => {
@@ -1370,13 +1388,73 @@ export default function Projectors() {
                   FRONT: 'Front', REAR: 'Rear', DUAL_VISION: 'Dual Vision', MAPPED: 'Mapped'
                 };
 
+                // ── Projection Analysis for this surface ──────────────────
+                const overlapPct = surfaceOverlapPcts[surf.uuid] ?? 15;
+                const analysisOpen = analysisOpenIds.has(surf.uuid);
+                const coneView = surfaceConeViews[surf.uuid] ?? 'top';
+
+                // Pick spec from the first assigned projector
+                const firstAssignSpec = assignedProjs[0]?.spec;
+                const nativeW = (firstAssignSpec?.specs as any)?.nativeW as number | undefined;
+                const nativeH = (firstAssignSpec?.specs as any)?.nativeH as number | undefined;
+                const throwRatioSpec = (firstAssignSpec?.specs as any)?.throwRatioMin as number | undefined
+                  ?? (firstAssignSpec?.specs as any)?.throwRatioMax as number | undefined;
+                const firstThrowDistM = surf.projectorAssignments?.[0]?.throwDistM;
+
+                // Auto-determine nProj
+                let analysisNProj = assignedProjs.length;
+                let analysisSingle = false;
+                let analysisCoverage: number | undefined;
+                if (assignedProjs.length === 1 && surf.widthM && nativeW && throwRatioSpec && firstThrowDistM) {
+                  const auto = autoCalcNProj(surf.widthM, firstThrowDistM, throwRatioSpec, overlapPct);
+                  analysisNProj = auto.nProj;
+                  analysisSingle = auto.single;
+                  analysisCoverage = auto.projCoverage;
+                }
+
+                // Run blend calc
+                let blendResult: BlendResult | null = null;
+                let conePoints: ConePoint[] = [];
+                if (surf.widthM && surf.heightM && nativeW && nativeH && analysisNProj > 0) {
+                  blendResult = calcBlend({
+                    screenW: surf.widthM,
+                    screenH: surf.heightM,
+                    nativeW,
+                    nativeH,
+                    nProj: analysisNProj,
+                    overlapPct,
+                    throwDistM: firstThrowDistM,
+                    throwRatio: throwRatioSpec,
+                    mountRear: surf.surfaceType === 'REAR',
+                  });
+                  if (blendResult) {
+                    conePoints = calcCones(
+                      {
+                        posX: surf.posDsXM ?? 0,
+                        posY: surf.posDsYM ?? 0,
+                        screenH: surf.heightM,
+                        projHeight: surf.distFloorM ? surf.distFloorM + surf.heightM : undefined,
+                        mountRear: surf.surfaceType === 'REAR',
+                        throwDistM: firstThrowDistM,
+                        throwRatio: throwRatioSpec,
+                      },
+                      blendResult,
+                    );
+                  }
+                }
+
+                const hasEnoughForAnalysis = !!surf.widthM && !!nativeW;
+
                 return (
                   <Card
                     key={surf.uuid}
-                    className={`p-4 cursor-pointer transition-colors ${isSelected ? 'ring-1 ring-emerald-500/40 bg-emerald-500/5' : ''}`}
-                    onClick={() => setSelectedSurfaceId(isSelected ? null : surf.uuid)}
+                    className={`p-4 transition-colors ${isSelected ? 'ring-1 ring-emerald-500/40 bg-emerald-500/5' : ''}`}
                   >
-                    <div className="flex items-start justify-between">
+                    {/* Card header — click to select surface */}
+                    <div
+                      className="flex items-start justify-between cursor-pointer"
+                      onClick={() => setSelectedSurfaceId(isSelected ? null : surf.uuid)}
+                    >
                       <div className="flex items-center gap-3 min-w-0">
                         <MonitorPlay className="w-5 h-5 text-av-accent flex-shrink-0" />
                         <div className="min-w-0">
@@ -1411,14 +1489,29 @@ export default function Projectors() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                        {hasEnoughForAnalysis && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleAnalysis(surf.uuid); }}
+                            className={`text-xs px-2 py-1 rounded border transition-colors flex items-center gap-1 ${
+                              analysisOpen
+                                ? 'border-av-accent/50 text-av-accent bg-av-accent/10'
+                                : 'border-av-border text-av-text-muted hover:border-av-accent/40 hover:text-av-accent'
+                            }`}
+                          >
+                            <Layers className="w-3 h-3" />
+                            Analysis
+                            <ChevronDown className={`w-3 h-3 transition-transform ${analysisOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                        )}
                         <button
-                          onClick={() => { setEditingSurface(surf); setSurfaceModalOpen(true); }}
+                          onClick={(e) => { e.stopPropagation(); setEditingSurface(surf); setSurfaceModalOpen(true); }}
                           className="btn-secondary text-xs flex items-center gap-1"
                         >
                           <Edit2 className="w-3 h-3" /> Edit
                         </button>
                         <button
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.stopPropagation();
                             if (!confirm(`Delete surface "${surf.name}"?`)) return;
                             await projectionSurfaceAPI.deleteSurface(surf.uuid);
                             setLocalSurfaces(prev => prev.filter(s => s.uuid !== surf.uuid));
@@ -1429,6 +1522,108 @@ export default function Projectors() {
                         </button>
                       </div>
                     </div>
+
+                    {/* ── Projection Analysis panel ─────────────────────── */}
+                    {analysisOpen && (
+                      <div className="mt-4 pt-4 border-t border-av-border" onClick={e => e.stopPropagation()}>
+                        {!hasEnoughForAnalysis ? (
+                          <p className="text-xs text-av-text-muted">Set screen width and assign a projector with spec data to calculate.</p>
+                        ) : assignedProjs.length === 0 ? (
+                          <p className="text-xs text-av-text-muted">Assign a projector to calculate projection analysis.</p>
+                        ) : !nativeW || !nativeH ? (
+                          <p className="text-xs text-av-text-muted">Projector spec is missing native resolution. Add it in the Equipment Library.</p>
+                        ) : (
+                          <>
+                            {/* Status chip + auto-calc summary */}
+                            <div className="flex items-center gap-3 mb-3 flex-wrap">
+                              {analysisSingle ? (
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                                  SINGLE PROJECTOR
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                                  {analysisNProj}× BLEND
+                                </span>
+                              )}
+                              {analysisCoverage !== undefined && (
+                                <span className="text-xs text-av-text-muted">
+                                  1 projector covers {(analysisCoverage * 3.281).toFixed(1)}' of {(surf.widthM! * 3.281).toFixed(1)}' screen
+                                </span>
+                              )}
+                              {blendResult && analysisNProj > 1 && (
+                                <span className="text-xs text-av-text-muted">
+                                  Canvas: {blendResult.canvasW.toLocaleString()} × {blendResult.canvasH.toLocaleString()} px
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Overlap control (blend mode only) */}
+                            {!analysisSingle && (
+                              <div className="flex items-center gap-3 mb-3">
+                                <label className="text-xs text-av-text-muted whitespace-nowrap">Overlap %</label>
+                                <input
+                                  type="range"
+                                  min={MIN_OVERLAP_PCT}
+                                  max={40}
+                                  value={overlapPct}
+                                  onChange={e => setSurfaceOverlapPcts(p => ({ ...p, [surf.uuid]: +e.target.value }))}
+                                  className="flex-1 accent-av-accent"
+                                />
+                                <span className="text-xs text-av-text w-8 text-right">{overlapPct}%</span>
+                              </div>
+                            )}
+
+                            {/* Blend diagram */}
+                            {blendResult && (
+                              <div className="mb-3 overflow-x-auto">
+                                <BlendDiagram
+                                  screenW={surf.widthM!}
+                                  screenH={surf.heightM!}
+                                  result={blendResult}
+                                  width={560}
+                                  height={160}
+                                />
+                              </div>
+                            )}
+
+                            {/* Cone view (only when throw data available) */}
+                            {conePoints.length > 0 && (
+                              <>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-xs text-av-text-muted">Cone view:</span>
+                                  {(['top', 'side', 'front'] as ConeViewType[]).map(v => (
+                                    <button
+                                      key={v}
+                                      onClick={() => setSurfaceConeViews(p => ({ ...p, [surf.uuid]: v }))}
+                                      className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                                        coneView === v
+                                          ? 'border-av-accent/50 text-av-accent bg-av-accent/10'
+                                          : 'border-av-border text-av-text-muted hover:border-av-accent/40'
+                                      }`}
+                                    >
+                                      {v}
+                                    </button>
+                                  ))}
+                                </div>
+                                <ConeView
+                                  cones={conePoints}
+                                  screenH={surf.heightM!}
+                                  posY={surf.posDsYM ?? 0}
+                                  view={coneView}
+                                  width={320}
+                                  height={200}
+                                />
+                              </>
+                            )}
+
+                            {/* Warnings */}
+                            {blendResult?.warn.map((w, i) => (
+                              <p key={i} className="text-xs text-amber-400 mt-1">⚠ {w}</p>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </Card>
                 );
               })}
