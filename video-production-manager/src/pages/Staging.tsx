@@ -9,7 +9,7 @@ import {
   type DeckType,
   type StageDeck,
 } from '@/hooks/useVenueStore';
-import { DimLine, CANVAS_SNAP_FT } from '@/components/VenueCanvasUtils';
+import { DimLine, CANVAS_SNAP_INCHES, SNAP_INCH_OPTIONS } from '@/components/VenueCanvasUtils';
 
 // ── unit helpers ──────────────────────────────────────────────────────────────
 const FT_TO_M = 0.3048;
@@ -85,6 +85,15 @@ function uuid4() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
 
+/** Format a feet value (with sign) for the drag-position HUD. */
+function fmtCoordFt(ft: number): string {
+  const sign = ft < -0.001 ? '\u2212' : '+';
+  const abs = Math.abs(ft);
+  const wholeFt = Math.floor(abs);
+  const inches = Math.round((abs - wholeFt) * 12);
+  return inches === 0 ? `${sign}${wholeFt}'` : `${sign}${wholeFt}' ${inches}"`;
+}
+
 // ── Interactive Stage Canvas ──────────────────────────────────────────────────
 const InteractiveStageCanvas: React.FC<{
   venueWidthM: number;
@@ -95,13 +104,15 @@ const InteractiveStageCanvas: React.FC<{
   onSelect: (id: string | null) => void;
   onDeckMove: (id: string, xFt: number, yFt: number) => void;
   onDeckRotate: (id: string) => void;
+  snapInches: number;
 }> = ({
   venueWidthM, venueDepthM, dscFraction, decks,
-  selectedId, onSelect, onDeckMove, onDeckRotate,
+  selectedId, onSelect, onDeckMove, onDeckRotate, snapInches,
 }) => {
   if (venueWidthM <= 0 || venueDepthM <= 0) return null;
 
   const svgRef = useRef<SVGSVGElement>(null);
+  const [hudPos, setHudPos] = useState<{ xFt: number; yFt: number } | null>(null);
   const PAD = 32;
   const LABEL_H = 20;
   const svgW = 900;                              // fixed internal resolution
@@ -123,7 +134,7 @@ const InteractiveStageCanvas: React.FC<{
   // World ↔ SVG helpers
   function wx(xFt: number) { return dscSvgX + ftToM(xFt) * scale; }
   function wy(yFt: number) { return dscSvgY - ftToM(yFt) * scale; }
-  const SNAP_FT = CANVAS_SNAP_FT; // snap grid — set CANVAS_SNAP_INCHES in VenueCanvasUtils
+  const SNAP_FT = snapInches / 12;
 
   // ── Drag state (ref, not state — avoids re-render thrashing during drag) ────
   const dragRef = useRef<{
@@ -169,10 +180,24 @@ const InteractiveStageCanvas: React.FC<{
     const snappedX = Math.round(rawX / SNAP_FT) * SNAP_FT;
     const snappedY = Math.round(rawY / SNAP_FT) * SNAP_FT;
     onDeckMove(dragRef.current.deckId, snappedX, snappedY);
+    setHudPos({ xFt: snappedX, yFt: snappedY });
   }
 
   function handlePointerUp() {
     dragRef.current = null;
+    setHudPos(null);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<SVGSVGElement>) {
+    if (!selectedId) return;
+    const deck = decks.find(d => d.id === selectedId);
+    if (!deck) return;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const dx = e.key === 'ArrowLeft' ? -SNAP_FT : e.key === 'ArrowRight' ? SNAP_FT : 0;
+      const dy = e.key === 'ArrowUp'   ?  SNAP_FT : e.key === 'ArrowDown'  ? -SNAP_FT : 0;
+      onDeckMove(selectedId, deck.xFt + dx, deck.yFt + dy);
+    }
   }
 
   // ── 1-ft snap grid (dots at every foot inside the room) ─────────────────────
@@ -219,10 +244,12 @@ const InteractiveStageCanvas: React.FC<{
       ref={svgRef}
       viewBox={`0 0 ${svgW} ${svgH}`}
       className="w-full block select-none"
-      style={{ maxHeight: 680, cursor: dragRef.current ? 'grabbing' : 'default', touchAction: 'none' }}
+      style={{ maxHeight: 680, cursor: dragRef.current ? 'grabbing' : 'default', touchAction: 'none', outline: 'none' }}
+      tabIndex={0}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      onKeyDown={handleKeyDown}
       onClick={() => onSelect(null)}
     >
       {/* Room fill */}
@@ -372,6 +399,18 @@ const InteractiveStageCanvas: React.FC<{
       <text x={roomRight + 4} y={roomTop + innerH / 2} fill="#64748b" fontSize={10} pointerEvents="none">
         {mToFtIn(venueDepthM)} deep
       </text>
+
+      {/* Drag coordinates HUD */}
+      {hudPos && (
+        <g pointerEvents="none">
+          <rect x={svgW - 152} y={PAD + LABEL_H + 5} width={140} height={22}
+            rx={3} fill="rgba(26,29,35,0.92)" stroke="rgba(249,115,22,0.4)" strokeWidth={1} />
+          <text x={svgW - 82} y={PAD + LABEL_H + 20} textAnchor="middle"
+            fill="#fb923c" fontSize={9.5} fontWeight="600" style={{ fontFamily: 'monospace' }}>
+            {`X ${fmtCoordFt(hudPos.xFt)}  \u00b7  Y ${fmtCoordFt(hudPos.yFt)}`}
+          </text>
+        </g>
+      )}
     </svg>
   );
 };
@@ -387,6 +426,7 @@ export default function Staging() {
   const [newDeckType, setNewDeckType] = useState<DeckType>('4x8');
   const [newLegHeight, setNewLegHeight] = useState<number>(24);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
+  const [snapInches, setSnapInches] = useState(CANVAS_SNAP_INCHES);
 
   // Keep selectedDeckId valid if the pointed deck is removed
   useEffect(() => {
@@ -452,11 +492,25 @@ export default function Staging() {
       <Card className="p-4 overflow-hidden">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-av-text-muted uppercase tracking-wider">Top-Down View</h2>
-          {selectedDeckId && (
-            <span className="text-xs text-orange-400 font-medium">
-              {venue.stageDecks.find(d => d.id === selectedDeckId)?.type} selected — drag to reposition · ↻ to rotate
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {selectedDeckId && (
+              <span className="text-xs text-orange-400 font-medium">
+                {venue.stageDecks.find(d => d.id === selectedDeckId)?.type} selected — drag or ↑↓←→ nudge · ↻ rotate
+              </span>
+            )}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-av-text-muted">Snap:</span>
+              <select
+                value={snapInches}
+                onChange={e => setSnapInches(+e.target.value)}
+                className="text-xs bg-av-surface border border-av-border/60 rounded px-1.5 py-0.5 text-av-text focus:outline-none"
+              >
+                {SNAP_INCH_OPTIONS.map(v => (
+                  <option key={v} value={v}>{v < 12 ? `${v}"` : `${v / 12}'`}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
         {venue.roomWidthM > 0 && venue.roomDepthM > 0 ? (
           <InteractiveStageCanvas
@@ -468,6 +522,7 @@ export default function Staging() {
             onSelect={setSelectedDeckId}
             onDeckMove={handleDeckMove}
             onDeckRotate={handleDeckRotate}
+            snapInches={snapInches}
           />
         ) : (
           <div className="h-64 flex items-center justify-center border border-dashed border-av-border rounded-lg">

@@ -1,0 +1,292 @@
+{
+  "_notes": {
+    "id": "kebab-case, globally unique: {manufacturer-slug}-{model-slug}",
+    "ioArchitecture": "direct | card-based",
+    "formatByIO": "true when format is set per output port (CCU, router); false otherwise",
+    "specs": "free-form JSON blob — used by projector and lens categories",
+    "isSecondaryDevice": "true for lens only — excludes from primary equipment dropdowns",
+    "portTypes": ["HDMI", "DisplayPort", "12G-SDI", "3G-SDI", "SDI", "SMPTE Fiber", "Ethernet", "IP", "Reference", "Reference (BNC)", "Power"]
+  },
+
+  "camera": {
+    "id": "sony-hdc-5500",
+    "category": "camera",
+    "manufacturer": "Sony",
+    "model": "HDC-5500",
+    "ioArchitecture": "direct",
+    "inputs": [
+      { "id": "ref-1", "type": "Reference", "label": "Ref In" }
+    ],
+    "outputs": [
+      { "id": "fiber-1", "type": "SMPTE Fiber", "label": "To CCU" }
+    ],
+    "deviceFormats": ["1080i59.94", "1080i60", "1080p59.94", "1080p60", "720p59.94", "720p60"],
+    "formatByIO": false
+  },
+
+  "ccu": {
+    "_note": "outputs carry per-port format when formatByIO is true",
+    "id": "sony-hdcu-5500",
+    "category": "ccu",
+    "manufacturer": "Sony",
+    "model": "HDCU-5500",
+    "ioArchitecture": "direct",
+    "inputs": [
+      { "id": "fiber-1", "type": "SMPTE Fiber", "label": "Camera Input" },
+      { "id": "ref-1", "type": "Reference", "label": "Ref In" }
+    ],
+    "outputs": [
+      { "id": "sdi-1", "type": "SDI", "label": "SDI Out 1", "format": "1080i59.94" },
+      { "id": "sdi-2", "type": "SDI", "label": "SDI Out 2", "format": "1080i59.94" },
+      { "id": "sdi-3", "type": "SDI", "label": "SDI Out 3", "format": "1080i59.94" },
+      { "id": "sdi-4", "type": "SDI", "label": "SDI Out 4", "format": "1080i59.94" },
+      { "id": "vf-1", "type": "SDI", "label": "Viewfinder", "format": "1080i59.94" }
+    ],
+    "deviceFormats": ["1080i59.94", "1080i60", "1080p59.94", "1080p60", "720p59.94", "720p60"],
+    "formatByIO": true
+  },
+
+  "ptz": {
+    "id": "sony-srg-a40",
+    "category": "ptz",
+    "manufacturer": "Sony",
+    "model": "SRG-A40",
+    "ioArchitecture": "direct",
+    "inputs": [],
+    "outputs": [
+      { "id": "hdmi-1", "type": "HDMI", "label": "HDMI Out" },
+      { "id": "ip-1", "type": "IP", "label": "IP Stream" }
+    ],
+    "deviceFormats": ["4K 59.94", "4K 60", "1080p59.94", "1080p60"],
+    "formatByIO": false
+  },
+
+  "monitor": {
+    "id": "sony-bvm-hx310",
+    "category": "monitor",
+    "manufacturer": "Sony",
+    "model": "BVM-HX310",
+    "ioArchitecture": "direct",
+    "inputs": [
+      { "id": "in-1", "type": "12G-SDI", "label": "SDI In 1" },
+      { "id": "in-2", "type": "12G-SDI", "label": "SDI In 2" },
+      { "id": "in-3", "type": "HDMI", "label": "HDMI In" },
+      { "id": "in-4", "type": "DisplayPort", "label": "DP In" },
+      { "id": "ref-1", "type": "Reference (BNC)", "label": "Ref In" }
+    ],
+    "outputs": [
+      { "id": "out-1", "type": "12G-SDI", "label": "SDI Out 1" },
+      { "id": "out-2", "type": "12G-SDI", "label": "SDI Out 2" }
+    ],
+    "deviceFormats": ["4K 60", "1080p60", "HDR"],
+    "formatByIO": false
+  },
+
+  "converter": {
+    "id": "aja-hi5-4k",
+    "category": "converter",
+    "manufacturer": "AJA",
+    "model": "Hi5-4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      { "id": "in-1", "type": "12G-SDI", "label": "SDI In" }
+    ],
+    "outputs": [
+      { "id": "out-1", "type": "HDMI", "label": "HDMI Out" }
+    ],
+    "deviceFormats": ["4K 60", "1080p60", "1080i60"],
+    "formatByIO": false
+  },
+
+  "recorder": {
+    "id": "atomos-shogun-ultra",
+    "category": "recorder",
+    "manufacturer": "Atomos",
+    "model": "Shogun Ultra",
+    "ioArchitecture": "direct",
+    "inputs": [
+      { "id": "in-1", "type": "HDMI", "label": "HDMI In" },
+      { "id": "in-2", "type": "12G-SDI", "label": "SDI In" }
+    ],
+    "outputs": [
+      { "id": "out-1", "type": "HDMI", "label": "HDMI Out" },
+      { "id": "out-2", "type": "12G-SDI", "label": "SDI Out" }
+    ],
+    "deviceFormats": ["4K 60", "1080p60", "ProRes", "DNxHD"],
+    "formatByIO": false
+  },
+
+  "led-processor": {
+    "id": "barco-e2",
+    "category": "led-processor",
+    "manufacturer": "Barco",
+    "model": "E2",
+    "ioArchitecture": "direct",
+    "inputs": [
+      { "id": "in-1", "type": "DisplayPort", "label": "DP 1" },
+      { "id": "in-2", "type": "DisplayPort", "label": "DP 2" },
+      { "id": "in-3", "type": "HDMI", "label": "HDMI 1" },
+      { "id": "in-4", "type": "HDMI", "label": "HDMI 2" },
+      { "id": "in-5", "type": "12G-SDI", "label": "SDI 1" },
+      { "id": "in-6", "type": "12G-SDI", "label": "SDI 2" }
+    ],
+    "outputs": [
+      { "id": "out-1", "type": "DisplayPort", "label": "DP Out 1" },
+      { "id": "out-2", "type": "DisplayPort", "label": "DP Out 2" },
+      { "id": "out-3", "type": "12G-SDI", "label": "SDI Out 1" },
+      { "id": "out-4", "type": "12G-SDI", "label": "SDI Out 2" }
+    ],
+    "deviceFormats": ["4K 60", "4K 30", "1080p60", "1080p30", "Custom"],
+    "formatByIO": true
+  },
+
+  "led-tile": {
+    "_note": "data daisy-chains via Ethernet; power loops via Power ports",
+    "id": "roe-black-pearl-bp2v2",
+    "category": "led-tile",
+    "manufacturer": "ROE Visual",
+    "model": "Black Pearl BP2V2",
+    "ioArchitecture": "direct",
+    "inputs": [
+      { "id": "in-1", "type": "Ethernet", "label": "Data In" },
+      { "id": "in-2", "type": "Power", "label": "Power In" }
+    ],
+    "outputs": [
+      { "id": "out-1", "type": "Ethernet", "label": "Data Out" },
+      { "id": "out-2", "type": "Power", "label": "Power Out" }
+    ],
+    "deviceFormats": ["LED"],
+    "formatByIO": false
+  },
+
+  "vision-switcher": {
+    "id": "barco-pds4k",
+    "category": "vision-switcher",
+    "manufacturer": "Barco",
+    "model": "PDS-4K",
+    "ioArchitecture": "direct",
+    "inputs": [
+      { "id": "in-1", "type": "DisplayPort", "label": "DP 1" },
+      { "id": "in-2", "type": "DisplayPort", "label": "DP 2" },
+      { "id": "in-3", "type": "HDMI", "label": "HDMI 1" },
+      { "id": "in-4", "type": "HDMI", "label": "HDMI 2" },
+      { "id": "in-5", "type": "12G-SDI", "label": "SDI 1" },
+      { "id": "in-6", "type": "12G-SDI", "label": "SDI 2" }
+    ],
+    "outputs": [
+      { "id": "out-1", "type": "DisplayPort", "label": "DP Out 1" },
+      { "id": "out-2", "type": "DisplayPort", "label": "DP Out 2" }
+    ],
+    "deviceFormats": ["4K 60", "1080p60"],
+    "formatByIO": false
+  },
+
+  "projector": {
+    "_note": "specs blob holds lumens, resolution, lens mount, etc.",
+    "id": "barco-udx-4k35",
+    "category": "projector",
+    "manufacturer": "Barco",
+    "model": "UDX-4K35",
+    "ioArchitecture": "direct",
+    "inputs": [
+      { "id": "in-1", "type": "HDMI", "label": "HDMI 1" },
+      { "id": "in-2", "type": "HDMI", "label": "HDMI 2" },
+      { "id": "in-3", "type": "DisplayPort", "label": "DP 1" },
+      { "id": "in-4", "type": "DisplayPort", "label": "DP 2" },
+      { "id": "in-5", "type": "12G-SDI", "label": "SDI 1" },
+      { "id": "in-6", "type": "Ethernet", "label": "Network (HDBaseT)" }
+    ],
+    "outputs": [],
+    "deviceFormats": ["4K 60", "4K 30", "1080p60", "WUXGA"],
+    "formatByIO": false,
+    "specs": {
+      "lumens": 35000,
+      "nativeRes": "4K (4096x2160)",
+      "technology": "3-chip DLP laser",
+      "lensMount": "Barco TLD+",
+      "weightKg": 68,
+      "laserSource": true
+    }
+  },
+
+  "lens": {
+    "_note": "isSecondaryDevice:true hides from primary dropdowns; compatibleWith lists projector IDs",
+    "id": "barco-tld-plus-038",
+    "category": "lens",
+    "manufacturer": "Barco",
+    "model": "TLD+ 0.38 Ultra Short Throw",
+    "ioArchitecture": "direct",
+    "inputs": [],
+    "outputs": [],
+    "deviceFormats": [],
+    "formatByIO": false,
+    "isSecondaryDevice": true,
+    "specs": {
+      "throwRatio": "0.38:1",
+      "lensMount": "Barco TLD+",
+      "compatibleWith": ["barco-udx-4k35", "barco-udx-4k40", "barco-udm-4k22", "barco-udx-w26"]
+    }
+  },
+
+  "cam-switcher__card-based": {
+    "_note": "card-based: use cardSlots + cards array instead of top-level inputs/outputs",
+    "id": "grass-valley-korona-k-frame",
+    "category": "cam-switcher",
+    "manufacturer": "Grass Valley",
+    "model": "Korona K-Frame",
+    "ioArchitecture": "card-based",
+    "cardSlots": 20,
+    "cards": [
+      {
+        "id": "card-1",
+        "slotNumber": 1,
+        "inputs": [
+          { "id": "in-1", "type": "12G-SDI", "label": "Input 1" },
+          { "id": "in-2", "type": "12G-SDI", "label": "Input 2" },
+          { "id": "in-3", "type": "12G-SDI", "label": "Input 3" },
+          { "id": "in-4", "type": "12G-SDI", "label": "Input 4" }
+        ],
+        "outputs": []
+      },
+      {
+        "id": "card-2",
+        "slotNumber": 2,
+        "inputs": [],
+        "outputs": [
+          { "id": "out-1", "type": "12G-SDI", "label": "Output 1" },
+          { "id": "out-2", "type": "12G-SDI", "label": "Output 2" },
+          { "id": "out-3", "type": "12G-SDI", "label": "Output 3" },
+          { "id": "out-4", "type": "12G-SDI", "label": "Output 4" }
+        ]
+      }
+    ],
+    "deviceFormats": ["4K 59.94", "4K 60", "4K 50", "1080p59.94", "1080p60", "1080i59.94"],
+    "formatByIO": false
+  },
+
+  "router__card-based": {
+    "_note": "same card-based shape as cam-switcher",
+    "id": "evertz-exeqip",
+    "category": "router",
+    "manufacturer": "Evertz",
+    "model": "EXE-QIP",
+    "ioArchitecture": "card-based",
+    "cardSlots": 32,
+    "cards": [
+      {
+        "id": "card-1",
+        "slotNumber": 1,
+        "inputs": [
+          { "id": "in-1", "type": "12G-SDI", "label": "Input 1" },
+          { "id": "in-2", "type": "12G-SDI", "label": "Input 2" }
+        ],
+        "outputs": [
+          { "id": "out-1", "type": "12G-SDI", "label": "Output 1" },
+          { "id": "out-2", "type": "12G-SDI", "label": "Output 2" }
+        ]
+      }
+    ],
+    "deviceFormats": ["12G", "6G", "3G", "HD", "SD"],
+    "formatByIO": true
+  }
+}

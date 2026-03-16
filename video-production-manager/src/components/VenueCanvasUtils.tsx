@@ -70,6 +70,8 @@ export const DimLine: React.FC<{
  * Default: 3 inches.
  */
 export const CANVAS_SNAP_INCHES = 3;
+/** Available snap increment options for the canvas snap-control UI (inches). */
+export const SNAP_INCH_OPTIONS = [1, 3, 6, 12] as const;
 /** Snap increment in feet — used by the Staging canvas. */
 export const CANVAS_SNAP_FT = CANVAS_SNAP_INCHES / 12;        // 0.25 ft
 /** Snap increment in meters — used by Projectors / Layout / LED canvases. */

@@ -18,7 +18,7 @@ import type { Format } from '@/types';
 import { secondaryDevices as SECONDARY_DEVICE_OPTIONS } from '@/data/sampleData';
 import { useVenueStore, DECK_SIZES, type VenueData } from '@/hooks/useVenueStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
-import { DimLine, snapTo, formatMasImperial, CANVAS_SNAP_M } from '@/components/VenueCanvasUtils';
+import { DimLine, snapTo, formatMasImperial, CANVAS_SNAP_INCHES, SNAP_INCH_OPTIONS } from '@/components/VenueCanvasUtils';
 
 // Projector placement types
 const PROJECTOR_TYPES = [
@@ -86,6 +86,8 @@ const LayoutTab: React.FC<{
 }> = ({ venueData, surfaces, projectors, equipmentSpecs, selectedSurfaceId, onSelectSurface, onSurfaceMove, onGoToStaging }) => {
   const hasRoom = venueData.roomWidthM > 0 && venueData.roomDepthM > 0;
   const svgRef = useRef<SVGSVGElement>(null);
+  const [snapInches, setSnapInches] = useState(CANVAS_SNAP_INCHES);
+  const [hudPos, setHudPos] = useState<{ xM: number; yM: number } | null>(null);
 
   if (!hasRoom) {
     return (
@@ -109,6 +111,7 @@ const LayoutTab: React.FC<{
   const dscSvgY = L_PAD + venueData.dscDepthFraction * venueData.roomDepthM * scale;
   const wx = (x: number) => dscSvgX + x * scale;
   const wy = (y: number) => dscSvgY - y * scale;
+  const SNAP_M = snapInches * 0.0254;
 
   // ─ Drag state ──────────────────────────────────────────────────────────────
   const dragRef = useRef<{
@@ -152,11 +155,27 @@ const LayoutTab: React.FC<{
     const dyM = -(sy - dragRef.current.startSvgY) / scale;
     const rawX = dragRef.current.startXM + dxM;
     const rawY = dragRef.current.startYM + dyM;
-    onSurfaceMove(dragRef.current.uuid, snapTo(rawX, CANVAS_SNAP_M), snapTo(rawY, CANVAS_SNAP_M));
+    const snappedX = snapTo(rawX, SNAP_M);
+    const snappedY = snapTo(rawY, SNAP_M);
+    onSurfaceMove(dragRef.current.uuid, snappedX, snappedY);
+    setHudPos({ xM: snappedX, yM: snappedY });
   }
 
   function handlePointerUp() {
     dragRef.current = null;
+    setHudPos(null);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<SVGSVGElement>) {
+    if (!selectedSurfaceId) return;
+    const surf = surfaces.find(s => s.uuid === selectedSurfaceId);
+    if (!surf) return;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const dx = e.key === 'ArrowLeft' ? -SNAP_M : e.key === 'ArrowRight' ? SNAP_M : 0;
+      const dy = e.key === 'ArrowUp'   ?  SNAP_M : e.key === 'ArrowDown'  ? -SNAP_M : 0;
+      onSurfaceMove(selectedSurfaceId, snapTo((surf.posDsXM ?? 0) + dx, SNAP_M), snapTo((surf.posDsYM ?? 0) + dy, SNAP_M));
+    }
   }
 
   // ─ visual dot grid (0.5 m spacing — coarser than movement snap for performance) ────
@@ -184,12 +203,24 @@ const LayoutTab: React.FC<{
         <div className="flex items-center gap-3">
           {selectedSurfaceId && (
             <span className="text-xs text-emerald-400 font-medium">
-              {surfaces.find(s => s.uuid === selectedSurfaceId)?.name} selected — drag to reposition
+              {surfaces.find(s => s.uuid === selectedSurfaceId)?.name} selected — drag or ↑↓←→ nudge
             </span>
           )}
           <span className="text-xs text-av-text-muted">
             {venueData.roomWidthM.toFixed(1)} m W × {venueData.roomDepthM.toFixed(1)} m D
           </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-av-text-muted">Snap:</span>
+            <select
+              value={snapInches}
+              onChange={e => setSnapInches(+e.target.value)}
+              className="text-xs bg-av-surface border border-av-border/60 rounded px-1.5 py-0.5 text-av-text focus:outline-none"
+            >
+              {SNAP_INCH_OPTIONS.map(v => (
+                <option key={v} value={v}>{v < 12 ? `${v}"` : `${v / 12}'`}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -197,10 +228,12 @@ const LayoutTab: React.FC<{
           ref={svgRef}
           viewBox={`0 0 ${L_SVG_W} ${Math.max(svgH, 200)}`}
           className="w-full border border-av-border/40 rounded bg-[#0d1520] select-none"
-          style={{ maxHeight: 720, minHeight: 200, touchAction: 'none' }}
+          style={{ maxHeight: 720, minHeight: 200, touchAction: 'none', outline: 'none' }}
+          tabIndex={0}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
+          onKeyDown={handleKeyDown}
           onClick={() => onSelectSurface(null)}
         >
           {/* Audience zone */}
@@ -380,6 +413,17 @@ const LayoutTab: React.FC<{
           <text x={L_PAD + 4} y={dscSvgY - 5} fontSize={9} fill="#4a6a9a" pointerEvents="none">SL ←</text>
           <text x={L_PAD + venueData.roomWidthM * scale - 28} y={dscSvgY - 5} fontSize={9} fill="#4a6a9a" pointerEvents="none">→ SR</text>
           <text x={dscSvgX + 5} y={dscSvgY + 11} fontSize={9} fill="#5890d8" pointerEvents="none">DSC</text>
+          {/* Drag coordinates HUD */}
+          {hudPos && (
+            <g pointerEvents="none">
+              <rect x={L_SVG_W - 152} y={L_PAD + 5} width={140} height={22}
+                rx={3} fill="rgba(13,21,32,0.92)" stroke="rgba(52,211,153,0.4)" strokeWidth={1} />
+              <text x={L_SVG_W - 82} y={L_PAD + 20} textAnchor="middle"
+                fill="#34d399" fontSize={9.5} fontWeight="600" style={{ fontFamily: 'monospace' }}>
+                {`X ${hudPos.xM >= 0 ? '+' : ''}${hudPos.xM.toFixed(2)} m  \u00b7  Y ${hudPos.yM >= 0 ? '+' : ''}${hudPos.yM.toFixed(2)} m`}
+              </text>
+            </g>
+          )}
         </svg>
       </div>
       {/* Legend */}
@@ -391,7 +435,7 @@ const LayoutTab: React.FC<{
         {surfaces.length > 0 && (
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-2.5 rounded" style={{ background: 'rgba(60,190,150,0.25)', border: '1px solid #30b890' }} />
-            <span>Screen (drag to reposition)</span>
+            <span>Screen (drag or ↑↓←→ nudge)</span>
           </div>
         )}
         {surfaces.some(s => (s.projectorAssignments ?? []).length > 0) && (
