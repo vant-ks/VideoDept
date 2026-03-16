@@ -2,6 +2,37 @@
 
 ---
 
+## March 16, 2026 — feat(led): Stage 5 — LED Walls tab: 12-slot card grid + CRUD
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, led, walls-tab, crud, typescript
+
+**Session:** Built `src/pages/LED.tsx` — Walls sub-tab with 12-slot grid, Add/Edit/Delete modals. Connected LED page in App.tsx and updated EntityEvent union.
+
+### What was built
+
+**`src/pages/LED.tsx`** (new file, ~480 lines)
+- Two sub-tabs: Walls (this session), Planner (Stage 6 placeholder)
+- 12-slot grid (4×3) — empty slots render dashed "+ Add Wall W{n}" cards
+- Populated slots show: wall name, slot badge, grid label (cols×rows), totalPanels, weight, power, dominant tile res, processor name
+- CRUD: Add Wall modal (name, processor dropdown, optional starting grid cols×rows, note), Edit (same form pre-filled), Delete (confirm prompt)
+- `computeWallStats()` — pure function computing panel count, weight, power, dominant tile label from `tile_grid`
+- WS real-time events via `useProductionEvents` for `ledScreen` entity creates/updates/deletes
+- Initial grid on create: builds `TileGrid` with all VOID cells at specified cols×rows
+
+**`src/hooks/useProductionEvents.ts`**
+- Added `'ledScreen'` to `EntityEvent.entityType` union
+
+**`src/App.tsx`**
+- Added `import LED from '@/pages/LED'`
+- Changed `case 'led': return <Screens />` → `return <LED />`
+
+### TypeScript
+- ✅ Zero new errors in changed files (2 pre-existing App.tsx errors unrelated)
+
+---
+
 ## March 16, 2026 — feat(led): Stage 4 — LED wall schema migration + useLEDScreenAPI upgrade
 
 ### Branch: `v0.2.4_graphical-ui`

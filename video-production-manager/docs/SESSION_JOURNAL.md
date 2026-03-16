@@ -1317,3 +1317,54 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
   - Stage 4 (blend zone assignment UI) ready to start next session
 
 ---
+
+## Session 2026-03-16-Stage5
+**Started:** 2026-03-16
+**Status:** ✅ COMPLETE
+**Branch:** `v0.2.4_graphical-ui`
+**Tags:** feat, led, walls-tab, crud, typescript
+
+---
+
+### Prompt: Stage 5 — LED Walls tab: 12-slot card grid + CRUD
+**ID:** S20260316-P1-Stage5
+**Request:** Build `src/pages/LED.tsx` with Walls sub-tab — 12-slot fixed grid showing all LED walls for active production, empty slots as dashed Add cards, populated slots with computed stats. Full CRUD (Add/Edit/Delete). Wire into App.tsx.
+
+#### Context at Start:
+- Branch: `v0.2.4_graphical-ui`, HEAD `116ae08` (Stage 4 LED wall schema migration)
+- Dev servers: API :3010 ✅, Frontend :3011 ✅
+- Railway: ✅ healthy
+- Stage 4 complete — `led_screens` DB schema and `useLEDScreenAPI.ts` upgraded with TileGrid types
+
+#### Actions Taken:
+1. Read `useLEDScreenAPI.ts` — confirmed full LEDScreen/TileGrid/TileCell types from Stage 4
+2. Checked `App.tsx` — found `case 'led': return <Screens />` (placeholder to replace)
+3. Checked `Layout.tsx` — nav item already correct: `{ id: 'led', label: 'LED', icon: Projector }`
+4. Read Projectors.tsx patterns (CRUD handlers, card rendering, useProductionEvents usage)
+5. Read `useProductionEvents.ts` — saw options-object API + EntityEvent union (needed 'ledScreen')
+6. Read `useEquipmentLibrary.ts` + `EquipmentSpec` type — confirmed `category === 'led-processor'` / `'led-tile'`
+7. Built `src/pages/LED.tsx` from scratch (~480 lines):
+   - `computeWallStats()` pure function over TileGrid cells
+   - `LED` main component: loads walls, WS events, slot array builder, modal state
+   - `WallsTab` + `WallCard` + `EmptySlot` + `WallModal` sub-components
+   - Add modal: name (required), processor dropdown, optional starting grid (cols×rows), note
+   - Edit modal: all fields pre-filled; does NOT overwrite existing tileGrid
+   - Delete: confirm prompt
+8. Updated `useProductionEvents.ts` — added `'ledScreen'` to EntityEvent.entityType union
+9. Updated `src/App.tsx` — imported LED, swapped `case 'led'`
+10. Ran `tsc --noEmit` — zero new errors in changed files
+
+#### Outcome: COMPLETED ✓
+- **Files Changed:**
+  - `src/pages/LED.tsx` — new file, full Walls tab implementation
+  - `src/hooks/useProductionEvents.ts` — EntityEvent union extended with 'ledScreen'
+  - `src/App.tsx` — import + case wired
+  - `video-production-manager/DEVLOG.md` — Stage 5 entry
+- **TypeScript:** ✅ Zero new errors
+- **Notes:**
+  - Planner sub-tab renders a placeholder card (Stage 6 target)
+  - WS events listen for `ledScreen` entityType (will fire when API emits that type)
+  - `computeWallStats` handles null/missing tileGrid gracefully
+  - Stage 6 (Planner tile canvas) ready to start
+
+---

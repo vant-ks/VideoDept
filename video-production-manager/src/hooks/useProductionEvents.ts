@@ -7,7 +7,7 @@ let socket: Socket | null = null;
 export function getSocket(): Socket | null { return socket; }
 
 export interface EntityEvent {
-  entityType: 'source' | 'send' | 'camera' | 'ccu' | 'checklist-item' | 'connection' | 'router' | 'stream' | 'mediaServer' | 'record' | 'projectionScreen' | 'projectionSurface';
+  entityType: 'source' | 'send' | 'camera' | 'ccu' | 'checklist-item' | 'connection' | 'router' | 'stream' | 'mediaServer' | 'record' | 'projectionScreen' | 'projectionSurface' | 'ledScreen';
   entity?: any;
   entityId?: string;
   changes?: any;
