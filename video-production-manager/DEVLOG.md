@@ -2,6 +2,37 @@
 
 ---
 
+## March 16, 2026 — feat(led): Stage 4 — LED wall schema migration + useLEDScreenAPI upgrade
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, led-screens, prisma, db-push, typescript
+
+**Session:** Migrated `led_screens` table from projection-screen-like shape to proper LED wall schema. Used `db:push` (not `migrate dev`).
+
+### What was built
+
+**`video-production-manager/api/prisma/schema.prisma`**
+- `led_screens` model: removed `manufacturer`, `model`, `h_res`, `v_res`, `rate`
+- Added: `sort_order Int @default(0)`, `processor_uuid String?`, `pos_ds_x_m Float?`, `pos_ds_y_m Float?`, `rotation_deg Float? @default(0)`, `tile_grid Json?`
+- Kept: `equipment_uuid String?` — repurposed as dominant tile spec UUID
+
+**`src/hooks/useLEDScreenAPI.ts`**
+- Added `TileCell` and `TileGrid` TypeScript interfaces matching the `tile_grid` Json column structure
+- Updated `LEDScreen` interface: full field set including `sortOrder`, `processorUuid`, `posDsXM/Y`, `rotationDeg`, `tileGrid`, `equipmentUuid`
+- Updated `LEDScreenInput` with all writable fields
+- Updated `createLEDScreen` and `updateLEDScreen` to pass all new fields in request body
+
+**`video-production-manager/api/src/routes/led-screens.ts`**
+- Changed `orderBy` from `created_at: 'asc'` to `[{ sort_order: 'asc' }, { created_at: 'asc' }]`
+- No other route changes needed — `toSnakeCase`/`toCamelCase` handles new fields automatically
+
+### Migration approach
+- Table was empty (0 rows) → clean `prisma db push` applied in 84ms, no data migration needed
+- API server restarted post-push to pick up regenerated Prisma client
+
+---
+
 ## March 16, 2026 — feat(projectors): Stage 3 — ProjectorPosition stacking model + Screens tab positions UI
 
 ### Branch: `v0.2.4_graphical-ui`

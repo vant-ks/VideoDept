@@ -1,13 +1,37 @@
 import { useCallback } from 'react';
 import { apiClient } from '@/services/apiClient';
 
+export interface TileCell {
+  type: 'TILE' | 'VOID';
+  tileSpecUuid?: string;        // equipment_specs UUID (LED_TILE category)
+  variant?: 'STANDARD' | 'R_CORNER' | 'L_CORNER' | 'HALF_H' | 'HALF_V' | 'QUARTER';
+  rotation?: 0 | 90 | 180 | 270;
+  chainId?: number | null;      // reserved for future wiring diagram tool
+  chainOrder?: number | null;
+  portId?: number | null;
+}
+
+export interface TileGrid {
+  cols: number;
+  rows: number;
+  cells: TileCell[][];           // [row][col], row 0 = bottom of wall
+}
+
 export interface LEDScreen {
+  uuid: string;
   id: string;
   productionId: string;
   name: string;
-  // Add other fields as needed
-  createdAt: Date;
-  updatedAt: Date;
+  sortOrder: number;             // 0–11, slot position
+  processorUuid?: string | null; // → equipment_specs (LED_PROCESSOR)
+  posDsXM?: number | null;       // room position X (for Layout canvas)
+  posDsYM?: number | null;       // room position Y
+  rotationDeg?: number | null;
+  tileGrid?: TileGrid | null;    // assembled tile layout
+  equipmentUuid?: string | null; // primary/dominant tile spec UUID
+  note?: string | null;
+  createdAt: string;
+  updatedAt: string;
   version: number;
   isDeleted: boolean;
 }
@@ -15,8 +39,15 @@ export interface LEDScreen {
 export interface LEDScreenInput {
   productionId: string;
   name: string;
+  sortOrder?: number;
+  processorUuid?: string | null;
+  posDsXM?: number | null;
+  posDsYM?: number | null;
+  rotationDeg?: number | null;
+  tileGrid?: TileGrid | null;
+  equipmentUuid?: string | null;
+  note?: string | null;
   version?: number;
-  // Add other fields as needed
 }
 
 interface ConflictError {
@@ -49,6 +80,14 @@ export function useLEDScreenAPI() {
       const requestData = {
         productionId: input.productionId,
         name: input.name,
+        sortOrder: input.sortOrder ?? 0,
+        processorUuid: input.processorUuid,
+        posDsXM: input.posDsXM,
+        posDsYM: input.posDsYM,
+        rotationDeg: input.rotationDeg ?? 0,
+        tileGrid: input.tileGrid,
+        equipmentUuid: input.equipmentUuid,
+        note: input.note,
         version: input.version,
         userId,
         userName
@@ -69,6 +108,14 @@ export function useLEDScreenAPI() {
       const requestData = {
         productionId: updates.productionId,
         name: updates.name,
+        sortOrder: updates.sortOrder,
+        processorUuid: updates.processorUuid,
+        posDsXM: updates.posDsXM,
+        posDsYM: updates.posDsYM,
+        rotationDeg: updates.rotationDeg,
+        tileGrid: updates.tileGrid,
+        equipmentUuid: updates.equipmentUuid,
+        note: updates.note,
         version: updates.version,
         userId,
         userName

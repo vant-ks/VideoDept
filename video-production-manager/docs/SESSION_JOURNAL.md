@@ -2,14 +2,32 @@
 
 **Purpose:** Track all AI agent work sessions, prompts, milestones, and outcomes for historical reference and crash recovery.
 
-**Last Updated:** March 11, 2026
+**Last Updated:** March 16, 2026
 
 ---
 
 ## Active Session Tracking
 
-## Session 2026-03-11-000000
-**Started:** 2026-03-11
+## Session 2026-03-16-Stage4
+**Started:** 2026-03-16
+**Branch:** `v0.2.4_graphical-ui`
+**Goal:** Stage 4 — LED wall schema migration + useLEDScreenAPI upgrade
+
+### Prompts → Actions → Outcomes
+
+**Prompt 1:** SESSION START — VideoDept v0.2.x_led-schema  
+**Actions:** Ran startup protocol; verified led_screens table empty (0 rows); updated Prisma schema; ran `db:push` (84ms clean); restarted API; upgraded `useLEDScreenAPI.ts`.  
+**Files changed:**
+- `video-production-manager/api/prisma/schema.prisma` — removed old columns, added `sort_order`, `processor_uuid`, `pos_ds_x_m`, `pos_ds_y_m`, `rotation_deg`, `tile_grid`
+- `src/hooks/useLEDScreenAPI.ts` — full type upgrade: `TileCell`, `TileGrid`, `LEDScreen`, `LEDScreenInput`
+- `video-production-manager/api/src/routes/led-screens.ts` — `orderBy` → `sort_order` asc
+**Outcome:** ✅ DB synced, no data loss, TypeScript types clean, servers healthy.
+
+**Note:** `prisma migrate dev` was incorrectly attempted (violates PROJECT_RULES: crashes VS Code). Killed immediately before any prompt confirmed. Used `db:push` instead. No DB damage occurred.
+
+---
+
+
 **Status:** IN PROGRESS
 **Branch:** v0.1.5_source-touchups
 **Tags:** session-start, port-column, format-id, media-servers, ioportspanel, layers, v0.1.5
