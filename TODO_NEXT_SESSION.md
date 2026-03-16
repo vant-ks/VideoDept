@@ -590,3 +590,23 @@ Phase 5 (20-22) is complete when:
 ---
 
 **Start here next time:** Open two browsers and run Test 2 (Checklist Item Sync) from MULTI_BROWSER_SYNC_TEST.md
+
+---
+
+## 🏗️ FEATURE — LED Wall: Interactive canvas (v0.2.4_graphical-ui follow-on)
+
+**Branch:** next graphical-ui work session  
+**Context:** Staging and Projectors/Layout now have interactive drag/snap/dimension canvases using `VenueCanvasUtils.tsx` (`DimLine`, `snapTo`, `formatMasImperial`). LED walls need the same treatment.
+
+**Prereqs (not yet built):**
+- LED entity/model (`LedWall` or similar with `posDsXM`, `posDsYM`, `widthM`, `heightM`, `tileW`, `tileH`, `pixelPitch`)
+- API route + Prisma schema for LED walls
+- LED page (currently no LED page exists in the frontend)
+
+**Canvas plan (once prereqs exist):**
+- Top-down layout canvas following the exact pattern in `LayoutTab` inside `Projectors.tsx`
+- Snap grid: 0.5 m (same as screens) or tile-width snap for pixel-perfect tile alignment
+- Show tile grid overlay when zoomed in (faint lines every `tileW` × `tileH` meters)
+- `DimLine` callouts for width, height, DSC distance (use `VenueCanvasUtils` — no code duplication)
+- Selection mirrored bidirectionally between canvas and LED card list (emerald ring, same as screens)
+- Drag saves `posDsXM`/`posDsYM` via optimistic update + API call on pointer-up

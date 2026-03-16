@@ -18,6 +18,7 @@ import type { Format } from '@/types';
 import { secondaryDevices as SECONDARY_DEVICE_OPTIONS } from '@/data/sampleData';
 import { useVenueStore, DECK_SIZES, type VenueData } from '@/hooks/useVenueStore';
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
+import { DimLine, snapTo, formatMasImperial, CANVAS_SNAP_M } from '@/components/VenueCanvasUtils';
 
 // Projector placement types
 const PROJECTOR_TYPES = [
@@ -67,15 +68,24 @@ function buildPortDrafts(spec: any): DevicePortDraft[] {
 const L_PAD = 40;
 const L_SVG_W = 800;
 const L_FT_M = 0.3048;
+// Visual dot grid spacing for the Layout canvas (kept coarse for performance).
+// Movement snap is controlled by CANVAS_SNAP_INCHES in VenueCanvasUtils.
+const SCREEN_DOT_GRID_M = 0.5;
+// Depth of the screen rect in the top-down view (thin bar)
+const SCREEN_DEPTH_M = 0.18;
 
 const LayoutTab: React.FC<{
   venueData: VenueData;
   surfaces: ProjectionSurface[];
   projectors: ProjectionScreen[];
   equipmentSpecs: any[];
+  selectedSurfaceId: string | null;
+  onSelectSurface: (uuid: string | null) => void;
+  onSurfaceMove: (uuid: string, xM: number, yM: number) => void;
   onGoToStaging: () => void;
-}> = ({ venueData, surfaces, projectors, equipmentSpecs, onGoToStaging }) => {
+}> = ({ venueData, surfaces, projectors, equipmentSpecs, selectedSurfaceId, onSelectSurface, onSurfaceMove, onGoToStaging }) => {
   const hasRoom = venueData.roomWidthM > 0 && venueData.roomDepthM > 0;
+  const svgRef = useRef<SVGSVGElement>(null);
 
   if (!hasRoom) {
     return (
@@ -100,41 +110,122 @@ const LayoutTab: React.FC<{
   const wx = (x: number) => dscSvgX + x * scale;
   const wy = (y: number) => dscSvgY - y * scale;
 
+  // ─ Drag state ──────────────────────────────────────────────────────────────
+  const dragRef = useRef<{
+    uuid: string;
+    startSvgX: number;
+    startSvgY: number;
+    startXM: number;
+    startYM: number;
+  } | null>(null);
+
+  function getSvgPoint(e: React.PointerEvent<Element>): [number, number] {
+    const svg = svgRef.current;
+    if (!svg) return [e.clientX, e.clientY];
+    const rect = svg.getBoundingClientRect();
+    const scaleX = L_SVG_W / rect.width;
+    const scaleY = Math.max(svgH, 200) / rect.height;
+    return [
+      (e.clientX - rect.left) * scaleX,
+      (e.clientY - rect.top)  * scaleY,
+    ];
+  }
+
+  function handleSurfacePointerDown(e: React.PointerEvent<Element>, surf: ProjectionSurface) {
+    e.stopPropagation();
+    onSelectSurface(surf.uuid);
+    const [sx, sy] = getSvgPoint(e);
+    dragRef.current = {
+      uuid: surf.uuid,
+      startSvgX: sx,
+      startSvgY: sy,
+      startXM: surf.posDsXM ?? 0,
+      startYM: surf.posDsYM ?? 0,
+    };
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (!dragRef.current) return;
+    const [sx, sy] = getSvgPoint(e);
+    const dxM = (sx - dragRef.current.startSvgX) / scale;
+    const dyM = -(sy - dragRef.current.startSvgY) / scale;
+    const rawX = dragRef.current.startXM + dxM;
+    const rawY = dragRef.current.startYM + dyM;
+    onSurfaceMove(dragRef.current.uuid, snapTo(rawX, CANVAS_SNAP_M), snapTo(rawY, CANVAS_SNAP_M));
+  }
+
+  function handlePointerUp() {
+    dragRef.current = null;
+  }
+
+  // ─ visual dot grid (0.5 m spacing — coarser than movement snap for performance) ────
+  const snapDots: React.ReactNode[] = [];
+  const stepsX = Math.floor(venueData.roomWidthM / SCREEN_DOT_GRID_M);
+  const stepsY = Math.floor(venueData.roomDepthM / SCREEN_DOT_GRID_M);
+  const startXM = -venueData.roomWidthM / 2;
+  for (let ix = 0; ix <= stepsX; ix++) {
+    for (let iy = 0; iy <= stepsY; iy++) {
+      const px = wx(startXM + ix * SCREEN_DOT_GRID_M);
+      const py = wy(iy * SCREEN_DOT_GRID_M);
+      snapDots.push(
+        <circle key={`d${ix}_${iy}`} cx={px} cy={py} r={0.9}
+          fill="rgba(255,255,255,0.1)" pointerEvents="none" />
+      );
+    }
+  }
+
+  const selectedSurf = surfaces.find(s => s.uuid === selectedSurfaceId) ?? null;
+
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-av-text">Room Layout — Top Down</h3>
-        <span className="text-xs text-av-text-muted">
-          {venueData.roomWidthM.toFixed(1)} m W × {venueData.roomDepthM.toFixed(1)} m D
-        </span>
+        <div className="flex items-center gap-3">
+          {selectedSurfaceId && (
+            <span className="text-xs text-emerald-400 font-medium">
+              {surfaces.find(s => s.uuid === selectedSurfaceId)?.name} selected — drag to reposition
+            </span>
+          )}
+          <span className="text-xs text-av-text-muted">
+            {venueData.roomWidthM.toFixed(1)} m W × {venueData.roomDepthM.toFixed(1)} m D
+          </span>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${L_SVG_W} ${Math.max(svgH, 200)}`}
-          className="w-full border border-av-border/40 rounded bg-[#0d1520]"
-          style={{ maxHeight: 560, minHeight: 160 }}
+          className="w-full border border-av-border/40 rounded bg-[#0d1520] select-none"
+          style={{ maxHeight: 720, minHeight: 200, touchAction: 'none' }}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          onClick={() => onSelectSurface(null)}
         >
           {/* Audience zone */}
           <rect
             x={L_PAD} y={dscSvgY}
             width={venueData.roomWidthM * scale}
             height={venueData.roomDepthM * (1 - venueData.dscDepthFraction) * scale}
-            fill="rgba(100,130,190,0.07)"
+            fill="rgba(100,130,190,0.07)" pointerEvents="none"
           />
           {/* Room outline */}
           <rect
             x={L_PAD} y={L_PAD}
             width={venueData.roomWidthM * scale}
             height={venueData.roomDepthM * scale}
-            fill="none" stroke="#2d4878" strokeWidth="1.5" strokeDasharray="6 3"
+            fill="none" stroke="#2d4878" strokeWidth="1.5" strokeDasharray="6 3" pointerEvents="none"
           />
+          {/* Snap dots */}
+          {snapDots}
           {/* DSC reference line */}
           <line
             x1={L_PAD} y1={dscSvgY}
             x2={L_PAD + venueData.roomWidthM * scale} y2={dscSvgY}
-            stroke="#3a5c90" strokeWidth="1" strokeDasharray="4 4"
+            stroke="#3a5c90" strokeWidth="1" strokeDasharray="4 4" pointerEvents="none"
           />
-          {/* Stage decks */}
+          {/* Stage decks (read-only) */}
           {venueData.stageDecks.map(deck => {
             const sz = DECK_SIZES[deck.type];
             const effW = deck.rotation === 90 ? sz.dFt : sz.wFt;
@@ -151,24 +242,52 @@ const LayoutTab: React.FC<{
                 width={wM * scale}
                 height={dM * scale}
                 fill={`rgba(70,120,${blue},0.5)`}
-                stroke="#4878b8" strokeWidth="0.8" rx="1"
+                stroke="#4878b8" strokeWidth="0.8" rx="1" pointerEvents="none"
               />
             );
           })}
-          {/* Projection surfaces */}
+          {/* Projection surfaces — draggable */}
           {surfaces.map(surf => {
             const cx = surf.posDsXM ?? 0;
             const cy = surf.posDsYM ?? 0;
             const w  = surf.widthM ?? 2;
-            const fD = 0.18;
+            const isSelected = surf.uuid === selectedSurfaceId;
+            const rectX = wx(cx - w / 2);
+            const rectY = wy(cy + SCREEN_DEPTH_M / 2);
+            const rectW = w * scale;
+            const rectH = Math.max(SCREEN_DEPTH_M * scale, 4);
             return (
-              <g key={surf.uuid}>
+              <g
+                key={surf.uuid}
+                style={{ cursor: 'grab' }}
+                onPointerDown={e => handleSurfacePointerDown(e, surf)}
+                onClick={e => { e.stopPropagation(); onSelectSurface(surf.uuid); }}
+              >
+                {isSelected && (
+                  <rect
+                    x={rectX - 4} y={rectY - 12}
+                    width={rectW + 8} height={rectH + 24}
+                    fill="none" stroke="rgba(52,211,153,0.5)" strokeWidth={2}
+                    rx={3} strokeDasharray="4 2" pointerEvents="none"
+                  />
+                )}
                 <rect
-                  x={wx(cx - w / 2)} y={wy(cy + fD / 2)}
-                  width={w * scale} height={Math.max(fD * scale, 3)}
-                  fill="rgba(60,190,150,0.25)" stroke="#30b890" strokeWidth="1.2" rx="1"
+                  x={rectX} y={rectY}
+                  width={rectW} height={rectH}
+                  fill={isSelected ? 'rgba(52,211,153,0.35)' : 'rgba(60,190,150,0.25)'}
+                  stroke={isSelected ? '#34d399' : '#30b890'}
+                  strokeWidth={isSelected ? 1.8 : 1.2} rx="1"
                 />
-                <text x={wx(cx)} y={wy(cy + fD / 2) - 3} textAnchor="middle" fontSize={10} fill="#30b890">
+                {surf.heightM && (
+                  <line
+                    x1={rectX} y1={rectY - surf.heightM * scale + rectH}
+                    x2={rectX} y2={rectY + rectH}
+                    stroke={isSelected ? '#34d399' : '#30b890'}
+                    strokeWidth={2} opacity={0.5} pointerEvents="none"
+                  />
+                )}
+                <text x={wx(cx)} y={rectY - 4} textAnchor="middle" fontSize={10}
+                  fill={isSelected ? '#34d399' : '#30b890'} pointerEvents="none">
                   {surf.name}
                 </text>
               </g>
@@ -191,7 +310,7 @@ const LayoutTab: React.FC<{
               const px = wx(projX); const py = wy(projY);
               const sL = wx(sx - sw / 2); const sR = wx(sx + sw / 2); const sY = wy(sy);
               return [(
-                <g key={`${surf.uuid}-${asgn.projectorUuid}`}>
+                <g key={`${surf.uuid}-${asgn.projectorUuid}`} pointerEvents="none">
                   <polygon points={`${px},${py} ${sL},${sY} ${sR},${sY}`}
                     fill="rgba(245,200,60,0.07)" stroke="rgba(245,200,60,0.2)" strokeWidth="0.8" />
                   <circle cx={px} cy={py} r={5} fill="#f0c030" stroke="#d4a820" strokeWidth="1" />
@@ -200,27 +319,79 @@ const LayoutTab: React.FC<{
               )];
             })
           )}
+          {/* Dimension callouts for selected surface */}
+          {selectedSurf && (() => {
+            const cx = selectedSurf.posDsXM ?? 0;
+            const cy = selectedSurf.posDsYM ?? 0;
+            const w = selectedSurf.widthM ?? 2;
+            const h = selectedSurf.heightM;
+            const rectX = wx(cx - w / 2);
+            const rectY = wy(cy + SCREEN_DEPTH_M / 2);
+            const rectW = w * scale;
+            return (
+              <g pointerEvents="none">
+                {/* Width */}
+                <DimLine
+                  x1={rectX} y1={rectY}
+                  x2={rectX + rectW} y2={rectY}
+                  label={formatMasImperial(w)}
+                  offset={-20}
+                  color="#34d399"
+                />
+                {/* Height */}
+                {h && (
+                  <DimLine
+                    x1={rectX + rectW} y1={rectY - (h - SCREEN_DEPTH_M) * scale}
+                    x2={rectX + rectW} y2={rectY + SCREEN_DEPTH_M * scale}
+                    label={formatMasImperial(h)}
+                    offset={22}
+                    color="#34d399"
+                  />
+                )}
+                {/* Upstage distance from DSC */}
+                {Math.abs(cy) > 0.1 && (
+                  <DimLine
+                    x1={dscSvgX} y1={dscSvgY}
+                    x2={dscSvgX} y2={wy(cy)}
+                    label={formatMasImperial(Math.abs(cy))}
+                    offset={-28}
+                    color="#a78bfa"
+                  />
+                )}
+                {/* Lateral offset from DSC centerline */}
+                {Math.abs(cx) > 0.1 && (
+                  <DimLine
+                    x1={dscSvgX} y1={dscSvgY}
+                    x2={wx(cx)} y2={dscSvgY}
+                    label={formatMasImperial(Math.abs(cx))}
+                    offset={12}
+                    color="#a78bfa"
+                  />
+                )}
+              </g>
+            );
+          })()}
           {/* DSC crosshair */}
-          <line x1={dscSvgX - 8} y1={dscSvgY} x2={dscSvgX + 8} y2={dscSvgY} stroke="#5890d8" strokeWidth="1.5" />
-          <line x1={dscSvgX} y1={dscSvgY - 8} x2={dscSvgX} y2={dscSvgY + 8} stroke="#5890d8" strokeWidth="1.5" />
+          <line x1={dscSvgX - 8} y1={dscSvgY} x2={dscSvgX + 8} y2={dscSvgY} stroke="#5890d8" strokeWidth="1.5" pointerEvents="none" />
+          <line x1={dscSvgX} y1={dscSvgY - 8} x2={dscSvgX} y2={dscSvgY + 8} stroke="#5890d8" strokeWidth="1.5" pointerEvents="none" />
           {/* Labels */}
-          <text x={L_SVG_W / 2} y={L_PAD - 8} textAnchor="middle" fontSize={10} fill="#3a5c90">UPSTAGE</text>
-          <text x={L_SVG_W / 2} y={svgH - 4} textAnchor="middle" fontSize={10} fill="#3a5c90">DOWNSTAGE / AUDIENCE</text>
-          <text x={L_PAD + 4} y={dscSvgY - 5} fontSize={9} fill="#4a6a9a">SL ←</text>
-          <text x={L_PAD + venueData.roomWidthM * scale - 28} y={dscSvgY - 5} fontSize={9} fill="#4a6a9a">→ SR</text>
-          <text x={dscSvgX + 5} y={dscSvgY + 11} fontSize={9} fill="#5890d8">DSC</text>
+          <text x={L_SVG_W / 2} y={L_PAD - 8} textAnchor="middle" fontSize={10} fill="#3a5c90" pointerEvents="none">UPSTAGE</text>
+          <text x={L_SVG_W / 2} y={svgH - 4} textAnchor="middle" fontSize={10} fill="#3a5c90" pointerEvents="none">DOWNSTAGE / AUDIENCE</text>
+          <text x={L_PAD + 4} y={dscSvgY - 5} fontSize={9} fill="#4a6a9a" pointerEvents="none">SL ←</text>
+          <text x={L_PAD + venueData.roomWidthM * scale - 28} y={dscSvgY - 5} fontSize={9} fill="#4a6a9a" pointerEvents="none">→ SR</text>
+          <text x={dscSvgX + 5} y={dscSvgY + 11} fontSize={9} fill="#5890d8" pointerEvents="none">DSC</text>
         </svg>
       </div>
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mt-3 text-xs text-av-text-muted">
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-2.5 rounded" style={{ background: 'rgba(70,120,200,0.5)', border: '1px solid #4878b8' }} />
-          <span>Stage Deck</span>
+          <span>Stage Deck (read-only)</span>
         </div>
         {surfaces.length > 0 && (
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-2.5 rounded" style={{ background: 'rgba(60,190,150,0.25)', border: '1px solid #30b890' }} />
-            <span>Screen</span>
+            <span>Screen (drag to reposition)</span>
           </div>
         )}
         {surfaces.some(s => (s.projectorAssignments ?? []).length > 0) && (
@@ -229,6 +400,7 @@ const LayoutTab: React.FC<{
             <span>Projector (requires throw distance)</span>
           </div>
         )}
+        <div className="flex items-center gap-1.5 ml-1"><div className="w-3 h-0.5 bg-violet-400" /><span>offset / distance</span></div>
       </div>
     </Card>
   );
@@ -257,8 +429,24 @@ export default function Projectors() {
 
   // ── Surfaces state ────────────────────────────────────────────────────────
   const [localSurfaces, setLocalSurfaces]         = useState<ProjectionSurface[]>([]);
+  const [selectedSurfaceId, setSelectedSurfaceId] = useState<string | null>(null);
   const [surfaceModalOpen, setSurfaceModalOpen]   = useState(false);
   const [editingSurface, setEditingSurface]       = useState<ProjectionSurface | null>(null);
+
+  // Clear selection if the selected surface is removed
+  useEffect(() => {
+    if (selectedSurfaceId && !localSurfaces.find(s => s.uuid === selectedSurfaceId)) {
+      setSelectedSurfaceId(null);
+    }
+  }, [localSurfaces, selectedSurfaceId]);
+
+  const handleSurfaceMove = useCallback(async (uuid: string, xM: number, yM: number) => {
+    setLocalSurfaces(prev => prev.map(s => s.uuid === uuid ? { ...s, posDsXM: xM, posDsYM: yM } : s));
+    const surf = localSurfaces.find(s => s.uuid === uuid);
+    if (surf) {
+      await projectionSurfaceAPI.updateSurface(uuid, { posDsXM: xM, posDsYM: yM, version: surf.version });
+    }
+  }, [localSurfaces, projectionSurfaceAPI]);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [localProjectors, setLocalProjectors] = useState<ProjectionScreen[]>([]);
@@ -1121,6 +1309,7 @@ export default function Projectors() {
           {localSurfaces.length > 0 && (
             <div className="space-y-3">
               {localSurfaces.map(surf => {
+                const isSelected = surf.uuid === selectedSurfaceId;
                 const assignedProjs = (surf.projectorAssignments || []).map(a => {
                   const proj = localProjectors.find(p => p.uuid === a.projectorUuid);
                   const spec = proj?.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
@@ -1138,7 +1327,11 @@ export default function Projectors() {
                 };
 
                 return (
-                  <Card key={surf.uuid} className="p-4">
+                  <Card
+                    key={surf.uuid}
+                    className={`p-4 cursor-pointer transition-colors ${isSelected ? 'ring-1 ring-emerald-500/40 bg-emerald-500/5' : ''}`}
+                    onClick={() => setSelectedSurfaceId(isSelected ? null : surf.uuid)}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3 min-w-0">
                         <MonitorPlay className="w-5 h-5 text-av-accent flex-shrink-0" />
@@ -1224,6 +1417,9 @@ export default function Projectors() {
           surfaces={localSurfaces}
           projectors={localProjectors}
           equipmentSpecs={equipmentSpecs}
+          selectedSurfaceId={selectedSurfaceId}
+          onSelectSurface={setSelectedSurfaceId}
+          onSurfaceMove={handleSurfaceMove}
           onGoToStaging={() => setActiveTab('staging')}
         />
       )}
