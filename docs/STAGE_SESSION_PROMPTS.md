@@ -62,6 +62,35 @@ Video Production Manager — React/TypeScript/Vite/Tailwind frontend + Node/Expr
 Monorepo: `/Users/kevin/GJS MEDIA Dropbox/Kevin Shea/Development/VideoDept/VideoDept/`
 Frontend: `http://localhost:3011` | API: `http://localhost:3010`
 
+### Session initialization
+Before doing anything else, run the standard startup protocol:
+
+1. Review documentation (grep-first — do NOT read large sections wholesale):
+   - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
+   - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
+   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - read_file TODO_NEXT_SESSION.md in full
+   - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
+
+2. Start dev servers (background):
+   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Verify HTTP 200 on http://localhost:3010/health
+
+3. Verify git pipeline:
+   git status && git log --oneline -5
+
+4. Verify Railway production:
+   curl -s https://api-server-production-9aaf.up.railway.app/health
+
+5. Report back: dev server status, git branch + last commit, Railway HTTP status,
+   last ✅ COMPLETE DEVLOG entry, any IN PROGRESS tasks, top priorities from TODO_NEXT_SESSION.md
+
+Session rules (no exceptions):
+- DEVLOG: Add IN PROGRESS checkpoint before any task; mark ✅ COMPLETE after with files changed
+- COMMIT: Conventional format (feat:, fix:, refactor:, chore:)
+- SESSION JOURNAL: Log every prompt → actions → files changed → outcome in video-production-manager/docs/SESSION_JOURNAL.md
+
 ### Goal for this session
 Extract the blend math from `imports/_unpack/screen_calc/WidescreenBlendCalculator.jsx` into a
 pure TypeScript engine at `src/components/blend/blendEngine.ts`. Then embed this engine into the
@@ -106,6 +135,35 @@ SESSION START — VideoDept v0.2.x_proj-stacking
 Video Production Manager — React/TypeScript/Vite/Tailwind frontend + Node/Express/Prisma/PostgreSQL API.
 Monorepo: `/Users/kevin/GJS MEDIA Dropbox/Kevin Shea/Development/VideoDept/VideoDept/`
 Frontend: `http://localhost:3011` | API: `http://localhost:3010`
+
+### Session initialization
+Before doing anything else, run the standard startup protocol:
+
+1. Review documentation (grep-first — do NOT read large sections wholesale):
+   - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
+   - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
+   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - read_file TODO_NEXT_SESSION.md in full
+   - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
+
+2. Start dev servers (background):
+   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Verify HTTP 200 on http://localhost:3010/health
+
+3. Verify git pipeline:
+   git status && git log --oneline -5
+
+4. Verify Railway production:
+   curl -s https://api-server-production-9aaf.up.railway.app/health
+
+5. Report back: dev server status, git branch + last commit, Railway HTTP status,
+   last ✅ COMPLETE DEVLOG entry, any IN PROGRESS tasks, top priorities from TODO_NEXT_SESSION.md
+
+Session rules (no exceptions):
+- DEVLOG: Add IN PROGRESS checkpoint before any task; mark ✅ COMPLETE after with files changed
+- COMMIT: Conventional format (feat:, fix:, refactor:, chore:)
+- SESSION JOURNAL: Log every prompt → actions → files changed → outcome in video-production-manager/docs/SESSION_JOURNAL.md
 
 ### Goal for this session
 Upgrade the ProjectionSurface projector_assignments data model to support stacked projectors
@@ -157,6 +215,35 @@ SESSION START — VideoDept v0.2.x_led-schema
 Video Production Manager — React/TypeScript/Vite/Tailwind frontend + Node/Express/Prisma/PostgreSQL API.
 Monorepo: `/Users/kevin/GJS MEDIA Dropbox/Kevin Shea/Development/VideoDept/VideoDept/`
 Frontend: `http://localhost:3011` | API: `http://localhost:3010`
+
+### Session initialization
+Before doing anything else, run the standard startup protocol:
+
+1. Review documentation (grep-first — do NOT read large sections wholesale):
+   - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
+   - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
+   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - read_file TODO_NEXT_SESSION.md in full
+   - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
+
+2. Start dev servers (background):
+   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Verify HTTP 200 on http://localhost:3010/health
+
+3. Verify git pipeline:
+   git status && git log --oneline -5
+
+4. Verify Railway production:
+   curl -s https://api-server-production-9aaf.up.railway.app/health
+
+5. Report back: dev server status, git branch + last commit, Railway HTTP status,
+   last ✅ COMPLETE DEVLOG entry, any IN PROGRESS tasks, top priorities from TODO_NEXT_SESSION.md
+
+Session rules (no exceptions):
+- DEVLOG: Add IN PROGRESS checkpoint before any task; mark ✅ COMPLETE after with files changed
+- COMMIT: Conventional format (feat:, fix:, refactor:, chore:)
+- SESSION JOURNAL: Log every prompt → actions → files changed → outcome in video-production-manager/docs/SESSION_JOURNAL.md
 
 ### Goal for this session
 Migrate the `led_screens` database table from its current projection-screen-like shape
@@ -213,6 +300,35 @@ Video Production Manager — React/TypeScript/Vite/Tailwind frontend + Node/Expr
 Monorepo: `/Users/kevin/GJS MEDIA Dropbox/Kevin Shea/Development/VideoDept/VideoDept/`
 Frontend: `http://localhost:3011` | API: `http://localhost:3010`
 
+### Session initialization
+Before doing anything else, run the standard startup protocol:
+
+1. Review documentation (grep-first — do NOT read large sections wholesale):
+   - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
+   - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
+   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - read_file TODO_NEXT_SESSION.md in full
+   - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
+
+2. Start dev servers (background):
+   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Verify HTTP 200 on http://localhost:3010/health
+
+3. Verify git pipeline:
+   git status && git log --oneline -5
+
+4. Verify Railway production:
+   curl -s https://api-server-production-9aaf.up.railway.app/health
+
+5. Report back: dev server status, git branch + last commit, Railway HTTP status,
+   last ✅ COMPLETE DEVLOG entry, any IN PROGRESS tasks, top priorities from TODO_NEXT_SESSION.md
+
+Session rules (no exceptions):
+- DEVLOG: Add IN PROGRESS checkpoint before any task; mark ✅ COMPLETE after with files changed
+- COMMIT: Conventional format (feat:, fix:, refactor:, chore:)
+- SESSION JOURNAL: Log every prompt → actions → files changed → outcome in video-production-manager/docs/SESSION_JOURNAL.md
+
 ### Goal for this session
 Build the LED page (`src/pages/LED.tsx`) Walls tab — the data view card list showing all LED walls
 for the active production, with 12 pre-shown slots (empty or populated), full CRUD.
@@ -258,6 +374,35 @@ SESSION START — VideoDept v0.2.x_led-planner
 Video Production Manager — React/TypeScript/Vite/Tailwind frontend + Node/Express/Prisma/PostgreSQL API.
 Monorepo: `/Users/kevin/GJS MEDIA Dropbox/Kevin Shea/Development/VideoDept/VideoDept/`
 Frontend: `http://localhost:3011` | API: `http://localhost:3010`
+
+### Session initialization
+Before doing anything else, run the standard startup protocol:
+
+1. Review documentation (grep-first — do NOT read large sections wholesale):
+   - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
+   - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
+   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - read_file TODO_NEXT_SESSION.md in full
+   - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
+
+2. Start dev servers (background):
+   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Verify HTTP 200 on http://localhost:3010/health
+
+3. Verify git pipeline:
+   git status && git log --oneline -5
+
+4. Verify Railway production:
+   curl -s https://api-server-production-9aaf.up.railway.app/health
+
+5. Report back: dev server status, git branch + last commit, Railway HTTP status,
+   last ✅ COMPLETE DEVLOG entry, any IN PROGRESS tasks, top priorities from TODO_NEXT_SESSION.md
+
+Session rules (no exceptions):
+- DEVLOG: Add IN PROGRESS checkpoint before any task; mark ✅ COMPLETE after with files changed
+- COMMIT: Conventional format (feat:, fix:, refactor:, chore:)
+- SESSION JOURNAL: Log every prompt → actions → files changed → outcome in video-production-manager/docs/SESSION_JOURNAL.md
 
 ### Goal for this session
 Build the Planner tab inside the LED page — the interactive tile grid canvas where users
@@ -311,6 +456,35 @@ Video Production Manager — React/TypeScript/Vite/Tailwind frontend + Node/Expr
 Monorepo: `/Users/kevin/GJS MEDIA Dropbox/Kevin Shea/Development/VideoDept/VideoDept/`
 Frontend: `http://localhost:3011` | API: `http://localhost:3010`
 
+### Session initialization
+Before doing anything else, run the standard startup protocol:
+
+1. Review documentation (grep-first — do NOT read large sections wholesale):
+   - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
+   - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
+   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - read_file TODO_NEXT_SESSION.md in full
+   - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
+
+2. Start dev servers (background):
+   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Verify HTTP 200 on http://localhost:3010/health
+
+3. Verify git pipeline:
+   git status && git log --oneline -5
+
+4. Verify Railway production:
+   curl -s https://api-server-production-9aaf.up.railway.app/health
+
+5. Report back: dev server status, git branch + last commit, Railway HTTP status,
+   last ✅ COMPLETE DEVLOG entry, any IN PROGRESS tasks, top priorities from TODO_NEXT_SESSION.md
+
+Session rules (no exceptions):
+- DEVLOG: Add IN PROGRESS checkpoint before any task; mark ✅ COMPLETE after with files changed
+- COMMIT: Conventional format (feat:, fix:, refactor:, chore:)
+- SESSION JOURNAL: Log every prompt → actions → files changed → outcome in video-production-manager/docs/SESSION_JOURNAL.md
+
 ### Goal for this session
 Enhance the Projectors Layout tab so it shows three layers on the top-down canvas:
 (1) stage decks (already read-only), (2) projection surfaces with projector cone
@@ -351,6 +525,35 @@ SESSION START — VideoDept v0.2.x_bidirectional-nav
 Video Production Manager — React/TypeScript/Vite/Tailwind frontend + Node/Express/Prisma/PostgreSQL API.
 Monorepo: `/Users/kevin/GJS MEDIA Dropbox/Kevin Shea/Development/VideoDept/VideoDept/`
 Frontend: `http://localhost:3011` | API: `http://localhost:3010`
+
+### Session initialization
+Before doing anything else, run the standard startup protocol:
+
+1. Review documentation (grep-first — do NOT read large sections wholesale):
+   - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
+   - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
+   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - read_file TODO_NEXT_SESSION.md in full
+   - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
+
+2. Start dev servers (background):
+   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Verify HTTP 200 on http://localhost:3010/health
+
+3. Verify git pipeline:
+   git status && git log --oneline -5
+
+4. Verify Railway production:
+   curl -s https://api-server-production-9aaf.up.railway.app/health
+
+5. Report back: dev server status, git branch + last commit, Railway HTTP status,
+   last ✅ COMPLETE DEVLOG entry, any IN PROGRESS tasks, top priorities from TODO_NEXT_SESSION.md
+
+Session rules (no exceptions):
+- DEVLOG: Add IN PROGRESS checkpoint before any task; mark ✅ COMPLETE after with files changed
+- COMMIT: Conventional format (feat:, fix:, refactor:, chore:)
+- SESSION JOURNAL: Log every prompt → actions → files changed → outcome in video-production-manager/docs/SESSION_JOURNAL.md
 
 ### Goal for this session
 Complete bidirectional navigation between the Projectors page sub-tabs so that:
