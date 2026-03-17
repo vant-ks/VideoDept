@@ -85,11 +85,14 @@ const LayoutTab: React.FC<{
   equipmentSpecs: any[];
   ledWalls: LEDScreen[];
   selectedSurfaceId: string | null;
+  selectedProjectorUuid: string | null;
   onSelectSurface: (uuid: string | null) => void;
+  onSelectProjector: (uuid: string) => void;
   onSurfaceMove: (uuid: string, xM: number, yM: number) => void;
   onLEDWallMove: (uuid: string, xM: number, yM: number) => void;
   onGoToStaging: () => void;
-}> = ({ venueData, surfaces, projectors, equipmentSpecs, ledWalls, selectedSurfaceId, onSelectSurface, onSurfaceMove, onLEDWallMove, onGoToStaging }) => {
+  onGoToLED: () => void;
+}> = ({ venueData, surfaces, projectors, equipmentSpecs, ledWalls, selectedSurfaceId, selectedProjectorUuid, onSelectSurface, onSelectProjector, onSurfaceMove, onLEDWallMove, onGoToStaging, onGoToLED }) => {
   const hasRoom = venueData.roomWidthM > 0 && venueData.roomDepthM > 0;
   const svgRef = useRef<SVGSVGElement>(null);
   const [snapInches, setSnapInches] = useState(CANVAS_SNAP_INCHES);
@@ -446,9 +449,13 @@ const LayoutTab: React.FC<{
                     return (
                       <g key={`dot-${unit.projectorUuid}`}>
                         <circle
-                          cx={dotX} cy={projSvgY} r={5}
-                          fill="#f0c030" stroke="#d4a820" strokeWidth="1"
-                          style={{ cursor: 'default' }}
+                          cx={dotX} cy={projSvgY}
+                          r={unit.projectorUuid === selectedProjectorUuid ? 7 : 5}
+                          fill={unit.projectorUuid === selectedProjectorUuid ? '#fde047' : '#f0c030'}
+                          stroke={unit.projectorUuid === selectedProjectorUuid ? '#eab308' : '#d4a820'}
+                          strokeWidth={unit.projectorUuid === selectedProjectorUuid ? 2 : 1}
+                          style={{ cursor: 'pointer' }}
+                          onClick={e => { e.stopPropagation(); onSelectProjector(unit.projectorUuid); }}
                           onPointerEnter={() => setHoveredCone({
                             projName: name,
                             throwM: throwDistM,
@@ -495,7 +502,7 @@ const LayoutTab: React.FC<{
                 key={`led-${wall.uuid}`}
                 style={{ cursor: 'grab' }}
                 onPointerDown={e => handleLEDWallPointerDown(e, wall)}
-                onClick={e => { e.stopPropagation(); setSelectedLEDId(wall.uuid); onSelectSurface(null); }}
+                onClick={e => { e.stopPropagation(); onGoToLED(); }}
               >
                 {isSelected && (
                   <rect
@@ -716,6 +723,7 @@ export default function Projectors() {
   // ── Surfaces state ────────────────────────────────────────────────────────
   const [localSurfaces, setLocalSurfaces]         = useState<ProjectionSurface[]>([]);
   const [selectedSurfaceId, setSelectedSurfaceId] = useState<string | null>(null);
+  const [selectedProjectorUuid, setSelectedProjectorUuid] = useState<string | null>(null);
   const [surfaceModalOpen, setSurfaceModalOpen]   = useState(false);
   const [editingSurface, setEditingSurface]       = useState<ProjectionSurface | null>(null);
 
@@ -842,6 +850,23 @@ export default function Projectors() {
     }
   }, [localSurfaces, selectedSurfaceId]);
 
+  // Scroll-to-card on tab switch for bidirectional navigation
+  useEffect(() => {
+    if (activeSubTab === 'projectors' && selectedProjectorUuid) {
+      setTimeout(() => {
+        projectorCardRefs.current[selectedProjectorUuid]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    }
+  }, [activeSubTab, selectedProjectorUuid]);
+
+  useEffect(() => {
+    if (activeSubTab === 'screens' && selectedSurfaceId) {
+      setTimeout(() => {
+        surfaceCardRefs.current[selectedSurfaceId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    }
+  }, [activeSubTab, selectedSurfaceId]);
+
   const handleSurfaceMove = useCallback(async (uuid: string, xM: number, yM: number) => {
     setLocalSurfaces(prev => prev.map(s => s.uuid === uuid ? { ...s, posDsXM: xM, posDsYM: yM } : s));
     const surf = localSurfaces.find(s => s.uuid === uuid);
@@ -871,6 +896,10 @@ export default function Projectors() {
   const isDragInProgress = useRef(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Refs for scroll-to-card bidirectional navigation
+  const projectorCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const surfaceCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Modal
   const [isModalOpen, setIsModalOpen]           = useState(false);
@@ -1349,11 +1378,13 @@ export default function Projectors() {
             const typeEntry   = PROJECTOR_TYPES.find(t => t.code === typeCodeFromId);
 
             return (
+              <div key={proj.uuid} ref={el => { projectorCardRefs.current[proj.uuid] = el; }}>
               <Card
-                key={proj.uuid}
                 className={`p-4 transition-colors cursor-pointer select-none ${
                   dragOverIndex === index ? 'border-av-accent/60 bg-av-accent/5' : 'hover:border-av-accent/30'
-                } ${draggedIndex === index ? 'opacity-50' : ''}`}
+                } ${draggedIndex === index ? 'opacity-50' : ''} ${
+                  proj.uuid === selectedProjectorUuid ? 'ring-1 ring-amber-400/50 bg-amber-400/5' : ''
+                }`}
                 draggable
                 onDragStart={() => handleDragStart(index)}
                 onDragOver={e => handleDragOver(e, index)}
@@ -1416,6 +1447,13 @@ export default function Projectors() {
 
                   {/* BUTTONS */}
                   <div className="flex gap-1 justify-end items-center" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => { setSelectedProjectorUuid(proj.uuid); setActiveSubTab('layout'); }}
+                      className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-amber-400 transition-colors"
+                      title="View on Layout"
+                    >
+                      <Map className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => handleEdit(proj)}
                       className="p-2 rounded-md hover:bg-av-surface-light text-av-text-muted hover:text-av-accent transition-colors"
@@ -1502,6 +1540,7 @@ export default function Projectors() {
                   </div>
                 )}
               </Card>
+              </div>
             );
           })}
         </div>
@@ -1820,8 +1859,8 @@ export default function Projectors() {
                 const hasEnoughForAnalysis = !!surf.widthM && !!nativeW;
 
                 return (
+                  <div key={surf.uuid} ref={el => { surfaceCardRefs.current[surf.uuid] = el; }}>
                   <Card
-                    key={surf.uuid}
                     className={`p-4 transition-colors ${isSelected ? 'ring-1 ring-emerald-500/40 bg-emerald-500/5' : ''}`}
                   >
                     {/* Card header — click to select surface */}
@@ -1873,6 +1912,13 @@ export default function Projectors() {
                             <ChevronDown className={`w-3 h-3 transition-transform ${analysisOpen ? 'rotate-180' : ''}`} />
                           </button>
                         )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedSurfaceId(surf.uuid); setActiveSubTab('layout'); }}
+                          className="btn-secondary text-xs flex items-center gap-1"
+                          title="View on Layout"
+                        >
+                          <Map className="w-3 h-3" /> Layout
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setEditingSurface(surf); setSurfaceModalOpen(true); }}
                           className="btn-secondary text-xs flex items-center gap-1"
@@ -2165,6 +2211,7 @@ export default function Projectors() {
                       </div>
                     )}
                   </Card>
+                  </div>
                 );
               })}
             </div>
@@ -2198,10 +2245,13 @@ export default function Projectors() {
           equipmentSpecs={equipmentSpecs}
           ledWalls={localLEDWalls}
           selectedSurfaceId={selectedSurfaceId}
-          onSelectSurface={setSelectedSurfaceId}
+          selectedProjectorUuid={selectedProjectorUuid}
+          onSelectSurface={(uuid) => { setSelectedSurfaceId(uuid); if (uuid) setActiveSubTab('screens'); }}
+          onSelectProjector={(uuid) => { setSelectedProjectorUuid(uuid); setActiveSubTab('projectors'); }}
           onSurfaceMove={handleSurfaceMove}
           onLEDWallMove={handleLEDWallMove}
           onGoToStaging={() => setActiveTab('staging')}
+          onGoToLED={() => setActiveTab('led')}
         />
       )}
 

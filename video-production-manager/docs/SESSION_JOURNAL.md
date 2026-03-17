@@ -8,6 +8,53 @@
 
 ## Active Session Tracking
 
+## Session 2026-03-16-Stage8
+**Started:** 2026-03-16
+**Status:** ✅ COMPLETE
+**Branch:** `v0.2.4_graphical-ui`
+**Tags:** feat, projectors, layout, navigation, led
+
+---
+
+### Prompt: Stage 8 — Bidirectional navigation: Layout ↔ Projectors/Screens tabs + cross-page LED nav
+**ID:** S20260316-P1-Stage8
+**Request:** Complete bidirectional navigation: canvas projector dot → Projectors tab + scroll, canvas surface → Screens tab + scroll, Projectors card "View on Layout" → Layout + highlight, Screens card "View on Layout" → Layout + highlight, LED wall canvas click → cross-page to LED page.
+
+#### Context at Start:
+- Branch: `v0.2.4_graphical-ui`, HEAD `731c681` (Stage 7 ✅)
+- Dev servers: API :3010 ✅, Frontend :3011 ✅
+- Railway: ✅ healthy
+- Stages 1–7 complete, no IN PROGRESS tasks
+
+#### Actions Taken:
+1. Read Projectors.tsx lines 1–2300 (full file): confirmed all state locations, LayoutTab props, card structures
+2. Confirmed `usePreferencesStore.setActiveTab` pattern already in use
+3. Extended LayoutTab props: `selectedProjectorUuid`, `onSelectProjector`, `onGoToLED`
+4. Projector dots: added `onClick → onSelectProjector()`, cursor `pointer`, size/color toggle on `selectedProjectorUuid` match
+5. LED wall `onClick`: changed from local selection to `onGoToLED()` cross-page; drag behavior unaffected (click suppressed on movement)
+6. Parent: added `selectedProjectorUuid` state alongside `selectedSurfaceId`
+7. Parent: added `projectorCardRefs` + `surfaceCardRefs` useRefs for scroll targeting
+8. Parent: added two `useEffect` hooks with 50ms `setTimeout` delay for `scrollIntoView` on tab switches
+9. Parent: updated LayoutTab call site — `onSelectSurface` also switches to `'screens'` tab; new `onSelectProjector`, `onGoToLED` props
+10. Projectors card: wrapped in `<div ref={...}>`, amber ring when `selectedProjectorUuid` matches, Map "View on Layout" button added before Edit
+11. Screens card: wrapped in `<div ref={...}>`, Map "Layout" button added before Edit
+12. TypeScript: zero errors
+
+#### Outcome: COMPLETED ✓
+- **Files Changed:**
+  - `src/pages/Projectors.tsx` — all navigation wiring
+  - `video-production-manager/DEVLOG.md` — Stage 8 entry
+  - `video-production-manager/docs/SESSION_JOURNAL.md` — this entry
+- **TypeScript:** ✅ Zero errors
+- **Navigation matrix:**
+  - Canvas projector dot → Projectors tab + scroll to card + amber ring
+  - Canvas surface → Screens tab + scroll to card
+  - Projectors card "View on Layout" → Layout tab + amber dot highlight
+  - Screens card "View on Layout" → Layout tab + emerald surface highlight
+  - LED wall canvas click → `setActiveTab('led')` cross-page navigation
+
+---
+
 ## Session 2026-03-16-Stage4
 **Started:** 2026-03-16
 **Branch:** `v0.2.4_graphical-ui`

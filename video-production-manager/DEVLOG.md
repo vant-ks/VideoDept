@@ -2,6 +2,35 @@
 
 ---
 
+## March 16, 2026 — feat(projectors): Stage 8 — Bidirectional navigation: Layout ↔ Projectors/Screens tabs + cross-page LED nav
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, projectors, layout, navigation, led
+
+**Session:** Bidirectional navigation between the Layout canvas and the Projectors/Screens sub-tabs. One file changed, zero TypeScript errors.
+
+### What was built
+
+**`src/pages/Projectors.tsx`** (modified)
+
+**LayoutTab component (props extended):**
+- Added `selectedProjectorUuid: string | null` prop
+- Added `onSelectProjector: (uuid: string) => void` prop
+- Added `onGoToLED: () => void` prop
+- Projector dot circles: `onClick` → calls `onSelectProjector(unit.projectorUuid)`, cursor changed to `pointer`, size/fill/stroke toggle when `unit.projectorUuid === selectedProjectorUuid` (r=7, yellow #fde047)
+- LED wall rectangle `onClick` changed from select+deselect to `onGoToLED()` — single click navigates to LED page; dragging still works via pointer events (click doesn't fire on significant movement)
+
+**Parent Projectors() component:**
+- New state: `selectedProjectorUuid` (`useState<string | null>(null)`)
+- New refs: `projectorCardRefs`, `surfaceCardRefs` (`useRef<Record<string, HTMLDivElement | null>>({})`)
+- New `useEffect` × 2: on `[activeSubTab, selectedProjectorUuid]` and `[activeSubTab, selectedSurfaceId]` → `scrollIntoView({ behavior: 'smooth', block: 'center' })` with 50 ms delay for render
+- LayoutTab call site: `onSelectSurface` now also calls `setActiveSubTab('screens')` when uuid is non-null; `onSelectProjector` sets uuid + switches to `'projectors'` tab; `onGoToLED` calls `setActiveTab('led')` (cross-page)
+- Projectors tab card: wrapped in `<div ref={...}>`, ring class `ring-1 ring-amber-400/50 bg-amber-400/5` when `proj.uuid === selectedProjectorUuid`, "View on Layout" Map icon button (amber hover) added before Edit
+- Screens tab card: wrapped in `<div ref={...}>`, "View on Layout" Map icon + "Layout" label button added before Edit
+
+---
+
 ## March 16, 2026 — feat(projectors): Stage 7 — Layout tab: calcCones() projector overlays + LED wall rectangles
 
 ### Branch: `v0.2.4_graphical-ui`
