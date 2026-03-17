@@ -2,6 +2,53 @@
 
 ---
 
+## March 16, 2026 — feat(projectors): Stage 7 — Layout tab: calcCones() projector overlays + LED wall rectangles
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, projectors, layout, svg, led-walls
+
+**Session:** Enhanced the Layout canvas with two new layers: (1) real calcCones()-based projector throw triangles with per-stackedUnit dot markers + hover tooltips, (2) LED wall rectangles draggable from useLEDScreenAPI with hover tooltips.
+
+### What was built
+
+**`src/pages/Projectors.tsx`** (modified)
+- **Import**: added `useLEDScreenAPI`, `LEDScreen` from `@/hooks/useLEDScreenAPI`
+- **LayoutTab props** (new): `ledWalls: LEDScreen[]`, `onLEDWallMove`
+- **New state in LayoutTab**: `selectedLEDId`, `hoveredCone`, `hoveredLEDWall`
+- **dragRef.kind** field: `'surface' | 'ledwall'` — single drag ref handles both item types
+- **handleLEDWallPointerDown**: mirrors handleSurfacePointerDown; clears surface selection
+- **handlePointerMove**: dispatches to `onLEDWallMove` or `onSurfaceMove` based on dragRef.kind
+- **handleKeyDown**: extended — ↑↓←→ now nudges LED walls when `selectedLEDId` is active
+- **Projector cones** (upgraded): replaced hardcoded triangle with `calcBlend()` + `calcCones()` pipeline:
+  - Builds BlendResult (nProj=1) from equipment spec `nativeW`/`throwRatio`
+  - Calls `calcCones()` to compute geometrically correct cone ConePoint
+  - Renders per-position throw triangle + per-stackedUnit dots (horizontally offset by 14 SVG px each)
+  - Hover on any dot: tooltip shows projector name, throw distance, coverage %, stack count
+- **LED wall rectangles** (new): renders each `LEDScreen` with `posDsXM`/`posDsYM` set as a draggable teal rect
+  - Width = `cols × (panelWidthMm / 1000)` m; height = `rows × (panelHeightMm / 1000)` m
+  - Falls back to 0.5m tile size when no equipment spec linked
+  - Click: selects (teal ring outline) + deselects active projection surface
+  - Drag: `onLEDWallMove` → optimistic update + API save
+  - Hover: tooltip showing wall name + grid size
+- **Hover tooltip overlays**: SVG rect+text overlays for both projector cones and LED walls
+- **Legend**: updated text from "requires throw distance" → "hover for details"; added LED wall legend item (shown when any wall has coordinates)
+- **Parent Projectors()** additions:
+  - `useLEDScreenAPI` hook instance
+  - `localLEDWalls: LEDScreen[]` state
+  - `useEffect` to fetch LED walls on productionId change
+  - `handleLEDWallMove`: optimistic + API save pattern matching `handleSurfaceMove`
+  - WS `onEntityCreated/Updated/Deleted` handlers extended for `ledScreen` entityType
+  - Pass `ledWalls` + `onLEDWallMove` to LayoutTab
+
+### TypeScript
+- ✅ Zero new errors in `src/pages/Projectors.tsx`
+
+### Files changed
+- `src/pages/Projectors.tsx` — LayoutTab + parent Projectors() component
+
+---
+
 ## March 16, 2026 — feat(led): Stage 6 — LED Planner tab: tile grid canvas + tile picker + chain routing
 
 ### Branch: `v0.2.4_graphical-ui`

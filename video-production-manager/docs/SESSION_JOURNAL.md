@@ -1368,3 +1368,52 @@ Both bugs confirmed resolved. ~180 lines of UI/pattern standards added to PROJEC
   - Stage 6 (Planner tile canvas) ready to start
 
 ---
+
+## Session 2026-03-16-Stage7
+**Started:** 2026-03-16
+**Status:** ✅ COMPLETE
+**Branch:** `v0.2.4_graphical-ui`
+**Tags:** feat, projectors, layout, svg, led-walls
+
+---
+
+### Prompt: Stage 7 — Layout tab: calcCones() projector overlays + LED wall rectangles
+**ID:** S20260316-P1-Stage7
+**Request:** Enhance the Projectors Layout canvas with (1) real calcCones()-based projector cone triangles fed by ProjectorPosition stacking model + equipment specs, with per-stackedUnit dot markers and hover tooltips; (2) LED wall rectangles from useLEDScreenAPI — draggable, with hover tooltips.
+
+#### Context at Start:
+- Branch: `v0.2.4_graphical-ui`, HEAD `5ea453b` (Stage 6 LED Planner ✅)
+- Dev servers: API :3010 ✅, Frontend :3011 ✅
+- Railway: ✅ healthy
+- Stages 1–6 complete, no IN PROGRESS tasks
+
+#### Actions Taken:
+1. Read `Projectors.tsx` lines 1–456: confirmed LayoutTab structure, dragRef, cone block, `handleSurfaceMove` pattern, LayoutTab call site
+2. Read `blendEngine.ts`: confirmed `calcBlend()` + `calcCones()` signatures; pz sign convention (+throwDist=front)
+3. Read `useLEDScreenAPI.ts`: confirmed `LEDScreen` type with `tileGrid.cols/rows`, `posDsXM/Y`, `equipmentUuid`
+4. Read `useProjectionSurfaceAPI.ts`: confirmed `ProjectorPosition.stackedUnits` shape
+5. Read parent state (~line 600): confirmed WS event handling, `handleSurfaceMove` pattern for API save
+6. Added import: `useLEDScreenAPI`, `LEDScreen`
+7. Extended LayoutTab props: `ledWalls`, `onLEDWallMove`
+8. Added state: `selectedLEDId`, `hoveredCone`, `hoveredLEDWall`
+9. Extended `dragRef` with `kind: 'surface' | 'ledwall'`
+10. Added `handleLEDWallPointerDown`; updated `handlePointerMove` + `handleKeyDown`
+11. Updated selected-item header to show LED wall name when selected
+12. Replaced hardcoded cone block: per-position `calcBlend(nProj=1)` + `calcCones()`, renders per-stackedUnit dots with hover tooltips
+13. Added LED wall rect layer: tileSpec spec lookup → wallWM/wallHM, teal rect, drag handler, hover tooltip
+14. Added SVG tooltip overlays for projector cones and LED walls (xy-clamped to stay in bounds)
+15. Updated legend (projector text + LED wall item)
+16. Parent Projectors(): added `useLEDScreenAPI`, `localLEDWalls` state, fetch effect, `handleLEDWallMove`, WS for `ledScreen`, passed new props
+17. TypeScript: zero new errors in Projectors.tsx
+
+#### Outcome: COMPLETED ✓
+- **Files Changed:**
+  - `src/pages/Projectors.tsx` — LayoutTab upgrades + parent wiring
+  - `video-production-manager/DEVLOG.md` — Stage 7 entry
+- **TypeScript:** ✅ Zero new errors in changed file
+- **Notes:**
+  - calcCones() pz: +throwDist for front → projWorldY = surfaceY - cone.pz (projector correctly placed downstage)
+  - LED wall dimensions fallback: 500mm tiles when no spec linked
+  - Stage 8 (bidirectional navigation) ready to start
+
+---

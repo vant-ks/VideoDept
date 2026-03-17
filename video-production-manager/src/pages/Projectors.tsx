@@ -20,6 +20,7 @@ import { useVenueStore, DECK_SIZES, type VenueData } from '@/hooks/useVenueStore
 import { usePreferencesStore } from '@/hooks/usePreferencesStore';
 import { DimLine, snapTo, formatMasImperial, CANVAS_SNAP_INCHES, SNAP_INCH_OPTIONS } from '@/components/VenueCanvasUtils';
 import { calcBlend, calcCones, autoCalcNProj, MIN_OVERLAP_PCT, type BlendResult, type ConePoint } from '@/components/blend/blendEngine';
+import { useLEDScreenAPI, type LEDScreen } from '@/hooks/useLEDScreenAPI';
 import { BlendDiagram } from '@/components/blend/BlendDiagram';
 import { ConeView, type ConeViewType } from '@/components/blend/ConeView';
 
@@ -82,15 +83,33 @@ const LayoutTab: React.FC<{
   surfaces: ProjectionSurface[];
   projectors: ProjectionScreen[];
   equipmentSpecs: any[];
+  ledWalls: LEDScreen[];
   selectedSurfaceId: string | null;
   onSelectSurface: (uuid: string | null) => void;
   onSurfaceMove: (uuid: string, xM: number, yM: number) => void;
+  onLEDWallMove: (uuid: string, xM: number, yM: number) => void;
   onGoToStaging: () => void;
-}> = ({ venueData, surfaces, projectors, equipmentSpecs, selectedSurfaceId, onSelectSurface, onSurfaceMove, onGoToStaging }) => {
+}> = ({ venueData, surfaces, projectors, equipmentSpecs, ledWalls, selectedSurfaceId, onSelectSurface, onSurfaceMove, onLEDWallMove, onGoToStaging }) => {
   const hasRoom = venueData.roomWidthM > 0 && venueData.roomDepthM > 0;
   const svgRef = useRef<SVGSVGElement>(null);
   const [snapInches, setSnapInches] = useState(CANVAS_SNAP_INCHES);
   const [hudPos, setHudPos] = useState<{ xM: number; yM: number } | null>(null);
+  const [selectedLEDId, setSelectedLEDId] = useState<string | null>(null);
+  const [hoveredCone, setHoveredCone] = useState<{
+    projName: string;
+    throwM: number;
+    coveragePct: number;
+    stackCount: number;
+    svgX: number;
+    svgY: number;
+  } | null>(null);
+  const [hoveredLEDWall, setHoveredLEDWall] = useState<{
+    name: string;
+    cols: number;
+    rows: number;
+    svgX: number;
+    svgY: number;
+  } | null>(null);
 
   if (!hasRoom) {
     return (
@@ -118,6 +137,7 @@ const LayoutTab: React.FC<{
 
   // ─ Drag state ──────────────────────────────────────────────────────────────
   const dragRef = useRef<{
+    kind: 'surface' | 'ledwall';
     uuid: string;
     startSvgX: number;
     startSvgY: number;
@@ -140,13 +160,31 @@ const LayoutTab: React.FC<{
   function handleSurfacePointerDown(e: React.PointerEvent<Element>, surf: ProjectionSurface) {
     e.stopPropagation();
     onSelectSurface(surf.uuid);
+    setSelectedLEDId(null);
     const [sx, sy] = getSvgPoint(e);
     dragRef.current = {
+      kind: 'surface',
       uuid: surf.uuid,
       startSvgX: sx,
       startSvgY: sy,
       startXM: surf.posDsXM ?? 0,
       startYM: surf.posDsYM ?? 0,
+    };
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }
+
+  function handleLEDWallPointerDown(e: React.PointerEvent<Element>, wall: LEDScreen) {
+    e.stopPropagation();
+    setSelectedLEDId(wall.uuid);
+    onSelectSurface(null);
+    const [sx, sy] = getSvgPoint(e);
+    dragRef.current = {
+      kind: 'ledwall',
+      uuid: wall.uuid,
+      startSvgX: sx,
+      startSvgY: sy,
+      startXM: wall.posDsXM ?? 0,
+      startYM: wall.posDsYM ?? 0,
     };
     (e.target as Element).setPointerCapture(e.pointerId);
   }
@@ -160,7 +198,11 @@ const LayoutTab: React.FC<{
     const rawY = dragRef.current.startYM + dyM;
     const snappedX = snapTo(rawX, SNAP_M);
     const snappedY = snapTo(rawY, SNAP_M);
-    onSurfaceMove(dragRef.current.uuid, snappedX, snappedY);
+    if (dragRef.current.kind === 'ledwall') {
+      onLEDWallMove(dragRef.current.uuid, snappedX, snappedY);
+    } else {
+      onSurfaceMove(dragRef.current.uuid, snappedX, snappedY);
+    }
     setHudPos({ xM: snappedX, yM: snappedY });
   }
 
@@ -170,14 +212,18 @@ const LayoutTab: React.FC<{
   }
 
   function handleKeyDown(e: React.KeyboardEvent<SVGSVGElement>) {
-    if (!selectedSurfaceId) return;
-    const surf = surfaces.find(s => s.uuid === selectedSurfaceId);
-    if (!surf) return;
+    if (!selectedSurfaceId && !selectedLEDId) return;
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       const dx = e.key === 'ArrowLeft' ? -SNAP_M : e.key === 'ArrowRight' ? SNAP_M : 0;
       const dy = e.key === 'ArrowUp'   ?  SNAP_M : e.key === 'ArrowDown'  ? -SNAP_M : 0;
-      onSurfaceMove(selectedSurfaceId, snapTo((surf.posDsXM ?? 0) + dx, SNAP_M), snapTo((surf.posDsYM ?? 0) + dy, SNAP_M));
+      if (selectedSurfaceId) {
+        const surf = surfaces.find(s => s.uuid === selectedSurfaceId);
+        if (surf) onSurfaceMove(selectedSurfaceId, snapTo((surf.posDsXM ?? 0) + dx, SNAP_M), snapTo((surf.posDsYM ?? 0) + dy, SNAP_M));
+      } else if (selectedLEDId) {
+        const wall = ledWalls.find(w => w.uuid === selectedLEDId);
+        if (wall) onLEDWallMove(selectedLEDId, snapTo((wall.posDsXM ?? 0) + dx, SNAP_M), snapTo((wall.posDsYM ?? 0) + dy, SNAP_M));
+      }
     }
   }
 
@@ -204,9 +250,12 @@ const LayoutTab: React.FC<{
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-av-text">Room Layout — Top Down</h3>
         <div className="flex items-center gap-3">
-          {selectedSurfaceId && (
+          {(selectedSurfaceId || selectedLEDId) && (
             <span className="text-xs text-emerald-400 font-medium">
-              {surfaces.find(s => s.uuid === selectedSurfaceId)?.name} selected — drag or ↑↓←→ nudge
+              {selectedSurfaceId
+                ? (surfaces.find(s => s.uuid === selectedSurfaceId)?.name ?? '')
+                : (ledWalls.find(w => w.uuid === selectedLEDId)?.name ?? '')}
+              {' '}selected — drag or ↑↓←→ nudge
             </span>
           )}
           <span className="text-xs text-av-text-muted">
@@ -329,34 +378,160 @@ const LayoutTab: React.FC<{
               </g>
             );
           })}
-          {/* Projectors + throw cones */}
-          {surfaces.flatMap(surf =>
-            (surf.projectorAssignments ?? []).flatMap(pos =>
-              pos.stackedUnits.flatMap(unit => {
-                const proj = projectors.find(p => p.uuid === unit.projectorUuid);
-                if (!proj) return [];
-                const spec = proj.equipmentUuid ? equipmentSpecs.find(e => e.uuid === proj.equipmentUuid) : null;
-                const lensThrow = spec?.specs?.throwRatio && surf.widthM ? spec.specs.throwRatio * surf.widthM : null;
-                const throwM = pos.throwDistM ?? lensThrow;
-                if (!throwM) return [];
-                const sx = surf.posDsXM ?? 0;
-                const sy = surf.posDsYM ?? 0;
-                const projX = sx + (pos.horizOffsetM ?? 0);
-                const projY = surf.surfaceType === 'REAR' ? sy + throwM : sy - throwM;
-                const sw = surf.widthM ?? 2;
-                const px = wx(projX); const py = wy(projY);
-                const sL = wx(sx - sw / 2); const sR = wx(sx + sw / 2); const sY = wy(sy);
-                return [(
-                  <g key={`${surf.uuid}-${pos.id}-${unit.projectorUuid}`} pointerEvents="none">
-                    <polygon points={`${px},${py} ${sL},${sY} ${sR},${sY}`}
-                      fill="rgba(245,200,60,0.07)" stroke="rgba(245,200,60,0.2)" strokeWidth="0.8" />
-                    <circle cx={px} cy={py} r={5} fill="#f0c030" stroke="#d4a820" strokeWidth="1" />
-                    <text x={px} y={py - 7} textAnchor="middle" fontSize={9} fill="#f0c030">{proj.id}</text>
-                  </g>
-                )];
-              })
-            )
-          )}
+          {/* Projectors + throw cones — driven by calcCones() */}
+          {surfaces.flatMap(surf => {
+            const assignments = surf.projectorAssignments ?? [];
+            if (!assignments.length) return [];
+            const surfW = surf.widthM ?? 4;
+            const surfH = surf.heightM ?? 2.25;
+            const sx = surf.posDsXM ?? 0;
+            const sy = surf.posDsYM ?? 0;
+            return assignments.flatMap(pos => {
+              // Get spec from the first stacked unit's projector
+              const firstUnit = pos.stackedUnits[0];
+              const proj0 = firstUnit ? projectors.find(p => p.uuid === firstUnit.projectorUuid) : null;
+              const spec0 = proj0?.equipmentUuid ? equipmentSpecs.find(s => s.uuid === proj0.equipmentUuid) : null;
+              const nativeW = spec0?.specs?.nativeW ?? 1920;
+              const nativeH = spec0?.specs?.nativeH ?? 1080;
+              const throwRatio: number | undefined =
+                spec0?.specs?.throwRatio ?? spec0?.specs?.throwRatioMin ?? undefined;
+              const throwDistM = pos.throwDistM ?? (throwRatio ? throwRatio * surfW : null);
+              if (!throwDistM) return [];
+
+              const blendRes = calcBlend({
+                screenW: surfW,
+                screenH: surfH,
+                nativeW,
+                nativeH,
+                nProj: 1,
+                overlapPct: 0,
+                throwDistM,
+                throwRatio,
+              });
+              if (!blendRes) return [];
+
+              const cones = calcCones({
+                posX: sx + (pos.horizOffsetM ?? 0),
+                posY: sy,
+                screenH: surfH,
+                mountRear: surf.surfaceType === 'REAR',
+                throwDistM,
+                throwRatio,
+              }, blendRes);
+              if (!cones.length) return [];
+
+              const cone = cones[0];
+              // pz is signed: +throwDist for front, -throwDist for rear
+              const projWorldY = sy - cone.pz;
+              const projSvgX = wx(cone.px);
+              const projSvgY = wy(projWorldY);
+              const screenSvgY = wy(sy);
+
+              const projCoverageM = throwRatio ? throwDistM / throwRatio : surfW;
+              const coveragePct = Math.min(100, Math.round((projCoverageM / surfW) * 100));
+
+              return [(
+                <g key={`cone-${surf.uuid}-${pos.id}`}>
+                  {/* Throw cone triangle */}
+                  <polygon
+                    points={`${projSvgX},${projSvgY} ${wx(cone.sL)},${screenSvgY} ${wx(cone.sR)},${screenSvgY}`}
+                    fill="rgba(245,200,60,0.07)" stroke="rgba(245,200,60,0.22)" strokeWidth="0.8"
+                    pointerEvents="none"
+                  />
+                  {/* Per-stackedUnit projector dots */}
+                  {pos.stackedUnits.map((unit, ui) => {
+                    const unitProj = projectors.find(p => p.uuid === unit.projectorUuid);
+                    const name = unitProj?.id ?? unit.projectorUuid.slice(0, 6);
+                    const dotX = projSvgX + ui * 14;
+                    return (
+                      <g key={`dot-${unit.projectorUuid}`}>
+                        <circle
+                          cx={dotX} cy={projSvgY} r={5}
+                          fill="#f0c030" stroke="#d4a820" strokeWidth="1"
+                          style={{ cursor: 'default' }}
+                          onPointerEnter={() => setHoveredCone({
+                            projName: name,
+                            throwM: throwDistM,
+                            coveragePct,
+                            stackCount: pos.stackedUnits.length,
+                            svgX: dotX,
+                            svgY: projSvgY,
+                          })}
+                          onPointerLeave={() => setHoveredCone(null)}
+                        />
+                        {ui === 0 && (
+                          <text x={projSvgX} y={projSvgY - 8} textAnchor="middle"
+                            fontSize={9} fill="#f0c030" pointerEvents="none">
+                            {name}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+                </g>
+              )];
+            });
+          })}
+          {/* LED Wall rectangles — draggable */}
+          {ledWalls.filter(w => w.posDsXM != null && w.posDsYM != null).map(wall => {
+            const tileSpec = wall.equipmentUuid
+              ? equipmentSpecs.find(s => s.uuid === wall.equipmentUuid)
+              : null;
+            const panelWMm = tileSpec?.specs?.panelWidthMm ?? 500;
+            const panelHMm = tileSpec?.specs?.panelHeightMm ?? 500;
+            const cols = wall.tileGrid?.cols ?? 1;
+            const rows = wall.tileGrid?.rows ?? 1;
+            const wallWM = cols * (panelWMm / 1000);
+            const wallHM = rows * (panelHMm / 1000);
+            const cx = wall.posDsXM!;
+            const cy = wall.posDsYM!;
+            const isSelected = wall.uuid === selectedLEDId;
+            const rectX = wx(cx - wallWM / 2);
+            const rectY = wy(cy + wallHM / 2);
+            const rectW = Math.max(wallWM * scale, 4);
+            const rectH = Math.max(wallHM * scale, 4);
+            return (
+              <g
+                key={`led-${wall.uuid}`}
+                style={{ cursor: 'grab' }}
+                onPointerDown={e => handleLEDWallPointerDown(e, wall)}
+                onClick={e => { e.stopPropagation(); setSelectedLEDId(wall.uuid); onSelectSurface(null); }}
+              >
+                {isSelected && (
+                  <rect
+                    x={rectX - 4} y={rectY - 4}
+                    width={rectW + 8} height={rectH + 8}
+                    fill="none" stroke="rgba(20,184,166,0.6)" strokeWidth={2}
+                    rx={3} strokeDasharray="4 2" pointerEvents="none"
+                  />
+                )}
+                <rect
+                  x={rectX} y={rectY}
+                  width={rectW} height={rectH}
+                  fill={isSelected ? 'rgba(20,184,166,0.40)' : 'rgba(20,184,166,0.20)'}
+                  stroke={isSelected ? '#14b8a6' : '#0d9488'}
+                  strokeWidth={isSelected ? 1.8 : 1.2} rx="2"
+                />
+                <text x={wx(cx)} y={rectY - 4} textAnchor="middle" fontSize={10}
+                  fill={isSelected ? '#14b8a6' : '#0d9488'} pointerEvents="none">
+                  {wall.name}
+                </text>
+                {/* Invisible hover target over the rect */}
+                <rect
+                  x={rectX} y={rectY} width={rectW} height={rectH}
+                  fill="transparent"
+                  onPointerEnter={() => setHoveredLEDWall({
+                    name: wall.name,
+                    cols,
+                    rows,
+                    svgX: rectX + rectW / 2,
+                    svgY: rectY,
+                  })}
+                  onPointerLeave={() => setHoveredLEDWall(null)}
+                />
+              </g>
+            );
+          })}
           {/* Dimension callouts for selected surface */}
           {selectedSurf && (() => {
             const cx = selectedSurf.posDsXM ?? 0;
@@ -429,6 +604,58 @@ const LayoutTab: React.FC<{
               </text>
             </g>
           )}
+          {/* Projector cone hover tooltip */}
+          {hoveredCone && (
+            <g pointerEvents="none">
+              <rect
+                x={Math.min(Math.max(hoveredCone.svgX - 75, L_PAD), L_SVG_W - 155)}
+                y={hoveredCone.svgY - 60}
+                width={150} height={52}
+                rx={3} fill="rgba(13,21,32,0.94)" stroke="rgba(245,200,60,0.45)" strokeWidth={1}
+              />
+              <text
+                x={Math.min(Math.max(hoveredCone.svgX, L_PAD + 75), L_SVG_W - 80)}
+                y={hoveredCone.svgY - 44}
+                textAnchor="middle" fill="#f0c030" fontSize={9.5} fontWeight="600">
+                {hoveredCone.projName}
+              </text>
+              <text
+                x={Math.min(Math.max(hoveredCone.svgX, L_PAD + 75), L_SVG_W - 80)}
+                y={hoveredCone.svgY - 30}
+                textAnchor="middle" fill="#fef08a" fontSize={8.5}>
+                {`Throw: ${hoveredCone.throwM.toFixed(1)} m · ${hoveredCone.coveragePct}% coverage`}
+              </text>
+              <text
+                x={Math.min(Math.max(hoveredCone.svgX, L_PAD + 75), L_SVG_W - 80)}
+                y={hoveredCone.svgY - 17}
+                textAnchor="middle" fill="#fef08a" fontSize={8.5}>
+                {hoveredCone.stackCount > 1 ? `Stack: ${hoveredCone.stackCount} units` : 'Single unit'}
+              </text>
+            </g>
+          )}
+          {/* LED Wall hover tooltip */}
+          {hoveredLEDWall && (
+            <g pointerEvents="none">
+              <rect
+                x={Math.min(Math.max(hoveredLEDWall.svgX - 70, L_PAD), L_SVG_W - 145)}
+                y={hoveredLEDWall.svgY - 46}
+                width={140} height={40}
+                rx={3} fill="rgba(13,21,32,0.92)" stroke="rgba(20,184,166,0.45)" strokeWidth={1}
+              />
+              <text
+                x={Math.min(Math.max(hoveredLEDWall.svgX, L_PAD + 70), L_SVG_W - 75)}
+                y={hoveredLEDWall.svgY - 30}
+                textAnchor="middle" fill="#14b8a6" fontSize={9.5} fontWeight="600">
+                {hoveredLEDWall.name}
+              </text>
+              <text
+                x={Math.min(Math.max(hoveredLEDWall.svgX, L_PAD + 70), L_SVG_W - 75)}
+                y={hoveredLEDWall.svgY - 17}
+                textAnchor="middle" fill="#99f6e4" fontSize={8.5}>
+                {`${hoveredLEDWall.cols}×${hoveredLEDWall.rows} grid`}
+              </text>
+            </g>
+          )}
         </svg>
       </div>
       {/* Legend */}
@@ -446,7 +673,13 @@ const LayoutTab: React.FC<{
         {surfaces.some(s => (s.projectorAssignments ?? []).length > 0) && (
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full" style={{ background: '#f0c030', border: '1px solid #d4a820' }} />
-            <span>Projector (requires throw distance)</span>
+            <span>Projector (hover for details)</span>
+          </div>
+        )}
+        {ledWalls.some(w => w.posDsXM != null) && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-2.5 rounded" style={{ background: 'rgba(20,184,166,0.20)', border: '1px solid #0d9488' }} />
+            <span>LED Wall (drag or ↑↓←→ nudge)</span>
           </div>
         )}
         <div className="flex items-center gap-1.5 ml-1"><div className="w-3 h-0.5 bg-violet-400" /><span>offset / distance</span></div>
@@ -461,6 +694,7 @@ export default function Projectors() {
   const oldStore = useProductionStore();
   const projectionScreenAPI = useProjectionScreenAPI();
   const projectionSurfaceAPI = useProjectionSurfaceAPI();
+  const ledScreenAPI = useLEDScreenAPI();
   const { setActiveTab } = usePreferencesStore();
   const { getVenue } = useVenueStore();
 
@@ -475,6 +709,9 @@ export default function Projectors() {
 
   // ── Sub-tab ───────────────────────────────────────────────────────────────
   const [activeSubTab, setActiveSubTab] = useState<'projectors' | 'screens' | 'layout'>('projectors');
+
+  // ── LED Walls state (for Layout canvas) ───────────────────────────────────
+  const [localLEDWalls, setLocalLEDWalls] = useState<LEDScreen[]>([]);
 
   // ── Surfaces state ────────────────────────────────────────────────────────
   const [localSurfaces, setLocalSurfaces]         = useState<ProjectionSurface[]>([]);
@@ -613,6 +850,14 @@ export default function Projectors() {
     }
   }, [localSurfaces, projectionSurfaceAPI]);
 
+  const handleLEDWallMove = useCallback(async (uuid: string, xM: number, yM: number) => {
+    setLocalLEDWalls(prev => prev.map(w => w.uuid === uuid ? { ...w, posDsXM: xM, posDsYM: yM } : w));
+    const wall = localLEDWalls.find(w => w.uuid === uuid);
+    if (wall) {
+      await ledScreenAPI.updateLEDScreen(uuid, { posDsXM: xM, posDsYM: yM, version: wall.version });
+    }
+  }, [localLEDWalls, ledScreenAPI]);
+
   // ── State ─────────────────────────────────────────────────────────────────
   const [localProjectors, setLocalProjectors] = useState<ProjectionScreen[]>([]);
   const [formats, setFormats]                 = useState<Format[]>([]);
@@ -673,6 +918,14 @@ export default function Projectors() {
   }, [productionId]);
 
   useEffect(() => {
+    if (productionId) {
+      ledScreenAPI.fetchLEDScreens(productionId)
+        .then(setLocalLEDWalls)
+        .catch(console.error);
+    }
+  }, [productionId]);
+
+  useEffect(() => {
     apiClient.get<Format[]>('/formats').then(setFormats).catch(() => {});
   }, []);
 
@@ -702,6 +955,11 @@ export default function Projectors() {
           prev.some(s => s.uuid === normalized.uuid) ? prev : [...prev, normalized]
         );
       }
+      if (event.entityType === 'ledScreen') {
+        setLocalLEDWalls(prev =>
+          prev.some(w => w.uuid === event.entity.uuid) ? prev : [...prev, event.entity]
+        );
+      }
     }, []),
     onEntityUpdated: useCallback((event: EntityEvent) => {
       if (event.entityType === 'projectionScreen') {
@@ -716,6 +974,11 @@ export default function Projectors() {
           prev.map(s => s.uuid === normalized.uuid ? normalized : s)
         );
       }
+      if (event.entityType === 'ledScreen') {
+        setLocalLEDWalls(prev =>
+          prev.map(w => w.uuid === event.entity.uuid ? event.entity : w)
+        );
+      }
     }, []),
     onEntityDeleted: useCallback((event: EntityEvent) => {
       if (event.entityType === 'projectionScreen') {
@@ -723,6 +986,9 @@ export default function Projectors() {
       }
       if (event.entityType === 'projectionSurface') {
         setLocalSurfaces(prev => prev.filter(s => s.uuid !== event.entityId));
+      }
+      if (event.entityType === 'ledScreen') {
+        setLocalLEDWalls(prev => prev.filter(w => w.uuid !== event.entityId));
       }
     }, []),
   });
@@ -1930,9 +2196,11 @@ export default function Projectors() {
           surfaces={localSurfaces}
           projectors={localProjectors}
           equipmentSpecs={equipmentSpecs}
+          ledWalls={localLEDWalls}
           selectedSurfaceId={selectedSurfaceId}
           onSelectSurface={setSelectedSurfaceId}
           onSurfaceMove={handleSurfaceMove}
+          onLEDWallMove={handleLEDWallMove}
           onGoToStaging={() => setActiveTab('staging')}
         />
       )}
