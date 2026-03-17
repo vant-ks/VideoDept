@@ -583,7 +583,6 @@ export const useProductionStore = create<ProductionStore>()(
           isBackup: false,
           platform,
           computerType,
-          outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}A-OUT${i + 1}` })),
           note
         };
         
@@ -594,11 +593,6 @@ export const useProductionStore = create<ProductionStore>()(
           isBackup: true,
           platform,
           computerType,
-          outputs: outputs.map((o, i) => ({
-            ...o,
-            id: `${nextPairNumber}B-OUT${i + 1}`,
-            name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => ` B${role || ''}`) // Replace " A" with " B", keep role
-          })),
           note
         };
         

@@ -2812,3 +2812,46 @@ const savedMainServer = await apiClient.post('/media-servers', {
 - Video switcher integration
 - Media server allocation
 - CCU and camera management
+
+---
+
+## refactor(media-servers): remove outputs_data — retire legacy JSONB in favour of device_ports
+
+**Date:** 2026-03-16
+**Branch:** v0.2.5_projection-refinement
+### Status: ✅ COMPLETE
+
+### Problem
+`outputs_data` (JSONB on `media_servers`) and `device_ports` stored the same information
+with full field overlap: connector type → `ioType`, name → `portLabel`, role → `note`,
+resolution/frameRate → `formatUuid`. Every save was overwriting `outputs_data` with `[]`,
+and the frontend had a dead fallback path (`pair.main.outputs.length`) that could never fire
+in practice (ports are always fetched via device_ports now).
+
+### Changes
+- **`api/src/routes/media-servers.ts`** — `normalizeMediaServer` no longer maps
+  `outputsData → outputs`; POST no longer writes `outputs_data`; PUT no longer writes
+  `outputs_data`. API now only strips `outputsData` from response (column stays in DB).
+- **`src/types/mediaServer.ts`** — removed `MediaServerOutput` interface and `outputs`
+  field from `MediaServer`. `device_ports` / `DevicePortDraft` is the sole port model.
+- **`src/pages/MediaServers.tsx`** — removed `outputs: []` from both `updateMediaServer`
+  calls in `onSave`/`onSaveAndDuplicate`; removed stale `MediaServerOutput` import;
+  simplified output count to pure device_ports path (no legacy fallback).
+- **`src/hooks/useProjectStore.ts`** — removed `outputs` field from server object
+  literals in `addMediaServerPair`; removed `outputs` from API POST bodies.
+- **`src/hooks/useStore.ts`** — removed `outputs` field from `MediaServer` object
+  literals in `addMediaServerPair` (legacy store).
+
+### What does NOT change
+- `outputs_data Json?` column in schema.prisma — untouched (data preserved, just silenced)
+- `ServerPairModal` + `IOPortsPanel` — untouched
+- `device_ports` table + sync endpoint — untouched
+- User-visible functionality — identical
+
+### Files Changed
+- `video-production-manager/api/src/routes/media-servers.ts`
+- `video-production-manager/src/types/mediaServer.ts`
+- `video-production-manager/src/pages/MediaServers.tsx`
+- `video-production-manager/src/hooks/useProjectStore.ts`
+- `video-production-manager/src/hooks/useStore.ts`
+- `video-production-manager/DEVLOG.md`

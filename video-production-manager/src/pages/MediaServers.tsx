@@ -8,7 +8,7 @@ import { useProjectStore } from '@/hooks/useProjectStore';
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import { apiClient } from '@/services';
 import { getCurrentUserId } from '@/utils/userUtils';
-import type { MediaServer, MediaServerOutput, MediaServerLayer, Format } from '@/types';
+import type { MediaServer, MediaServerLayer, Format } from '@/types';
 import { MEDIA_SERVER_PLATFORMS } from '@/types/mediaServer';
 import { IOPortsPanel, formatLabel } from '@/components/IOPortsPanel';
 import type { DevicePortDraft } from '@/components/IOPortsPanel';
@@ -499,11 +499,9 @@ export default function MediaServers() {
                       </h3>
                       <span className="text-sm text-av-text-muted flex-shrink-0">
                         {(() => {
-                          // Count named+format-assigned OUTPUT ports; fall back to outputs_data length for legacy records
+                          // Count named+format-assigned OUTPUT ports
                           const ports = mainUuid ? pairCardPorts[mainUuid] : undefined;
-                          const count = ports !== undefined
-                            ? ports.filter(p => p.direction === 'OUTPUT' && p.portLabel?.trim() && p.formatUuid).length
-                            : pair.main.outputs.length;
+                          const count = (ports ?? []).filter(p => p.direction === 'OUTPUT' && p.portLabel?.trim() && p.formatUuid).length;
                           return pair.main.platform + (count > 0 ? ` (${count} output${count !== 1 ? 's' : ''})` : '');
                         })()}
                       </span>
@@ -1109,8 +1107,8 @@ export default function MediaServers() {
                   }));
                 }
                 Promise.all([
-                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs: [], note, computerType }),
-                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: [], note, computerType }),
+                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, note, computerType }),
+                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, note, computerType }),
                 ]).then(() => {
                   if (activeProject) projectStore.loadProject(activeProject.id);
                 }).catch(() => {});
@@ -1137,8 +1135,8 @@ export default function MediaServers() {
                   }));
                 }
                 Promise.all([
-                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, outputs: [], note, computerType }),
-                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, outputs: [], note, computerType }),
+                  updateMediaServer(pair.main.id, { name: `${serverName} A`, platform, note, computerType }),
+                  updateMediaServer(pair.backup.id, { name: `${serverName} B`, platform, note, computerType }),
                 ]).then(() => {
                   if (activeProject) projectStore.loadProject(activeProject.id);
                 }).catch(() => {});
