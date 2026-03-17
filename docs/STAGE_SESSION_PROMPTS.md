@@ -306,14 +306,17 @@ Before doing anything else, run the standard startup protocol:
 1. Review documentation (grep-first — do NOT read large sections wholesale):
    - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
    - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
-   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - grep_search SESSION_JOURNAL.md for latest `## Session 2026` entry (last match), read ~60 lines from there
    - read_file TODO_NEXT_SESSION.md in full
    - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
 
-2. Start dev servers (background):
-   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
-   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
-   Verify HTTP 200 on http://localhost:3010/health
+2. Verify dev servers are running (start if not):
+   Check: curl -s http://localhost:3010/health
+   If HTTP 200 → already running, proceed to step 3
+   If not responding:
+     API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+     Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Confirm HTTP 200 on http://localhost:3010/health before continuing
 
 3. Verify git pipeline:
    git status && git log --oneline -5
@@ -381,14 +384,17 @@ Before doing anything else, run the standard startup protocol:
 1. Review documentation (grep-first — do NOT read large sections wholesale):
    - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
    - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
-   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - grep_search SESSION_JOURNAL.md for latest `## Session 2026` entry (last match), read ~60 lines from there
    - read_file TODO_NEXT_SESSION.md in full
    - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
 
-2. Start dev servers (background):
-   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
-   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
-   Verify HTTP 200 on http://localhost:3010/health
+2. Verify dev servers are running (start if not):
+   Check: curl -s http://localhost:3010/health
+   If HTTP 200 → already running, proceed to step 3
+   If not responding:
+     API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+     Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Confirm HTTP 200 on http://localhost:3010/health before continuing
 
 3. Verify git pipeline:
    git status && git log --oneline -5
@@ -462,14 +468,17 @@ Before doing anything else, run the standard startup protocol:
 1. Review documentation (grep-first — do NOT read large sections wholesale):
    - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
    - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
-   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - grep_search SESSION_JOURNAL.md for latest `## Session 2026` entry (last match), read ~60 lines from there
    - read_file TODO_NEXT_SESSION.md in full
    - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
 
-2. Start dev servers (background):
-   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
-   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
-   Verify HTTP 200 on http://localhost:3010/health
+2. Verify dev servers are running (start if not):
+   Check: curl -s http://localhost:3010/health
+   If HTTP 200 → already running, proceed to step 3
+   If not responding:
+     API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+     Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Confirm HTTP 200 on http://localhost:3010/health before continuing
 
 3. Verify git pipeline:
    git status && git log --oneline -5
@@ -532,14 +541,17 @@ Before doing anything else, run the standard startup protocol:
 1. Review documentation (grep-first — do NOT read large sections wholesale):
    - grep_search DEVLOG.md for `✅ COMPLETE` / `IN PROGRESS` (last 60 lines)
    - read_file PROJECT_RULES.md lines 1–70 (navigation TOC), then grep-jump to relevant sections
-   - grep_search SESSION_JOURNAL.md for latest `## Session 20` heading, read ~60 lines from there
+   - grep_search SESSION_JOURNAL.md for latest `## Session 2026` entry (last match), read ~60 lines from there
    - read_file TODO_NEXT_SESSION.md in full
    - read_file AI_AGENT_PROTOCOL.md lines 1–100 only
 
-2. Start dev servers (background):
-   API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
-   Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
-   Verify HTTP 200 on http://localhost:3010/health
+2. Verify dev servers are running (start if not):
+   Check: curl -s http://localhost:3010/health
+   If HTTP 200 → already running, proceed to step 3
+   If not responding:
+     API:      cd "video-production-manager/api" && npm run dev    → http://localhost:3010
+     Frontend: cd "video-production-manager" && npm run dev        → http://localhost:3011
+   Confirm HTTP 200 on http://localhost:3010/health before continuing
 
 3. Verify git pipeline:
    git status && git log --oneline -5

@@ -8,6 +8,7 @@ import { useLEDScreenAPI, type LEDScreen, type LEDScreenInput, type TileGrid, ty
 import { useProductionEvents } from '@/hooks/useProductionEvents';
 import type { EntityEvent } from '@/hooks/useProductionEvents';
 import type { EquipmentSpec } from '@/types';
+import LedPlannerTab from '@/components/led/LedPlannerTab';
 
 // ── Computed wall stats ───────────────────────────────────────────────────────
 
@@ -188,6 +189,19 @@ const LED: React.FC = () => {
     }
   };
 
+  // ── Update wall tile grid (called by Planner tab) ────────────────────────
+  const handleUpdateTileGrid = useCallback(
+    async (uuid: string, tileGrid: TileGrid, version: number) => {
+      const result = await ledAPI.updateLEDScreen(uuid, { tileGrid, version });
+      if ('error' in result) {
+        throw new Error((result as any).message ?? 'Conflict: record modified by another user.');
+      }
+      const updated = result as LEDScreen;
+      setWalls(prev => prev.map(w => w.uuid === uuid ? updated : w));
+    },
+    [ledAPI],
+  );
+
   // ── Save ────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     const errors: string[] = [];
@@ -327,15 +341,14 @@ const LED: React.FC = () => {
         />
       )}
 
-      {/* ── Planner Tab (Stage 6) ────────────────────────────────────────── */}
+      {/* ── Planner Tab ──────────────────────────────────────────────────── */}
       {activeSubTab === 'planner' && (
-        <Card className="p-12 text-center">
-          <Layers className="w-12 h-12 text-av-text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-av-text mb-2">Planner Coming in Stage 6</h3>
-          <p className="text-av-text-muted">
-            Interactive tile grid canvas — build LED walls cell by cell from your equipment library.
-          </p>
-        </Card>
+        <LedPlannerTab
+          walls={walls}
+          tileSpecs={ledTiles}
+          processorSpecs={ledProcessors}
+          onUpdateWall={handleUpdateTileGrid}
+        />
       )}
 
       {/* ── Add / Edit Modal ─────────────────────────────────────────────── */}

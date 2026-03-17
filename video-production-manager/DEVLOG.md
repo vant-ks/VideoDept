@@ -2,6 +2,59 @@
 
 ---
 
+## March 16, 2026 — feat(led): Stage 6 — LED Planner tab: tile grid canvas + tile picker + chain routing
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, led, planner, canvas, svg, chain-routing
+
+**Session:** Built the full Planner sub-tab (`LedPlannerTab.tsx`) and equipment seam hook (`useLedEquipment.ts`). Replaced the Stage 6 placeholder in `LED.tsx` with the live interactive canvas.
+
+### What was built
+
+**`src/hooks/useLedEquipment.ts`** (new file, ~120 lines)
+- Bridges equipment library (`useEquipmentLibrary`) to `LedPanelSpec` / `LedProcessorSpec` shapes
+- Priority: LED_TILE / LED_PROCESSOR items from Zustand library store
+- Falls back to `BUILTIN_PANELS` / `BUILTIN_PROCESSORS` (10 panels, 4 processors) when library is empty
+- Adapts `EquipmentSpec.specs` fields (panelWidthMm, pixelsH, powerMaxW, maxChainLength…) to planner format
+- Ported BUILTIN_PANELS from `imports/_unpack/led_visualizer/LedWallPlanner.jsx`
+
+**`src/components/led/LedPlannerTab.tsx`** (new file, ~560 lines)
+- **Wall selector**: dropdown lists all 12 walls by sortOrder (W1–W12)
+- **SVG canvas**: `WallCanvas` component renders cells proportionally to tile's physical mm dimensions (cellPxH = cellPxW × panelHeightMm/panelWidthMm)
+- **Cell painting**: click VOID or TILE cell → paints with selected tile spec UUID + variant; saves to localGrid state (dirty flag)
+- **Void mode toggle**: button activates crosshair cursor; clicking a TILE cell clears it to VOID
+- **Grid resize**: +/- Cols / +/- Rows buttons (pure mutations: addRow, removeRow, addCol, removeCol)
+- **Tile selector row**: dropdown (library LED_TILE items or built-in fallback) + variant selector (STANDARD/R_CORNER/L_CORNER/HALF_H/HALF_V/QUARTER)
+- **Variant paths**: corner tiles rendered as notched SVG paths via `variantPath()` helper
+- **Chain routing overlay**: `routeChains()` ported from LedWallPlanner.jsx; adapted for TileGrid (only routes TILE cells, skips VOID); toggleable + direction selector (serpentine, LTR, RTL, TTB, BTT)
+- **Chain legend**: color-coded chain cards with port + panel count; hover highlights chain on canvas
+- **Save Grid button**: appears when dirty; calls `onUpdateWall(uuid, tileGrid, version)` via `useLEDScreenAPI.updateLEDScreen`
+- **Stats panel** (live, right column, computed from tileGrid):
+  - Total panels / VOID count
+  - Total pixels
+  - Processor loading % with bar (green/yellow/red based on threshold)
+  - Estimated chains (ceil(panels / tile.maxChainLength))
+  - Total weight kg + lbs
+  - Power max W / avg W
+  - Circuit count at 15A/120V
+  - Active tile spec label
+
+**`src/pages/LED.tsx`** (modified)
+- Added `import LedPlannerTab from '@/components/led/LedPlannerTab'`
+- Added `handleUpdateTileGrid()` callback (calls `ledAPI.updateLEDScreen`, patches `walls` state)
+- Replaced Stage 6 placeholder card with `<LedPlannerTab walls tileSpecs processorSpecs onUpdateWall />`
+
+### TypeScript
+- ✅ Zero new errors in all three files
+
+### Files changed
+- `src/hooks/useLedEquipment.ts` — created
+- `src/components/led/LedPlannerTab.tsx` — created
+- `src/pages/LED.tsx` — import + handler + planner rendering
+
+---
+
 ## March 16, 2026 — feat(led): Stage 5 — LED Walls tab: 12-slot card grid + CRUD
 
 ### Branch: `v0.2.4_graphical-ui`
