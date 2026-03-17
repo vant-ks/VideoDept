@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Copy, Archive } from 'lucide-react';
+import { X, Plus, Copy, Archive, ChevronDown } from 'lucide-react';
 import type { EquipmentSpec, IOPort } from '@/types';
 import { useEquipmentLibrary } from '@/hooks/useEquipmentLibrary';
 
@@ -27,10 +27,12 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, onDuplicat
     cards: [],
     deviceFormats: [],
     formatByIO: true,
-    isSecondaryDevice: false
+    isSecondaryDevice: false,
+    specs: {}
   });
 
   const [errors, setErrors] = useState<string[]>([]);
+  const [specsOpen, setSpecsOpen] = useState(true);
 
   useEffect(() => {
     if (editingEquipment) {
@@ -45,7 +47,8 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, onDuplicat
         cards: editingEquipment.cards || [],
         deviceFormats: editingEquipment.deviceFormats || [],
         formatByIO: true,
-        isSecondaryDevice: editingEquipment.isSecondaryDevice || false
+        isSecondaryDevice: editingEquipment.isSecondaryDevice || false,
+        specs: (editingEquipment.specs as Record<string, any>) || {}
       });
     } else {
       setFormData({
@@ -66,6 +69,11 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, onDuplicat
   }, [editingEquipment]);
 
   if (!isOpen) return null;
+
+  const getSpec = (key: string) => ((formData.specs as Record<string, any>) ?? {})[key] ?? '';
+  const setSpec = (key: string, value: any) =>
+    setFormData(f => ({ ...f, specs: { ...((f.specs as Record<string, any>) ?? {}), [key]: value } }));
+  const getSpecBool = (key: string) => !!((formData.specs as Record<string, any>) ?? {})[key];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -463,6 +471,183 @@ export default function EquipmentFormModal({ isOpen, onClose, onSave, onDuplicat
                 ))}
               </div>
           </div>
+
+          {/* Category-Specific Spec Panels */}
+          {(formData.category === 'LED_TILE' || formData.category === 'LED_PROCESSOR' || formData.category === 'PROJECTOR') && (
+            <div className="border border-av-border rounded-md overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setSpecsOpen(o => !o)}
+                className="flex items-center justify-between w-full px-4 py-3 bg-av-surface-light hover:bg-av-surface-light/80 transition-colors"
+              >
+                <span className="text-sm font-semibold text-av-text">
+                  {formData.category === 'LED_TILE' && 'LED Tile Specs'}
+                  {formData.category === 'LED_PROCESSOR' && 'LED Processor Specs'}
+                  {formData.category === 'PROJECTOR' && 'Projector Specs'}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-av-text-muted transition-transform ${specsOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {specsOpen && formData.category === 'LED_TILE' && (
+                <div className="p-4 space-y-4">
+                  <p className="text-xs text-av-text-muted">Required fields</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Pixel Pitch (mm) *</label>
+                      <input type="number" step="0.01" value={getSpec('pixelPitch')} onChange={e => setSpec('pixelPitch', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 2.6" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Panel Width (mm) *</label>
+                      <input type="number" step="1" value={getSpec('panelWidthMm')} onChange={e => setSpec('panelWidthMm', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Panel Height (mm) *</label>
+                      <input type="number" step="1" value={getSpec('panelHeightMm')} onChange={e => setSpec('panelHeightMm', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Pixels H *</label>
+                      <input type="number" step="1" value={getSpec('pixelsH')} onChange={e => setSpec('pixelsH', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 192" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Pixels V *</label>
+                      <input type="number" step="1" value={getSpec('pixelsV')} onChange={e => setSpec('pixelsV', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 192" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Weight (kg) *</label>
+                      <input type="number" step="0.01" value={getSpec('weightKg')} onChange={e => setSpec('weightKg', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 7.5" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Power Max (W) *</label>
+                      <input type="number" step="1" value={getSpec('powerMaxW')} onChange={e => setSpec('powerMaxW', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 800" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Power Avg (W) *</label>
+                      <input type="number" step="1" value={getSpec('powerAvgW')} onChange={e => setSpec('powerAvgW', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 320" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Max Chain Length *</label>
+                      <input type="number" step="1" value={getSpec('maxChainLength')} onChange={e => setSpec('maxChainLength', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 20" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-av-text-muted pt-1">Optional fields</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Refresh Rate (Hz)</label>
+                      <input type="number" step="1" value={getSpec('refreshRateHz')} onChange={e => setSpec('refreshRateHz', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 3840" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Brightness (nits)</label>
+                      <input type="number" step="1" value={getSpec('brightnessNits')} onChange={e => setSpec('brightnessNits', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 1000" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Scan Type</label>
+                      <input type="text" value={getSpec('scanType')} onChange={e => setSpec('scanType', e.target.value)} className="input-field w-full text-sm" placeholder="e.g. 1/4" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">IP Rating</label>
+                      <input type="text" value={getSpec('ipRating')} onChange={e => setSpec('ipRating', e.target.value)} className="input-field w-full text-sm" placeholder="e.g. IP65" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Cabinet Depth (mm)</label>
+                      <input type="number" step="1" value={getSpec('cabinetDepthMm')} onChange={e => setSpec('cabinetDepthMm', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 108" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Mounting System</label>
+                      <input type="text" value={getSpec('mountingSystem')} onChange={e => setSpec('mountingSystem', e.target.value)} className="input-field w-full text-sm" placeholder="e.g. Touring" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-6 pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={getSpecBool('isCurved')} onChange={e => setSpec('isCurved', e.target.checked)} className="w-4 h-4 text-av-accent rounded border-av-border" />
+                      <span className="text-sm text-av-text">Curved</span>
+                    </label>
+                    {getSpecBool('isCurved') && (
+                      <div>
+                        <label className="block text-xs font-medium text-av-text mb-1">Curve Radius (mm)</label>
+                        <input type="number" step="1" value={getSpec('curveRadiusMm')} onChange={e => setSpec('curveRadiusMm', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 1000" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {specsOpen && formData.category === 'LED_PROCESSOR' && (
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Max Total Pixels *</label>
+                      <input type="number" step="1" value={getSpec('maxPixels')} onChange={e => setSpec('maxPixels', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 8294400" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Ethernet Outputs *</label>
+                      <input type="number" step="1" value={getSpec('ethernetOutputs')} onChange={e => setSpec('ethernetOutputs', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 16" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Max Pixels / Port *</label>
+                      <input type="number" step="1" value={getSpec('maxPixelsPerPort')} onChange={e => setSpec('maxPixelsPerPort', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 650000" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Max Width (px) *</label>
+                      <input type="number" step="1" value={getSpec('maxWidth')} onChange={e => setSpec('maxWidth', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 16384" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Max Height (px) *</label>
+                      <input type="number" step="1" value={getSpec('maxHeight')} onChange={e => setSpec('maxHeight', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 8192" />
+                    </div>
+                  </div>
+                  <div className="flex gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={getSpecBool('hasGenlock')} onChange={e => setSpec('hasGenlock', e.target.checked)} className="w-4 h-4 text-av-accent rounded border-av-border" />
+                      <span className="text-sm text-av-text">Genlock</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={getSpecBool('supportsHdr')} onChange={e => setSpec('supportsHdr', e.target.checked)} className="w-4 h-4 text-av-accent rounded border-av-border" />
+                      <span className="text-sm text-av-text">HDR Support</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {specsOpen && formData.category === 'PROJECTOR' && (
+                <div className="p-4 space-y-4">
+                  <p className="text-xs text-av-text-muted">Required fields</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Lumens *</label>
+                      <input type="number" step="1" value={getSpec('lumens')} onChange={e => setSpec('lumens', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 20000" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Native Width (px) *</label>
+                      <input type="number" step="1" value={getSpec('nativeW')} onChange={e => setSpec('nativeW', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 1920" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Native Height (px) *</label>
+                      <input type="number" step="1" value={getSpec('nativeH')} onChange={e => setSpec('nativeH', parseInt(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 1200" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-av-text-muted pt-1">Optional fields</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Throw Ratio Min</label>
+                      <input type="number" step="0.01" value={getSpec('throwRatioMin')} onChange={e => setSpec('throwRatioMin', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 1.39" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Throw Ratio Max</label>
+                      <input type="number" step="0.01" value={getSpec('throwRatioMax')} onChange={e => setSpec('throwRatioMax', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 2.10" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Lens Shift V (%)</label>
+                      <input type="number" step="0.1" value={getSpec('lensShiftVPct')} onChange={e => setSpec('lensShiftVPct', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 56" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-av-text mb-1">Lens Shift H (%)</label>
+                      <input type="number" step="0.1" value={getSpec('lensShiftHPct')} onChange={e => setSpec('lensShiftHPct', parseFloat(e.target.value) || '')} className="input-field w-full text-sm" placeholder="e.g. 10" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Secondary Device — always at bottom */}
           <div className="bg-av-surface-light border border-av-border rounded-md p-4">

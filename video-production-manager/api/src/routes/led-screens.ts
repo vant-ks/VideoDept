@@ -18,7 +18,7 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
         production_id: productionId,
         is_deleted: false
       },
-      orderBy: { created_at: 'asc' }
+      orderBy: [{ sort_order: 'asc' }, { created_at: 'asc' }]
     });
     
     res.json(toCamelCase(ledScreens));

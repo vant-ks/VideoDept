@@ -2,6 +2,252 @@
 
 ---
 
+## March 16, 2026 — feat(projectors): Stage 8 — Bidirectional navigation: Layout ↔ Projectors/Screens tabs + cross-page LED nav
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, projectors, layout, navigation, led
+
+**Session:** Bidirectional navigation between the Layout canvas and the Projectors/Screens sub-tabs. One file changed, zero TypeScript errors.
+
+### What was built
+
+**`src/pages/Projectors.tsx`** (modified)
+
+**LayoutTab component (props extended):**
+- Added `selectedProjectorUuid: string | null` prop
+- Added `onSelectProjector: (uuid: string) => void` prop
+- Added `onGoToLED: () => void` prop
+- Projector dot circles: `onClick` → calls `onSelectProjector(unit.projectorUuid)`, cursor changed to `pointer`, size/fill/stroke toggle when `unit.projectorUuid === selectedProjectorUuid` (r=7, yellow #fde047)
+- LED wall rectangle `onClick` changed from select+deselect to `onGoToLED()` — single click navigates to LED page; dragging still works via pointer events (click doesn't fire on significant movement)
+
+**Parent Projectors() component:**
+- New state: `selectedProjectorUuid` (`useState<string | null>(null)`)
+- New refs: `projectorCardRefs`, `surfaceCardRefs` (`useRef<Record<string, HTMLDivElement | null>>({})`)
+- New `useEffect` × 2: on `[activeSubTab, selectedProjectorUuid]` and `[activeSubTab, selectedSurfaceId]` → `scrollIntoView({ behavior: 'smooth', block: 'center' })` with 50 ms delay for render
+- LayoutTab call site: `onSelectSurface` now also calls `setActiveSubTab('screens')` when uuid is non-null; `onSelectProjector` sets uuid + switches to `'projectors'` tab; `onGoToLED` calls `setActiveTab('led')` (cross-page)
+- Projectors tab card: wrapped in `<div ref={...}>`, ring class `ring-1 ring-amber-400/50 bg-amber-400/5` when `proj.uuid === selectedProjectorUuid`, "View on Layout" Map icon button (amber hover) added before Edit
+- Screens tab card: wrapped in `<div ref={...}>`, "View on Layout" Map icon + "Layout" label button added before Edit
+
+---
+
+## March 16, 2026 — feat(projectors): Stage 7 — Layout tab: calcCones() projector overlays + LED wall rectangles
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, projectors, layout, svg, led-walls
+
+**Session:** Enhanced the Layout canvas with two new layers: (1) real calcCones()-based projector throw triangles with per-stackedUnit dot markers + hover tooltips, (2) LED wall rectangles draggable from useLEDScreenAPI with hover tooltips.
+
+### What was built
+
+**`src/pages/Projectors.tsx`** (modified)
+- **Import**: added `useLEDScreenAPI`, `LEDScreen` from `@/hooks/useLEDScreenAPI`
+- **LayoutTab props** (new): `ledWalls: LEDScreen[]`, `onLEDWallMove`
+- **New state in LayoutTab**: `selectedLEDId`, `hoveredCone`, `hoveredLEDWall`
+- **dragRef.kind** field: `'surface' | 'ledwall'` — single drag ref handles both item types
+- **handleLEDWallPointerDown**: mirrors handleSurfacePointerDown; clears surface selection
+- **handlePointerMove**: dispatches to `onLEDWallMove` or `onSurfaceMove` based on dragRef.kind
+- **handleKeyDown**: extended — ↑↓←→ now nudges LED walls when `selectedLEDId` is active
+- **Projector cones** (upgraded): replaced hardcoded triangle with `calcBlend()` + `calcCones()` pipeline:
+  - Builds BlendResult (nProj=1) from equipment spec `nativeW`/`throwRatio`
+  - Calls `calcCones()` to compute geometrically correct cone ConePoint
+  - Renders per-position throw triangle + per-stackedUnit dots (horizontally offset by 14 SVG px each)
+  - Hover on any dot: tooltip shows projector name, throw distance, coverage %, stack count
+- **LED wall rectangles** (new): renders each `LEDScreen` with `posDsXM`/`posDsYM` set as a draggable teal rect
+  - Width = `cols × (panelWidthMm / 1000)` m; height = `rows × (panelHeightMm / 1000)` m
+  - Falls back to 0.5m tile size when no equipment spec linked
+  - Click: selects (teal ring outline) + deselects active projection surface
+  - Drag: `onLEDWallMove` → optimistic update + API save
+  - Hover: tooltip showing wall name + grid size
+- **Hover tooltip overlays**: SVG rect+text overlays for both projector cones and LED walls
+- **Legend**: updated text from "requires throw distance" → "hover for details"; added LED wall legend item (shown when any wall has coordinates)
+- **Parent Projectors()** additions:
+  - `useLEDScreenAPI` hook instance
+  - `localLEDWalls: LEDScreen[]` state
+  - `useEffect` to fetch LED walls on productionId change
+  - `handleLEDWallMove`: optimistic + API save pattern matching `handleSurfaceMove`
+  - WS `onEntityCreated/Updated/Deleted` handlers extended for `ledScreen` entityType
+  - Pass `ledWalls` + `onLEDWallMove` to LayoutTab
+
+### TypeScript
+- ✅ Zero new errors in `src/pages/Projectors.tsx`
+
+### Files changed
+- `src/pages/Projectors.tsx` — LayoutTab + parent Projectors() component
+
+---
+
+## March 16, 2026 — feat(led): Stage 6 — LED Planner tab: tile grid canvas + tile picker + chain routing
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, led, planner, canvas, svg, chain-routing
+
+**Session:** Built the full Planner sub-tab (`LedPlannerTab.tsx`) and equipment seam hook (`useLedEquipment.ts`). Replaced the Stage 6 placeholder in `LED.tsx` with the live interactive canvas.
+
+### What was built
+
+**`src/hooks/useLedEquipment.ts`** (new file, ~120 lines)
+- Bridges equipment library (`useEquipmentLibrary`) to `LedPanelSpec` / `LedProcessorSpec` shapes
+- Priority: LED_TILE / LED_PROCESSOR items from Zustand library store
+- Falls back to `BUILTIN_PANELS` / `BUILTIN_PROCESSORS` (10 panels, 4 processors) when library is empty
+- Adapts `EquipmentSpec.specs` fields (panelWidthMm, pixelsH, powerMaxW, maxChainLength…) to planner format
+- Ported BUILTIN_PANELS from `imports/_unpack/led_visualizer/LedWallPlanner.jsx`
+
+**`src/components/led/LedPlannerTab.tsx`** (new file, ~560 lines)
+- **Wall selector**: dropdown lists all 12 walls by sortOrder (W1–W12)
+- **SVG canvas**: `WallCanvas` component renders cells proportionally to tile's physical mm dimensions (cellPxH = cellPxW × panelHeightMm/panelWidthMm)
+- **Cell painting**: click VOID or TILE cell → paints with selected tile spec UUID + variant; saves to localGrid state (dirty flag)
+- **Void mode toggle**: button activates crosshair cursor; clicking a TILE cell clears it to VOID
+- **Grid resize**: +/- Cols / +/- Rows buttons (pure mutations: addRow, removeRow, addCol, removeCol)
+- **Tile selector row**: dropdown (library LED_TILE items or built-in fallback) + variant selector (STANDARD/R_CORNER/L_CORNER/HALF_H/HALF_V/QUARTER)
+- **Variant paths**: corner tiles rendered as notched SVG paths via `variantPath()` helper
+- **Chain routing overlay**: `routeChains()` ported from LedWallPlanner.jsx; adapted for TileGrid (only routes TILE cells, skips VOID); toggleable + direction selector (serpentine, LTR, RTL, TTB, BTT)
+- **Chain legend**: color-coded chain cards with port + panel count; hover highlights chain on canvas
+- **Save Grid button**: appears when dirty; calls `onUpdateWall(uuid, tileGrid, version)` via `useLEDScreenAPI.updateLEDScreen`
+- **Stats panel** (live, right column, computed from tileGrid):
+  - Total panels / VOID count
+  - Total pixels
+  - Processor loading % with bar (green/yellow/red based on threshold)
+  - Estimated chains (ceil(panels / tile.maxChainLength))
+  - Total weight kg + lbs
+  - Power max W / avg W
+  - Circuit count at 15A/120V
+  - Active tile spec label
+
+**`src/pages/LED.tsx`** (modified)
+- Added `import LedPlannerTab from '@/components/led/LedPlannerTab'`
+- Added `handleUpdateTileGrid()` callback (calls `ledAPI.updateLEDScreen`, patches `walls` state)
+- Replaced Stage 6 placeholder card with `<LedPlannerTab walls tileSpecs processorSpecs onUpdateWall />`
+
+### TypeScript
+- ✅ Zero new errors in all three files
+
+### Files changed
+- `src/hooks/useLedEquipment.ts` — created
+- `src/components/led/LedPlannerTab.tsx` — created
+- `src/pages/LED.tsx` — import + handler + planner rendering
+
+---
+
+## March 16, 2026 — feat(led): Stage 5 — LED Walls tab: 12-slot card grid + CRUD
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, led, walls-tab, crud, typescript
+
+**Session:** Built `src/pages/LED.tsx` — Walls sub-tab with 12-slot grid, Add/Edit/Delete modals. Connected LED page in App.tsx and updated EntityEvent union.
+
+### What was built
+
+**`src/pages/LED.tsx`** (new file, ~480 lines)
+- Two sub-tabs: Walls (this session), Planner (Stage 6 placeholder)
+- 12-slot grid (4×3) — empty slots render dashed "+ Add Wall W{n}" cards
+- Populated slots show: wall name, slot badge, grid label (cols×rows), totalPanels, weight, power, dominant tile res, processor name
+- CRUD: Add Wall modal (name, processor dropdown, optional starting grid cols×rows, note), Edit (same form pre-filled), Delete (confirm prompt)
+- `computeWallStats()` — pure function computing panel count, weight, power, dominant tile label from `tile_grid`
+- WS real-time events via `useProductionEvents` for `ledScreen` entity creates/updates/deletes
+- Initial grid on create: builds `TileGrid` with all VOID cells at specified cols×rows
+
+**`src/hooks/useProductionEvents.ts`**
+- Added `'ledScreen'` to `EntityEvent.entityType` union
+
+**`src/App.tsx`**
+- Added `import LED from '@/pages/LED'`
+- Changed `case 'led': return <Screens />` → `return <LED />`
+
+### TypeScript
+- ✅ Zero new errors in changed files (2 pre-existing App.tsx errors unrelated)
+
+---
+
+## March 16, 2026 — feat(led): Stage 4 — LED wall schema migration + useLEDScreenAPI upgrade
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, led-screens, prisma, db-push, typescript
+
+**Session:** Migrated `led_screens` table from projection-screen-like shape to proper LED wall schema. Used `db:push` (not `migrate dev`).
+
+### What was built
+
+**`video-production-manager/api/prisma/schema.prisma`**
+- `led_screens` model: removed `manufacturer`, `model`, `h_res`, `v_res`, `rate`
+- Added: `sort_order Int @default(0)`, `processor_uuid String?`, `pos_ds_x_m Float?`, `pos_ds_y_m Float?`, `rotation_deg Float? @default(0)`, `tile_grid Json?`
+- Kept: `equipment_uuid String?` — repurposed as dominant tile spec UUID
+
+**`src/hooks/useLEDScreenAPI.ts`**
+- Added `TileCell` and `TileGrid` TypeScript interfaces matching the `tile_grid` Json column structure
+- Updated `LEDScreen` interface: full field set including `sortOrder`, `processorUuid`, `posDsXM/Y`, `rotationDeg`, `tileGrid`, `equipmentUuid`
+- Updated `LEDScreenInput` with all writable fields
+- Updated `createLEDScreen` and `updateLEDScreen` to pass all new fields in request body
+
+**`video-production-manager/api/src/routes/led-screens.ts`**
+- Changed `orderBy` from `created_at: 'asc'` to `[{ sort_order: 'asc' }, { created_at: 'asc' }]`
+- No other route changes needed — `toSnakeCase`/`toCamelCase` handles new fields automatically
+
+### Migration approach
+- Table was empty (0 rows) → clean `prisma db push` applied in 84ms, no data migration needed
+- API server restarted post-push to pick up regenerated Prisma client
+
+---
+
+## March 16, 2026 — feat(projectors): Stage 3 — ProjectorPosition stacking model + Screens tab positions UI
+
+### Branch: `v0.2.4_graphical-ui`
+### Status: ✅ COMPLETE
+### Tags: feat, projectors, projection-surfaces, stacking, projector-positions, screens-tab, typescript, websocket
+
+**Session kickoff:** Continued Stage 3 of LED+Blend integration plan on branch `v0.2.4_graphical-ui`.
+
+**Problem:** The `projector_assignments` Json column on `projection_surfaces` stored a flat `ProjectorAssignment[]` — one projector uuid per entry with no concept of physical rigging positions or stacked units at a single position. Stage 3 required upgrading to a `ProjectorPosition[]` shape that groups stacked physical units under each rigging position.
+
+**Solution:** Introduced `ProjectorPosition` / `StackedUnit` types with a backward-compat `normalizeAssignments()` shim (no Prisma migration needed — column stays `Json`). Updated the modal and Screens-tab card UI to use the new shape.
+
+### What was built
+
+**`src/hooks/useProjectionSurfaceAPI.ts`**
+- Added `StackedUnit` interface: `{ projectorUuid: string; note?: string }`
+- Added `ProjectorPosition` interface: `{ id, label, horizOffsetM, throwDistM?, vertOffsetM?, lensUuid?, stackedUnits: StackedUnit[], blendZoneIndex? }`
+- `@deprecated` tagged old `ProjectorAssignment` interface (kept for backward compat)
+- Exported `normalizeAssignments(raw: unknown[]): ProjectorPosition[]` — detects old flat shape via `'stackedUnits' in item` check; wraps flat entries into `ProjectorPosition` shell with `crypto.randomUUID()`
+- Changed `ProjectionSurface.projectorAssignments` type from `ProjectorAssignment[]` → `ProjectorPosition[]`
+- `fetchSurfaces` now calls `normalizeAssignments()` on every surface load
+
+**`src/components/ProjectionSurfaceModal.tsx`**
+- `assignments` state changed from `ProjectorAssignment[]` → `ProjectorPosition[]`
+- `addAssignment()` creates `ProjectorPosition` with `id`, `label`, `stackedUnits: [{ projectorUuid }]`
+- `updateAssignment(idx, patch)` — when `projectorUuid` in patch, replaces `stackedUnits[0]`; otherwise field-merges; patch type includes `vertOffsetM`
+- All JSX now reads `pos.stackedUnits[0]?.projectorUuid` and shows stack count in label
+
+**`src/pages/Projectors.tsx`**
+- Added `patchSurfacePositions`, `handleAddPosition`, `handleEditPosition`, `handleRemovePosition`, `handleAddUnit`, `handleRemoveUnit` handlers
+- Added 3 form state atoms: `addPosForm`, `editPosForm`, `addUnitForm`
+- WebSocket `onEntityCreated` / `onEntityUpdated` now run `normalizeAssignments()` on received surfaces
+- Summary row counters updated: "Projectors Assigned" sums `pos.stackedUnits.length`; "Total Lumens" iterates `stackedUnits`
+- Surface card: `assignedProjs` removed; replaced by `positions = surf.projectorAssignments ?? []`; subtitle shows "N positions · M units"
+- **New "Projection Positions" sub-section** in Screens tab surface cards:
+  - Header: "PROJECTION POSITIONS" label + "Add Position" button
+  - Per-position row: label, throw dist, horiz offset, unit count pill; Edit / Add Unit to Stack / Remove buttons
+  - Inline edit form: label, throwDist, horizOffset (3-col grid)
+  - Stacked units display: colored pills with projector ID + × remove-from-stack button (visible when >1 unit)
+  - Add Unit to Stack inline form: dropdown filtered to unassigned projectors
+  - Add Position inline form: 4-col grid (label, projector, throw, h-offset) + Cancel/Add
+- Layout tab cone rendering updated to iterate `pos.stackedUnits` with `${surf.uuid}-${pos.id}-${unit.projectorUuid}` key — no duplicate key issues
+
+### Files changed
+- `src/hooks/useProjectionSurfaceAPI.ts` — StackedUnit + ProjectorPosition interfaces, normalizeAssignments(), updated type, fetchSurfaces normalization
+- `src/components/ProjectionSurfaceModal.tsx` — state type migration, helpers, JSX for new shape
+- `src/pages/Projectors.tsx` — 6 new handlers, 3 form state atoms, full Projection Positions UI section, WS normalization, counters + cone rendering
+
+### Notes
+- No Prisma migration required — `projector_assignments` was already `Json` on `projection_surfaces` table
+- Backward compat: old saved flat arrays are transparently upgraded on load via `normalizeAssignments()`
+- Pre-existing TS errors in `App.tsx`, `EquipmentFormModal.tsx`, `SourceFormModal.tsx`, `equipmentData.ts` — unrelated to Stage 3
+
+---
+
 ## March 12, 2026 — feat(projectors): full Projectors page — CRUD, equipment lib, I/O ports, drag-reorder, WS sync
 
 ### Branch: `v0.2.3_projectors`

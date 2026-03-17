@@ -15,6 +15,7 @@ import Cameras from '@/pages/Cameras';
 import Records from '@/pages/Records';
 import Streams from '@/pages/Streams';
 import Projectors from '@/pages/Projectors';
+import LED from '@/pages/LED';
 import Staging from '@/pages/Staging';
 import MediaServers from '@/pages/MediaServers';
 import CCUs from '@/pages/CCUs';
@@ -176,7 +177,7 @@ const App: React.FC = () => {
       case 'sends':
         return <Sends />;
       case 'led':
-        return <Screens />;
+        return <LED />;
       case 'projection':
         return <Projectors />;
       case 'monitors':

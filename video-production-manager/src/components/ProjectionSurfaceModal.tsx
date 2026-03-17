@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Plus, Trash2, Calculator, Info } from 'lucide-react';
-import type { ProjectionSurface, SurfaceMatte, ProjectorAssignment, SurfaceType } from '@/hooks/useProjectionSurfaceAPI';
+import type { ProjectionSurface, SurfaceMatte, ProjectorPosition, SurfaceType } from '@/hooks/useProjectionSurfaceAPI';
 import type { ProjectionScreen } from '@/hooks/useProjectionScreenAPI';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
   const [mattes, setMattes] = useState<SurfaceMatte[]>([]);
 
   // ── projector assignments ──
-  const [assignments, setAssignments] = useState<ProjectorAssignment[]>([]);
+  const [assignments, setAssignments] = useState<ProjectorPosition[]>([]);
 
   // ── saving ──
   const [saving, setSaving]   = useState(false);
@@ -251,8 +251,9 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
 
     // Total lumens from all assigned projectors
     let totalLumens = 0;
-    assignments.forEach(a => {
-      const proj = projectors.find(p => p.uuid === a.projectorUuid);
+    assignments.forEach(pos => {
+      const projUuid = pos.stackedUnits[0]?.projectorUuid;
+      const proj = projectors.find(p => p.uuid === projUuid);
       if (proj?.equipmentUuid) {
         const spec = equipmentSpecs.find(s => s.uuid === proj.equipmentUuid);
         if (spec?.specs?.lumens) totalLumens += spec.specs.lumens;
@@ -270,9 +271,9 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
     const contrastRatio = ambientLux > 0 ? luxAtScreen / ambientLux : 0;
 
     // Throw distances for each assigned projector (from lens throwRatio × imageWidth)
-    const throwCalcs = assignments.map(a => {
-      const lensSpec = a.lensUuid
-        ? equipmentSpecs.find(s => s.uuid === a.lensUuid)
+    const throwCalcs = assignments.map(pos => {
+      const lensSpec = pos.lensUuid
+        ? equipmentSpecs.find(s => s.uuid === pos.lensUuid)
         : null;
       const throwRatioRaw = lensSpec?.specs?.throwRatio as string | undefined;
       let throwMin: number | null = null;
@@ -287,7 +288,7 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
           throwMax = throwMin;
         }
       }
-      return { projectorUuid: a.projectorUuid, lensUuid: a.lensUuid, throwMin, throwMax };
+      return { projectorUuid: pos.stackedUnits[0]?.projectorUuid, lensUuid: pos.lensUuid, throwMin, throwMax };
     });
 
     return {
@@ -317,12 +318,27 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
   // ── assignment helpers ─────────────────────────────────────────────────────
   const addAssignment = () => {
     if (projectors.length === 0) return;
-    const unusedProjector = projectors.find(p => !assignments.some(a => a.projectorUuid === p.uuid));
+    const unusedProjector = projectors.find(p =>
+      !assignments.some(pos => pos.stackedUnits.some(u => u.projectorUuid === p.uuid))
+    );
     if (!unusedProjector) return;
-    setAssignments(prev => [...prev, { projectorUuid: unusedProjector.uuid }]);
+    setAssignments(prev => [...prev, {
+      id: crypto.randomUUID(),
+      label: `P${prev.length + 1}`,
+      horizOffsetM: 0,
+      stackedUnits: [{ projectorUuid: unusedProjector.uuid }],
+      blendZoneIndex: prev.length,
+    }]);
   };
-  const updateAssignment = (idx: number, patch: Partial<ProjectorAssignment>) => {
-    setAssignments(prev => prev.map((a, i) => i === idx ? { ...a, ...patch } : a));
+  const updateAssignment = (idx: number, patch: { projectorUuid?: string; throwDistM?: number; horizOffsetM?: number; lensUuid?: string; vertOffsetM?: number }) => {
+    setAssignments(prev => prev.map((pos, i) => {
+      if (i !== idx) return pos;
+      const { projectorUuid, ...rest } = patch;
+      if (projectorUuid !== undefined) {
+        return { ...pos, ...rest, stackedUnits: [{ projectorUuid }] };
+      }
+      return { ...pos, ...rest };
+    }));
   };
   const removeAssignment = (idx: number) => {
     setAssignments(prev => prev.filter((_, i) => i !== idx));
@@ -699,8 +715,9 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
               )}
 
               <div className="space-y-3">
-                {assignments.map((a, idx) => {
-                  const proj = projectors.find(p => p.uuid === a.projectorUuid);
+                {assignments.map((pos, idx) => {
+                  const primaryUuid = pos.stackedUnits[0]?.projectorUuid;
+                  const proj = projectors.find(p => p.uuid === primaryUuid);
                   const projSpec = proj?.equipmentUuid
                     ? equipmentSpecs.find(s => s.uuid === proj.equipmentUuid)
                     : null;
@@ -714,7 +731,11 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
                   return (
                     <div key={idx} className="border border-av-border rounded-lg p-3 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-av-accent">Projector {idx + 1}</span>
+                        <span className="text-xs font-semibold text-av-accent">{pos.label || `P${idx + 1}`}
+                          {pos.stackedUnits.length > 1 && (
+                            <span className="ml-2 text-av-text-muted font-normal">({pos.stackedUnits.length} stacked)</span>
+                          )}
+                        </span>
                         <button onClick={() => removeAssignment(idx)} className="text-av-danger hover:opacity-80">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -724,7 +745,7 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
                       <div>
                         <label className="block text-xs font-medium text-av-text-muted mb-1">Projector</label>
                         <select
-                          value={a.projectorUuid}
+                          value={primaryUuid ?? ''}
                           onChange={e => updateAssignment(idx, { projectorUuid: e.target.value, lensUuid: undefined })}
                           className="input-field w-full text-sm"
                         >
@@ -746,7 +767,7 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
                       <div>
                         <label className="block text-xs font-medium text-av-text-muted mb-1">Lens (optional)</label>
                         <select
-                          value={a.lensUuid || ''}
+                          value={pos.lensUuid || ''}
                           onChange={e => updateAssignment(idx, { lensUuid: e.target.value || undefined })}
                           className="input-field w-full text-sm"
                         >
@@ -786,7 +807,7 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
                           type="number"
                           min={0}
                           step={0.1}
-                          value={a.throwDistM ?? ''}
+                          value={pos.throwDistM ?? ''}
                           onChange={e => updateAssignment(idx, { throwDistM: e.target.value ? +e.target.value : undefined })}
                           placeholder="Auto from lens"
                           className="input-field w-full text-sm"
@@ -800,8 +821,8 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
                           <input
                             type="number"
                             step={0.01}
-                            value={a.horizOffsetM ?? ''}
-                            onChange={e => updateAssignment(idx, { horizOffsetM: e.target.value ? +e.target.value : undefined })}
+                            value={pos.horizOffsetM}
+                            onChange={e => updateAssignment(idx, { horizOffsetM: e.target.value ? +e.target.value : 0 })}
                             placeholder="0"
                             className="input-field w-full text-sm"
                           />
@@ -811,7 +832,7 @@ export const ProjectionSurfaceModal: React.FC<Props> = ({
                           <input
                             type="number"
                             step={0.01}
-                            value={a.vertOffsetM ?? ''}
+                            value={pos.vertOffsetM ?? ''}
                             onChange={e => updateAssignment(idx, { vertOffsetM: e.target.value ? +e.target.value : undefined })}
                             placeholder="0"
                             className="input-field w-full text-sm"
