@@ -2,6 +2,39 @@
 
 ---
 
+## March 17, 2026 — fix(media-servers): useRef expand state + commit open projection work
+
+### Branch: `v0.2.5_projection-refinement`
+### Status: ✅ COMPLETE
+### Tags: fix, media-servers, projection, streams
+
+**Commits:**
+- `d65eb83` — feat(projection): multi-view inspector panel, view canvases, streams URL/key copy, misc fixes
+- `4e8f8f5` — fix(media-servers): useRef for expand state — survives loadProject re-renders
+
+**Bug fixes:**
+- **Card collapses on output add/edit**: `expandedPairs` and `expandedLayers` converted from `useState<Set<string>>` to `useRef<Set<string>>` + `forceUpdate` counter. The ref is never wiped by re-renders triggered by `loadProject`, so cards stay expanded after modal save.
+- **Direct I/O disabled when card-based mode selected**: Already resolved by `95c757e` (outputs_data retirement) — the `outputMode` gate was removed entirely in that refactor.
+- **outputs_data vs IOPortsPanel overlap**: Also resolved by `95c757e` — outputs_data retired, device_ports is sole model.
+
+**Projection work committed (was sitting open):**
+- `src/components/projection/viewTypes.ts` — shared type definitions for multi-view panel
+- `src/components/projection/InspectorPanel.tsx` — properties inspector sidebar
+- `src/components/projection/MultiViewLayout.tsx` — 4-up / split-view layout shell
+- `src/components/projection/views/TopViewCanvas.tsx` — top-down throw diagram
+- `src/components/projection/views/FrontViewCanvas.tsx` — front elevation view
+- `src/components/projection/views/SideViewCanvas.tsx` — side elevation view
+- `src/components/projection/views/BlendViewCanvas.tsx` — blend zone detail view
+- `src/components/projection/shared/objectRelations.ts` — relation helpers
+- `src/components/projection/shared/useViewTransform.ts` — pan/zoom transform hook
+- `src/hooks/useProjectionSurfaceAPI.ts` — added `mountHeightM` to ProjectorPosition
+- `src/components/SourceFormModal.tsx` — fix computer category filter (lowercase)
+- `src/pages/IPManagement.tsx` — fix EmptyState icon prop type
+- `api/src/routes/projection-screens.ts` — add updated_at to POST
+- `src/pages/Streams.tsx` — URL + key shown in collapsed card with copy buttons
+
+---
+
 ## March 16, 2026 — feat(projectors): Stage 8 — Bidirectional navigation: Layout ↔ Projectors/Screens tabs + cross-page LED nav
 
 ### Branch: `v0.2.4_graphical-ui`
