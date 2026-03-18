@@ -8,7 +8,7 @@
  * Zoom: mouse wheel  |  Pan: middle-mouse drag
  */
 
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import { DimLine, snapTo, formatMasImperial } from '@/components/VenueCanvasUtils';
 import { calcBlend, calcCones } from '@/components/blend/blendEngine';
 import { DECK_SIZES } from '@/hooks/useVenueStore';
@@ -26,7 +26,10 @@ const SCREEN_DEPTH_M = 0.18;
 
 export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
   venueData, surfaces, projectors, equipmentSpecs, ledWalls,
-  snapInches, selected, onSelect, onSurfacePatch, onPositionPatch, onLEDWallPatch,
+  snapInches, selected, onSelect,
+  selectionSet = new Set() as ReadonlySet<string>,
+  onBoxSelect, controlsRef,
+  onSurfacePatch, onPositionPatch, onLEDWallPatch,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const vt = useViewTransform(W, H);
@@ -56,6 +59,22 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueData.roomWidthM, venueData.roomDepthM]);
 
+  // ── Box-select state ───────────────────────────────────────────────────────
+  const boxRef = useRef<{ bx0: number; by0: number; bx1: number; by1: number } | null>(null);
+  const [boxRect, setBoxRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  // Populate controlsRef for ViewPane toolbar buttons
+  useLayoutEffect(() => {
+    if (!controlsRef) return;
+    controlsRef.current = {
+      zoomIn: () => vt.zoomIn(),
+      zoomOut: () => vt.zoomOut(),
+      fitToContent: () => {
+        if (hasRoom) fitRect(PAD, PAD, venueData.roomWidthM * baseScale, venueData.roomDepthM * baseScale);
+      },
+    };
+  });
+
   // ── Drag state ────────────────────────────────────────────────────────────
   const dragRef = useRef<{
     kind: 'surface' | 'ledwall';
@@ -74,6 +93,17 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
 
   function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
     vt.onMiddleMove(e);
+    // Box rubber-band update
+    if (boxRef.current) {
+      const [sx, sy] = getSvgPt(e);
+      const [bx, by] = toBase(sx, sy);
+      boxRef.current.bx1 = bx;
+      boxRef.current.by1 = by;
+      const bxMin = Math.min(boxRef.current.bx0, bx), bxMax = Math.max(boxRef.current.bx0, bx);
+      const byMin = Math.min(boxRef.current.by0, by), byMax = Math.max(boxRef.current.by0, by);
+      setBoxRect({ x: bxMin, y: byMin, w: bxMax - bxMin, h: byMax - byMin });
+      return;
+    }
     if (!dragRef.current) return;
     const [sx, sy] = getSvgPt(e);
     const [bx, by]   = toBase(sx, sy);
@@ -88,11 +118,35 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
     setHudPos({ xM: newX, yM: newY });
   }
 
-  function handlePointerUp() { dragRef.current = null; vt.onMiddleUp(); setHudPos(null); }
+  function handlePointerUp() {
+    // Commit box select if box was large enough (>5 SVG px in either dimension)
+    if (boxRef.current) {
+      const { bx0, by0, bx1, by1 } = boxRef.current;
+      const bxMin = Math.min(bx0, bx1), bxMax = Math.max(bx0, bx1);
+      const byMin = Math.min(by0, by1), byMax = Math.max(by0, by1);
+      if ((bxMax - bxMin) * zoom > 5 || (byMax - byMin) * zoom > 5) {
+        const hits: string[] = [];
+        surfaces.forEach(s => {
+          const px = wx(s.posDsXM ?? 0), py = wy(s.posDsYM ?? 0);
+          if (px >= bxMin && px <= bxMax && py >= byMin && py <= byMax) hits.push(s.uuid);
+        });
+        ledWalls.filter(w => w.posDsXM != null && w.posDsYM != null).forEach(w => {
+          const px = wx(w.posDsXM!), py = wy(w.posDsYM!);
+          if (px >= bxMin && px <= bxMax && py >= byMin && py <= byMax) hits.push(w.uuid);
+        });
+        onBoxSelect?.(hits);
+      }
+      boxRef.current = null;
+      setBoxRect(null);
+    }
+    dragRef.current = null;
+    vt.onMiddleUp();
+    setHudPos(null);
+  }
 
   function startSurfaceDrag(e: React.PointerEvent<Element>, surf: ProjectionSurface) {
     e.stopPropagation();
-    onSelect({ kind: 'surface', surfaceUuid: surf.uuid });
+    onSelect({ kind: 'surface', surfaceUuid: surf.uuid }, false);
     const [sx, sy] = getSvgPt(e);
     dragRef.current = {
       kind: 'surface', uuid: surf.uuid,
@@ -104,7 +158,7 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
 
   function startLEDDrag(e: React.PointerEvent<Element>, wall: LEDScreen) {
     e.stopPropagation();
-    onSelect({ kind: 'ledwall', uuid: wall.uuid });
+    onSelect({ kind: 'ledwall', uuid: wall.uuid }, false);
     const [sx, sy] = getSvgPt(e);
     dragRef.current = {
       kind: 'ledwall', uuid: wall.uuid,
@@ -143,11 +197,19 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
       style={{ touchAction: 'none', outline: 'none' }}
       tabIndex={0}
       onWheel={onWheel}
-      onPointerDown={vt.onMiddleDown}
+      onPointerDown={e => {
+        vt.onMiddleDown(e);
+        // Start box-select on left-click on background (objects stopPropagation so only background reaches here)
+        if (e.button === 0) {
+          const [sx, sy] = getSvgPt(e);
+          const [bx, by] = toBase(sx, sy);
+          boxRef.current = { bx0: bx, by0: by, bx1: bx, by1: by };
+        }
+      }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      onClick={() => onSelect(null)}
+      onClick={() => onSelect(null, false)}
     >
       {/* ── All world content inside the zoom/pan transform ── */}
       <g transform={`translate(${panX} ${panY}) scale(${zoom})`}>
@@ -203,7 +265,8 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
           const cx = surf.posDsXM ?? 0;
           const cy = surf.posDsYM ?? 0;
           const w  = surf.widthM ?? 2;
-          const isSel = selected?.kind === 'surface' && selected.surfaceUuid === surf.uuid;
+          const isSel    = selected?.kind === 'surface' && selected.surfaceUuid === surf.uuid;
+          const isInSet  = selectionSet.has(surf.uuid);
           const rectX = wx(cx - w / 2);
           const rectY = wy(cy + SCREEN_DEPTH_M / 2);
           const rectW = w * baseScale;
@@ -211,20 +274,27 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
           return (
             <g key={surf.uuid} style={{ cursor: 'grab' }}
               onPointerDown={e => startSurfaceDrag(e, surf)}
-              onClick={e => { e.stopPropagation(); onSelect({ kind: 'surface', surfaceUuid: surf.uuid }); }}
+              onClick={e => { e.stopPropagation(); onSelect({ kind: 'surface', surfaceUuid: surf.uuid }, e.shiftKey); }}
             >
+              {/* Multi-select set ring (amber) */}
+              {isInSet && !isSel && (
+                <rect x={rectX - 4} y={rectY - 12} width={rectW + 8} height={rectH + 24}
+                  fill="none" stroke="rgba(251,191,36,0.5)" strokeWidth={1.5}
+                  rx={3} strokeDasharray="4 2" pointerEvents="none" />
+              )}
+              {/* Primary selection ring (green) */}
               {isSel && (
                 <rect x={rectX - 4} y={rectY - 12} width={rectW + 8} height={rectH + 24}
                   fill="none" stroke="rgba(52,211,153,0.5)" strokeWidth={1.5}
                   rx={3} strokeDasharray="4 2" pointerEvents="none" />
               )}
               <rect x={rectX} y={rectY} width={rectW} height={rectH}
-                fill={isSel ? 'rgba(52,211,153,0.35)' : 'rgba(60,190,150,0.22)'}
-                stroke={isSel ? '#34d399' : '#30b890'}
+                fill={isSel ? 'rgba(52,211,153,0.35)' : isInSet ? 'rgba(52,211,153,0.20)' : 'rgba(60,190,150,0.22)'}
+                stroke={isSel ? '#34d399' : isInSet ? '#fbbf24' : '#30b890'}
                 strokeWidth={isSel ? 1.8 : 1.2} rx={1}
               />
               <text x={wx(cx)} y={rectY - 5} textAnchor="middle" fontSize={10}
-                fill={isSel ? '#34d399' : '#30b890'} pointerEvents="none">
+                fill={isSel ? '#34d399' : isInSet ? '#fbbf24' : '#30b890'} pointerEvents="none">
                 {surf.name}
               </text>
             </g>
@@ -294,9 +364,10 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
                         stroke={isUnitSel ? '#eab308' : '#d4a820'}
                         strokeWidth={isUnitSel ? 2 : 1}
                         style={{ cursor: 'pointer' }}
+                        onPointerDown={e => e.stopPropagation()}
                         onClick={e => {
                           e.stopPropagation();
-                          onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id });
+                          onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id }, e.shiftKey);
                         }}
                         onPointerEnter={() => setHoveredCone({ name, throwM: throwDistM, coveragePct, svgX: dotX, svgY: projSvgY })}
                         onPointerLeave={() => setHoveredCone(null)}
@@ -324,7 +395,8 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
           const wallHM = rows * (panHMm / 1000);
           const cx = wall.posDsXM!;
           const cy = wall.posDsYM!;
-          const isSel = selected?.kind === 'ledwall' && selected.uuid === wall.uuid;
+          const isSel   = selected?.kind === 'ledwall' && selected.uuid === wall.uuid;
+          const isInSet = selectionSet.has(wall.uuid);
           const rX = wx(cx - wallWM / 2);
           const rY = wy(cy + wallHM / 2);
           const rW = Math.max(wallWM * baseScale, 4);
@@ -332,17 +404,22 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
           return (
             <g key={`led-${wall.uuid}`} style={{ cursor: 'grab' }}
               onPointerDown={e => startLEDDrag(e, wall)}
-              onClick={e => { e.stopPropagation(); onSelect({ kind: 'ledwall', uuid: wall.uuid }); }}
+              onClick={e => { e.stopPropagation(); onSelect({ kind: 'ledwall', uuid: wall.uuid }, e.shiftKey); }}
             >
+              {/* Multi-select ring (amber) */}
+              {isInSet && !isSel && <rect x={rX - 3} y={rY - 3} width={rW + 6} height={rH + 6}
+                fill="none" stroke="rgba(251,191,36,0.55)" strokeWidth={1.5}
+                rx={3} strokeDasharray="4 2" pointerEvents="none" />}
+              {/* Primary selection ring (teal) */}
               {isSel && <rect x={rX - 3} y={rY - 3} width={rW + 6} height={rH + 6}
                 fill="none" stroke="rgba(20,184,166,0.6)" strokeWidth={1.5}
                 rx={3} strokeDasharray="4 2" pointerEvents="none" />}
               <rect x={rX} y={rY} width={rW} height={rH}
-                fill={isSel ? 'rgba(20,184,166,0.38)' : 'rgba(20,184,166,0.18)'}
-                stroke={isSel ? '#14b8a6' : '#0d9488'}
+                fill={isSel ? 'rgba(20,184,166,0.38)' : isInSet ? 'rgba(20,184,166,0.28)' : 'rgba(20,184,166,0.18)'}
+                stroke={isSel ? '#14b8a6' : isInSet ? '#fbbf24' : '#0d9488'}
                 strokeWidth={isSel ? 1.8 : 1.2} rx={2} />
               <text x={wx(cx)} y={rY - 5} textAnchor="middle" fontSize={9.5}
-                fill={isSel ? '#14b8a6' : '#0d9488'} pointerEvents="none">{wall.name}</text>
+                fill={isSel ? '#14b8a6' : isInSet ? '#fbbf24' : '#0d9488'} pointerEvents="none">{wall.name}</text>
             </g>
           );
         })}
@@ -381,6 +458,20 @@ export const TopViewCanvas: React.FC<ViewCanvasProps> = ({
           stroke="#5890d8" strokeWidth={1.5} pointerEvents="none" />
         <text x={dscSvgX + 5} y={dscSvgY + 10} fontSize={8} fill="#5890d8" pointerEvents="none">DSC</text>
       </g>
+
+      {/* ── Box-select rubber band (SVG space, not transformed) ── */}
+      {boxRect && (() => {
+        // Convert base-canvas coords to SVG pixel space
+        const svgX = boxRect.x * zoom + panX;
+        const svgY = boxRect.y * zoom + panY;
+        const svgW2 = boxRect.w * zoom;
+        const svgH2 = boxRect.h * zoom;
+        return (
+          <rect x={svgX} y={svgY} width={svgW2} height={svgH2}
+            fill="rgba(99,179,237,0.07)" stroke="rgba(99,179,237,0.7)"
+            strokeWidth={1} strokeDasharray="5 3" pointerEvents="none" />
+        );
+      })()}
 
       {/* ── HUD: drag coords (SVG space, not transformed) ── */}
       {hudPos && (

@@ -29,6 +29,7 @@ export interface ViewTransform {
 const ZOOM_MIN = 0.08;
 const ZOOM_MAX = 20;
 const ZOOM_STEP = 1.12;
+const ZOOM_BTN  = 1.5;
 
 export function useViewTransform(svgW: number, svgH: number) {
   const [t, setT] = useState<ViewTransform>({ zoom: 1, panX: 0, panY: 0 });
@@ -104,6 +105,40 @@ export function useViewTransform(svgW: number, svgH: number) {
   const resetZoom = useCallback(() => setT({ zoom: 1, panX: 0, panY: 0 }), []);
 
   /**
+   * Zoom in 1.5× toward an optional focal point in **base-canvas** coordinates
+   * (pre-transform — the same coordinate space wx()/wy()/fx()/fz()/sy()/sz() output).
+   * Defaults to canvas center when no focal point is given.
+   */
+  const zoomIn = useCallback(
+    (focalBX?: number, focalBY?: number) => {
+      setT(prev => {
+        const cx = focalBX !== undefined ? focalBX * prev.zoom + prev.panX : svgW / 2;
+        const cy = focalBY !== undefined ? focalBY * prev.zoom + prev.panY : svgH / 2;
+        const zoom = Math.min(ZOOM_MAX, prev.zoom * ZOOM_BTN);
+        const bx = (cx - prev.panX) / prev.zoom;
+        const by = (cy - prev.panY) / prev.zoom;
+        return { zoom, panX: cx - bx * zoom, panY: cy - by * zoom };
+      });
+    },
+    [svgW, svgH],
+  );
+
+  /** Zoom out ÷1.5 toward the same optional focal point. */
+  const zoomOut = useCallback(
+    (focalBX?: number, focalBY?: number) => {
+      setT(prev => {
+        const cx = focalBX !== undefined ? focalBX * prev.zoom + prev.panX : svgW / 2;
+        const cy = focalBY !== undefined ? focalBY * prev.zoom + prev.panY : svgH / 2;
+        const zoom = Math.max(ZOOM_MIN, prev.zoom / ZOOM_BTN);
+        const bx = (cx - prev.panX) / prev.zoom;
+        const by = (cy - prev.panY) / prev.zoom;
+        return { zoom, panX: cx - bx * zoom, panY: cy - by * zoom };
+      });
+    },
+    [svgW, svgH],
+  );
+
+  /**
    * Convert SVG pixel coordinates → base-canvas coordinates (pre-transform).
    * Base-canvas coords are what wx()/wy()/sy()/sz()/fx()/fz() output directly.
    */
@@ -126,5 +161,7 @@ export function useViewTransform(svgW: number, svgH: number) {
     isPanning,
     resetZoom,
     toBase,
+    zoomIn,
+    zoomOut,
   };
 }

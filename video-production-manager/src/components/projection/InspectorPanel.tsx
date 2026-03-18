@@ -15,7 +15,7 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils/helpers';
 import { derivePositionStats } from './shared/objectRelations';
-import type { SelectedEntity } from './viewTypes';
+import type { SelectedEntity, AnchorPoint } from './viewTypes';
 import type { ProjectionSurface, ProjectorPosition, SurfaceMatte } from '@/hooks/useProjectionSurfaceAPI';
 import type { ProjectionScreen } from '@/hooks/useProjectionScreenAPI';
 import type { LEDScreen } from '@/hooks/useLEDScreenAPI';
@@ -26,6 +26,8 @@ interface Props {
   projectors: ProjectionScreen[];
   equipmentSpecs: any[];
   ledWalls: LEDScreen[];
+  anchorPoint?: AnchorPoint;
+  onAnchorChange?: (v: AnchorPoint) => void;
   onSurfacePatch: (uuid: string, patch: Partial<ProjectionSurface>) => void;
   onPositionPatch: (surfaceUuid: string, posId: string, patch: Partial<ProjectorPosition>) => void;
   onMattePatch?: (surfaceUuid: string, matteId: string, patch: Partial<SurfaceMatte>) => void;
@@ -92,17 +94,25 @@ function DivRow() {
 }
 
 // ── Surface inspector ─────────────────────────────────────────────────────────
-function SurfaceInspector({ surf, onPatch }: {
+function SurfaceInspector({ surf, anchorPoint = 'center', onPatch }: {
   surf: ProjectionSurface;
+  anchorPoint?: AnchorPoint;
   onPatch: (patch: Partial<ProjectionSurface>) => void;
 }) {
   const p = (field: keyof ProjectionSurface) => (v: string) =>
     onPatch({ [field]: parseFloat(v) || 0 } as any);
 
+  const tlX = (surf.posDsXM ?? 0) - (surf.widthM ?? 0) / 2;
+  const xLabel  = anchorPoint === 'top-left' ? 'X (left edge)' : 'X (SR+)';
+  const xValue  = anchorPoint === 'top-left' ? tlX.toFixed(3)  : (surf.posDsXM ?? 0).toFixed(3);
+  const xChange = anchorPoint === 'top-left'
+    ? (v: string) => onPatch({ posDsXM: (parseFloat(v) || 0) + (surf.widthM ?? 0) / 2 })
+    : (v: string) => onPatch({ posDsXM: parseFloat(v) || 0 });
+
   return (
     <div className="space-y-1.5">
       <SectionHead title="Position" />
-      <InspField label="X (SR+)" value={(surf.posDsXM ?? 0).toFixed(3)} unit="m" step={0.05} onChange={v => onPatch({ posDsXM: parseFloat(v) || 0 })} />
+      <InspField label={xLabel} value={xValue} unit="m" step={0.05} onChange={xChange} />
       <InspField label="Y (upstage+)" value={(surf.posDsYM ?? 0).toFixed(3)} unit="m" step={0.1} onChange={v => onPatch({ posDsYM: parseFloat(v) || 0 })} />
       <InspField label="Floor to bot" value={(surf.distFloorM ?? 0).toFixed(3)} unit="m" step={0.05} onChange={v => onPatch({ distFloorM: parseFloat(v) || 0 })} />
 
@@ -262,6 +272,7 @@ function LEDWallInspector({ wall, onPatch }: {
 // ── Main export ───────────────────────────────────────────────────────────────
 export const InspectorPanel: React.FC<Props> = ({
   selected, surfaces, projectors, equipmentSpecs, ledWalls,
+  anchorPoint = 'center', onAnchorChange,
   onSurfacePatch, onPositionPatch, onMattePatch, onLEDWallPatch,
 }) => {
   let heading = 'Inspector';
@@ -280,6 +291,7 @@ export const InspectorPanel: React.FC<Props> = ({
       content = (
         <SurfaceInspector
           surf={surf}
+          anchorPoint={anchorPoint}
           onPatch={patch => onSurfacePatch(surf.uuid, patch)}
         />
       );
@@ -334,6 +346,20 @@ export const InspectorPanel: React.FC<Props> = ({
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-av-accent/15 border border-av-accent/25 text-av-accent">
             {badge}
           </span>
+        )}
+        {(selected?.kind === 'surface' || selected?.kind === 'ledwall') && onAnchorChange && (
+          <div className="inline-flex rounded border border-av-border/50 overflow-hidden text-[10px] ml-1">
+            <button
+              className={cn('px-1.5 py-0.5', anchorPoint === 'center' ? 'bg-av-accent/20 text-av-accent' : 'text-av-text-muted hover:text-av-text')}
+              onClick={() => onAnchorChange('center')}
+              title="Show center coordinates"
+            >⊚</button>
+            <button
+              className={cn('px-1.5 py-0.5 border-l border-av-border/50', anchorPoint === 'top-left' ? 'bg-av-accent/20 text-av-accent' : 'text-av-text-muted hover:text-av-text')}
+              onClick={() => onAnchorChange('top-left')}
+              title="Show left-edge coordinates"
+            >⌜</button>
+          </div>
         )}
       </div>
       {/* Scrollable body */}

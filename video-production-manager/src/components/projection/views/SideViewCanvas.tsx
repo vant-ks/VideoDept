@@ -12,7 +12,7 @@
  * Zoom: mouse wheel  |  Pan: middle-mouse drag
  */
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { snapTo, formatMasImperial } from '@/components/VenueCanvasUtils';
 import { DECK_SIZES } from '@/hooks/useVenueStore';
 import { DimLine } from '@/components/VenueCanvasUtils';
@@ -31,7 +31,9 @@ const SCREEN_DEPTH_Y = 0.18; // screen "thickness" in Y direction
 
 export const SideViewCanvas: React.FC<ViewCanvasProps> = ({
   venueData, surfaces, projectors, equipmentSpecs, ledWalls,
-  snapInches, selected, onSelect, onSurfacePatch, onPositionPatch,
+  snapInches, selected, onSelect,
+  selectionSet: _selSet, onBoxSelect: _onBoxSelect, controlsRef,
+  onSurfacePatch, onPositionPatch,
 }) => {
   const svgRef  = useRef<SVGSVGElement>(null);
   const vt      = useViewTransform(W, H);
@@ -69,6 +71,17 @@ export const SideViewCanvas: React.FC<ViewCanvasProps> = ({
     fitRect(sy(minY), sz(roomH), roomD * baseScale, roomH * baseScale);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomD, roomH]);
+
+  useLayoutEffect(() => {
+    if (!controlsRef) return;
+    controlsRef.current = {
+      zoomIn: () => vt.zoomIn(),
+      zoomOut: () => vt.zoomOut(),
+      fitToContent: () => {
+        if (hasRoom) fitRect(sy(minY), sz(roomH), roomD * baseScale, roomH * baseScale);
+      },
+    };
+  });
 
   // ── Drag state ────────────────────────────────────────────────────────────
   const dragRef = useRef<
@@ -114,7 +127,7 @@ export const SideViewCanvas: React.FC<ViewCanvasProps> = ({
 
   function startSurfaceDrag(e: React.PointerEvent<Element>, surf: ProjectionSurface) {
     e.stopPropagation();
-    onSelect({ kind: 'surface', surfaceUuid: surf.uuid });
+    onSelect({ kind: 'surface', surfaceUuid: surf.uuid }, false);
     const [sx_, sy_] = getSvgPt(e);
     dragRef.current = {
       kind: 'surface', uuid: surf.uuid,
@@ -140,7 +153,7 @@ export const SideViewCanvas: React.FC<ViewCanvasProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      onClick={() => onSelect(null)}
+      onClick={() => onSelect(null, false)}
     >
       <g transform={`translate(${panX} ${panY}) scale(${zoom})`}>
 
@@ -212,7 +225,7 @@ export const SideViewCanvas: React.FC<ViewCanvasProps> = ({
           return (
             <g key={surf.uuid} style={{ cursor: 'grab' }}
               onPointerDown={e => startSurfaceDrag(e, surf)}
-              onClick={e => { e.stopPropagation(); onSelect({ kind: 'surface', surfaceUuid: surf.uuid }); }}
+              onClick={e => { e.stopPropagation(); onSelect({ kind: 'surface', surfaceUuid: surf.uuid }, e.shiftKey); }}
             >
               {isSel && (
                 <rect x={rectX - 5} y={rectY - 5} width={rectW + 10} height={rectH + 10}
@@ -281,7 +294,7 @@ export const SideViewCanvas: React.FC<ViewCanvasProps> = ({
                   style={{ cursor: 'pointer' }}
                   onPointerDown={e => {
                     e.stopPropagation();
-                    onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id });
+                    onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id }, false);
                     const [sx_, sy_] = getSvgPt(e);
                     dragRef.current = {
                       kind: 'position',
@@ -292,7 +305,7 @@ export const SideViewCanvas: React.FC<ViewCanvasProps> = ({
                     };
                     (e.target as Element).setPointerCapture(e.pointerId);
                   }}
-                  onClick={e => { e.stopPropagation(); onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id }); }}
+                  onClick={e => { e.stopPropagation(); onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id }, e.shiftKey); }}
                 />
                 {/* Label */}
                 <text x={projX} y={projZsvg - 8} textAnchor="middle"

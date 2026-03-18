@@ -717,8 +717,6 @@ export default function Projectors() {
 
   // ── Sub-tab ───────────────────────────────────────────────────────────────
   const [activeSubTab, setActiveSubTab] = useState<'projectors' | 'screens' | 'layout'>('projectors');
-  // ── Layout view mode ─────────────────────────────────────────────────────
-  const [layoutMode, setLayoutMode] = useState<'classic' | 'multi'>('classic');
 
   // ── LED Walls state (for Layout canvas) ───────────────────────────────────
   const [localLEDWalls, setLocalLEDWalls] = useState<LEDScreen[]>([]);
@@ -2260,56 +2258,16 @@ export default function Projectors() {
 
       {/* ── Layout Tab ───────────────────────────────────────────────────── */}
       {activeSubTab === 'layout' && productionId && (
-        <>
-          {/* View mode toggle */}
-          <div className="flex justify-end mb-3">
-            <div className="flex gap-1 rounded-lg bg-av-surface p-1 border border-av-border/40">
-              <button
-                onClick={() => setLayoutMode('classic')}
-                className={cn('px-3 py-1 text-xs rounded font-medium transition-colors',
-                  layoutMode === 'classic' ? 'bg-av-accent text-white' : 'text-av-text-muted hover:text-av-text')}
-              >
-                Classic
-              </button>
-              <button
-                onClick={() => setLayoutMode('multi')}
-                className={cn('px-3 py-1 text-xs rounded font-medium transition-colors',
-                  layoutMode === 'multi' ? 'bg-av-accent text-white' : 'text-av-text-muted hover:text-av-text')}
-              >
-                Multi-View
-              </button>
-            </div>
-          </div>
-
-          {layoutMode === 'classic' ? (
-            <LayoutTab
-              venueData={venueData}
-              surfaces={localSurfaces}
-              projectors={localProjectors}
-              equipmentSpecs={equipmentSpecs}
-              ledWalls={localLEDWalls}
-              selectedSurfaceId={selectedSurfaceId}
-              selectedProjectorUuid={selectedProjectorUuid}
-              onSelectSurface={(uuid) => { setSelectedSurfaceId(uuid); if (uuid) setActiveSubTab('screens'); }}
-              onSelectProjector={(uuid) => { setSelectedProjectorUuid(uuid); setActiveSubTab('projectors'); }}
-              onSurfaceMove={handleSurfaceMove}
-              onLEDWallMove={handleLEDWallMove}
-              onGoToStaging={() => setActiveTab('staging')}
-              onGoToLED={() => setActiveTab('led')}
-            />
-          ) : (
-            <MultiViewLayout
-              venueData={venueData}
-              surfaces={localSurfaces}
-              projectors={localProjectors}
-              equipmentSpecs={equipmentSpecs}
-              ledWalls={localLEDWalls}
-              onSurfacePatch={handleSurfacePatch}
-              onPositionPatch={handlePositionPatch}
-              onLEDWallPatch={handleLEDWallMove}
-            />
-          )}
-        </>
+        <MultiViewLayout
+          venueData={venueData}
+          surfaces={localSurfaces}
+          projectors={localProjectors}
+          equipmentSpecs={equipmentSpecs}
+          ledWalls={localLEDWalls}
+          onSurfacePatch={handleSurfacePatch}
+          onPositionPatch={handlePositionPatch}
+          onLEDWallPatch={handleLEDWallMove}
+        />
       )}
 
       {/* ── Projection Surface Modal ─────────────────────────────────────── */}

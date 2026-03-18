@@ -32,6 +32,7 @@ const OVERLAP_STROKE = 'rgba(255,255,150,0.5)';
 
 export const BlendViewCanvas: React.FC<ViewCanvasProps> = ({
   surfaces, projectors, equipmentSpecs, selected, onSelect,
+  selectionSet: _selSet, onBoxSelect: _onBoxSelect, controlsRef: _controlsRef,
   onPositionPatch,
 }) => {
   // Per-surface overlap override
@@ -90,7 +91,7 @@ export const BlendViewCanvas: React.FC<ViewCanvasProps> = ({
         {/* Surface picker */}
         <select
           value={activeSurfUuid ?? ''}
-          onChange={e => onSelect({ kind: 'surface', surfaceUuid: e.target.value })}
+          onChange={e => onSelect({ kind: 'surface', surfaceUuid: e.target.value }, false)}
           className="text-xs bg-av-surface border border-av-border/60 rounded px-2 py-1 text-av-text flex-1 focus:outline-none"
         >
           {surfaces.length === 0 && <option value="">No surfaces</option>}
@@ -147,7 +148,7 @@ export const BlendViewCanvas: React.FC<ViewCanvasProps> = ({
               return (
                 <g key={`zone-${i}`}
                   style={{ cursor: pos ? 'pointer' : 'default' }}
-                  onClick={() => pos && surf && onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id })}
+                  onClick={e => { e.stopPropagation(); pos && surf && onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id }, false); }}
                 >
                   <rect x={zX} y={physTop} width={zW} height={physH}
                     fill={ZONE_FILLS[i % ZONE_FILLS.length]}

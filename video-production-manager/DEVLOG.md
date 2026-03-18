@@ -2,6 +2,53 @@
 
 ---
 
+## March 17, 2026 — feat(projection): multi-select, rubber-band, view toolbar, anchor toggle, remove classic mode
+
+### Branch: `v0.2.5_projection-refinement`
+### Status: ✅ COMPLETE
+### Tags: feat, projection, multi-select, ui
+
+**Summary:**
+Full multi-view projection canvas feature — continued from previous session.
+
+**Changes:**
+
+**`viewTypes.ts`** (previously done)
+- Added `AnchorPoint`, `ViewControls`, `AlignMode` types
+- Extended `ViewCanvasProps` with `selectionSet`, `onBoxSelect`, `controlsRef`, additive `onSelect`
+
+**`shared/useViewTransform.ts`** (previously done)
+- Added `zoomIn(focalBX?, focalBY?)` / `zoomOut(...)` with optional focal-point zoom
+
+**`MultiViewLayout.tsx`** (previously done)
+- 2×2 quad-view + per-view toolbar (zoom in/out/fit, expand)
+- Top toolbar with 8 alignment/distribute ops
+- Multi-select state (`selectionSet` + primary `selected`)
+- Anchor point toggle state, passed to InspectorPanel
+
+**`views/TopViewCanvas.tsx`**
+- Rubber-band box-select: drag on background → highlight → commit on pointer-up
+- Surface and LED wall multi-select amber ring highlight
+- `onSelect` additive flag wired to `e.shiftKey` for click, `false` for drag
+- Projector dot `onPointerDown` stopPropagation to prevent accidental box start
+- `controlsRef` populated via `useLayoutEffect` (runs every render, stable capture)
+
+**`views/FrontViewCanvas.tsx`**, **`SideViewCanvas.tsx`**, **`BlendViewCanvas.tsx`**
+- Added `selectionSet`, `onBoxSelect`, `controlsRef` to destructuring
+- `useLayoutEffect` populates `controlsRef` in Front/Side (no-op for Blend)
+- All `onSelect` calls updated: drag-start → `false`, click → `e.shiftKey`
+
+**`InspectorPanel.tsx`**
+- Added `anchorPoint?: AnchorPoint` and `onAnchorChange?` to Props
+- Two-button segment toggle (⊙ Center / ⌜ Left-edge) visible for surface/LED selections
+- `SurfaceInspector` X field shows left-edge value when `anchorPoint === 'top-left'`; onChange converts back to center
+
+**`src/pages/Projectors.tsx`**
+- Removed `layoutMode` state and Classic/Multi-View toggle
+- Layout tab always renders `MultiViewLayout` directly
+
+---
+
 ## March 17, 2026 — fix(media-servers): useRef expand state + commit open projection work
 
 ### Branch: `v0.2.5_projection-refinement`

@@ -13,7 +13,7 @@
  * Zoom: mouse wheel  |  Pan: middle-mouse drag
  */
 
-import React, { useRef, useState, useEffect, useId } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useId } from 'react';
 import { snapTo, formatMasImperial } from '@/components/VenueCanvasUtils';
 import { DimLine } from '@/components/VenueCanvasUtils';
 import { useViewTransform } from '../shared/useViewTransform';
@@ -32,7 +32,9 @@ let instanceId = 0;
 
 export const FrontViewCanvas: React.FC<ViewCanvasProps> = ({
   venueData, surfaces, projectors, equipmentSpecs, ledWalls,
-  snapInches, selected, onSelect, onSurfacePatch, onPositionPatch, onMattePatch,
+  snapInches, selected, onSelect,
+  selectionSet: _selSet, onBoxSelect: _onBoxSelect, controlsRef,
+  onSurfacePatch, onPositionPatch, onMattePatch,
 }) => {
   const svgRef   = useRef<SVGSVGElement>(null);
   const vt       = useViewTransform(W, H);
@@ -64,6 +66,17 @@ export const FrontViewCanvas: React.FC<ViewCanvasProps> = ({
     fitRect(fx(-roomW / 2), fz(roomH), roomW * baseScale, roomH * baseScale);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomW, roomH]);
+
+  useLayoutEffect(() => {
+    if (!controlsRef) return;
+    controlsRef.current = {
+      zoomIn: () => vt.zoomIn(),
+      zoomOut: () => vt.zoomOut(),
+      fitToContent: () => {
+        if (hasRoom) fitRect(fx(-roomW / 2), fz(roomH), roomW * baseScale, roomH * baseScale);
+      },
+    };
+  });
 
   // ── Drag state ────────────────────────────────────────────────────────────
   const dragRef = useRef<
@@ -133,7 +146,7 @@ export const FrontViewCanvas: React.FC<ViewCanvasProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      onClick={() => onSelect(null)}
+      onClick={() => onSelect(null, false)}
     >
       <defs>
         {/* Matte hatch pattern */}
@@ -191,7 +204,7 @@ export const FrontViewCanvas: React.FC<ViewCanvasProps> = ({
           const isSel = selected?.kind === 'ledwall' && selected.uuid === wall.uuid;
           return (
             <g key={`led-${wall.uuid}`} style={{ cursor: 'pointer' }}
-              onClick={e => { e.stopPropagation(); onSelect({ kind: 'ledwall', uuid: wall.uuid }); }}
+              onClick={e => { e.stopPropagation(); onSelect({ kind: 'ledwall', uuid: wall.uuid }, e.shiftKey); }}
             >
               {isSel && <rect
                 x={fx(cx - wallWM / 2) - 4} y={fz(wallHM) - 4}
@@ -236,7 +249,7 @@ export const FrontViewCanvas: React.FC<ViewCanvasProps> = ({
                 style={{ cursor: 'grab' }}
                 onPointerDown={e => {
                   e.stopPropagation();
-                  onSelect({ kind: 'surface', surfaceUuid: surf.uuid });
+                  onSelect({ kind: 'surface', surfaceUuid: surf.uuid }, false);
                   const [sx_, sy_] = getSvgPt(e);
                   dragRef.current = {
                     kind: 'surface', uuid: surf.uuid,
@@ -246,7 +259,7 @@ export const FrontViewCanvas: React.FC<ViewCanvasProps> = ({
                   };
                   (e.target as Element).setPointerCapture(e.pointerId);
                 }}
-                onClick={e => { e.stopPropagation(); onSelect({ kind: 'surface', surfaceUuid: surf.uuid }); }}
+                onClick={e => { e.stopPropagation(); onSelect({ kind: 'surface', surfaceUuid: surf.uuid }, e.shiftKey); }}
               />
               {/* Screen name */}
               <text x={fx(cx)} y={rY - 5} textAnchor="middle" fontSize={9.5}
@@ -278,7 +291,7 @@ export const FrontViewCanvas: React.FC<ViewCanvasProps> = ({
                       style={{ cursor: 'grab' }}
                       onPointerDown={e => {
                         e.stopPropagation();
-                        onSelect({ kind: 'matte', surfaceUuid: surf.uuid, matteId: matte.id });
+                        onSelect({ kind: 'matte', surfaceUuid: surf.uuid, matteId: matte.id }, false);
                         const [sx_, sy_] = getSvgPt(e);
                         dragRef.current = {
                           kind: 'matte', surfaceUuid: surf.uuid, matteId: matte.id,
@@ -286,7 +299,7 @@ export const FrontViewCanvas: React.FC<ViewCanvasProps> = ({
                         };
                         (e.target as Element).setPointerCapture(e.pointerId);
                       }}
-                      onClick={e => { e.stopPropagation(); onSelect({ kind: 'matte', surfaceUuid: surf.uuid, matteId: matte.id }); }}
+                      onClick={e => { e.stopPropagation(); onSelect({ kind: 'matte', surfaceUuid: surf.uuid, matteId: matte.id }, e.shiftKey); }}
                     />
                     {matte.label && (
                       <text x={mx + mw / 2} y={my + mh_ / 2 + 3} textAnchor="middle"
@@ -324,10 +337,10 @@ export const FrontViewCanvas: React.FC<ViewCanvasProps> = ({
                 return (
                   <g key={`fp-${pos.id}`}
                     style={{ cursor: 'pointer' }}
-                    onClick={e => { e.stopPropagation(); onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id }); }}
+                    onClick={e => { e.stopPropagation(); onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id }, e.shiftKey); }}
                     onPointerDown={e => {
                       e.stopPropagation();
-                      onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id });
+                      onSelect({ kind: 'position', surfaceUuid: surf.uuid, positionId: pos.id }, false);
                       const [sx_, sy_] = getSvgPt(e);
                       dragRef.current = {
                         kind: 'position', surfaceUuid: surf.uuid, posId: pos.id,
