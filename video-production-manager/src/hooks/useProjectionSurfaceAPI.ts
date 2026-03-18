@@ -32,6 +32,8 @@ export interface ProjectorPosition {
   horizOffsetM: number;
   throwDistM?: number;
   vertOffsetM?: number;
+  /** Projector lens height above floor (meters). Defaults to screen center Z when absent. */
+  mountHeightM?: number;
   lensUuid?: string;
   stackedUnits: StackedUnit[];
   blendZoneIndex?: number;

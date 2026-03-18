@@ -1496,7 +1496,6 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       pairNumber: nextPairNumber,
       isBackup: false,
       platform,
-      outputs: outputs.map((o, i) => ({ ...o, id: `${nextPairNumber}A-OUT${i + 1}` })),
       note
     };
     
@@ -1506,11 +1505,6 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       pairNumber: nextPairNumber,
       isBackup: true,
       platform,
-      outputs: outputs.map((o, i) => ({
-        ...o,
-        id: `${nextPairNumber}B-OUT${i + 1}`,
-        name: o.name.replace(/\sA\s*(\([^)]*\))?$/, (match, role) => role ? ` B ${role}` : ' B') // Replace " A" with " B", keep role with space
-      })),
       note
     };
     
@@ -1531,7 +1525,6 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         pairNumber: mainServer.pairNumber,
         isBackup: mainServer.isBackup,
         platform: mainServer.platform,
-        outputs: mainServer.outputs,
         note: mainServer.note,
         computerType,
         productionId: activeProject.production.id,
@@ -1547,7 +1540,6 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         pairNumber: backupServer.pairNumber,
         isBackup: backupServer.isBackup,
         platform: backupServer.platform,
-        outputs: backupServer.outputs,
         note: backupServer.note,
         computerType,
         productionId: activeProject.production.id,

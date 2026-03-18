@@ -23,6 +23,7 @@ import { calcBlend, calcCones, autoCalcNProj, MIN_OVERLAP_PCT, type BlendResult,
 import { useLEDScreenAPI, type LEDScreen } from '@/hooks/useLEDScreenAPI';
 import { BlendDiagram } from '@/components/blend/BlendDiagram';
 import { ConeView, type ConeViewType } from '@/components/blend/ConeView';
+import { MultiViewLayout } from '@/components/projection/MultiViewLayout';
 
 // Projector placement types
 const PROJECTOR_TYPES = [
@@ -882,6 +883,25 @@ export default function Projectors() {
       await ledScreenAPI.updateLEDScreen(uuid, { posDsXM: xM, posDsYM: yM, version: wall.version });
     }
   }, [localLEDWalls, ledScreenAPI]);
+
+  /** Generic surface field patch — used by MultiViewLayout canvases */
+  const handleSurfacePatch = useCallback(async (uuid: string, patch: Partial<ProjectionSurface>) => {
+    setLocalSurfaces(prev => prev.map(s => s.uuid === uuid ? { ...s, ...patch } : s));
+    const surf = localSurfaces.find(s => s.uuid === uuid);
+    if (surf) {
+      await projectionSurfaceAPI.updateSurface(uuid, { ...patch, version: surf.version });
+    }
+  }, [localSurfaces, projectionSurfaceAPI]);
+
+  /** Projector position patch — used by MultiViewLayout canvases */
+  const handlePositionPatch = useCallback(async (surfaceUuid: string, posId: string, patch: Partial<ProjectorPosition>) => {
+    const surf = localSurfaces.find(s => s.uuid === surfaceUuid);
+    if (!surf) return;
+    const updated = (surf.projectorAssignments ?? []).map(p =>
+      p.id === posId ? { ...p, ...patch } : p
+    );
+    await patchSurfacePositions(surfaceUuid, updated);
+  }, [localSurfaces, patchSurfacePositions]);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [localProjectors, setLocalProjectors] = useState<ProjectionScreen[]>([]);
@@ -2238,20 +2258,15 @@ export default function Projectors() {
 
       {/* ── Layout Tab ───────────────────────────────────────────────────── */}
       {activeSubTab === 'layout' && productionId && (
-        <LayoutTab
+        <MultiViewLayout
           venueData={venueData}
           surfaces={localSurfaces}
           projectors={localProjectors}
           equipmentSpecs={equipmentSpecs}
           ledWalls={localLEDWalls}
-          selectedSurfaceId={selectedSurfaceId}
-          selectedProjectorUuid={selectedProjectorUuid}
-          onSelectSurface={(uuid) => { setSelectedSurfaceId(uuid); if (uuid) setActiveSubTab('screens'); }}
-          onSelectProjector={(uuid) => { setSelectedProjectorUuid(uuid); setActiveSubTab('projectors'); }}
-          onSurfaceMove={handleSurfaceMove}
-          onLEDWallMove={handleLEDWallMove}
-          onGoToStaging={() => setActiveTab('staging')}
-          onGoToLED={() => setActiveTab('led')}
+          onSurfacePatch={handleSurfacePatch}
+          onPositionPatch={handlePositionPatch}
+          onLEDWallPatch={handleLEDWallMove}
         />
       )}
 

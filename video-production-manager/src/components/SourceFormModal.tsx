@@ -37,7 +37,7 @@ export function SourceFormModal({
   const secondaryDeviceOptions = equipmentSpecs.filter(spec => spec.isSecondaryDevice);
   
   // Computer type options come from equipment library (COMPUTER category)
-  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'COMPUTER');
+  const computerEquipment = equipmentSpecs.filter(spec => spec.category === 'computer');
   
   // Get default type — first computer equipment model, with fallback
   const defaultType = computerEquipment.length > 0 ? computerEquipment[0].model : 'Laptop - PC MISC';

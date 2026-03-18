@@ -1,32 +1,29 @@
 # TODO — Next Session
 
-_Last updated: 2026-03-16_
+_Last updated: 2026-03-17_
 _Detailed backlog: `docs/BACKLOG.md`_
 
 ---
 
-## 🔴 Bugs
+## 🚀 Current Branch: `v0.2.5_projection-refinement`
 
-**Media Servers: Card collapses on output add/edit (reveal mode)**
-- Expand state is local React state wiped by `loadProject` re-render
-- Fix: hold `Set<uuid>` of expanded server UUIDs in `useRef` at page level
+**In progress:** Projection refinement — multi-view inspector panel, view canvases (Top/Front/Side/Blend), Streams URL/key copy cards.
 
-**Media Servers: Direct I/O section disabled when card-based output mode selected**
-- Fix: remove whatever condition gates the enabled state on output mode — hide/show is correct, not enable/disable
+Open work committed `d65eb83`. No IN PROGRESS tasks remaining.
 
 ---
 
 ## 🏗️ Design Decision Needed
 
-**Media Servers: outputs_data vs. IOPortsPanel overlap**
-- Remove Type / Resolution / FrameRate from `outputs_data` rows (now covered by `ioType` + `formatUuid` in IOPortsPanel)
-- Keep Name + Role (still drives A/B backup logic)
-- Future: add logical→physical linkage field (maps software output channel → `device_port` UUID)
+**Projection: InspectorPanel / view canvases need wiring into Projectors.tsx**
+- `src/components/projection/` folder added — InspectorPanel, MultiViewLayout, 4 view canvases, viewTypes.ts, shared hooks
+- Not yet imported/wired in Projectors.tsx — decide on integration point (replace or augment existing Layout tab?)
 
 ---
 
-## 🚀 Current Sprint
+## Previously Resolved (do not re-raise)
 
-**Stage 2 — Blend Zones** (see `docs/STAGE_SESSION_PROMPTS.md`)
-- Stage 1 ✅ complete (`4aac633` — category-specific spec panels in EquipmentFormModal)
-- Stages 2–8 ready with full session init prompts
+- ~~Media Servers: Card collapses on output add/edit~~ — **FIXED** `4e8f8f5`: expandedPairsRef / expandedLayersRef (useRef, survives loadProject)
+- ~~Media Servers: Direct I/O disabled when card-based mode selected~~ — **FIXED** by `95c757e`: outputs_data retirement removed the outputMode gate entirely
+- ~~Media Servers: outputs_data vs. IOPortsPanel overlap~~ — **FIXED** by `95c757e`: outputs_data retired, device_ports is sole port model
+- ~~Projection Stages 2–8~~ — **COMPLETE** (merged to main as `6b8ffa7`)

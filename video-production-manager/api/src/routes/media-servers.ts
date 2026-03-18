@@ -8,13 +8,11 @@ import { toCamelCase, toSnakeCase } from '../utils/caseConverter';
 const router = Router();
 
 // Helper: Transform database media_server to frontend format
-// Converts outputs_data → outputs to match TypeScript interfaces
 function normalizeMediaServer(server: any) {
   const camelCased = toCamelCase(server);
   return {
     ...camelCased,
-    outputs: camelCased.outputsData || [], // Ensure outputs is always an array
-    outputsData: undefined // Remove the database field name
+    outputsData: undefined // Strip legacy column from response
   };
 }
 
@@ -41,14 +39,13 @@ router.get('/production/:productionId', async (req: Request, res: Response) => {
 // Create mediaServer
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, productionId, outputs, ...mediaServerData } = req.body;
+    const { userId, userName, productionId, ...mediaServerData } = req.body;
     const snakeCaseData = toSnakeCase(mediaServerData);
     
     console.log('📥 Creating media server:', {
       productionId,
       id: mediaServerData.id,
       name: mediaServerData.name,
-      hasOutputs: !!outputs,
       snakeCaseKeys: Object.keys(snakeCaseData)
     });
     
@@ -56,7 +53,6 @@ router.post('/', async (req: Request, res: Response) => {
       data: {
         ...snakeCaseData,
         production_id: productionId,
-        outputs_data: outputs || [], // Store as outputs_data, default to empty array
         updated_at: new Date(),
         version: 1
       }
@@ -96,13 +92,12 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:uuid', async (req: Request, res: Response) => {
   try {
     const { uuid } = req.params;
-    const { version: clientVersion, userId, userName, outputs, ...updates } = req.body;
+    const { version: clientVersion, userId, userName, ...updates } = req.body;
     
     console.log('📥 PUT request body:', {
       uuid,
       updates,
-      clientVersion,
-      hasOutputs: outputs !== undefined
+      clientVersion
     });
     
     // Get current version for conflict detection
@@ -130,11 +125,8 @@ router.put('/:uuid', async (req: Request, res: Response) => {
     const snakeCaseUpdates = toSnakeCase(updates);
     console.log('🔄 Converted updates:', snakeCaseUpdates);
     
-    // Prepare update data - transform outputs → outputs_data if present
+    // Prepare update data
     const updateData: any = { ...snakeCaseUpdates, version: current.version + 1 };
-    if (outputs !== undefined) {
-      updateData.outputs_data = outputs;
-    }
     
     console.log('💾 Updating with data:', updateData);
     

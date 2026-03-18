@@ -2,6 +2,86 @@
 
 ---
 
+## March 17, 2026 — feat(projection): multi-select, rubber-band, view toolbar, anchor toggle, remove classic mode
+
+### Branch: `v0.2.5_projection-refinement`
+### Status: ✅ COMPLETE
+### Tags: feat, projection, multi-select, ui
+
+**Summary:**
+Full multi-view projection canvas feature — continued from previous session.
+
+**Changes:**
+
+**`viewTypes.ts`** (previously done)
+- Added `AnchorPoint`, `ViewControls`, `AlignMode` types
+- Extended `ViewCanvasProps` with `selectionSet`, `onBoxSelect`, `controlsRef`, additive `onSelect`
+
+**`shared/useViewTransform.ts`** (previously done)
+- Added `zoomIn(focalBX?, focalBY?)` / `zoomOut(...)` with optional focal-point zoom
+
+**`MultiViewLayout.tsx`** (previously done)
+- 2×2 quad-view + per-view toolbar (zoom in/out/fit, expand)
+- Top toolbar with 8 alignment/distribute ops
+- Multi-select state (`selectionSet` + primary `selected`)
+- Anchor point toggle state, passed to InspectorPanel
+
+**`views/TopViewCanvas.tsx`**
+- Rubber-band box-select: drag on background → highlight → commit on pointer-up
+- Surface and LED wall multi-select amber ring highlight
+- `onSelect` additive flag wired to `e.shiftKey` for click, `false` for drag
+- Projector dot `onPointerDown` stopPropagation to prevent accidental box start
+- `controlsRef` populated via `useLayoutEffect` (runs every render, stable capture)
+
+**`views/FrontViewCanvas.tsx`**, **`SideViewCanvas.tsx`**, **`BlendViewCanvas.tsx`**
+- Added `selectionSet`, `onBoxSelect`, `controlsRef` to destructuring
+- `useLayoutEffect` populates `controlsRef` in Front/Side (no-op for Blend)
+- All `onSelect` calls updated: drag-start → `false`, click → `e.shiftKey`
+
+**`InspectorPanel.tsx`**
+- Added `anchorPoint?: AnchorPoint` and `onAnchorChange?` to Props
+- Two-button segment toggle (⊙ Center / ⌜ Left-edge) visible for surface/LED selections
+- `SurfaceInspector` X field shows left-edge value when `anchorPoint === 'top-left'`; onChange converts back to center
+
+**`src/pages/Projectors.tsx`**
+- Removed `layoutMode` state and Classic/Multi-View toggle
+- Layout tab always renders `MultiViewLayout` directly
+
+---
+
+## March 17, 2026 — fix(media-servers): useRef expand state + commit open projection work
+
+### Branch: `v0.2.5_projection-refinement`
+### Status: ✅ COMPLETE
+### Tags: fix, media-servers, projection, streams
+
+**Commits:**
+- `d65eb83` — feat(projection): multi-view inspector panel, view canvases, streams URL/key copy, misc fixes
+- `4e8f8f5` — fix(media-servers): useRef for expand state — survives loadProject re-renders
+
+**Bug fixes:**
+- **Card collapses on output add/edit**: `expandedPairs` and `expandedLayers` converted from `useState<Set<string>>` to `useRef<Set<string>>` + `forceUpdate` counter. The ref is never wiped by re-renders triggered by `loadProject`, so cards stay expanded after modal save.
+- **Direct I/O disabled when card-based mode selected**: Already resolved by `95c757e` (outputs_data retirement) — the `outputMode` gate was removed entirely in that refactor.
+- **outputs_data vs IOPortsPanel overlap**: Also resolved by `95c757e` — outputs_data retired, device_ports is sole model.
+
+**Projection work committed (was sitting open):**
+- `src/components/projection/viewTypes.ts` — shared type definitions for multi-view panel
+- `src/components/projection/InspectorPanel.tsx` — properties inspector sidebar
+- `src/components/projection/MultiViewLayout.tsx` — 4-up / split-view layout shell
+- `src/components/projection/views/TopViewCanvas.tsx` — top-down throw diagram
+- `src/components/projection/views/FrontViewCanvas.tsx` — front elevation view
+- `src/components/projection/views/SideViewCanvas.tsx` — side elevation view
+- `src/components/projection/views/BlendViewCanvas.tsx` — blend zone detail view
+- `src/components/projection/shared/objectRelations.ts` — relation helpers
+- `src/components/projection/shared/useViewTransform.ts` — pan/zoom transform hook
+- `src/hooks/useProjectionSurfaceAPI.ts` — added `mountHeightM` to ProjectorPosition
+- `src/components/SourceFormModal.tsx` — fix computer category filter (lowercase)
+- `src/pages/IPManagement.tsx` — fix EmptyState icon prop type
+- `api/src/routes/projection-screens.ts` — add updated_at to POST
+- `src/pages/Streams.tsx` — URL + key shown in collapsed card with copy buttons
+
+---
+
 ## March 16, 2026 — feat(projectors): Stage 8 — Bidirectional navigation: Layout ↔ Projectors/Screens tabs + cross-page LED nav
 
 ### Branch: `v0.2.4_graphical-ui`
@@ -2812,3 +2892,46 @@ const savedMainServer = await apiClient.post('/media-servers', {
 - Video switcher integration
 - Media server allocation
 - CCU and camera management
+
+---
+
+## refactor(media-servers): remove outputs_data — retire legacy JSONB in favour of device_ports
+
+**Date:** 2026-03-16
+**Branch:** v0.2.5_projection-refinement
+### Status: ✅ COMPLETE
+
+### Problem
+`outputs_data` (JSONB on `media_servers`) and `device_ports` stored the same information
+with full field overlap: connector type → `ioType`, name → `portLabel`, role → `note`,
+resolution/frameRate → `formatUuid`. Every save was overwriting `outputs_data` with `[]`,
+and the frontend had a dead fallback path (`pair.main.outputs.length`) that could never fire
+in practice (ports are always fetched via device_ports now).
+
+### Changes
+- **`api/src/routes/media-servers.ts`** — `normalizeMediaServer` no longer maps
+  `outputsData → outputs`; POST no longer writes `outputs_data`; PUT no longer writes
+  `outputs_data`. API now only strips `outputsData` from response (column stays in DB).
+- **`src/types/mediaServer.ts`** — removed `MediaServerOutput` interface and `outputs`
+  field from `MediaServer`. `device_ports` / `DevicePortDraft` is the sole port model.
+- **`src/pages/MediaServers.tsx`** — removed `outputs: []` from both `updateMediaServer`
+  calls in `onSave`/`onSaveAndDuplicate`; removed stale `MediaServerOutput` import;
+  simplified output count to pure device_ports path (no legacy fallback).
+- **`src/hooks/useProjectStore.ts`** — removed `outputs` field from server object
+  literals in `addMediaServerPair`; removed `outputs` from API POST bodies.
+- **`src/hooks/useStore.ts`** — removed `outputs` field from `MediaServer` object
+  literals in `addMediaServerPair` (legacy store).
+
+### What does NOT change
+- `outputs_data Json?` column in schema.prisma — untouched (data preserved, just silenced)
+- `ServerPairModal` + `IOPortsPanel` — untouched
+- `device_ports` table + sync endpoint — untouched
+- User-visible functionality — identical
+
+### Files Changed
+- `video-production-manager/api/src/routes/media-servers.ts`
+- `video-production-manager/src/types/mediaServer.ts`
+- `video-production-manager/src/pages/MediaServers.tsx`
+- `video-production-manager/src/hooks/useProjectStore.ts`
+- `video-production-manager/src/hooks/useStore.ts`
+- `video-production-manager/DEVLOG.md`

@@ -198,7 +198,7 @@ export const IPManagement: React.FC = () => {
           </Table>
         ) : (
           <EmptyState
-            icon={<Network className="w-8 h-8" />}
+            icon={Network}
             title="No IP addresses found"
             description="Try adjusting your search or add a new IP"
           />

@@ -78,6 +78,7 @@ export default function Streams() {
   const [cardPorts, setCardPorts]       = useState<Record<string, DevicePortDraft[]>>({});
   const [expandedUuid, setExpandedUuid] = useState<string | null>(null);
   const [showKey, setShowKey]           = useState<Record<string, boolean>>({});
+  const [copiedField, setCopiedField]     = useState<Record<string, string>>({});
 
   // Modal
   const [isModalOpen, setIsModalOpen]               = useState(false);
@@ -346,15 +347,53 @@ export default function Streams() {
                     )}
                   </div>
 
-                  {/* Col 3: encoder model (or URL fallback) */}
-                  <div className="text-sm text-av-text-muted truncate">
-                    {spec
-                      ? `${spec.manufacturer} ${spec.model}`
-                      : stream.url
-                        ? <span className="font-mono text-xs truncate">{stream.url}</span>
-                        : ports.length > 0
-                          ? `${ports.filter(p => p.direction === 'INPUT').length}in · ${ports.filter(p => p.direction === 'OUTPUT').length}out`
-                          : <span className="italic">No encoder</span>}
+                  {/* Col 3: stream URL + key with copy buttons */}
+                  <div className="flex flex-col gap-0.5 min-w-0" onClick={e => e.stopPropagation()}>
+                    {stream.url ? (
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="font-mono text-xs text-av-info truncate flex-1 min-w-0">{stream.url}</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(stream.url!);
+                            setCopiedField(prev => ({ ...prev, [`${stream.uuid}-url`]: 'url' }));
+                            setTimeout(() => setCopiedField(prev => { const n = { ...prev }; delete n[`${stream.uuid}-url`]; return n; }), 2000);
+                          }}
+                          className="flex-shrink-0 p-0.5 rounded text-av-text-muted hover:text-av-text transition-colors"
+                          title="Copy URL"
+                        >
+                          {copiedField[`${stream.uuid}-url`] ? <span className="text-[10px] text-av-success">✓</span> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-av-text-muted italic">No URL</span>
+                    )}
+                    {stream.streamKey ? (
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="font-mono text-xs text-av-text-muted truncate flex-1 min-w-0">
+                          {showKey[stream.uuid] ? stream.streamKey : maskKey(stream.streamKey)}
+                        </span>
+                        <button
+                          onClick={() => setShowKey(prev => ({ ...prev, [stream.uuid]: !prev[stream.uuid] }))}
+                          className="flex-shrink-0 p-0.5 rounded text-av-text-muted hover:text-av-text transition-colors"
+                          title={showKey[stream.uuid] ? 'Hide key' : 'Show key'}
+                        >
+                          {showKey[stream.uuid] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(stream.streamKey!);
+                            setCopiedField(prev => ({ ...prev, [`${stream.uuid}-key`]: 'key' }));
+                            setTimeout(() => setCopiedField(prev => { const n = { ...prev }; delete n[`${stream.uuid}-key`]; return n; }), 2000);
+                          }}
+                          className="flex-shrink-0 p-0.5 rounded text-av-text-muted hover:text-av-text transition-colors"
+                          title="Copy stream key"
+                        >
+                          {copiedField[`${stream.uuid}-key`] ? <span className="text-[10px] text-av-success">✓</span> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-av-text-muted italic">No key</span>
+                    )}
                   </div>
 
                   {/* Col 4: actions */}
@@ -383,29 +422,9 @@ export default function Streams() {
                   </div>
                 </div>
 
-                {/* Revealed: stream details + I/O ports */}
+                {/* Revealed: note + I/O ports */}
                 {isExpanded && (
                   <div className="mt-3 pl-6 border-t border-av-border pt-3 space-y-3">
-                    {stream.url && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-av-text-muted w-24 flex-shrink-0">{getPlatformFields(stream.platform).urlLabel}</span>
-                        <span className="text-xs font-mono text-av-info truncate">{stream.url}</span>
-                      </div>
-                    )}
-                    {stream.streamKey && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-av-text-muted w-24 flex-shrink-0">{getPlatformFields(stream.platform).keyLabel}</span>
-                        <span className="text-xs font-mono text-av-text-muted">
-                          {showKey[stream.uuid] ? stream.streamKey : maskKey(stream.streamKey)}
-                        </span>
-                        <button
-                          onClick={e => { e.stopPropagation(); setShowKey(prev => ({ ...prev, [stream.uuid]: !prev[stream.uuid] })); }}
-                          className="text-av-text-muted hover:text-av-text transition-colors"
-                        >
-                          {showKey[stream.uuid] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                        </button>
-                      </div>
-                    )}
                     {stream.note && (
                       <p className="text-xs text-av-text-muted">{stream.note}</p>
                     )}

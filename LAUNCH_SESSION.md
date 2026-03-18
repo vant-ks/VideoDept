@@ -1,7 +1,7 @@
 
 
 
-CURRENT BRANCH : v0.2.2_sends-subcategory
+CURRENT BRANCH : v0.2.5_projection-refinement
 
 
 
@@ -9,44 +9,32 @@ CURRENT BRANCH : v0.2.2_sends-subcategory
 # LAUNCH SESSION — VideoDept
 **Project:** Video Production Manager  
 **Repository:** https://github.com/vant-ks/VideoDept  
-**Last Updated:** March 11, 2026
+**Last Updated:** March 17, 2026
 
 ---
 
-## ⏸ Last Session Checkpoint — March 11, 2026
+## ⏸ Last Session Checkpoint — March 17, 2026
 
-**Branch:** `v0.2.2_sends-subcategory` — working tree clean, 12 commits ahead of `v0.2`
+**Branch:** `v0.2.5_projection-refinement` — working tree clean, 3 commits ahead of `v0.2` base
 
-**Last thing completed:** ALL modals refactored to sticky header + top-anchored action buttons
+**Last things completed:**
+- `4e8f8f5` — fix(media-servers): useRef expand state — cards no longer collapse on save
+- `d65eb83` — feat(projection): multi-view inspector panel, 4 view canvases, streams copy buttons, misc fixes
+- `95c757e` — refactor(media-servers): retire outputs_data — device_ports is sole port model
 
-Commits this session (newest first):
-- `74d05e4` — refactor(modals): sticky header + action buttons across ALL pages (Monitors, Computers, Cameras, CCUs, CamSwitcher, Routers, MediaServers×2, Checklist)
-- `31712d6` — feat(monitors): card 30/30/30/10 grid, duplicate button, support equipment (POLE MOUNT STAND, DSM STAND, TALL DSM STAND, DSM SURROUND), sticky modal header
-- `c633ed3` — feat(monitors): secondary device field + connections reveal panel
-- `f5a7a72` — chore: LAUNCH_SESSION.md updated
-- `92234f5` — feat(settings): expand connector types (24 total), hide frame rate / resolution panels
+**Media Servers bugs — all closed:**
+- Card collapses on modal save → FIXED (`expandedPairsRef` / `expandedLayersRef`)
+- Direct I/O disabled on card-based mode → FIXED (outputMode gate removed with outputs_data retirement)
+- outputs_data vs IOPortsPanel overlap → FIXED (outputs_data retired)
 
-**Modal pattern (all pages now use this):**
-- `flex flex-col max-h-[90vh]` container
-- Sticky header: `flex-shrink-0` — title + Cancel / Save & Duplicate / Save & Close buttons
-- Scrollable body: `overflow-y-auto flex-1`
-- Files updated: Monitors, Computers, Cameras, CCUs, CamSwitcher, Routers, MediaServers, Checklist
+**Projection components added (not yet wired into Projectors.tsx):**
+- `src/components/projection/viewTypes.ts` — shared types
+- `src/components/projection/InspectorPanel.tsx` — properties inspector
+- `src/components/projection/MultiViewLayout.tsx` — 4-up view shell
+- `src/components/projection/views/` — Top/Front/Side/BlendViewCanvas
+- `src/components/projection/shared/` — objectRelations, useViewTransform
 
-**Monitors.tsx — card + modal fully built:**
-- Card (collapsed): 30/30/30/10 grid — ID+name | Note | Tags (type badge, secondary, mount options) | Actions
-- Card (revealed): manufacturer+model label, I/O port table
-- Modal: Type radio grid, Name, Manufacturer, Model, I/O Ports, Secondary Device (datalist), Support Equipment tiles, Notes
-- `MOUNT_OPTIONS`: `POLE MOUNT STAND`, `DSM STAND`, `TALL DSM STAND`, `DSM SURROUND` → stored in `sends.standard` as comma-separated string
-- `useSendsAPI.ts`: `standard` field wired in both Create and Update inputs
-
-**Connector types now in DB (24 total):**
-`HDMI 1.4`, `HDMI 2.0`, `HDMI 2.1`, `3G-SDI`, `6G-SDI`, `12G-SDI`, `BNC REF`, `DP 1.1`, `DP 1.2`, `DP 1.4`, `NDI`, `USB-C`, `NETWORK (RJ45)`, `OPTICON DUO`, `OPTICON QUAD`, `SMPTE FIBER`, `LC - FIBER (SM)`, `ST - FIBER (SM)`, `SC - FIBER (SM)`, `LC - FIBER (MM)`, `ST - FIBER (MM)`, `SC - FIBER (MM)`, `XLR`, `DMX`
-
-**equipment-data.json:** 219 entries. IO port `type` strings in the JSON are still legacy values (e.g. `HDMI`, `SDI`, `3G-SDI`) — will be updated on a per-item basis as equipment is touched.
-
-**Spreadsheet tool:** `api/prisma/gen-equipment-spreadsheet.py` → `equipment-io-spec.xlsx` (20 port slots, type dropdowns). Run `python3 gen-equipment-spreadsheet.py` to regenerate.
-
-**Pick up from:** Primary branch feature work — Sends entity subcategory implementation (no work started yet on this feature despite the branch name).
+**Next step:** Wire `MultiViewLayout` + `InspectorPanel` into `Projectors.tsx` (replace or augment existing Layout tab). Design decision needed — see TODO_NEXT_SESSION.md.
 
 ---
 
