@@ -5,6 +5,33 @@ _Detailed backlog: `docs/BACKLOG.md`_
 
 ---
 
+## ✅ `v0.2.5_projection-refinement` — MERGED to main (`b5def2e`)
+
+**What shipped:**
+- Multi-view 2×2 projection canvas layout (Top / Front / Side / Blend)
+- Per-view zoom toolbar (zoom in/out/fit/maximize)
+- Top toolbar with 8 alignment/distribute ops
+- Rubber-band box-select in TopViewCanvas → additive multi-select
+- Shift-click additive select across all 4 views
+- Amber multi-select rings on surfaces/LED walls; teal for primary
+- Inspector anchor point toggle (⊙ Center / ⌜ Left-edge)
+- Classic view removed — Layout tab always uses MultiViewLayout
+
+---
+
+## 🏗️ Next Branch: `v0.2.6_projection-polish` (suggested)
+
+See `LAUNCH_SESSION.md` for the full session-opening prompt.
+
+### Known gaps to address first:
+- [ ] `onMattePatch` not wired in `MultiViewLayout` / `Projectors.tsx` — Front view matte drag is a no-op
+- [ ] `LEDWallInspector` doesn't adjust X for `top-left` anchor mode (toggle exists, handler missing)
+- [ ] Box-select hit-test doesn't include projector dots
+- [ ] Maximize single-view: `maximizedView` state not implemented in `MultiViewLayout`
+- [ ] Distribute H/V should show disabled state when `< 3` items selected (currently silent no-op)
+
+---
+
 ## 🚀 Current Branch: `v0.2.5_projection-refinement`
 
 **In progress:** Projection refinement — multi-view inspector panel, view canvases (Top/Front/Side/Blend), Streams URL/key copy cards.

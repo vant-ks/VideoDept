@@ -1,7 +1,7 @@
 
 
 
-CURRENT BRANCH : v0.2.5_projection-refinement
+CURRENT BRANCH : v0.2.6_projection-polish (create from main)
 
 
 
@@ -15,26 +15,35 @@ CURRENT BRANCH : v0.2.5_projection-refinement
 
 ## ⏸ Last Session Checkpoint — March 17, 2026
 
-**Branch:** `v0.2.5_projection-refinement` — working tree clean, 3 commits ahead of `v0.2` base
+**Branch merged:** `v0.2.5_projection-refinement` → main (`b5def2e`)
 
-**Last things completed:**
-- `4e8f8f5` — fix(media-servers): useRef expand state — cards no longer collapse on save
-- `d65eb83` — feat(projection): multi-view inspector panel, 4 view canvases, streams copy buttons, misc fixes
-- `95c757e` — refactor(media-servers): retire outputs_data — device_ports is sole port model
+**What shipped:**
+- Multi-view 2×2 projection canvas (Top / Front / Side / Blend) — `MultiViewLayout.tsx`
+- Per-view zoom toolbar (zoom in/out/fit) via `controlsRef` / `useLayoutEffect` pattern
+- Top toolbar with 8 alignment/distribute ops (left/right/top/bottom/centerH/centerV/distributeH/distributeV)
+- Rubber-band box-select in TopViewCanvas → builds multi-select set
+- Shift-click additive select across all 4 views
+- Amber/teal multi-select rings on surfaces and LED walls
+- Inspector anchor toggle: ⊙ Center coords / ⌜ Left-edge coords
+- Classic view removed — Layout tab always uses `MultiViewLayout`
 
-**Media Servers bugs — all closed:**
-- Card collapses on modal save → FIXED (`expandedPairsRef` / `expandedLayersRef`)
-- Direct I/O disabled on card-based mode → FIXED (outputMode gate removed with outputs_data retirement)
-- outputs_data vs IOPortsPanel overlap → FIXED (outputs_data retired)
+**Key projection files:** `src/components/projection/`
+- `viewTypes.ts`, `MultiViewLayout.tsx`, `InspectorPanel.tsx`
+- `shared/useViewTransform.ts`, `shared/objectRelations.ts`
+- `views/TopViewCanvas.tsx` (box-select + multi-select rings)
+- `views/FrontViewCanvas.tsx`, `SideViewCanvas.tsx`, `BlendViewCanvas.tsx`
 
-**Projection components added (not yet wired into Projectors.tsx):**
-- `src/components/projection/viewTypes.ts` — shared types
-- `src/components/projection/InspectorPanel.tsx` — properties inspector
-- `src/components/projection/MultiViewLayout.tsx` — 4-up view shell
-- `src/components/projection/views/` — Top/Front/Side/BlendViewCanvas
-- `src/components/projection/shared/` — objectRelations, useViewTransform
+**Start next session on a new branch:**
+```bash
+git checkout main && git pull && git checkout -b v0.2.6_projection-polish
+```
 
-**Next step:** Wire `MultiViewLayout` + `InspectorPanel` into `Projectors.tsx` (replace or augment existing Layout tab). Design decision needed — see TODO_NEXT_SESSION.md.
+**Known gaps for v0.2.6 (priority order):**
+1. `onMattePatch` not wired in `MultiViewLayout`/`Projectors.tsx` — matte drag is a no-op
+2. `LEDWallInspector` doesn’t adjust X for `top-left` anchor mode
+3. Box-select hit-test doesn’t include projector dots
+4. Maximize single view: `maximizedView` state not implemented in `MultiViewLayout`
+5. Distribute H/V should show disabled state when `< 3` items selected
 
 ---
 
