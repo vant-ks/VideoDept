@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, Monitor, Server, Layers, Copy, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useProductionStore } from '@/hooks/useStore';
@@ -43,12 +43,15 @@ export default function MediaServers() {
   const [isDragInProgress, setIsDragInProgress] = useState(false);
 
   // ── Layer panel state ──────────────────────────────────────────────────
-  const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
+  const expandedLayersRef = useRef<Set<string>>(new Set());
+  const [, forceLayerExpandUpdate] = useState(0);
   const [draggedLayerIndex, setDraggedLayerIndex] = useState<number | null>(null);
   const [dragOverLayerIndex, setDragOverLayerIndex] = useState<number | null>(null);
 
   // ── Reveal panel state ─────────────────────────────────────────────────
-  const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
+  // useRef so loadProject re-renders never wipe the expanded set
+  const expandedPairsRef = useRef<Set<string>>(new Set());
+  const [, forceExpandUpdate] = useState(0);
   const [pairCardPorts, setPairCardPorts] = useState<Record<string, DevicePortDraft[]>>({});
   const [pairCardPortsLoading, setPairCardPortsLoading] = useState<Set<string>>(new Set());
   const [formats, setFormats] = useState<Format[]>([]);
@@ -89,11 +92,12 @@ export default function MediaServers() {
   }, []);
 
   const togglePairReveal = useCallback(async (mainUuid: string, backupUuid?: string) => {
-    setExpandedPairs(prev => {
-      const next = new Set(prev);
-      if (next.has(mainUuid)) { next.delete(mainUuid); } else { next.add(mainUuid); }
-      return next;
-    });
+    if (expandedPairsRef.current.has(mainUuid)) {
+      expandedPairsRef.current.delete(mainUuid);
+    } else {
+      expandedPairsRef.current.add(mainUuid);
+    }
+    forceExpandUpdate(n => n + 1);
     // fetchPortsForUuid is idempotent — skips if already requested
     fetchPortsForUuid(mainUuid);
     if (backupUuid) fetchPortsForUuid(backupUuid);
@@ -453,7 +457,7 @@ export default function MediaServers() {
               {serverPairs.map((pair, index) => {
                 const mainUuid   = (pair.main   as any).uuid as string | undefined;
                 const backupUuid = (pair.backup as any).uuid as string | undefined;
-                const isExpanded = mainUuid ? expandedPairs.has(mainUuid) : false;
+                const isExpanded = mainUuid ? expandedPairsRef.current.has(mainUuid) : false;
                 const isLoadingPorts = mainUuid ? pairCardPortsLoading.has(mainUuid) : false;
                 const revealPorts     = mainUuid  ? (pairCardPorts[mainUuid]  ?? []) : [];
                 const revealPortsBack = backupUuid ? (pairCardPorts[backupUuid] ?? []) : [];
@@ -772,7 +776,7 @@ export default function MediaServers() {
           ) : (
             <div className="space-y-3">
               {mediaServerLayers.map((layer, layerIndex) => {
-                const isExpanded = expandedLayers.has(layer.id);
+                const isExpanded = expandedLayersRef.current.has(layer.id);
 
                 // Group assignments by server pair; A side = label lookup, B side = mirror of A
                 const groupedAssignments = (() => {
@@ -819,11 +823,14 @@ export default function MediaServers() {
                       setDragOverLayerIndex(null);
                     }}
                     onDragLeave={() => setDragOverLayerIndex(null)}
-                    onClick={() => setExpandedLayers(prev => {
-                      const next = new Set(prev);
-                      next.has(layer.id) ? next.delete(layer.id) : next.add(layer.id);
-                      return next;
-                    })}
+                    onClick={() => {
+                      if (expandedLayersRef.current.has(layer.id)) {
+                        expandedLayersRef.current.delete(layer.id);
+                      } else {
+                        expandedLayersRef.current.add(layer.id);
+                      }
+                      forceLayerExpandUpdate(n => n + 1);
+                    }}
                   >
                     {/* ── Collapsed row ─────────────────────────────────────── */}
                     <div className="grid gap-4 items-center" style={{ gridTemplateColumns: '30fr 30fr 30fr 10fr' }}>
