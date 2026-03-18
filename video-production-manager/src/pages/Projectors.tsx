@@ -23,6 +23,7 @@ import { calcBlend, calcCones, autoCalcNProj, MIN_OVERLAP_PCT, type BlendResult,
 import { useLEDScreenAPI, type LEDScreen } from '@/hooks/useLEDScreenAPI';
 import { BlendDiagram } from '@/components/blend/BlendDiagram';
 import { ConeView, type ConeViewType } from '@/components/blend/ConeView';
+import { MultiViewLayout } from '@/components/projection/MultiViewLayout';
 
 // Projector placement types
 const PROJECTOR_TYPES = [
@@ -716,6 +717,8 @@ export default function Projectors() {
 
   // ── Sub-tab ───────────────────────────────────────────────────────────────
   const [activeSubTab, setActiveSubTab] = useState<'projectors' | 'screens' | 'layout'>('projectors');
+  // ── Layout view mode ─────────────────────────────────────────────────────
+  const [layoutMode, setLayoutMode] = useState<'classic' | 'multi'>('classic');
 
   // ── LED Walls state (for Layout canvas) ───────────────────────────────────
   const [localLEDWalls, setLocalLEDWalls] = useState<LEDScreen[]>([]);
@@ -882,6 +885,25 @@ export default function Projectors() {
       await ledScreenAPI.updateLEDScreen(uuid, { posDsXM: xM, posDsYM: yM, version: wall.version });
     }
   }, [localLEDWalls, ledScreenAPI]);
+
+  /** Generic surface field patch — used by MultiViewLayout canvases */
+  const handleSurfacePatch = useCallback(async (uuid: string, patch: Partial<ProjectionSurface>) => {
+    setLocalSurfaces(prev => prev.map(s => s.uuid === uuid ? { ...s, ...patch } : s));
+    const surf = localSurfaces.find(s => s.uuid === uuid);
+    if (surf) {
+      await projectionSurfaceAPI.updateSurface(uuid, { ...patch, version: surf.version });
+    }
+  }, [localSurfaces, projectionSurfaceAPI]);
+
+  /** Projector position patch — used by MultiViewLayout canvases */
+  const handlePositionPatch = useCallback(async (surfaceUuid: string, posId: string, patch: Partial<ProjectorPosition>) => {
+    const surf = localSurfaces.find(s => s.uuid === surfaceUuid);
+    if (!surf) return;
+    const updated = (surf.projectorAssignments ?? []).map(p =>
+      p.id === posId ? { ...p, ...patch } : p
+    );
+    await patchSurfacePositions(surfaceUuid, updated);
+  }, [localSurfaces, patchSurfacePositions]);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [localProjectors, setLocalProjectors] = useState<ProjectionScreen[]>([]);
@@ -2238,21 +2260,56 @@ export default function Projectors() {
 
       {/* ── Layout Tab ───────────────────────────────────────────────────── */}
       {activeSubTab === 'layout' && productionId && (
-        <LayoutTab
-          venueData={venueData}
-          surfaces={localSurfaces}
-          projectors={localProjectors}
-          equipmentSpecs={equipmentSpecs}
-          ledWalls={localLEDWalls}
-          selectedSurfaceId={selectedSurfaceId}
-          selectedProjectorUuid={selectedProjectorUuid}
-          onSelectSurface={(uuid) => { setSelectedSurfaceId(uuid); if (uuid) setActiveSubTab('screens'); }}
-          onSelectProjector={(uuid) => { setSelectedProjectorUuid(uuid); setActiveSubTab('projectors'); }}
-          onSurfaceMove={handleSurfaceMove}
-          onLEDWallMove={handleLEDWallMove}
-          onGoToStaging={() => setActiveTab('staging')}
-          onGoToLED={() => setActiveTab('led')}
-        />
+        <>
+          {/* View mode toggle */}
+          <div className="flex justify-end mb-3">
+            <div className="flex gap-1 rounded-lg bg-av-surface p-1 border border-av-border/40">
+              <button
+                onClick={() => setLayoutMode('classic')}
+                className={cn('px-3 py-1 text-xs rounded font-medium transition-colors',
+                  layoutMode === 'classic' ? 'bg-av-accent text-white' : 'text-av-text-muted hover:text-av-text')}
+              >
+                Classic
+              </button>
+              <button
+                onClick={() => setLayoutMode('multi')}
+                className={cn('px-3 py-1 text-xs rounded font-medium transition-colors',
+                  layoutMode === 'multi' ? 'bg-av-accent text-white' : 'text-av-text-muted hover:text-av-text')}
+              >
+                Multi-View
+              </button>
+            </div>
+          </div>
+
+          {layoutMode === 'classic' ? (
+            <LayoutTab
+              venueData={venueData}
+              surfaces={localSurfaces}
+              projectors={localProjectors}
+              equipmentSpecs={equipmentSpecs}
+              ledWalls={localLEDWalls}
+              selectedSurfaceId={selectedSurfaceId}
+              selectedProjectorUuid={selectedProjectorUuid}
+              onSelectSurface={(uuid) => { setSelectedSurfaceId(uuid); if (uuid) setActiveSubTab('screens'); }}
+              onSelectProjector={(uuid) => { setSelectedProjectorUuid(uuid); setActiveSubTab('projectors'); }}
+              onSurfaceMove={handleSurfaceMove}
+              onLEDWallMove={handleLEDWallMove}
+              onGoToStaging={() => setActiveTab('staging')}
+              onGoToLED={() => setActiveTab('led')}
+            />
+          ) : (
+            <MultiViewLayout
+              venueData={venueData}
+              surfaces={localSurfaces}
+              projectors={localProjectors}
+              equipmentSpecs={equipmentSpecs}
+              ledWalls={localLEDWalls}
+              onSurfacePatch={handleSurfacePatch}
+              onPositionPatch={handlePositionPatch}
+              onLEDWallPatch={handleLEDWallMove}
+            />
+          )}
+        </>
       )}
 
       {/* ── Projection Surface Modal ─────────────────────────────────────── */}
